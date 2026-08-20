@@ -12,7 +12,7 @@ import {
 } from '../db/catalog';
 import type { PublicTherapist } from '../db/types';
 import { rankTherapists } from '../matching/rank';
-import { escapeHtml } from '../lib/sanitize';
+import { escapeHtml, renderBodyText } from '../lib/sanitize';
 import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { htmlResponse, renderPage } from './layout';
@@ -403,7 +403,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
 </ul>
 
 <h2>O mojej pracy</h2>
-<p>${escapeHtml(t.bio).replace(/\n/g, '<br>')}</p>
+${renderBodyText(t.bio)}
 
 <div class="grid cols-2">
   <div class="card">

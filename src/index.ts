@@ -19,6 +19,7 @@ import { therapistSignupApp } from './web/therapist-signup';
 import { siteApp } from './web/pages';
 import { htmlResponse, renderPage, securityHeaders } from './web/layout';
 import { APP_CSS } from './web/styles';
+import { ADMIN_CSS, ADMIN_JS } from './web/admin-ui';
 import { log } from './lib/log';
 import { drainOutbox } from './notify/outbox';
 import { nowIso } from './lib/time';
@@ -46,6 +47,27 @@ app.get('/assets/app.css', () =>
     headers: {
       'content-type': 'text/css; charset=utf-8',
       'cache-control': 'public, max-age=3600',
+    },
+  }),
+);
+
+// Admin-only assets. The panel is noindex and behind a session, but these two
+// files carry no data, so they are served like any other static asset.
+app.get('/assets/admin.css', () =>
+  new Response(ADMIN_CSS, {
+    headers: {
+      'content-type': 'text/css; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+    },
+  }),
+);
+
+app.get('/assets/admin.js', () =>
+  new Response(ADMIN_JS, {
+    headers: {
+      'content-type': 'text/javascript; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+      'x-content-type-options': 'nosniff',
     },
   }),
 );

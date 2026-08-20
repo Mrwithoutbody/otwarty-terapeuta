@@ -1,0 +1,651 @@
+/**
+ * Progressive enhancement for the admin panel.
+ *
+ * The site CSP is `script-src 'self'` with no inline scripts, so this is
+ * served as a real file from `/assets/admin.js` and `/assets/admin.css`.
+ *
+ * Everything here is an enhancement: with JavaScript disabled the panel still
+ * works. Tabs degrade to stacked sections, the bio editor degrades to the
+ * plain textarea that holds the stored value, the photo cropper degrades to
+ * the URL field next to it, and credential rows degrade to the fixed number
+ * of rows the server rendered.
+ */
+
+export const ADMIN_JS = String.raw`(function () {
+  'use strict';
+
+  // ------------------------------------------------------------------ tabs ---
+
+  function initTabs(root) {
+    var panels = Array.prototype.slice.call(root.querySelectorAll('[data-tab-panel]'));
+    if (panels.length < 2) return;
+
+    var list = document.createElement('div');
+    list.className = 'tablist';
+    list.setAttribute('role', 'tablist');
+    root.insertBefore(list, panels[0]);
+
+    var tabs = panels.map(function (panel, index) {
+      var id = panel.id || 'panel-' + index;
+      panel.id = id;
+      var tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'tab';
+      tab.id = id + '-tab';
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', id);
+      tab.textContent = panel.getAttribute('data-tab-label') || 'Sekcja ' + (index + 1);
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tab.id);
+      panel.setAttribute('tabindex', '0');
+      list.appendChild(tab);
+      tab.addEventListener('click', function () { select(index); });
+      return tab;
+    });
+
+    function select(index, focus) {
+      tabs.forEach(function (tab, i) {
+        var on = i === index;
+        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        tab.tabIndex = on ? 0 : -1;
+        panels[i].hidden = !on;
+      });
+      if (focus) tabs[index].focus();
+      try { sessionStorage.setItem(storageKey, String(index)); } catch (e) { /* private mode */ }
+    }
+
+    list.addEventListener('keydown', function (event) {
+      var current = tabs.indexOf(document.activeElement);
+      if (current < 0) return;
+      var next = null;
+      if (event.key === 'ArrowRight') next = (current + 1) % tabs.length;
+      else if (event.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      if (next === null) return;
+      event.preventDefault();
+      select(next, true);
+    });
+
+    var storageKey = 'ot-admin-tab:' + (root.getAttribute('data-tabs') || 'default');
+    var start = 0;
+    try {
+      var saved = Number(sessionStorage.getItem(storageKey));
+      if (Number.isInteger(saved) && saved >= 0 && saved < tabs.length) start = saved;
+    } catch (e) { /* private mode */ }
+    select(start);
+
+    // A validation error inside a hidden panel is invisible and the submit
+    // silently does nothing. Reveal the offending panel instead.
+    root.addEventListener(
+      'invalid',
+      function (event) {
+        for (var i = 0; i < panels.length; i++) {
+          if (panels[i].contains(event.target)) { select(i); break; }
+        }
+      },
+      true,
+    );
+  }
+
+  // -------------------------------------------------------------- bio editor ---
+  // Storage format stays plain text so the MCP tools and the widget keep
+  // reading exactly what they read before: blank line = paragraph,
+  // **text** = bold, \* = a literal asterisk.
+
+  var BLOCK = /^(P|DIV|LI|BR|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|PRE|TR|SECTION|ARTICLE)$/;
+
+  function escapeHtml(value) {
+    return value.replace(/[&<>]/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;';
+    });
+  }
+
+  function inlineToHtml(source) {
+    var out = '';
+    var bold = false;
+    var i = 0;
+    while (i < source.length) {
+      if (source[i] === '\\' && source[i + 1] === '*') { out += '*'; i += 2; continue; }
+      if (source[i] === '*' && source[i + 1] === '*') {
+        out += bold ? '</strong>' : '<strong>';
+        bold = !bold;
+        i += 2;
+        continue;
+      }
+      out += escapeHtml(source[i]);
+      i += 1;
+    }
+    return bold ? out + '</strong>' : out;
+  }
+
+  function markdownToHtml(value) {
+    var blocks = String(value || '').split(/\n{2,}/);
+    var html = '';
+    for (var i = 0; i < blocks.length; i++) {
+      var line = blocks[i].replace(/\n/g, ' ').trim();
+      if (line) html += '<p>' + inlineToHtml(line) + '</p>';
+    }
+    return html || '<p><br></p>';
+  }
+
+  function looksBold(node) {
+    var name = node.nodeName;
+    if (name === 'B' || name === 'STRONG') return true;
+    var weight = node.style && node.style.fontWeight;
+    return weight === 'bold' || weight === 'bolder' || Number(weight) >= 600;
+  }
+
+  /** Reads only structure and bold. Any other markup the browser produced is dropped. */
+  function serialize(root) {
+    var paragraphs = [];
+    var buffer = '';
+    var boldOpen = false;
+
+    function closeBold() {
+      if (boldOpen) { buffer += '**'; boldOpen = false; }
+    }
+    function endParagraph() {
+      closeBold();
+      var text = buffer.replace(/[ \t\u00a0]+/g, ' ').trim();
+      if (text) paragraphs.push(text);
+      buffer = '';
+    }
+    function walk(node, bold) {
+      var children = node.childNodes;
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        if (child.nodeType === 3) {
+          var data = child.data;
+          if (!data) continue;
+          if (bold) {
+            if (!boldOpen && data.trim()) { buffer += '**'; boldOpen = true; }
+          } else {
+            closeBold();
+          }
+          buffer += data.replace(/\*/g, '\\*');
+          continue;
+        }
+        if (child.nodeType !== 1) continue;
+        if (child.nodeName === 'BR') { endParagraph(); continue; }
+        var blockish = BLOCK.test(child.nodeName);
+        if (blockish && buffer.trim()) endParagraph();
+        walk(child, bold || looksBold(child));
+        if (blockish) endParagraph();
+      }
+    }
+
+    walk(root, false);
+    endParagraph();
+    return paragraphs.join('\n\n');
+  }
+
+  function initEditor(wrap) {
+    var field = wrap.querySelector('[data-editor-value]');
+    if (!field) return;
+    var limit = Number(field.getAttribute('maxlength')) || 4000;
+
+    var surface = document.createElement('div');
+    surface.className = 'editor-surface';
+    surface.contentEditable = 'true';
+    surface.setAttribute('role', 'textbox');
+    surface.setAttribute('aria-multiline', 'true');
+    surface.setAttribute('aria-labelledby', wrap.getAttribute('data-editor-label') || '');
+    surface.innerHTML = markdownToHtml(field.value);
+
+    var bar = document.createElement('div');
+    bar.className = 'editor-bar';
+    var boldButton = document.createElement('button');
+    boldButton.type = 'button';
+    boldButton.className = 'editor-btn';
+    boldButton.textContent = 'Pogrub';
+    boldButton.title = 'Pogrubienie (Ctrl+B)';
+    boldButton.setAttribute('aria-pressed', 'false');
+    bar.appendChild(boldButton);
+
+    var counter = document.createElement('span');
+    counter.className = 'editor-count';
+    bar.appendChild(counter);
+
+    field.classList.add('visually-hidden');
+    field.setAttribute('tabindex', '-1');
+    field.setAttribute('aria-hidden', 'true');
+    // Right after the textarea, so the hint below the field stays below.
+    field.insertAdjacentElement('afterend', surface);
+    field.insertAdjacentElement('afterend', bar);
+    wrap.classList.add('editor-ready');
+
+    function sync() {
+      var value = serialize(surface);
+      field.value = value.slice(0, limit);
+      counter.textContent = value.length + ' / ' + limit;
+      counter.classList.toggle('over', value.length > limit);
+    }
+
+    function refreshBoldState() {
+      var on = false;
+      try { on = document.queryCommandState('bold'); } catch (e) { on = false; }
+      boldButton.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
+    boldButton.addEventListener('mousedown', function (event) { event.preventDefault(); });
+    boldButton.addEventListener('click', function () {
+      surface.focus();
+      document.execCommand('bold');
+      sync();
+      refreshBoldState();
+    });
+
+    surface.addEventListener('input', sync);
+    surface.addEventListener('keyup', refreshBoldState);
+    surface.addEventListener('mouseup', refreshBoldState);
+    surface.addEventListener('blur', sync);
+
+    // Pasted rich text is the usual way junk markup gets in. Take the text only.
+    surface.addEventListener('paste', function (event) {
+      event.preventDefault();
+      var text = (event.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
+    var form = wrap.closest('form');
+    if (form) form.addEventListener('submit', sync);
+    sync();
+  }
+
+  // ------------------------------------------------------- repeatable rows ---
+
+  function initRepeat(wrap) {
+    var body = wrap.querySelector('[data-repeat-body]');
+    var template = wrap.querySelector('template');
+    var addButton = wrap.querySelector('[data-repeat-add]');
+    if (!body || !template || !addButton) return;
+    var max = Number(wrap.getAttribute('data-repeat-max')) || 20;
+
+    function reindex() {
+      var rows = body.querySelectorAll('[data-repeat-row]');
+      for (var i = 0; i < rows.length; i++) {
+        var fields = rows[i].querySelectorAll('[data-name]');
+        for (var j = 0; j < fields.length; j++) {
+          var base = fields[j].getAttribute('data-name');
+          fields[j].name = base + '_' + i;
+          fields[j].id = base + '_' + i;
+          var label = rows[i].querySelector('[data-label-for="' + base + '"]');
+          if (label) label.setAttribute('for', fields[j].id);
+        }
+      }
+      addButton.disabled = rows.length >= max;
+    }
+
+    addButton.addEventListener('click', function () {
+      if (body.querySelectorAll('[data-repeat-row]').length >= max) return;
+      body.appendChild(template.content.cloneNode(true));
+      reindex();
+      var rows = body.querySelectorAll('[data-repeat-row]');
+      var first = rows[rows.length - 1].querySelector('input, select, textarea');
+      if (first) first.focus();
+    });
+
+    body.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-repeat-remove]');
+      if (!button) return;
+      var row = button.closest('[data-repeat-row]');
+      if (row) row.remove();
+      reindex();
+    });
+
+    reindex();
+  }
+
+  // ------------------------------------------------------------ photo crop ---
+
+  var CROP_VIEW = 320;
+  var CROP_OUTPUT = 512;
+
+  function initCrop(wrap) {
+    var fileInput = wrap.querySelector('[data-crop-file]');
+    var pickButton = wrap.querySelector('[data-crop-pick]');
+    var dialog = wrap.querySelector('dialog');
+    var canvas = wrap.querySelector('[data-crop-canvas]');
+    var zoom = wrap.querySelector('[data-crop-zoom]');
+    var saveButton = wrap.querySelector('[data-crop-save]');
+    var cancelButton = wrap.querySelector('[data-crop-cancel]');
+    var status = wrap.querySelector('[data-crop-status]');
+    var preview = wrap.querySelector('[data-crop-preview]');
+    var urlField = document.getElementById(wrap.getAttribute('data-crop-field') || '');
+    if (!fileInput || !pickButton || !dialog || !canvas || !urlField) return;
+    if (typeof dialog.showModal !== 'function') return;
+
+    wrap.classList.add('crop-ready');
+    var context = canvas.getContext('2d');
+    var image = null;
+    var minScale = 1;
+    var scale = 1;
+    var offsetX = 0;
+    var offsetY = 0;
+
+    function clamp() {
+      var width = image.width * scale;
+      var height = image.height * scale;
+      offsetX = Math.min(0, Math.max(CROP_VIEW - width, offsetX));
+      offsetY = Math.min(0, Math.max(CROP_VIEW - height, offsetY));
+    }
+
+    function draw() {
+      if (!image) return;
+      clamp();
+      context.clearRect(0, 0, CROP_VIEW, CROP_VIEW);
+      context.drawImage(image, offsetX, offsetY, image.width * scale, image.height * scale);
+    }
+
+    function setScale(next, anchorX, anchorY) {
+      var previous = scale;
+      scale = Math.max(minScale, Math.min(minScale * 4, next));
+      var ax = anchorX === undefined ? CROP_VIEW / 2 : anchorX;
+      var ay = anchorY === undefined ? CROP_VIEW / 2 : anchorY;
+      offsetX = ax - ((ax - offsetX) / previous) * scale;
+      offsetY = ay - ((ay - offsetY) / previous) * scale;
+      draw();
+    }
+
+    pickButton.addEventListener('click', function () { fileInput.click(); });
+
+    fileInput.addEventListener('change', function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      if (file.size > 12 * 1024 * 1024) {
+        status.textContent = 'Plik jest za duży (limit 12 MB przed kadrowaniem).';
+        dialog.showModal();
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var loaded = new Image();
+        loaded.onload = function () {
+          image = loaded;
+          minScale = CROP_VIEW / Math.min(loaded.width, loaded.height);
+          scale = minScale;
+          offsetX = (CROP_VIEW - loaded.width * scale) / 2;
+          offsetY = (CROP_VIEW - loaded.height * scale) / 2;
+          zoom.value = '1';
+          status.textContent = '';
+          saveButton.disabled = false;
+          dialog.showModal();
+          draw();
+        };
+        loaded.onerror = function () {
+          status.textContent = 'Nie udało się odczytać obrazu.';
+          saveButton.disabled = true;
+          dialog.showModal();
+        };
+        loaded.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+      fileInput.value = '';
+    });
+
+    zoom.addEventListener('input', function () {
+      if (!image) return;
+      setScale(minScale * Number(zoom.value));
+    });
+
+    var dragging = false;
+    var lastX = 0;
+    var lastY = 0;
+
+    canvas.addEventListener('pointerdown', function (event) {
+      if (!image) return;
+      dragging = true;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointermove', function (event) {
+      if (!dragging) return;
+      offsetX += event.clientX - lastX;
+      offsetY += event.clientY - lastY;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      draw();
+    });
+    function stopDrag() { dragging = false; }
+    canvas.addEventListener('pointerup', stopDrag);
+    canvas.addEventListener('pointercancel', stopDrag);
+
+    canvas.addEventListener('keydown', function (event) {
+      if (!image) return;
+      var step = event.shiftKey ? 20 : 5;
+      var handled = true;
+      if (event.key === 'ArrowLeft') offsetX -= step;
+      else if (event.key === 'ArrowRight') offsetX += step;
+      else if (event.key === 'ArrowUp') offsetY -= step;
+      else if (event.key === 'ArrowDown') offsetY += step;
+      else handled = false;
+      if (!handled) return;
+      event.preventDefault();
+      draw();
+    });
+
+    cancelButton.addEventListener('click', function () { dialog.close(); });
+
+    saveButton.addEventListener('click', function () {
+      if (!image) return;
+      saveButton.disabled = true;
+      status.textContent = 'Wysyłanie…';
+
+      var output = document.createElement('canvas');
+      output.width = CROP_OUTPUT;
+      output.height = CROP_OUTPUT;
+      var ratio = CROP_OUTPUT / CROP_VIEW;
+      var outputContext = output.getContext('2d');
+      outputContext.drawImage(
+        image,
+        offsetX * ratio,
+        offsetY * ratio,
+        image.width * scale * ratio,
+        image.height * scale * ratio,
+      );
+
+      output.toBlob(
+        function (blob) {
+          if (!blob) {
+            status.textContent = 'Nie udało się przygotować pliku.';
+            saveButton.disabled = false;
+            return;
+          }
+          var data = new FormData();
+          data.append('csrf', wrap.getAttribute('data-crop-csrf') || '');
+          data.append('photo', blob, 'profil.' + (blob.type === 'image/webp' ? 'webp' : 'png'));
+          fetch(wrap.getAttribute('data-crop-action'), {
+            method: 'POST',
+            body: data,
+            credentials: 'same-origin',
+          })
+            .then(function (response) {
+              return response.json().then(function (payload) {
+                return { ok: response.ok, payload: payload };
+              });
+            })
+            .then(function (result) {
+              if (!result.ok) throw new Error(result.payload.error || 'Wysyłka nie powiodła się.');
+              urlField.value = result.payload.url;
+              if (preview) {
+                preview.src = result.payload.url + '?t=' + result.payload.version;
+                preview.hidden = false;
+              }
+              status.textContent = '';
+              dialog.close();
+            })
+            .catch(function (error) {
+              status.textContent = error.message;
+            })
+            .then(function () {
+              saveButton.disabled = false;
+            });
+        },
+        'image/webp',
+        0.85,
+      );
+    });
+  }
+
+  // ------------------------------------------------------------------ boot ---
+
+  function boot() {
+    document.querySelectorAll('[data-tabs]').forEach(initTabs);
+    document.querySelectorAll('[data-editor]').forEach(initEditor);
+    document.querySelectorAll('[data-repeat]').forEach(initRepeat);
+    document.querySelectorAll('[data-crop]').forEach(initCrop);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+`;
+
+export const ADMIN_CSS = String.raw`
+/* Admin panel only. Loaded on top of app.css, never on public pages. */
+
+.tabs { max-width: 56rem; }
+.tablist {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.5rem;
+  border-bottom: 1px solid var(--border-strong); padding-bottom: 0.6rem;
+}
+.tab {
+  font: inherit; font-weight: 600; cursor: pointer;
+  min-height: 2.5rem; padding: 0.5rem 1.1rem;
+  border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--muted);
+}
+.tab:hover { background: var(--surface-alt); color: var(--text); }
+.tab[aria-selected="true"] {
+  background: var(--accent-soft); border-color: var(--border-strong); color: var(--accent-strong);
+}
+[data-tab-panel][hidden] { display: none; }
+[data-tab-panel] > h2:first-child { margin-top: 0; }
+
+/* app.css gives forms their card treatment through a direct-child selector on
+   .wrap, which a form inside a tab panel no longer matches. Same look, one level down. */
+[data-tab-panel] > form {
+  max-width: 56rem; padding: clamp(1.2rem, 3vw, 2rem); margin-block: 1.3rem 2rem;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Segmented radio group, used where a select held three fixed states. */
+.seg-label {
+  display: block; color: var(--text); font-size: 0.875rem; font-weight: 620; margin-bottom: var(--space-2);
+}
+.seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.seg input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.seg label {
+  margin: 0; cursor: pointer; font-weight: 600; font-size: 0.9375rem;
+  padding: 0.55rem 1.1rem; min-height: 2.5rem; display: inline-flex; align-items: center;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  background: var(--surface-solid); color: var(--muted);
+}
+.seg label:hover { border-color: var(--accent); color: var(--text); }
+.seg input:checked + label {
+  background: var(--accent-strong); border-color: var(--accent-strong); color: #fff;
+}
+.seg input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.seg.danger input:checked + label { background: #8a1f1f; border-color: #8a1f1f; }
+
+/* Hour chips, replacing a text field that expected "9,11,13,15". */
+.hour-grid {
+  display: grid; gap: 0.4rem;
+  grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+}
+.hour-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.hour-grid label {
+  margin: 0; cursor: pointer; font-weight: 600; font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums; text-align: center;
+  padding: 0.5rem 0.4rem; min-height: 2.5rem; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-solid); color: var(--muted);
+}
+.hour-grid label:hover { border-color: var(--accent); color: var(--text); }
+.hour-grid input:checked + label {
+  background: var(--accent-strong); border-color: var(--accent-strong); color: #fff;
+}
+.hour-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+
+/* Checkbox grids replacing the hand-typed JSON and comma-separated slugs. */
+.choice-grid {
+  display: grid; gap: 0.35rem 1rem; margin: 0;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+.choice-grid .checkbox { margin: 0; }
+
+/* Bio editor */
+.editor-bar { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+.editor-btn {
+  font: inherit; font-weight: 700; cursor: pointer; min-height: 2.25rem; padding: 0.35rem 0.9rem;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-solid); color: var(--text);
+}
+.editor-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.editor-btn[aria-pressed="true"] { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+.editor-count { margin-left: auto; font-size: 0.8125rem; color: var(--muted); }
+.editor-count.over { color: #8a1f1f; font-weight: 700; }
+.editor-surface {
+  min-height: 11rem; padding: 0.75rem 0.9rem; overflow-y: auto; max-height: 26rem;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-solid); color: var(--text); font: inherit; line-height: 1.65;
+}
+.editor-surface:focus { border-color: var(--accent); outline: 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.editor-surface p { margin: 0 0 0.75rem; }
+.editor-surface p:last-child { margin-bottom: 0; }
+
+/* Repeatable rows (credentials) */
+.repeat-row {
+  display: grid; gap: 0.5rem 0.75rem; align-items: end; margin-bottom: 0.75rem;
+  padding: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  grid-template-columns: minmax(9rem, 2fr) minmax(9rem, 2fr) 6rem auto auto;
+}
+.repeat-row .field { margin: 0; }
+.repeat-row .checkbox { margin: 0 0 0.6rem; }
+.repeat-remove {
+  font: inherit; cursor: pointer; min-height: 2.5rem; padding: 0.5rem 0.9rem; margin-bottom: 0.05rem;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-solid); color: #8a1f1f;
+}
+.repeat-remove:hover { border-color: #8a1f1f; background: #fdecec; }
+@media (max-width: 720px) {
+  .repeat-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Photo picker + crop dialog */
+.photo-row { display: flex; gap: 1.1rem; align-items: flex-start; flex-wrap: wrap; }
+.photo-preview {
+  width: 7rem; height: 7rem; border-radius: 50%; object-fit: cover;
+  border: 1px solid var(--border-strong); background: var(--surface-alt);
+}
+.photo-actions { flex: 1 1 16rem; min-width: 14rem; }
+[data-crop]:not(.crop-ready) [data-crop-pick] { display: none; }
+.crop-dialog {
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  padding: 1.4rem; background: var(--surface-solid); color: var(--text); max-width: min(92vw, 26rem);
+}
+.crop-dialog::backdrop { background: rgba(24, 28, 12, 0.55); }
+.crop-dialog h2 { margin-top: 0; font-size: 1.15rem; }
+.crop-canvas {
+  display: block; width: 320px; max-width: 100%; height: 320px; touch-action: none; cursor: grab;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-alt);
+}
+.crop-canvas:active { cursor: grabbing; }
+.crop-canvas:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
+.crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: #8a1f1f; }
+`;
+
+/**
+ * Cache-busting suffix for the two asset URLs. Derived from the content itself,
+ * so editing the CSS or the script invalidates the browser cache without anyone
+ * having to remember to bump a hand-written version number.
+ */
+export const ADMIN_ASSET_VERSION = `${ADMIN_CSS.length.toString(36)}-${ADMIN_JS.length.toString(36)}`;

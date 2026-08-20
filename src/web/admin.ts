@@ -54,7 +54,7 @@ const LOGIN_CODE_TTL_SECONDS = 900;
 function page(env: Env, title: string, body: string, status = 200, turnstile = false): Response {
   return htmlResponse(
     env,
-    renderPage(env, { title, path: '/admin', noindex: true, body }),
+    renderPage(env, { title, path: '/admin', noindex: true, body, adminAssets: true }),
     { status },
     turnstile,
   );
@@ -376,13 +376,302 @@ ${
 
 // -------------------------------------------------------- therapist editor ---
 
-function therapistForm(session: AdminSession, row: TherapistRow | null): string {
+interface RefTag {
+  slug: string;
+  name_pl: string;
+}
+
+interface OfferRow {
+  id: string;
+  title: string;
+  session_type: string;
+  mode: string;
+  duration_minutes: number;
+  price_minor: number;
+  currency: string;
+  active: number;
+}
+
+interface FaqRow {
+  id: string;
+  question: string;
+  status: string;
+  position: number;
+  updated_at: string;
+}
+
+interface CredentialInput {
+  title: string;
+  issuer: string;
+  year: string;
+  verified: boolean;
+}
+
+/**
+ * Everything the editor needs that does not live on the `therapists` row:
+ * the controlled vocabularies, what this profile has selected from them, its
+ * primary location, its offers and its FAQ.
+ *
+ * Loading the current selections is what makes the checkbox state truthful.
+ * The previous form rendered these inputs empty while the save handler
+ * replaced the relations wholesale, so every save silently dropped the
+ * therapist's languages, topics and modalities.
+ */
+interface EditorContext {
+  languages: RefTag[];
+  specialties: RefTag[];
+  modalities: RefTag[];
+  chosenLanguages: Set<string>;
+  chosenTopics: Set<string>;
+  chosenModalities: Set<string>;
+  city: string;
+  addressLine: string;
+  credentials: CredentialInput[];
+  offers: OfferRow[];
+  faq: FaqRow[];
+}
+
+const SESSION_TYPE_LABELS: RefTag[] = [
+  { slug: 'individual', name_pl: 'indywidualne' },
+  { slug: 'couples', name_pl: 'dla par' },
+  { slug: 'family', name_pl: 'rodzinne' },
+];
+
+const AGE_GROUP_LABELS: RefTag[] = [
+  { slug: 'adults', name_pl: 'dorośli' },
+  { slug: 'teens', name_pl: 'młodzież' },
+  { slug: 'children', name_pl: 'dzieci' },
+  { slug: 'seniors', name_pl: 'seniorzy' },
+];
+
+/** Tolerant: a profile edited through the old free-text JSON field may hold anything. */
+function parseStoredCredentials(value: string | null): CredentialInput[] {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
+      .slice(0, 20)
+      .map((entry) => ({
+        title: typeof entry.title === 'string' ? entry.title : '',
+        issuer: typeof entry.issuer === 'string' ? entry.issuer : '',
+        year:
+          typeof entry.year === 'number' && Number.isFinite(entry.year)
+            ? String(Math.trunc(entry.year))
+            : typeof entry.year === 'string'
+              ? entry.year
+              : '',
+        verified: entry.verified === true,
+      }))
+      .filter((entry) => entry.title !== '');
+  } catch {
+    return [];
+  }
+}
+
+function toStringSet(rows: Array<Record<string, unknown>>, key: string): Set<string> {
+  const set = new Set<string>();
+  for (const row of rows) {
+    const value = row[key];
+    if (typeof value === 'string') set.add(value);
+  }
+  return set;
+}
+
+async function loadEditorContext(env: Env, therapistId: string | null): Promise<EditorContext> {
+  const [languages, specialties, modalities] = await Promise.all([
+    env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
+    env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<RefTag>(),
+    env.DB.prepare(`SELECT slug, name_pl FROM modalities ORDER BY name_pl`).all<RefTag>(),
+  ]);
+
+  const context: EditorContext = {
+    languages: languages.results,
+    specialties: specialties.results,
+    modalities: modalities.results,
+    chosenLanguages: new Set(),
+    chosenTopics: new Set(),
+    chosenModalities: new Set(),
+    city: '',
+    addressLine: '',
+    credentials: [],
+    offers: [],
+    faq: [],
+  };
+  if (!therapistId) return context;
+
+  const [chosenLanguages, chosenTopics, chosenModalities, location, offers, faq] = await Promise.all([
+    env.DB.prepare(`SELECT language_code FROM therapist_languages WHERE therapist_id = ?`)
+      .bind(therapistId)
+      .all<{ language_code: string }>(),
+    env.DB.prepare(`SELECT specialty_slug FROM therapist_specialties WHERE therapist_id = ?`)
+      .bind(therapistId)
+      .all<{ specialty_slug: string }>(),
+    env.DB.prepare(`SELECT modality_slug FROM therapist_modalities WHERE therapist_id = ?`)
+      .bind(therapistId)
+      .all<{ modality_slug: string }>(),
+    env.DB.prepare(
+      `SELECT city, address_line FROM therapist_locations WHERE therapist_id = ?
+        ORDER BY is_primary DESC LIMIT 1`,
+    )
+      .bind(therapistId)
+      .first<{ city: string; address_line: string | null }>(),
+    env.DB.prepare(
+      `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active
+         FROM session_offers WHERE therapist_id = ? ORDER BY created_at`,
+    )
+      .bind(therapistId)
+      .all<OfferRow>(),
+    env.DB.prepare(
+      `SELECT id, question, status, position, updated_at FROM faq_items
+        WHERE therapist_id = ? ORDER BY position`,
+    )
+      .bind(therapistId)
+      .all<FaqRow>(),
+  ]);
+
+  context.chosenLanguages = toStringSet(chosenLanguages.results, 'language_code');
+  context.chosenTopics = toStringSet(chosenTopics.results, 'specialty_slug');
+  context.chosenModalities = toStringSet(chosenModalities.results, 'modality_slug');
+  context.city = location?.city ?? '';
+  context.addressLine = location?.address_line ?? '';
+  context.offers = offers.results;
+  context.faq = faq.results;
+  return context;
+}
+
+function checkboxGrid(name: string, options: RefTag[], chosen: Set<string>): string {
+  return `<div class="choice-grid">${options
+    .map((option) => {
+      const id = `${name}-${option.slug}`;
+      return `<div class="checkbox">
+        <input id="${escapeHtml(id)}" type="checkbox" name="${escapeHtml(name)}" value="${escapeHtml(option.slug)}"${
+          chosen.has(option.slug) ? ' checked' : ''
+        }>
+        <label for="${escapeHtml(id)}">${escapeHtml(option.name_pl)}</label>
+      </div>`;
+    })
+    .join('')}</div>`;
+}
+
+const DEFAULT_SLOT_HOURS = [9, 11, 13, 15];
+/** Slots start on the hour, so the whole range fits in 24 chips. */
+const SLOT_HOUR_RANGE = Array.from({ length: 24 }, (_, hour) => hour);
+
+function hourGrid(checked: number[]): string {
+  return `<div class="hour-grid">${SLOT_HOUR_RANGE.map((hour) => {
+    const label = `${String(hour).padStart(2, '0')}:00`;
+    return `<input id="hours-${hour}" type="checkbox" name="hours" value="${hour}"${
+      checked.includes(hour) ? ' checked' : ''
+    }><label for="hours-${hour}">${label}</label>`;
+  }).join('')}</div>`;
+}
+
+function segmented(name: string, current: string, options: RefTag[], extraClass = ''): string {
+  return `<div class="seg${extraClass ? ` ${extraClass}` : ''}">${options
+    .map((option) => {
+      const id = `${name}-${option.slug}`;
+      return `<input id="${escapeHtml(id)}" type="radio" name="${escapeHtml(name)}" value="${escapeHtml(option.slug)}"${
+        current === option.slug ? ' checked' : ''
+      }><label for="${escapeHtml(id)}">${escapeHtml(option.name_pl)}</label>`;
+    })
+    .join('')}</div>`;
+}
+
+function jsonListToSet(value: string | null | undefined, fallback: string[]): Set<string> {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]');
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return new Set(parsed.filter((entry): entry is string => typeof entry === 'string'));
+    }
+  } catch {
+    /* fall through to the default */
+  }
+  return new Set(fallback);
+}
+
+/** One spare row is always rendered, so adding a credential works without JavaScript. */
+const EMPTY_CREDENTIAL: CredentialInput = { title: '', issuer: '', year: '', verified: false };
+
+function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
+  const suffix = entry ? `_${index}` : '';
+  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
+  const value = (raw: string): string => escapeHtml(raw);
+  return `<div class="repeat-row" data-repeat-row>
+  <div class="field">
+    <label data-label-for="cred_title"${entry ? ` for="cred_title${suffix}"` : ''}>Nazwa</label>
+    <input data-name="cred_title"${nameAttr('cred_title')} maxlength="120" value="${value(entry?.title ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="cred_issuer"${entry ? ` for="cred_issuer${suffix}"` : ''}>Wydający</label>
+    <input data-name="cred_issuer"${nameAttr('cred_issuer')} maxlength="120" value="${value(entry?.issuer ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="cred_year"${entry ? ` for="cred_year${suffix}"` : ''}>Rok</label>
+    <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${value(entry?.year ?? '')}">
+  </div>
+  ${
+    isAdmin
+      ? `<div class="checkbox">
+    <input type="checkbox" value="1" data-name="cred_verified"${nameAttr('cred_verified')}${entry?.verified ? ' checked' : ''}>
+    <label data-label-for="cred_verified"${entry ? ` for="cred_verified${suffix}"` : ''}>zweryfikowane</label>
+  </div>`
+      : `<p class="hint">${entry?.verified ? 'zweryfikowane przez zespół' : 'deklarowane'}</p>`
+  }
+  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
+</div>`;
+}
+
+function photoField(session: AdminSession, row: TherapistRow | null): string {
+  const current = escapeHtml(row?.photo_url ?? '');
+  if (!row) {
+    return `<div class="field">
+  <label for="photo_url">Adres zdjęcia</label>
+  <input id="photo_url" name="photo_url" maxlength="500" value="">
+  <p class="hint">Wgrywanie i kadrowanie pliku będzie dostępne po zapisaniu profilu.</p>
+</div>`;
+  }
+  return `<div class="field">
+  <label for="photo_url">Zdjęcie profilowe</label>
+  <div class="photo-row" data-crop data-crop-field="photo_url"
+       data-crop-action="/admin/terapeuci/${escapeHtml(row.id)}/zdjecie"
+       data-crop-csrf="${escapeHtml(session.csrfToken)}">
+    <img class="photo-preview" data-crop-preview alt="Podgląd zdjęcia profilowego"${
+      current ? ` src="${current}"` : ' hidden'
+    }>
+    <div class="photo-actions">
+      <input type="file" accept="image/png,image/jpeg,image/webp" class="visually-hidden" data-crop-file>
+      <p><button type="button" class="btn secondary" data-crop-pick>Wybierz zdjęcie i wykadruj…</button></p>
+      <input id="photo_url" name="photo_url" maxlength="500" value="${current}">
+      <p class="hint">Kadr jest kwadratowy, zapisywany w 512×512. Adres możesz też wpisać ręcznie.</p>
+    </div>
+    <dialog class="crop-dialog" aria-labelledby="crop-title">
+      <h2 id="crop-title">Wykadruj zdjęcie</h2>
+      <canvas class="crop-canvas" width="320" height="320" tabindex="0" data-crop-canvas
+              aria-label="Podgląd kadru. Przeciągnij myszą lub przesuń strzałkami."></canvas>
+      <div class="field">
+        <label for="crop-zoom">Powiększenie</label>
+        <input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1" data-crop-zoom>
+      </div>
+      <p class="crop-status" role="status" data-crop-status></p>
+      <div class="crop-actions">
+        <button type="button" class="btn secondary" data-crop-cancel>Anuluj</button>
+        <button type="button" class="btn" data-crop-save>Zapisz zdjęcie</button>
+      </div>
+    </dialog>
+  </div>
+</div>`;
+}
+
+function therapistForm(session: AdminSession, row: TherapistRow | null, context: EditorContext): string {
   const v = <K extends keyof TherapistRow>(key: K, fallback = ''): string =>
     escapeHtml(row ? String(row[key] ?? fallback) : fallback);
   const isAdmin = session.user.role === 'admin';
+  const sessionTypes = jsonListToSet(row?.session_types, ['individual']);
+  const ageGroups = jsonListToSet(row?.age_groups, ['adults']);
+  const credentials = context.credentials;
 
   return `
-<h1>${row ? `Profil: ${escapeHtml(row.display_name)}` : 'Nowy profil'}</h1>
 <form method="post" action="/admin/terapeuci/${row ? escapeHtml(row.id) : 'nowy'}">
   ${csrfField(session)}
   <div class="field-row two">
@@ -393,16 +682,23 @@ function therapistForm(session: AdminSession, row: TherapistRow | null): string 
   </div>
   <div class="field"><label for="headline">Nagłówek</label>
     <input id="headline" name="headline" maxlength="200" value="${v('headline')}"></div>
-  <div class="field"><label for="bio">Opis doświadczenia i sposobu pracy</label>
-    <textarea id="bio" name="bio" maxlength="4000">${v('bio')}</textarea></div>
-  <div class="field"><label for="photo_url">Adres zdjęcia (https lub /media/...)</label>
-    <input id="photo_url" name="photo_url" maxlength="500" value="${v('photo_url')}"></div>
+
+  <div class="field" data-editor data-editor-label="bio-label">
+    <label id="bio-label" for="bio">Opis doświadczenia i sposobu pracy</label>
+    <textarea id="bio" name="bio" rows="10" maxlength="4000" data-editor-value>${v('bio')}</textarea>
+    <p class="hint">Pusty wiersz rozdziela akapity. Zaznacz tekst i użyj „Pogrub” albo Ctrl+B.</p>
+  </div>
+
+  ${photoField(session, row)}
+
   <div class="field-row two">
     <div class="field"><label for="city">Miejscowość (gabinet)</label>
-      <input id="city" name="city" maxlength="80"></div>
+      <input id="city" name="city" maxlength="80" value="${escapeHtml(context.city)}"></div>
     <div class="field"><label for="address_line">Adres gabinetu</label>
-      <input id="address_line" name="address_line" maxlength="160"></div>
+      <input id="address_line" name="address_line" maxlength="160" value="${escapeHtml(context.addressLine)}"></div>
   </div>
+  <p class="hint">Wyczyszczenie miejscowości usuwa adres gabinetu z profilu publicznego.</p>
+
   <fieldset>
     <legend>Forma spotkań</legend>
     <div class="checkbox"><input id="offers_online" name="offers_online" type="checkbox" value="1"${row?.offers_online ? ' checked' : ''}>
@@ -412,22 +708,32 @@ function therapistForm(session: AdminSession, row: TherapistRow | null): string 
     <div class="checkbox"><input id="accepting" name="accepting_new_clients" type="checkbox" value="1"${row?.accepting_new_clients ? ' checked' : ''}>
       <label for="accepting">przyjmuje nowe osoby</label></div>
   </fieldset>
-  <div class="field-row two">
-    <div class="field"><label for="session_types">Typy spotkań (JSON)</label>
-      <input id="session_types" name="session_types" value="${v('session_types', '["individual"]')}"></div>
-    <div class="field"><label for="age_groups">Grupy wiekowe (JSON)</label>
-      <input id="age_groups" name="age_groups" value="${v('age_groups', '["adults"]')}"></div>
-  </div>
-  <div class="field"><label for="credentials">Kwalifikacje (JSON: title, issuer, year, verified)</label>
-    <textarea id="credentials" name="credentials">${v('credentials', '[]')}</textarea></div>
-  <div class="field-row two">
-    <div class="field"><label for="languages">Języki (kody, po przecinku)</label>
-      <input id="languages" name="languages" maxlength="60" placeholder="pl,en"></div>
-    <div class="field"><label for="topics">Obszary pracy (slug, po przecinku)</label>
-      <input id="topics" name="topics" maxlength="300"></div>
-  </div>
-  <div class="field"><label for="modalities">Nurty (slug, po przecinku)</label>
-    <input id="modalities" name="modalities" maxlength="300"></div>
+
+  <fieldset><legend>Typy spotkań</legend>
+    ${checkboxGrid('session_types', SESSION_TYPE_LABELS, sessionTypes)}</fieldset>
+  <fieldset><legend>Grupy wiekowe</legend>
+    ${checkboxGrid('age_groups', AGE_GROUP_LABELS, ageGroups)}</fieldset>
+  <fieldset><legend>Języki</legend>
+    ${checkboxGrid('languages', context.languages, context.chosenLanguages)}</fieldset>
+  <fieldset><legend>Obszary pracy</legend>
+    ${checkboxGrid('topics', context.specialties, context.chosenTopics)}</fieldset>
+  <fieldset><legend>Nurty</legend>
+    ${checkboxGrid('modalities', context.modalities, context.chosenModalities)}</fieldset>
+
+  <fieldset data-repeat data-repeat-max="20">
+    <legend>Kwalifikacje</legend>
+    <div data-repeat-body>${[...credentials, EMPTY_CREDENTIAL]
+      .map((entry, index) => credentialRow(entry, index, isAdmin))
+      .join('')}</div>
+    <template>${credentialRow(null, 0, isAdmin)}</template>
+    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
+    ${
+      isAdmin
+        ? '<p class="hint">„Zweryfikowane” oznacza, że zespół widział dokument. Terapeuta nie może ustawić tego sam.</p>'
+        : '<p class="hint">Oznaczenie „zweryfikowane” nadaje wyłącznie zespół po sprawdzeniu dokumentu.</p>'
+    }
+  </fieldset>
+
   <div class="field-row two">
     <div class="field"><label for="cancellation_policy">Zasady odwołania</label>
       <input id="cancellation_policy" name="cancellation_policy" maxlength="500" value="${v('cancellation_policy')}"></div>
@@ -438,33 +744,54 @@ function therapistForm(session: AdminSession, row: TherapistRow | null): string 
     isAdmin
       ? `<fieldset>
     <legend>Weryfikacja i publikacja (tylko administrator)</legend>
-    <div class="field"><label for="verification_status">Status weryfikacji</label>
-      <select id="verification_status" name="verification_status">
-        <option value="unverified"${row?.verification_status === 'unverified' ? ' selected' : ''}>niezweryfikowany</option>
-        <option value="verified"${row?.verification_status === 'verified' ? ' selected' : ''}>zweryfikowany</option>
-        <option value="rejected"${row?.verification_status === 'rejected' ? ' selected' : ''}>odrzucony</option>
-      </select></div>
+    <div class="field"><span class="seg-label">Status weryfikacji</span>
+      ${segmented(
+        'verification_status',
+        row?.verification_status ?? 'unverified',
+        [
+          { slug: 'unverified', name_pl: 'niezweryfikowany' },
+          { slug: 'verified', name_pl: 'zweryfikowany' },
+          { slug: 'rejected', name_pl: 'odrzucony' },
+        ],
+      )}</div>
     <div class="field"><label for="verification_notes">Notatki weryfikacyjne (prywatne, nigdy publiczne)</label>
-      <textarea id="verification_notes" name="verification_notes">${v('verification_notes')}</textarea></div>
-    <div class="field"><label for="status">Status profilu</label>
-      <select id="status" name="status">
-        <option value="draft"${row?.status === 'draft' ? ' selected' : ''}>roboczy</option>
-        <option value="published"${row?.status === 'published' ? ' selected' : ''}>opublikowany</option>
-        <option value="unpublished"${row?.status === 'unpublished' ? ' selected' : ''}>wycofany</option>
-      </select></div>
+      <textarea id="verification_notes" name="verification_notes" rows="3">${v('verification_notes')}</textarea></div>
+    <div class="field"><span class="seg-label">Status profilu</span>
+      ${segmented('status', row?.status ?? 'draft', [
+        { slug: 'draft', name_pl: 'roboczy' },
+        { slug: 'published', name_pl: 'opublikowany' },
+        { slug: 'unpublished', name_pl: 'wycofany' },
+      ])}
+      <p class="hint">Katalog publiczny pokazuje wyłącznie profile opublikowane.</p></div>
   </fieldset>`
       : ''
   }
   <p><button class="btn" type="submit">Zapisz</button></p>
-</form>
+</form>`;
+}
 
-${
-  row
-    ? `<h2>FAQ</h2>
-<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/faq">
+/**
+ * Profile, FAQ, offers and availability, one tab each. Without JavaScript the
+ * four sections render stacked, in this order.
+ */
+function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
+  const activeOffers = context.offers.filter((offer) => offer.active === 1);
+  const id = escapeHtml(row.id);
+
+  return `
+<div class="tabs" data-tabs="terapeuta-v2">
+
+<section data-tab-panel data-tab-label="Profil" id="panel-profil">
+<h2 class="visually-hidden">Profil</h2>
+${therapistForm(session, row, context)}
+</section>
+
+<section data-tab-panel data-tab-label="FAQ" id="panel-faq">
+<h2>FAQ</h2>
+<form method="post" action="/admin/terapeuci/${id}/faq">
   ${csrfField(session)}
   <div class="field"><label for="q">Pytanie</label><input id="q" name="question" required maxlength="200"></div>
-  <div class="field"><label for="a">Odpowiedź (treść terapeuty)</label><textarea id="a" name="answer" required maxlength="2000"></textarea></div>
+  <div class="field"><label for="a">Odpowiedź (treść terapeuty)</label><textarea id="a" name="answer" required maxlength="2000" rows="5"></textarea></div>
   <div class="field-row two">
     <div class="field"><label for="cat">Kategoria</label>
       <select id="cat" name="category">
@@ -485,8 +812,29 @@ ${
   <p><button class="btn" type="submit">Dodaj i opublikuj</button></p>
 </form>
 
+<h3>Istniejące pytania</h3>
+${
+  context.faq.length === 0
+    ? '<p class="hint">Ten profil nie ma jeszcze żadnego pytania.</p>'
+    : `<div class="table-scroll"><table>
+<thead><tr><th scope="col">Pytanie</th><th scope="col">Status</th><th scope="col">Akcje</th></tr></thead>
+<tbody>${context.faq
+        .map(
+          (item) =>
+            `<tr><td>${escapeHtml(item.question)}</td><td>${escapeHtml(item.status)}</td>
+             <td><form method="post" action="/admin/faq/${escapeHtml(item.id)}/status" style="display:inline">
+               ${csrfField(session)}
+               <button class="btn secondary" name="status" value="${item.status === 'published' ? 'draft' : 'published'}" type="submit">
+                 ${item.status === 'published' ? 'Wycofaj' : 'Opublikuj'}</button>
+             </form></td></tr>`,
+        )
+        .join('')}</tbody></table></div>`
+}
+</section>
+
+<section data-tab-panel data-tab-label="Oferta" id="panel-oferta">
 <h2>Oferta</h2>
-<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/oferta">
+<form method="post" action="/admin/terapeuci/${id}/oferta">
   ${csrfField(session)}
   <div class="field-row two">
     <div class="field"><label for="o_title">Nazwa</label><input id="o_title" name="title" required maxlength="120"></div>
@@ -504,35 +852,69 @@ ${
   <p><button class="btn" type="submit">Dodaj ofertę</button></p>
 </form>
 
+<h3>Istniejące oferty</h3>
+${
+  context.offers.length === 0
+    ? '<p class="hint">Ten profil nie ma jeszcze żadnej oferty.</p>'
+    : `<div class="table-scroll"><table>
+<thead><tr><th scope="col">Nazwa</th><th scope="col">Forma</th><th scope="col">Czas</th>
+<th scope="col">Cena</th><th scope="col">Aktywna</th></tr></thead>
+<tbody>${context.offers
+        .map(
+          (offer) =>
+            `<tr><td>${escapeHtml(offer.title)}</td>
+             <td>${escapeHtml(offer.mode)} / ${escapeHtml(offer.session_type)}</td>
+             <td>${offer.duration_minutes} min</td>
+             <td>${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</td>
+             <td>${offer.active ? 'tak' : 'nie'}</td></tr>`,
+        )
+        .join('')}</tbody></table></div>`
+}
+</section>
+
+<section data-tab-panel data-tab-label="Dostępność" id="panel-terminy">
 <h2>Dostępność</h2>
-<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/terminy">
+${
+  activeOffers.length === 0
+    ? `<div class="notice warn"><p>Terminy powstają dla konkretnej oferty. Dodaj najpierw ofertę
+       w zakładce „Oferta”.</p></div>`
+    : `<form method="post" action="/admin/terapeuci/${id}/terminy">
   ${csrfField(session)}
   <div class="field"><label for="t_offer">Oferta</label>
     <select id="t_offer" name="offer_id" required>
-      <option value="">— wybierz —</option>
-    </select>
-    <p class="hint">Lista ofert jest wypełniana po zapisaniu oferty; identyfikator znajdziesz w tabeli poniżej.</p></div>
-  <div class="field-row two">
-    <div class="field"><label for="t_offer_id">Identyfikator oferty</label><input id="t_offer_id" name="offer_id_manual" maxlength="64"></div>
-    <div class="field"><label for="t_days">Liczba dni do wygenerowania</label><input id="t_days" name="days" type="number" min="1" max="60" value="14"></div>
-  </div>
-  <div class="field-row two">
-    <div class="field"><label for="t_hours">Godziny (lokalnie, po przecinku)</label><input id="t_hours" name="hours" value="9,11,13,15"></div>
-    <div class="field"><label for="t_tz">Strefa czasowa terapeuty</label>
-      <input id="t_tz" name="timezone" value="${escapeHtml(row?.timezone ?? 'Europe/Warsaw')}" maxlength="64">
-      <p class="hint">Godziny poniżej są godzinami lokalnymi w tej strefie. Zmiana czasu jest uwzględniana automatycznie.</p></div>
-  </div>
+      ${activeOffers
+        .map(
+          (offer) =>
+            `<option value="${escapeHtml(offer.id)}">${escapeHtml(offer.title)} — ${escapeHtml(offer.mode)}, ${offer.duration_minutes} min, ${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</option>`,
+        )
+        .join('')}
+    </select></div>
+  <div class="field"><label for="t_days">Liczba dni do wygenerowania</label>
+    <input id="t_days" name="days" type="number" min="1" max="60" value="14"></div>
+  <fieldset>
+    <legend>Godziny rozpoczęcia</legend>
+    ${hourGrid(DEFAULT_SLOT_HOURS)}
+    <p class="hint">Terminy powstają w dni robocze, o każdej zaznaczonej godzinie.</p>
+  </fieldset>
+  <div class="field"><label for="t_tz">Strefa czasowa terapeuty</label>
+    <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone ?? 'Europe/Warsaw')}" maxlength="64">
+    <p class="hint">Godziny powyżej są godzinami lokalnymi w tej strefie. Zmiana czasu jest uwzględniana automatycznie.</p></div>
   <p><button class="btn" type="submit">Wygeneruj wolne terminy</button></p>
-</form>
-
-<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/blokuj">
-  ${csrfField(session)}
-  <div class="field"><label for="b_slot">Zablokuj termin (slot_id)</label><input id="b_slot" name="slot_id" required maxlength="64"></div>
-  <div class="field"><label for="b_reason">Powód</label><input id="b_reason" name="reason" maxlength="120"></div>
-  <p><button class="btn secondary" type="submit">Zablokuj termin</button></p>
 </form>`
-    : ''
-}`;
+}
+
+<h3>Blokowanie terminu</h3>
+<form method="post" action="/admin/terapeuci/${id}/blokuj">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="b_slot">Identyfikator terminu (slot_id)</label><input id="b_slot" name="slot_id" required maxlength="64"></div>
+    <div class="field"><label for="b_reason">Powód</label><input id="b_reason" name="reason" maxlength="120"></div>
+  </div>
+  <p><button class="btn secondary" type="submit">Zablokuj termin</button></p>
+</form>
+</section>
+
+</div>`;
 }
 
 adminApp.get('/terapeuci/nowy', async (c) => {
@@ -541,7 +923,13 @@ adminApp.get('/terapeuci/nowy', async (c) => {
   if (session.user.role !== 'admin') {
     return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
   }
-  return page(c.env, 'Nowy profil', therapistForm(session, null));
+  const context = await loadEditorContext(c.env, null);
+  // No tabs here: FAQ, offers and availability all need a saved profile first.
+  return page(
+    c.env,
+    'Nowy profil',
+    `<h1>Nowy profil</h1>${therapistForm(session, null, context)}`,
+  );
 });
 
 adminApp.get('/terapeuci/:id', async (c) => {
@@ -554,78 +942,64 @@ adminApp.get('/terapeuci/:id', async (c) => {
   const row = await getTherapistRowForAdmin(c.env, id);
   if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
 
-  const offers = await c.env.DB.prepare(
-    `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active
-       FROM session_offers WHERE therapist_id = ? ORDER BY created_at`,
-  )
-    .bind(id)
-    .all<{
-      id: string;
-      title: string;
-      session_type: string;
-      mode: string;
-      duration_minutes: number;
-      price_minor: number;
-      currency: string;
-      active: number;
-    }>();
-
-  const faq = await c.env.DB.prepare(
-    `SELECT id, question, status, position, updated_at FROM faq_items WHERE therapist_id = ? ORDER BY position`,
-  )
-    .bind(id)
-    .all<{ id: string; question: string; status: string; position: number; updated_at: string }>();
+  const context = await loadEditorContext(c.env, id);
+  context.credentials = parseStoredCredentials(row.credentials);
 
   return page(
     c.env,
     row.display_name,
-    therapistForm(session, row) +
-      `
-<h2>Istniejące oferty</h2>
-<div class="table-scroll"><table>
-<thead><tr><th scope="col">ID</th><th scope="col">Nazwa</th><th scope="col">Forma</th><th scope="col">Cena</th><th scope="col">Aktywna</th></tr></thead>
-<tbody>${offers.results
-        .map(
-          (o) =>
-            `<tr><td><code>${escapeHtml(o.id)}</code></td><td>${escapeHtml(o.title)}</td>
-             <td>${escapeHtml(o.mode)} / ${escapeHtml(o.session_type)}</td>
-             <td>${escapeHtml(formatPrice(o.price_minor, o.currency))}</td><td>${o.active ? 'tak' : 'nie'}</td></tr>`,
-        )
-        .join('')}</tbody></table></div>
-
-<h2>Istniejące FAQ</h2>
-<div class="table-scroll"><table>
-<thead><tr><th scope="col">Pytanie</th><th scope="col">Status</th><th scope="col">Akcje</th></tr></thead>
-<tbody>${faq.results
-        .map(
-          (f) =>
-            `<tr><td>${escapeHtml(f.question)}</td><td>${escapeHtml(f.status)}</td>
-             <td><form method="post" action="/admin/faq/${escapeHtml(f.id)}/status" style="display:inline">
-               ${csrfField(session)}
-               <button class="btn secondary" name="status" value="${f.status === 'published' ? 'draft' : 'published'}" type="submit">
-                 ${f.status === 'published' ? 'Wycofaj' : 'Opublikuj'}</button>
-             </form></td></tr>`,
-        )
-        .join('')}</tbody></table></div>`,
+    `<h1>Profil: ${escapeHtml(row.display_name)}</h1>${therapistTabs(session, row, context)}`,
   );
 });
 
-function parseSlugList(value: string | null, max = 12): string[] {
-  return (value ?? '')
-    .split(',')
-    .map((v) => v.trim().toLowerCase())
-    .filter((v) => /^[a-z0-9-]{1,64}$/.test(v))
-    .slice(0, max);
+/**
+ * A checkbox group posts one entry per checked box and nothing at all for the
+ * unchecked ones, so the submitted set IS the new set - no free-text parsing,
+ * no way to submit a value that was never on screen.
+ */
+function checkedValues(body: URLSearchParams, name: string, allowed: string[] | null, max: number): string[] {
+  const chosen = new Set<string>();
+  for (const raw of body.getAll(name)) {
+    const slug = raw.trim().toLowerCase();
+    if (!/^[a-z0-9-]{1,64}$/.test(slug)) continue;
+    if (allowed && !allowed.includes(slug)) continue;
+    chosen.add(slug);
+    if (chosen.size >= max) break;
+  }
+  return [...chosen];
 }
 
-function parseJsonList(value: string | null, allowed: string[]): string {
-  try {
-    const parsed: unknown = JSON.parse(value ?? '[]');
-    if (!Array.isArray(parsed)) return '[]';
-    return JSON.stringify(parsed.filter((v): v is string => typeof v === 'string' && allowed.includes(v)));
-  } catch {
-    return '[]';
+/** Matches a submitted credential against the ones already stored. */
+function credentialKey(title: string, issuer: string): string {
+  return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
+}
+
+/**
+ * Reads the repeatable credential rows. Rows are named `cred_*_<index>`; the
+ * scan tolerates gaps so a row removed in the browser needs no renumbering.
+ *
+ * `verified` is a trust signal shown on the public profile. A therapist must
+ * not be able to award it to themselves, so only an administrator may set it,
+ * and a therapist's own save preserves whatever the administrator decided.
+ */
+function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: CredentialInput[]): string {
+  const alreadyVerified = new Set(
+    previous.filter((entry) => entry.verified).map((entry) => credentialKey(entry.title, entry.issuer)),
+  );
+  const out: Array<{ title: string; issuer: string; year: number | null; verified: boolean }> = [];
+
+  for (let index = 0; index < 50 && out.length < 20; index++) {
+    const title = sanitizeLine(body.get(`cred_title_${index}`) ?? '', 120);
+    if (!title) continue;
+    const issuer = sanitizeLine(body.get(`cred_issuer_${index}`) ?? '', 120);
+    const parsedYear = Number(body.get(`cred_year_${index}`) ?? '');
+    const year = Number.isInteger(parsedYear) && parsedYear >= 1950 && parsedYear <= 2100 ? parsedYear : null;
+    const verified = isAdmin
+      ? body.get(`cred_verified_${index}`) === '1'
+      : alreadyVerified.has(credentialKey(title, issuer));
+    out.push({ title, issuer, year, verified });
   }
+  return JSON.stringify(out);
 }
 
 adminApp.post('/terapeuci/:id', async (c) => {
@@ -661,9 +1035,13 @@ adminApp.post('/terapeuci/:id', async (c) => {
     offers_online: body.get('offers_online') === '1' ? 1 : 0,
     offers_in_person: body.get('offers_in_person') === '1' ? 1 : 0,
     accepting_new_clients: body.get('accepting_new_clients') === '1' ? 1 : 0,
-    session_types: parseJsonList(body.get('session_types'), ['individual', 'couples', 'family']),
-    age_groups: parseJsonList(body.get('age_groups'), ['adults', 'teens', 'children', 'seniors']),
-    credentials: sanitizeRichText(body.get('credentials') ?? '[]', 4000),
+    session_types: JSON.stringify(
+      checkedValues(body, 'session_types', ['individual', 'couples', 'family'], 3),
+    ),
+    age_groups: JSON.stringify(
+      checkedValues(body, 'age_groups', ['adults', 'teens', 'children', 'seniors'], 4),
+    ),
+    credentials: collectCredentials(body, isAdmin, parseStoredCredentials(existing?.credentials ?? null)),
     cancellation_policy: sanitizeLine(body.get('cancellation_policy') ?? '', 500),
     cancellation_cutoff_h: Math.min(Math.max(Number(body.get('cancellation_cutoff_h') ?? 24) || 24, 0), 168),
     // Verification and publication remain admin-only, whatever the form posts.
@@ -686,11 +1064,6 @@ adminApp.post('/terapeuci/:id', async (c) => {
       ? (existing?.verification_status === 'verified' ? existing.verified_at : at)
       : null;
 
-  try {
-    JSON.parse(values.credentials);
-  } catch {
-    return page(c.env, 'Błąd', '<h1>Pole „Kwalifikacje” nie jest poprawnym JSON-em</h1>', 400);
-  }
 
   if (isNew) {
     await c.env.DB.prepare(
@@ -754,16 +1127,21 @@ adminApp.post('/terapeuci/:id', async (c) => {
       .run();
   }
 
-  // Relations are replaced wholesale - simpler and always consistent.
-  const languages = parseSlugList(body.get('languages'), 8);
-  const topics = parseSlugList(body.get('topics'), 12);
-  const modalities = parseSlugList(body.get('modalities'), 8);
+  // Relations are replaced wholesale - simpler and always consistent. The form
+  // renders the current selection as checked boxes, so "replaced wholesale"
+  // means what the administrator sees, not an empty set.
+  const languages = checkedValues(body, 'languages', null, 8);
+  const topics = checkedValues(body, 'topics', null, 12);
+  const modalities = checkedValues(body, 'modalities', null, 8);
   const city = sanitizeLine(body.get('city') ?? '', 80);
 
   const statements = [
     c.env.DB.prepare(`DELETE FROM therapist_languages WHERE therapist_id = ?`).bind(therapistIdValue),
     c.env.DB.prepare(`DELETE FROM therapist_specialties WHERE therapist_id = ?`).bind(therapistIdValue),
     c.env.DB.prepare(`DELETE FROM therapist_modalities WHERE therapist_id = ?`).bind(therapistIdValue),
+    // Clearing the city field removes the office address, which is the only
+    // way to take a location off a published profile.
+    c.env.DB.prepare(`DELETE FROM therapist_locations WHERE therapist_id = ?`).bind(therapistIdValue),
   ];
   for (const code of languages) {
     statements.push(
@@ -791,7 +1169,6 @@ adminApp.post('/terapeuci/:id', async (c) => {
   }
   if (city) {
     statements.push(
-      c.env.DB.prepare(`DELETE FROM therapist_locations WHERE therapist_id = ?`).bind(therapistIdValue),
       c.env.DB.prepare(
         `INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, address_line, is_primary)
          VALUES (?, ?, ?, ?, 'PL', ?, 1)`,
@@ -816,6 +1193,101 @@ adminApp.post('/terapeuci/:id', async (c) => {
   });
 
   return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${therapistIdValue}` } });
+});
+
+// ----------------------------------------------------------- profile photo ---
+
+/**
+ * Magic bytes, not the declared `Content-Type`. The browser sends whatever it
+ * likes and `/media/:key` serves the stored type straight back, so the type is
+ * decided here, from the file itself.
+ */
+function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } | null {
+  const startsWith = (...signature: number[]): boolean =>
+    signature.every((byte, index) => bytes[index] === byte);
+
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: 'image/png', extension: 'png' };
+  if (startsWith(0xff, 0xd8, 0xff)) return { mime: 'image/jpeg', extension: 'jpg' };
+  if (
+    startsWith(0x52, 0x49, 0x46, 0x46) &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return { mime: 'image/webp', extension: 'webp' };
+  }
+  return null;
+}
+
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
+  const fail = (message: string, status: number): Response =>
+    Response.json({ error: message }, { status, headers: { 'cache-control': 'no-store' } });
+
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return fail('Sesja wygasła. Odśwież stronę i zaloguj się ponownie.', 401);
+
+  // Multipart, so `formValues` (which drops File entries) cannot be used here.
+  let form: FormData;
+  try {
+    form = await c.req.raw.formData();
+  } catch {
+    return fail('Nieprawidłowe dane formularza.', 400);
+  }
+
+  if (!(await verifyCsrf(c.env, c.req.raw, String(form.get('csrf') ?? '')))) {
+    return fail('Nieprawidłowy token formularza. Odśwież stronę.', 403);
+  }
+
+  const id = c.req.param('id');
+  if (!['admin', 'therapist'].includes(session.user.role) || !ownsTherapist(session.user, id)) {
+    return fail('Brak uprawnień do tego profilu.', 403);
+  }
+  if (!c.env.MEDIA) {
+    return fail('Magazyn plików (R2) nie jest włączony w tym środowisku. Użyj pola z adresem zdjęcia.', 503);
+  }
+
+  const existing = await getTherapistRowForAdmin(c.env, id);
+  if (!existing) return fail('Nie znaleziono profilu.', 404);
+
+  const file = form.get('photo');
+  if (!(file instanceof File)) return fail('Brak pliku.', 400);
+  if (file.size === 0 || file.size > PHOTO_MAX_BYTES) {
+    return fail('Plik musi mieć od 1 bajta do 2 MB.', 413);
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const kind = sniffImageType(bytes);
+  if (!kind) return fail('Obsługiwane formaty to PNG, JPEG i WebP.', 415);
+
+  const key = `therapists/${id}/${randomId('img')}.${kind.extension}`;
+  await c.env.MEDIA.put(key, bytes, { httpMetadata: { contentType: kind.mime } });
+
+  const url = `/media/${key}`;
+  const at = nowIso();
+  await c.env.DB.prepare(`UPDATE therapists SET photo_url = ?, updated_at = ? WHERE id = ?`)
+    .bind(url, at, id)
+    .run();
+
+  // Replacing a photo leaves the previous object orphaned in the bucket unless
+  // it is removed here. Only keys this route created are ever touched.
+  const previous = existing.photo_url ?? '';
+  if (previous.startsWith(`/media/therapists/${id}/`) && previous !== url) {
+    await c.env.MEDIA.delete(previous.slice('/media/'.length)).catch(() => undefined);
+  }
+
+  await audit(c.env, {
+    actorType: session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: session.user.id,
+    action: 'therapist.photo_updated',
+    subjectType: 'therapist',
+    subjectId: id,
+    meta: { field: kind.mime, count: bytes.length },
+  });
+
+  return Response.json({ url, version: at }, { headers: { 'cache-control': 'no-store' } });
 });
 
 adminApp.post('/terapeuci/:id/faq', async (c) => {
@@ -946,11 +1418,28 @@ adminApp.post('/terapeuci/:id/terminy', async (c) => {
   if (!offer) return page(c.env, 'Błąd', '<h1>Nie znaleziono aktywnej oferty o tym identyfikatorze</h1>', 400);
 
   const days = Math.min(Math.max(Number(body.get('days') ?? 14) || 14, 1), 60);
-  const hours = (body.get('hours') ?? '9,11,13,15')
-    .split(',')
-    .map((h) => Number(h.trim()))
-    .filter((h) => Number.isInteger(h) && h >= 0 && h <= 23)
-    .slice(0, 12);
+  // The form posts one entry per checked hour; splitting on commas as well keeps
+  // the older "9,11,13,15" single-field shape working.
+  const hours = [
+    ...new Set(
+      body
+        .getAll('hours')
+        .flatMap((entry) => entry.split(','))
+        .map((entry) => Number(entry.trim()))
+        .filter((hour) => Number.isInteger(hour) && hour >= 0 && hour <= 23),
+    ),
+  ]
+    .sort((a, b) => a - b)
+    .slice(0, 24);
+
+  if (hours.length === 0) {
+    return page(
+      c.env,
+      'Błąd',
+      '<h1>Wybierz co najmniej jedną godzinę</h1><p>Bez godziny rozpoczęcia nie ma czego wygenerować.</p>',
+      400,
+    );
+  }
 
   // The therapist works in a wall clock, not in UTC. The requested zone is
   // validated against the runtime's own zone data; an unknown zone is refused

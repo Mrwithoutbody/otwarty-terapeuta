@@ -44,6 +44,14 @@ function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : typeof value === 'number' ? String(value) : fallback;
 }
 
+/**
+ * The bio is stored as plain text with `**bold**` markers and `\*` escapes.
+ * The widget renders plain text, so the markers are stripped rather than shown.
+ */
+function plain(value: unknown): string {
+  return text(value).replace(/\\(\*)|\*\*/g, (_match, escaped: string | undefined) => escaped ?? '');
+}
+
 function list(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
@@ -177,7 +185,7 @@ function TherapistProfile({ data }: { data: Record<string, unknown> }): React.Re
         </div>
       </div>
       {t.headline ? <p className="muted">{text(t.headline)}</p> : null}
-      <p className="bio">{text(t.bio)}</p>
+      <p className="bio">{plain(t.bio)}</p>
       <Tags items={list(t.topics)} label="Obszary pracy" />
       <Tags items={list(t.modalities)} label="Nurt" />
       <Tags items={list(t.languages)} label="Języki" />

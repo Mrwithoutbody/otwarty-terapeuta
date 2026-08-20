@@ -1,5 +1,6 @@
 import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
+import { ADMIN_ASSET_VERSION } from './admin-ui';
 
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere, which
@@ -62,6 +63,11 @@ export interface PageOptions {
   /** Rendered inside <main>. Must already be escaped. */
   body: string;
   noindex?: boolean;
+  /**
+   * Loads the admin stylesheet and the admin enhancement script. Both are
+   * same-origin files, so the `script-src 'self'` policy stays untouched.
+   */
+  adminAssets?: boolean;
 }
 
 export function renderPage(env: Env, options: PageOptions): string {
@@ -79,6 +85,12 @@ export function renderPage(env: Env, options: PageOptions): string {
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="stylesheet" href="/assets/app.css?v=20260820-7">
+${
+  options.adminAssets
+    ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
+      `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`
+    : ''
+}
 <link rel="icon" href="data:,">
 </head>
 <body>
