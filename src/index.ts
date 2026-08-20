@@ -14,6 +14,7 @@ import { ALL_SCOPES, assertConfig, ConfigError, type Env } from './env';
 import { authorizationServerMetadata, oauthApp, purgeExpiredAuthState } from './auth/oauth';
 import { D1TokenVerifier } from './auth/verifier';
 import { createServerFactory } from './mcp/server';
+import { addToolSecuritySchemes, isOAuthToolName } from './mcp/security';
 import { adminApp } from './web/admin';
 import { therapistSignupApp } from './web/therapist-signup';
 import { siteApp } from './web/pages';
@@ -80,6 +81,23 @@ app.get('/robots.txt', () =>
     { headers: { 'content-type': 'text/plain; charset=utf-8' } },
   ),
 );
+
+/**
+ * Domain-control proof for the OpenAI public plugin submission. The portal
+ * requires the response body to contain only its exact token. Keep the route
+ * unavailable until the portal has generated a token for this plugin.
+ */
+app.get('/.well-known/openai-apps-challenge', (c) => {
+  const token = c.env.OPENAI_APPS_CHALLENGE?.trim();
+  if (!token) return new Response('Not found', { status: 404 });
+  return new Response(token, {
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+});
 
 /**
  * Placeholder avatars for the demo profiles. Generated locally as neutral
@@ -221,7 +239,7 @@ async function resolveAuth(env: Env, request: Request): Promise<AuthInfo | Respo
   }
 }
 
-async function handleMcp(request: Request, env: Env): Promise<Response> {
+async function handleMcp(request: Request, env: Env, anonymousOnly = false): Promise<Response> {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
   }
@@ -239,14 +257,52 @@ async function handleMcp(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  const auth = await resolveAuth(env, request);
+  let isToolsList = false;
+  let blockedCall: { id?: unknown; name: unknown } | undefined;
+  if (request.method === 'POST') {
+    try {
+      const message = (await request.clone().json()) as {
+        id?: unknown;
+        method?: unknown;
+        params?: { name?: unknown };
+      };
+      isToolsList = message.method === 'tools/list';
+      if (anonymousOnly && message.method === 'tools/call' && isOAuthToolName(message.params?.name)) {
+        blockedCall = { id: message.id, name: message.params?.name };
+      }
+    } catch {
+      // The MCP handler returns the protocol-level parse error.
+    }
+  }
+
+  if (blockedCall) {
+    return Response.json(
+      {
+        jsonrpc: '2.0',
+        id: blockedCall.id ?? null,
+        error: {
+          code: -32601,
+          message: `Narzędzie ${String(blockedCall.name)} nie jest dostępne w publicznym trybie testowym.`,
+        },
+      },
+      { status: 200, headers: MCP_CORS_HEADERS },
+    );
+  }
+
+  // The public testing endpoint deliberately ignores Authorization headers.
+  // That keeps it entirely outside OAuth, including when a client reuses a
+  // stale header left over from a previously configured connection.
+  const auth = anonymousOnly ? undefined : await resolveAuth(env, request);
   if (auth instanceof Response) return auth;
 
   const handler = createMcpHandler(createServerFactory(env), {
     onerror: (error) => log.error('mcp.transport_error', error),
   });
 
-  const response = await handler.fetch(request, auth ? { authInfo: auth } : undefined);
+  let response = await handler.fetch(request, auth ? { authInfo: auth } : undefined);
+  if (isToolsList && response.ok) {
+    response = await addToolSecuritySchemes(response, { anonymousOnly });
+  }
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(MCP_CORS_HEADERS)) headers.set(key, value);
   return new Response(response.body, { status: response.status, headers });
@@ -268,12 +324,21 @@ export default {
       );
     }
 
+    // Do not publish fallback resource metadata at the hostname root. Clients
+    // probing /public/mcp commonly fall back to this URL and would otherwise
+    // misclassify the deliberately anonymous endpoint as OAuth-protected.
+    // The full /mcp endpoint keeps its path-specific RFC 9728 document.
+    if (url.pathname === '/.well-known/oauth-protected-resource') {
+      return new Response('Not found', { status: 404 });
+    }
+
     // RFC 9728 / RFC 8414 discovery documents, served by the SDK so the shape
     // always matches what MCP clients expect.
     const metadata = oauthMetadataResponse(request, authMetadataOptions(env));
     if (metadata) return metadata;
 
     if (url.pathname === '/mcp') return handleMcp(request, env);
+    if (url.pathname === '/public/mcp') return handleMcp(request, env, true);
 
     // The MCP subdomain serves nothing but the protocol surface.
     if (url.hostname.startsWith('mcp.') && url.pathname !== '/') {

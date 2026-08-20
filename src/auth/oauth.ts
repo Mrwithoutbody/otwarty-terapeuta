@@ -167,6 +167,15 @@ function loginPage(env: Env, params: AuthorizeParams, client: ClientRow, error?:
   Aplikacja nie otrzymuje Twoich rozmów ani powodów szukania terapii.</p>
 </div>
 ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
+<form method="post" action="/oauth/authorize/anonymous">
+  ${hiddenFields(params)}
+  <p><button class="btn" type="submit">Korzystaj bez konta</button></p>
+  <p class="hint">Bez podawania adresu e-mail. Dostęp obejmuje wyłącznie publiczny katalog,
+  profile, FAQ i wolne terminy. Logowanie pojawi się dopiero, gdy zechcesz zarezerwować
+  lub odwołać wizytę.</p>
+</form>
+<hr>
+<h2>Połącz konto do rezerwacji</h2>
 <form method="post" action="/oauth/authorize">
   ${hiddenFields(params)}
   <div class="field">
@@ -316,7 +325,7 @@ oauthApp.post('/register', async (c) => {
     .run();
 
   await audit(env, {
-    actorType: 'system',
+    actorType: 'anonymous',
     action: 'oauth.client_registered',
     subjectType: 'oauth_client',
     subjectId: clientId,
@@ -342,6 +351,75 @@ oauthApp.get('/authorize', async (c) => {
   const parsed = await parseAuthorizeParams(c.env, new URL(c.req.url).searchParams);
   if ('error' in parsed) return errorPage(c.env, parsed.error);
   return htmlResponse(c.env, loginPage(c.env, parsed.params, parsed.client), { status: 200 }, true);
+});
+
+/**
+ * Completes the connector handshake without collecting personal data.
+ *
+ * ChatGPT connects a required OAuth app before its first use and may request
+ * every registered scope at that point. We deliberately down-scope this
+ * anonymous grant to catalog:read. Private tools later return an
+ * insufficient_scope challenge, which starts the existing e-mail sign-in only
+ * when the user actually asks to read or modify a booking.
+ */
+oauthApp.post('/authorize/anonymous', async (c) => {
+  const env = c.env;
+  const form = await c.req.formData();
+  const source = new URLSearchParams();
+  for (const [key, value] of form.entries()) {
+    if (typeof value === 'string') source.set(key, value);
+  }
+
+  const parsed = await parseAuthorizeParams(env, source);
+  if ('error' in parsed) return errorPage(env, parsed.error);
+
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  if (!(await env.RL_AUTH.limit({ key: `authorize-anonymous:${ip}` })).success) {
+    return errorPage(env, 'Zbyt wiele prób. Spróbuj ponownie za minutę.');
+  }
+
+  const key = signingKey(env);
+  const anonymousId = randomId('usr');
+  const authCode = randomSecret(32);
+  const at = nowIso();
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO users (id, email_hash, email_enc, name_enc, role, therapist_id, created_at, updated_at)
+       VALUES (?, ?, '', NULL, 'user', NULL, ?, ?)`,
+    ).bind(anonymousId, `anonymous:${anonymousId}`, at, at),
+    env.DB.prepare(
+      `INSERT INTO oauth_auth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge,
+                                     code_challenge_method, scope, resource, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, 'S256', 'catalog:read', ?, ?, ?)`,
+    ).bind(
+      await hmacHex(key, `authcode:${authCode}`),
+      parsed.params.client_id,
+      anonymousId,
+      parsed.params.redirect_uri,
+      parsed.params.code_challenge,
+      parsed.params.resource,
+      isoPlusSeconds(AUTH_CODE_TTL_SECONDS),
+      at,
+    ),
+  ]);
+
+  await audit(env, {
+    actorType: 'system',
+    actorId: anonymousId,
+    action: 'oauth.authorized_anonymous',
+    subjectType: 'oauth_client',
+    subjectId: parsed.params.client_id,
+    meta: { requested_scope: parsed.params.scope, granted_scope: 'catalog:read' },
+  });
+
+  const redirect = new URL(parsed.params.redirect_uri);
+  redirect.searchParams.set('code', authCode);
+  if (parsed.params.state) redirect.searchParams.set('state', parsed.params.state);
+  return new Response(null, {
+    status: 302,
+    headers: { location: redirect.toString(), 'cache-control': 'no-store' },
+  });
 });
 
 /** Step 1: e-mail address + consent + Turnstile -> one-time code. */
@@ -715,5 +793,12 @@ export async function purgeExpiredAuthState(env: Env): Promise<void> {
     env.DB.prepare(`DELETE FROM therapist_signup_challenges WHERE expires_at < ?`).bind(at),
     env.DB.prepare(`DELETE FROM oauth_tokens WHERE expires_at < ?`).bind(at),
     env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at < ?`).bind(at),
+    env.DB.prepare(
+      `DELETE FROM users
+         WHERE email_hash LIKE 'anonymous:%'
+           AND NOT EXISTS (SELECT 1 FROM oauth_auth_codes WHERE oauth_auth_codes.user_id = users.id)
+           AND NOT EXISTS (SELECT 1 FROM oauth_tokens WHERE oauth_tokens.user_id = users.id)
+           AND NOT EXISTS (SELECT 1 FROM bookings WHERE bookings.user_id = users.id)`,
+    ),
   ]);
 }

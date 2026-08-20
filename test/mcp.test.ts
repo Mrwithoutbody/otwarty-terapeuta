@@ -24,7 +24,7 @@ interface RpcResult {
 
 let id = 0;
 
-async function rpc(method: string, params?: unknown, token?: string): Promise<RpcResult> {
+async function rpcAt(path: string, method: string, params?: unknown, token?: string): Promise<RpcResult> {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     accept: 'application/json, text/event-stream',
@@ -33,7 +33,7 @@ async function rpc(method: string, params?: unknown, token?: string): Promise<Rp
   };
   if (token) headers.authorization = `Bearer ${token}`;
 
-  const response = await SELF.fetch('http://localhost/mcp', {
+  const response = await SELF.fetch(`http://localhost${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method, params }),
@@ -45,6 +45,9 @@ async function rpc(method: string, params?: unknown, token?: string): Promise<Rp
     .find((l) => l.trim().startsWith('{'));
   return JSON.parse(line ?? raw) as RpcResult;
 }
+
+const rpc = (method: string, params?: unknown, token?: string): Promise<RpcResult> =>
+  rpcAt('/mcp', method, params, token);
 
 const call = (name: string, args: Record<string, unknown>, token?: string): Promise<RpcResult> =>
   rpc('tools/call', { name, arguments: args }, token);
@@ -70,6 +73,11 @@ async function mintToken(email: string, scope: string): Promise<string> {
 }
 
 describe('protocol surface', () => {
+  it('does not expose an OpenAI domain challenge before the portal issues one', async () => {
+    const response = await SELF.fetch('http://localhost/.well-known/openai-apps-challenge');
+    expect(response.status).toBe(404);
+  });
+
   it('initializes and advertises the safety instructions', async () => {
     const res = await rpc('initialize', {
       protocolVersion: '2025-06-18',
@@ -77,6 +85,8 @@ describe('protocol surface', () => {
       clientInfo: { name: 'test', version: '1' },
     });
     const instructions = (res.result as unknown as { instructions?: string }).instructions ?? '';
+    const serverInfo = (res.result as unknown as { serverInfo?: { version?: string } }).serverInfo;
+    expect(serverInfo?.version).toBe('0.1.1');
     expect(instructions).toContain('get_crisis_resources');
     expect(instructions).toContain('NIE jest usługa terapeutyczna');
   });
@@ -135,6 +145,77 @@ describe('protocol surface', () => {
       expect(tool.outputSchema, tool.name as string).toBeTruthy();
       expect(String(tool.description).length).toBeGreaterThan(40);
     }
+  });
+
+  it('declares anonymous access for public tools and OAuth only for booking tools', async () => {
+    const tools = (await rpc('tools/list')).result?.tools ?? [];
+    const byName = new Map(tools.map((tool) => [tool.name as string, tool]));
+
+    for (const name of [
+      'search_therapists',
+      'get_therapist_profile',
+      'get_therapist_faq',
+      'list_available_slots',
+      'get_crisis_resources',
+      'render_otwarty_terapeuta_widget',
+    ]) {
+      const tool = byName.get(name) as { securitySchemes?: unknown; _meta?: Record<string, unknown> };
+      expect(tool.securitySchemes, name).toEqual([{ type: 'noauth' }]);
+      expect(tool._meta?.securitySchemes, name).toEqual(tool.securitySchemes);
+    }
+
+    for (const [name, scope] of [
+      ['preview_booking', 'booking:read'],
+      ['list_my_bookings', 'booking:read'],
+      ['create_booking', 'booking:write'],
+      ['cancel_booking', 'booking:write'],
+    ] as Array<[string, string]>) {
+      const tool = byName.get(name) as { securitySchemes?: unknown; _meta?: Record<string, unknown> };
+      expect(tool.securitySchemes, name).toEqual([{ type: 'oauth2', scopes: [scope] }]);
+      expect(tool._meta?.securitySchemes, name).toEqual(tool.securitySchemes);
+    }
+  });
+
+  it('provides an anonymous-only testing endpoint with no booking tools or OAuth discovery', async () => {
+    const rootMetadata = await SELF.fetch(
+      'http://localhost/.well-known/oauth-protected-resource',
+    );
+    expect(rootMetadata.status).toBe(404);
+
+    const publicMetadata = await SELF.fetch(
+      'http://localhost/.well-known/oauth-protected-resource/public/mcp',
+    );
+    expect(publicMetadata.status).toBe(404);
+
+    const protectedMetadata = await SELF.fetch(
+      'http://localhost/.well-known/oauth-protected-resource/mcp',
+    );
+    expect(protectedMetadata.status).toBe(200);
+    expect((await protectedMetadata.json()) as Record<string, unknown>).toMatchObject({
+      resource: env.PUBLIC_MCP_URL,
+    });
+
+    const tools = (await rpcAt('/public/mcp', 'tools/list')).result?.tools ?? [];
+    expect(tools.map((tool) => tool.name).sort()).toEqual(
+      [
+        'get_crisis_resources',
+        'get_therapist_faq',
+        'get_therapist_profile',
+        'list_available_slots',
+        'render_otwarty_terapeuta_widget',
+        'search_therapists',
+      ].sort(),
+    );
+    for (const tool of tools) {
+      expect(tool.securitySchemes, tool.name as string).toEqual([{ type: 'noauth' }]);
+    }
+
+    const blocked = await rpcAt('/public/mcp', 'tools/call', {
+      name: 'preview_booking',
+      arguments: { slot_id: 'sl_000000000000000000000000' },
+    });
+    expect(blocked.error?.code).toBe(-32601);
+    expect(blocked.error?.message).toContain('publicznym trybie testowym');
   });
 
   it('binds the UI resource to the rendering tool only', async () => {
@@ -319,7 +400,10 @@ describe('authorisation', () => {
     ] as Array<[string, Record<string, unknown>]>) {
       const res = await call(name, args);
       expect(res.result?.isError, name).toBe(true);
-      expect(String(res.result?._meta?.['mcp/www_authenticate']), name).toContain('resource_metadata=');
+      const challenge = String(res.result?._meta?.['mcp/www_authenticate']);
+      expect(challenge, name).toContain('error="invalid_token"');
+      expect(challenge, name).toContain('error_description=');
+      expect(challenge, name).toContain('resource_metadata=');
     }
   });
 

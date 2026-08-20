@@ -1,0 +1,42 @@
+{
+  "name": "otwarty-terapeuta",
+  "version": "0.1.1+codex.20260820172545",
+  "description": "Znajdowanie psychoterapeut\u00f3w i rezerwacja wizyt z logowaniem wymaganym dopiero przy rezerwacji.",
+  "author": {
+    "name": "Otwarty Terapeuta",
+    "email": "kontakt@otwartyterapeuta.pl",
+    "url": "https://otwartyterapeuta.pl"
+  },
+  "homepage": "https://otwartyterapeuta.pl",
+  "repository": "https://github.com/Mrwithoutbody/otwarty-terapeuta",
+  "keywords": [
+    "psychoterapia",
+    "terapeuci",
+    "rezerwacje",
+    "zdrowie psychiczne"
+  ],
+  "interface": {
+    "displayName": "Otwarty Terapeuta",
+    "shortDescription": "Znajd\u017a psychoterapeut\u0119 i sprawd\u017a wolne terminy.",
+    "longDescription": "Przeszukuj katalog psychoterapeut\u00f3w wed\u0142ug miejsca, formy spotkania, j\u0119zyka, obszar\u00f3w pracy i bud\u017cetu. Czytaj zweryfikowane profile i FAQ oraz sprawdzaj dost\u0119pne terminy bez zak\u0142adania konta. Logowanie jest wymagane dopiero do podsumowania, utworzenia lub obs\u0142ugi rezerwacji. Otwarty Terapeuta nie diagnozuje, nie prowadzi terapii i nie zast\u0119puje pomocy kryzysowej.",
+    "developerName": "Otwarty Terapeuta",
+    "category": "Health",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Interactive"
+    ],
+    "websiteURL": "https://otwartyterapeuta.pl",
+    "privacyPolicyURL": "https://otwartyterapeuta.pl/polityka-prywatnosci",
+    "termsOfServiceURL": "https://otwartyterapeuta.pl/regulamin",
+    "defaultPrompt": [
+      "Pom\u00f3\u017c mi znale\u017a\u0107 psychoterapeut\u0119 online m\u00f3wi\u0105cego po polsku.",
+      "Poka\u017c terapeut\u00f3w w Warszawie, kt\u00f3rzy pracuj\u0105 z parami.",
+      "Poka\u017c najbli\u017csze wolne terminy tego terapeuty."
+    ],
+    "brandColor": "#17514E",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg"
+  },
+  "apps": "./.app.json"
+}

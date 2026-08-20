@@ -90,10 +90,19 @@ interface Principal {
 type Guard = { ok: true; user: UserRow } | { ok: false; error: CallToolResult };
 
 /** Builds the RFC 9728 challenge a client needs in order to start OAuth. */
-function wwwAuthenticate(env: Env, scope: string): string {
+function wwwAuthenticate(
+  env: Env,
+  scope: string,
+  error: 'invalid_token' | 'insufficient_scope',
+  errorDescription: string,
+): string {
   const metadataUrl = new URL(env.PUBLIC_MCP_URL);
   const resourceMetadata = `${metadataUrl.origin}/.well-known/oauth-protected-resource${metadataUrl.pathname}`;
-  return `Bearer resource_metadata="${resourceMetadata}", scope="${scope}"`;
+  return (
+    `Bearer error="${error}", ` +
+    `error_description="${errorDescription.replace(/["\\]/g, '')}", ` +
+    `resource_metadata="${resourceMetadata}", scope="${scope}"`
+  );
 }
 
 /**
@@ -101,12 +110,22 @@ function wwwAuthenticate(env: Env, scope: string): string {
  * rather than thrown, because the endpoint itself serves anonymous callers:
  * public catalogue tools must keep working without a token.
  */
-function authChallenge(env: Env, scope: string, message: string): CallToolResult {
+function authChallenge(
+  env: Env,
+  scope: string,
+  message: string,
+  error: 'invalid_token' | 'insufficient_scope' = 'invalid_token',
+): CallToolResult {
   return {
     content: [{ type: 'text', text: message }],
     isError: true,
     _meta: {
-      'mcp/www_authenticate': wwwAuthenticate(env, scope),
+      'mcp/www_authenticate': wwwAuthenticate(
+        env,
+        scope,
+        error,
+        error === 'insufficient_scope' ? 'Additional authorization scope is required' : 'Authentication is required',
+      ),
       'openai/error_code': 'unauthorized',
     },
   };
@@ -158,7 +177,7 @@ function decodeCursor(cursor: string | undefined): number {
 export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpServer {
   return (ctx: McpRequestContext): McpServer => {
     const server = new McpServer(
-      { name: 'otwarty-terapeuta', version: '0.1.0', title: 'Otwarty Terapeuta' },
+      { name: 'otwarty-terapeuta', version: '0.1.1', title: 'Otwarty Terapeuta' },
       { instructions: SERVER_INSTRUCTIONS, capabilities: { resources: {}, tools: {} } },
     );
 
@@ -174,6 +193,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
             env,
             scope,
             `Ta operacja wymaga uprawnienia "${scope}". Połącz konto ponownie i zaakceptuj ten zakres.`,
+            'insufficient_scope',
           ),
         };
       }

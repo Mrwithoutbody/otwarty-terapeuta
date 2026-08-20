@@ -23,6 +23,8 @@ const META_ALLOWED = new Set([
   'from_status',
   'to_status',
   'scope',
+  'requested_scope',
+  'granted_scope',
   'field',
   'count',
   'price_minor',
