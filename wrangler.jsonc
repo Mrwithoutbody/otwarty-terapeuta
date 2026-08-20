@@ -1,0 +1,146 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "otwarty-terapeuta",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "workers_dev": true,
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  // --- Local / default environment -------------------------------------
+  // Replace every `REPLACE_ME` id with the value printed by the matching
+  // `wrangler d1 create` / `wrangler r2 bucket create` command (see README).
+  "vars": {
+    "ENVIRONMENT": "local",
+    "PUBLIC_BASE_URL": "http://localhost:8787",
+    "PUBLIC_MCP_URL": "http://localhost:8787/mcp",
+    // Empty until the plugin card is published in the OpenAI panel.
+    // The site then renders a controlled "Plugin w przygotowaniu" notice.
+    "PUBLIC_PLUGIN_URL": "",
+    "TERMS_VERSION": "2026-08-01",
+    "PRIVACY_VERSION": "2026-08-01",
+    // Turnstile "always passes" TEST key - safe to commit, never used in prod.
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "otwarty-terapeuta",
+      // Local-only placeholder. `wrangler d1 create` prints the real id for remote use.
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "otwarty-terapeuta-media" }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "BOOKING_COORDINATOR", "class_name": "TherapistBookingCoordinator" }
+    ]
+  },
+
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["TherapistBookingCoordinator"] }
+  ],
+
+  "ratelimits": [
+    { "name": "RL_PUBLIC", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+    { "name": "RL_WRITE", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_AUTH", "namespace_id": "1003", "simple": { "limit": 8, "period": 60 } }
+  ],
+
+  "env": {
+    "preview": {
+      "vars": {
+        "ENVIRONMENT": "preview",
+        "PUBLIC_BASE_URL": "https://otwarty-terapeuta-preview.gotoreadyai.workers.dev",
+        "PUBLIC_MCP_URL": "https://otwarty-terapeuta-preview.gotoreadyai.workers.dev/mcp",
+        "PUBLIC_PLUGIN_URL": "",
+        "TERMS_VERSION": "2026-08-01",
+        "PRIVACY_VERSION": "2026-08-01",
+        // Cloudflare's documented TEST key: the challenge ALWAYS passes.
+        // Replace with a real Turnstile site key before letting anyone but the
+        // team near this environment.
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+        "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "otwarty-terapeuta-preview",
+          "database_id": "11e37832-172a-4917-b507-a663b48a1277",
+          "migrations_dir": "migrations"
+        }
+      ],
+      // R2 is not enabled on this account yet. The MEDIA binding is optional:
+      // without it `/media/:key` returns 404 and everything else works.
+      // To enable photo uploads: turn on R2 in the dashboard, run
+      // `wrangler r2 bucket create otwarty-terapeuta-media-preview`, then
+      // restore this block.
+      // "r2_buckets": [
+      //   { "binding": "MEDIA", "bucket_name": "otwarty-terapeuta-media-preview" }
+      // ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "BOOKING_COORDINATOR", "class_name": "TherapistBookingCoordinator" }
+        ]
+      },
+      "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["TherapistBookingCoordinator"] }
+      ],
+      "ratelimits": [
+        { "name": "RL_PUBLIC", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+        { "name": "RL_WRITE", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "RL_AUTH", "namespace_id": "1003", "simple": { "limit": 8, "period": 60 } }
+      ]
+    },
+
+    "production": {
+      "vars": {
+        "ENVIRONMENT": "production",
+        "PUBLIC_BASE_URL": "https://otwartyterapeuta.pl",
+        "PUBLIC_MCP_URL": "https://mcp.otwartyterapeuta.pl/mcp",
+        "PUBLIC_PLUGIN_URL": "",
+        "TERMS_VERSION": "2026-08-01",
+        "PRIVACY_VERSION": "2026-08-01",
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAEWXHmpKhU2Qq-rI",
+        "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
+      },
+      "routes": [
+        { "pattern": "otwartyterapeuta.pl", "custom_domain": true },
+        { "pattern": "www.otwartyterapeuta.pl", "custom_domain": true },
+        { "pattern": "mcp.otwartyterapeuta.pl", "custom_domain": true }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "otwarty-terapeuta-prod",
+          "database_id": "9186df20-81e8-405b-aa74-b8812c082751",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        { "binding": "MEDIA", "bucket_name": "otwarty-terapeuta-media-prod" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "BOOKING_COORDINATOR", "class_name": "TherapistBookingCoordinator" }
+        ]
+      },
+      "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["TherapistBookingCoordinator"] }
+      ],
+      "ratelimits": [
+        { "name": "RL_PUBLIC", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+        { "name": "RL_WRITE", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "RL_AUTH", "namespace_id": "1003", "simple": { "limit": 8, "period": 60 } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,1320 @@
+import { Hono } from 'hono';
+import type { Env } from '../env';
+import { getTherapistRowForAdmin } from '../db/catalog';
+import type { TherapistRow } from '../db/types';
+import { eraseUserData, exportUserData, findOrCreateUserByEmail, type UserRow } from '../db/users';
+import {
+  createAdminSession,
+  destroyAdminSession,
+  loadAdminSession,
+  ownsTherapist,
+  verifyCsrf,
+  type AdminSession,
+} from '../auth/session';
+import { audit } from '../lib/audit';
+import {
+  decryptPii,
+  emailLookupHash,
+  encryptPii,
+  hmacHex,
+  randomId,
+  randomLoginCode,
+  timingSafeEqual,
+} from '../lib/crypto';
+import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import {
+  addCivilDays,
+  civilDateIn,
+  DEFAULT_TIMEZONE,
+  formatDateTime,
+  formatPrice,
+  isoPlusSeconds,
+  isValidTimezone,
+  nowIso,
+  weekdayIn,
+  zonedTimeToUtc,
+} from '../lib/time';
+import { verifyTurnstile } from '../lib/turnstile';
+import { drainOutbox, enqueueNotification } from '../notify/outbox';
+import { htmlResponse, renderPage } from './layout';
+
+/**
+ * Admin panel. Server-rendered, CSRF-protected, least privilege:
+ *
+ *  - `admin`     - everything;
+ *  - `therapist` - only their own profile, FAQ, offer and availability;
+ *  - `support`   - bookings (minimal fields) and cancellation only. Support
+ *                  never sees verification notes or contact details.
+ */
+
+export const adminApp = new Hono<{ Bindings: Env }>();
+
+const LOGIN_CODE_TTL_SECONDS = 900;
+
+function page(env: Env, title: string, body: string, status = 200, turnstile = false): Response {
+  return htmlResponse(
+    env,
+    renderPage(env, { title, path: '/admin', noindex: true, body }),
+    { status },
+    turnstile,
+  );
+}
+
+function csrfField(session: AdminSession): string {
+  return `<input type="hidden" name="csrf" value="${escapeHtml(session.csrfToken)}">`;
+}
+
+function signingKey(env: Env): string {
+  if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
+  return env.TOKEN_SIGNING_KEY;
+}
+
+async function formValues(request: Request): Promise<URLSearchParams> {
+  const form = await request.formData();
+  const params = new URLSearchParams();
+  for (const [key, value] of form.entries()) {
+    if (typeof value === 'string') params.append(key, value);
+  }
+  return params;
+}
+
+/** Every mutating admin route starts here: session + CSRF + role. */
+async function guard(
+  c: { env: Env; req: { raw: Request } },
+  body: URLSearchParams,
+  roles: Array<UserRow['role']>,
+): Promise<{ session: AdminSession } | { response: Response }> {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return { response: page(c.env, 'Zaloguj się', loginForm(c.env), 401, true) };
+  if (!(await verifyCsrf(c.env, c.req.raw, body.get('csrf') ?? ''))) {
+    return { response: page(c.env, 'Błąd', '<h1>Nieprawidłowy token formularza</h1><p>Odśwież stronę i spróbuj ponownie.</p>', 403) };
+  }
+  if (!roles.includes(session.user.role)) {
+    return { response: page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1><p>Twoja rola nie pozwala na tę operację.</p>', 403) };
+  }
+  return { session };
+}
+
+// ------------------------------------------------------------------ login ---
+
+function loginForm(env: Env, error?: string): string {
+  return `
+<h1>Panel administracyjny</h1>
+${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
+<form method="post" action="/admin/login">
+  <div class="field">
+    <label for="email">Adres e-mail</label>
+    <input id="email" name="email" type="email" autocomplete="email" required maxlength="254">
+    <p class="hint">Wyślemy jednorazowy kod. Panel nie używa haseł.</p>
+  </div>
+  <div class="cf-turnstile" data-sitekey="${escapeHtml(env.TURNSTILE_SITE_KEY)}" data-theme="auto"></div>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <p><button class="btn" type="submit">Wyślij kod</button></p>
+</form>`;
+}
+
+function codeForm(challengeId: string, error?: string): string {
+  return `
+<h1>Wpisz kod</h1>
+${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
+<form method="post" action="/admin/login/confirm">
+  <input type="hidden" name="challenge_id" value="${escapeHtml(challengeId)}">
+  <div class="field">
+    <label for="code">Kod jednorazowy</label>
+    <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" required maxlength="6"
+           autocomplete="one-time-code">
+  </div>
+  <p><button class="btn" type="submit">Zaloguj</button></p>
+</form>`;
+}
+
+adminApp.post('/login', async (c) => {
+  const body = await formValues(c.req.raw);
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  if (!(await c.env.RL_AUTH.limit({ key: `admin-login:${ip}` })).success) {
+    return page(c.env, 'Zaloguj się', loginForm(c.env, 'Zbyt wiele prób. Spróbuj za minutę.'), 429, true);
+  }
+
+  const email = (body.get('email') ?? '').trim().toLowerCase();
+  if (!isEmail(email)) return page(c.env, 'Zaloguj się', loginForm(c.env, 'Podaj poprawny adres e-mail.'), 400, true);
+  if (!(await verifyTurnstile(c.env, body.get('cf-turnstile-response'), ip))) {
+    return page(c.env, 'Zaloguj się', loginForm(c.env, 'Weryfikacja antyspamowa nie powiodła się.'), 400, true);
+  }
+
+  const key = signingKey(c.env);
+  const challengeId = randomId('lc');
+  const code = randomLoginCode();
+  const emailHash = await emailLookupHash(key, email);
+
+  // Only an existing account may receive a panel code. The response is
+  // identical either way, so the form cannot be used to enumerate staff.
+  const existing = await c.env.DB.prepare(
+    `SELECT id, role FROM users WHERE email_hash = ? AND deleted_at IS NULL`,
+  )
+    .bind(emailHash)
+    .first<{ id: string; role: string }>();
+
+  const bootstrap = (c.env.ADMIN_BOOTSTRAP_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email);
+
+  if ((existing && existing.role !== 'user') || bootstrap) {
+    await c.env.DB.prepare(
+      `INSERT INTO login_challenges (id, email_hash, email_enc, code_hash, purpose, context, attempts, expires_at, created_at)
+       VALUES (?, ?, ?, ?, 'admin', '{}', 0, ?, ?)`,
+    )
+      .bind(
+        challengeId,
+        emailHash,
+        await encryptPii(c.env.PII_ENC_KEY ?? '', email),
+        await hmacHex(key, `login:${challengeId}:${code}`),
+        isoPlusSeconds(LOGIN_CODE_TTL_SECONDS),
+        nowIso(),
+      )
+      .run();
+    await enqueueNotification(c.env, 'admin.login_code', null, {
+      to: email,
+      subject: 'Kod logowania do panelu — Otwarty Terapeuta',
+      text: `Kod logowania do panelu: ${code}\nKod jest ważny 15 minut.`,
+    });
+    c.executionCtx.waitUntil(drainOutbox(c.env, 5));
+  }
+
+  return page(c.env, 'Wpisz kod', codeForm(challengeId));
+});
+
+adminApp.post('/login/confirm', async (c) => {
+  const body = await formValues(c.req.raw);
+  const challengeId = body.get('challenge_id') ?? '';
+  const submitted = (body.get('code') ?? '').trim();
+  const key = signingKey(c.env);
+
+  const challenge = await c.env.DB.prepare(
+    `SELECT id, email_enc, code_hash, attempts, expires_at, consumed_at
+       FROM login_challenges WHERE id = ? AND purpose = 'admin'`,
+  )
+    .bind(challengeId)
+    .first<{
+      id: string;
+      email_enc: string;
+      code_hash: string;
+      attempts: number;
+      expires_at: string;
+      consumed_at: string | null;
+    }>();
+
+  const fail = (message: string): Response => page(c.env, 'Wpisz kod', codeForm(challengeId, message), 400);
+  if (!challenge || challenge.consumed_at !== null) return fail('Kod jest nieprawidłowy lub został użyty.');
+  if (Date.parse(challenge.expires_at) < Date.now()) return fail('Kod wygasł.');
+  if (challenge.attempts >= 5) return fail('Przekroczono liczbę prób.');
+  if (!timingSafeEqual(await hmacHex(key, `login:${challengeId}:${submitted}`), challenge.code_hash)) {
+    await c.env.DB.prepare(`UPDATE login_challenges SET attempts = attempts + 1 WHERE id = ?`)
+      .bind(challengeId)
+      .run();
+    return fail('Kod jest nieprawidłowy.');
+  }
+
+  const email = await decryptPii(c.env.PII_ENC_KEY ?? '', challenge.email_enc);
+  const user = await findOrCreateUserByEmail(c.env, email);
+  if (user.role === 'user') {
+    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1><p>To konto nie ma dostępu do panelu.</p>', 403);
+  }
+
+  await c.env.DB.prepare(`UPDATE login_challenges SET consumed_at = ? WHERE id = ?`)
+    .bind(nowIso(), challengeId)
+    .run();
+  const { cookie } = await createAdminSession(c.env, user.id);
+  await audit(c.env, {
+    actorType: user.role === 'admin' ? 'admin' : user.role === 'support' ? 'support' : 'therapist',
+    actorId: user.id,
+    action: 'admin.login',
+    subjectType: 'user',
+    subjectId: user.id,
+    meta: { role: user.role },
+  });
+
+  return new Response(null, { status: 302, headers: { location: '/admin', 'set-cookie': cookie } });
+});
+
+adminApp.post('/logout', async (c) => {
+  const cookie = await destroyAdminSession(c.env, c.req.raw);
+  return new Response(null, { status: 302, headers: { location: '/admin', 'set-cookie': cookie } });
+});
+
+// -------------------------------------------------------------- dashboard ---
+
+adminApp.get('/', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 200, true);
+  const { user } = session;
+
+  const scopeClause = user.role === 'therapist' ? `WHERE id = ?` : '';
+  const therapistsQuery = c.env.DB.prepare(
+    `SELECT id, slug, display_name, status, verification_status, is_demo, accepting_new_clients
+       FROM therapists ${scopeClause} ${scopeClause ? '' : 'WHERE deleted_at IS NULL'} ORDER BY display_name`,
+  );
+  const therapists = await (user.role === 'therapist'
+    ? therapistsQuery.bind(user.therapist_id ?? '')
+    : therapistsQuery
+  ).all<{
+    id: string;
+    slug: string;
+    display_name: string;
+    status: string;
+    verification_status: string;
+    is_demo: number;
+    accepting_new_clients: number;
+  }>();
+
+  const upcoming = await c.env.DB.prepare(
+    `SELECT b.id, b.public_ref, b.status, b.starts_at_utc, b.timezone, b.price_minor, b.currency,
+            t.display_name
+       FROM bookings b JOIN therapists t ON t.id = b.therapist_id
+      ${user.role === 'therapist' ? 'WHERE b.therapist_id = ?' : ''}
+      ORDER BY b.starts_at_utc DESC LIMIT 25`,
+  )
+    .bind(...(user.role === 'therapist' ? [user.therapist_id ?? ''] : []))
+    .all<{
+      id: string;
+      public_ref: string;
+      status: string;
+      starts_at_utc: string;
+      timezone: string;
+      price_minor: number;
+      currency: string;
+      display_name: string;
+    }>();
+
+  const pendingProfiles = therapists.results.filter(
+    (t) => t.status === 'draft' && t.verification_status === 'unverified' && !t.is_demo,
+  ).length;
+
+  return page(
+    c.env,
+    'Panel',
+    `
+<h1>Panel administracyjny</h1>
+<p class="meta">Zalogowano jako <strong>${escapeHtml(user.role)}</strong>.
+<form method="post" action="/admin/logout" style="display:inline">${csrfField(session)}
+<button class="btn secondary" type="submit">Wyloguj</button></form></p>
+
+${
+  user.role === 'admin' && pendingProfiles > 0
+    ? `<div class="notice"><p><strong>Nowe zgłoszenia:</strong> ${pendingProfiles}. Profile są robocze i niezweryfikowane; przejrzyj je przed publikacją.</p></div>`
+    : ''
+}
+
+<h2>Profile terapeutów</h2>
+<div class="table-scroll">
+<table>
+  <thead><tr><th scope="col">Nazwa</th><th scope="col">Status</th><th scope="col">Weryfikacja</th>
+  <th scope="col">Nowe osoby</th><th scope="col">Akcje</th></tr></thead>
+  <tbody>
+  ${therapists.results
+    .map(
+      (t) => `<tr>
+      <td>${escapeHtml(t.display_name)}${t.is_demo ? ' <span class="tag demo">DEMO</span>' : ''}</td>
+      <td>${escapeHtml(t.status)}</td>
+      <td>${escapeHtml(t.verification_status)}</td>
+      <td>${t.accepting_new_clients ? 'tak' : 'nie'}</td>
+      <td><a href="/admin/terapeuci/${escapeHtml(t.id)}">Edytuj</a></td>
+    </tr>`,
+    )
+    .join('')}
+  </tbody>
+</table>
+</div>
+${user.role === 'admin' ? `<p><a class="btn" href="/admin/terapeuci/nowy">Dodaj profil</a></p>` : ''}
+
+<h2>Rezerwacje</h2>
+<div class="table-scroll">
+<table>
+  <thead><tr><th scope="col">Numer</th><th scope="col">Terapeuta</th><th scope="col">Termin</th>
+  <th scope="col">Cena</th><th scope="col">Status</th><th scope="col">Akcje</th></tr></thead>
+  <tbody>
+  ${upcoming.results
+    .map(
+      (b) => `<tr>
+      <td>${escapeHtml(b.public_ref)}</td>
+      <td>${escapeHtml(b.display_name)}</td>
+      <td>${escapeHtml(formatDateTime(b.starts_at_utc, b.timezone))}</td>
+      <td>${escapeHtml(formatPrice(b.price_minor, b.currency))}</td>
+      <td>${b.status === 'cancelled' ? 'odwołana' : 'potwierdzona'}</td>
+      <td>${
+        b.status === 'confirmed'
+          ? `<form method="post" action="/admin/rezerwacje/${escapeHtml(b.id)}/anuluj">
+               ${csrfField(session)}
+               <label class="visually-hidden" for="r-${escapeHtml(b.id)}">Powód odwołania</label>
+               <input id="r-${escapeHtml(b.id)}" name="reason" required maxlength="120" placeholder="powód (audyt)">
+               <button class="btn secondary" type="submit">Odwołaj</button>
+             </form>`
+          : '—'
+      }</td>
+    </tr>`,
+    )
+    .join('')}
+  </tbody>
+</table>
+</div>
+<p class="hint">Panel pokazuje wyłącznie minimalne dane rezerwacji. Dane kontaktowe klienta są
+zaszyfrowane i nie są wyświetlane.</p>
+
+${
+  user.role === 'admin'
+    ? `<h2>Administracja</h2>
+<ul>
+  <li><a href="/admin/kryzys">Zasoby kryzysowe i data weryfikacji</a></li>
+  <li><a href="/admin/uzytkownicy">Eksport i usunięcie danych użytkownika</a></li>
+  <li><a href="/admin/audyt">Historia operacji</a></li>
+</ul>`
+    : ''
+}`,
+  );
+});
+
+// -------------------------------------------------------- therapist editor ---
+
+function therapistForm(session: AdminSession, row: TherapistRow | null): string {
+  const v = <K extends keyof TherapistRow>(key: K, fallback = ''): string =>
+    escapeHtml(row ? String(row[key] ?? fallback) : fallback);
+  const isAdmin = session.user.role === 'admin';
+
+  return `
+<h1>${row ? `Profil: ${escapeHtml(row.display_name)}` : 'Nowy profil'}</h1>
+<form method="post" action="/admin/terapeuci/${row ? escapeHtml(row.id) : 'nowy'}">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="display_name">Imię i nazwisko</label>
+      <input id="display_name" name="display_name" required maxlength="120" value="${v('display_name')}"></div>
+    <div class="field"><label for="slug">Adres profilu (slug)</label>
+      <input id="slug" name="slug" required maxlength="80" pattern="[a-z0-9-]+" value="${v('slug')}"></div>
+  </div>
+  <div class="field"><label for="headline">Nagłówek</label>
+    <input id="headline" name="headline" maxlength="200" value="${v('headline')}"></div>
+  <div class="field"><label for="bio">Opis doświadczenia i sposobu pracy</label>
+    <textarea id="bio" name="bio" maxlength="4000">${v('bio')}</textarea></div>
+  <div class="field"><label for="photo_url">Adres zdjęcia (https lub /media/...)</label>
+    <input id="photo_url" name="photo_url" maxlength="500" value="${v('photo_url')}"></div>
+  <div class="field-row two">
+    <div class="field"><label for="city">Miejscowość (gabinet)</label>
+      <input id="city" name="city" maxlength="80"></div>
+    <div class="field"><label for="address_line">Adres gabinetu</label>
+      <input id="address_line" name="address_line" maxlength="160"></div>
+  </div>
+  <fieldset>
+    <legend>Forma spotkań</legend>
+    <div class="checkbox"><input id="offers_online" name="offers_online" type="checkbox" value="1"${row?.offers_online ? ' checked' : ''}>
+      <label for="offers_online">online</label></div>
+    <div class="checkbox"><input id="offers_in_person" name="offers_in_person" type="checkbox" value="1"${row?.offers_in_person ? ' checked' : ''}>
+      <label for="offers_in_person">stacjonarnie</label></div>
+    <div class="checkbox"><input id="accepting" name="accepting_new_clients" type="checkbox" value="1"${row?.accepting_new_clients ? ' checked' : ''}>
+      <label for="accepting">przyjmuje nowe osoby</label></div>
+  </fieldset>
+  <div class="field-row two">
+    <div class="field"><label for="session_types">Typy spotkań (JSON)</label>
+      <input id="session_types" name="session_types" value="${v('session_types', '["individual"]')}"></div>
+    <div class="field"><label for="age_groups">Grupy wiekowe (JSON)</label>
+      <input id="age_groups" name="age_groups" value="${v('age_groups', '["adults"]')}"></div>
+  </div>
+  <div class="field"><label for="credentials">Kwalifikacje (JSON: title, issuer, year, verified)</label>
+    <textarea id="credentials" name="credentials">${v('credentials', '[]')}</textarea></div>
+  <div class="field-row two">
+    <div class="field"><label for="languages">Języki (kody, po przecinku)</label>
+      <input id="languages" name="languages" maxlength="60" placeholder="pl,en"></div>
+    <div class="field"><label for="topics">Obszary pracy (slug, po przecinku)</label>
+      <input id="topics" name="topics" maxlength="300"></div>
+  </div>
+  <div class="field"><label for="modalities">Nurty (slug, po przecinku)</label>
+    <input id="modalities" name="modalities" maxlength="300"></div>
+  <div class="field-row two">
+    <div class="field"><label for="cancellation_policy">Zasady odwołania</label>
+      <input id="cancellation_policy" name="cancellation_policy" maxlength="500" value="${v('cancellation_policy')}"></div>
+    <div class="field"><label for="cutoff">Bezpłatne odwołanie (godziny przed sesją)</label>
+      <input id="cutoff" name="cancellation_cutoff_h" type="number" min="0" max="168" value="${v('cancellation_cutoff_h', '24')}"></div>
+  </div>
+  ${
+    isAdmin
+      ? `<fieldset>
+    <legend>Weryfikacja i publikacja (tylko administrator)</legend>
+    <div class="field"><label for="verification_status">Status weryfikacji</label>
+      <select id="verification_status" name="verification_status">
+        <option value="unverified"${row?.verification_status === 'unverified' ? ' selected' : ''}>niezweryfikowany</option>
+        <option value="verified"${row?.verification_status === 'verified' ? ' selected' : ''}>zweryfikowany</option>
+        <option value="rejected"${row?.verification_status === 'rejected' ? ' selected' : ''}>odrzucony</option>
+      </select></div>
+    <div class="field"><label for="verification_notes">Notatki weryfikacyjne (prywatne, nigdy publiczne)</label>
+      <textarea id="verification_notes" name="verification_notes">${v('verification_notes')}</textarea></div>
+    <div class="field"><label for="status">Status profilu</label>
+      <select id="status" name="status">
+        <option value="draft"${row?.status === 'draft' ? ' selected' : ''}>roboczy</option>
+        <option value="published"${row?.status === 'published' ? ' selected' : ''}>opublikowany</option>
+        <option value="unpublished"${row?.status === 'unpublished' ? ' selected' : ''}>wycofany</option>
+      </select></div>
+  </fieldset>`
+      : ''
+  }
+  <p><button class="btn" type="submit">Zapisz</button></p>
+</form>
+
+${
+  row
+    ? `<h2>FAQ</h2>
+<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/faq">
+  ${csrfField(session)}
+  <div class="field"><label for="q">Pytanie</label><input id="q" name="question" required maxlength="200"></div>
+  <div class="field"><label for="a">Odpowiedź (treść terapeuty)</label><textarea id="a" name="answer" required maxlength="2000"></textarea></div>
+  <div class="field-row two">
+    <div class="field"><label for="cat">Kategoria</label>
+      <select id="cat" name="category">
+        <option value="first_session">pierwsze spotkanie</option>
+        <option value="modality">nurt pracy</option>
+        <option value="cancellation">odwoływanie wizyt</option>
+        <option value="online">sesje online</option>
+        <option value="payment">płatności</option>
+        <option value="confidentiality">poufność</option>
+        <option value="accessibility">dostępność gabinetu</option>
+        <option value="scope">zakres pracy</option>
+        <option value="general">inne</option>
+      </select></div>
+    <div class="field"><label for="pos">Kolejność</label><input id="pos" name="position" type="number" min="0" max="99" value="0"></div>
+  </div>
+  <div class="checkbox"><input id="approved" name="approved" type="checkbox" value="1" required>
+    <label for="approved">Potwierdzam, że tę odpowiedź napisał lub zatwierdził terapeuta</label></div>
+  <p><button class="btn" type="submit">Dodaj i opublikuj</button></p>
+</form>
+
+<h2>Oferta</h2>
+<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/oferta">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="o_title">Nazwa</label><input id="o_title" name="title" required maxlength="120"></div>
+    <div class="field"><label for="o_type">Typ</label>
+      <select id="o_type" name="session_type">
+        <option value="individual">indywidualna</option><option value="couples">para</option><option value="family">rodzina</option>
+      </select></div>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label for="o_mode">Forma</label>
+      <select id="o_mode" name="mode"><option value="online">online</option><option value="in_person">stacjonarnie</option></select></div>
+    <div class="field"><label for="o_dur">Czas (min)</label><input id="o_dur" name="duration_minutes" type="number" min="15" max="240" value="50"></div>
+  </div>
+  <div class="field"><label for="o_price">Cena (zł)</label><input id="o_price" name="price" type="number" min="0" max="5000" step="10" value="200"></div>
+  <p><button class="btn" type="submit">Dodaj ofertę</button></p>
+</form>
+
+<h2>Dostępność</h2>
+<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/terminy">
+  ${csrfField(session)}
+  <div class="field"><label for="t_offer">Oferta</label>
+    <select id="t_offer" name="offer_id" required>
+      <option value="">— wybierz —</option>
+    </select>
+    <p class="hint">Lista ofert jest wypełniana po zapisaniu oferty; identyfikator znajdziesz w tabeli poniżej.</p></div>
+  <div class="field-row two">
+    <div class="field"><label for="t_offer_id">Identyfikator oferty</label><input id="t_offer_id" name="offer_id_manual" maxlength="64"></div>
+    <div class="field"><label for="t_days">Liczba dni do wygenerowania</label><input id="t_days" name="days" type="number" min="1" max="60" value="14"></div>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label for="t_hours">Godziny (lokalnie, po przecinku)</label><input id="t_hours" name="hours" value="9,11,13,15"></div>
+    <div class="field"><label for="t_tz">Strefa czasowa terapeuty</label>
+      <input id="t_tz" name="timezone" value="${escapeHtml(row?.timezone ?? 'Europe/Warsaw')}" maxlength="64">
+      <p class="hint">Godziny poniżej są godzinami lokalnymi w tej strefie. Zmiana czasu jest uwzględniana automatycznie.</p></div>
+  </div>
+  <p><button class="btn" type="submit">Wygeneruj wolne terminy</button></p>
+</form>
+
+<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/blokuj">
+  ${csrfField(session)}
+  <div class="field"><label for="b_slot">Zablokuj termin (slot_id)</label><input id="b_slot" name="slot_id" required maxlength="64"></div>
+  <div class="field"><label for="b_reason">Powód</label><input id="b_reason" name="reason" maxlength="120"></div>
+  <p><button class="btn secondary" type="submit">Zablokuj termin</button></p>
+</form>`
+    : ''
+}`;
+}
+
+adminApp.get('/terapeuci/nowy', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  if (session.user.role !== 'admin') {
+    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  }
+  return page(c.env, 'Nowy profil', therapistForm(session, null));
+});
+
+adminApp.get('/terapeuci/:id', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  const id = c.req.param('id');
+  if (!ownsTherapist(session.user, id)) {
+    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1><p>Możesz edytować wyłącznie własny profil.</p>', 403);
+  }
+  const row = await getTherapistRowForAdmin(c.env, id);
+  if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
+
+  const offers = await c.env.DB.prepare(
+    `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active
+       FROM session_offers WHERE therapist_id = ? ORDER BY created_at`,
+  )
+    .bind(id)
+    .all<{
+      id: string;
+      title: string;
+      session_type: string;
+      mode: string;
+      duration_minutes: number;
+      price_minor: number;
+      currency: string;
+      active: number;
+    }>();
+
+  const faq = await c.env.DB.prepare(
+    `SELECT id, question, status, position, updated_at FROM faq_items WHERE therapist_id = ? ORDER BY position`,
+  )
+    .bind(id)
+    .all<{ id: string; question: string; status: string; position: number; updated_at: string }>();
+
+  return page(
+    c.env,
+    row.display_name,
+    therapistForm(session, row) +
+      `
+<h2>Istniejące oferty</h2>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">ID</th><th scope="col">Nazwa</th><th scope="col">Forma</th><th scope="col">Cena</th><th scope="col">Aktywna</th></tr></thead>
+<tbody>${offers.results
+        .map(
+          (o) =>
+            `<tr><td><code>${escapeHtml(o.id)}</code></td><td>${escapeHtml(o.title)}</td>
+             <td>${escapeHtml(o.mode)} / ${escapeHtml(o.session_type)}</td>
+             <td>${escapeHtml(formatPrice(o.price_minor, o.currency))}</td><td>${o.active ? 'tak' : 'nie'}</td></tr>`,
+        )
+        .join('')}</tbody></table></div>
+
+<h2>Istniejące FAQ</h2>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Pytanie</th><th scope="col">Status</th><th scope="col">Akcje</th></tr></thead>
+<tbody>${faq.results
+        .map(
+          (f) =>
+            `<tr><td>${escapeHtml(f.question)}</td><td>${escapeHtml(f.status)}</td>
+             <td><form method="post" action="/admin/faq/${escapeHtml(f.id)}/status" style="display:inline">
+               ${csrfField(session)}
+               <button class="btn secondary" name="status" value="${f.status === 'published' ? 'draft' : 'published'}" type="submit">
+                 ${f.status === 'published' ? 'Wycofaj' : 'Opublikuj'}</button>
+             </form></td></tr>`,
+        )
+        .join('')}</tbody></table></div>`,
+  );
+});
+
+function parseSlugList(value: string | null, max = 12): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => /^[a-z0-9-]{1,64}$/.test(v))
+    .slice(0, max);
+}
+
+function parseJsonList(value: string | null, allowed: string[]): string {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]');
+    if (!Array.isArray(parsed)) return '[]';
+    return JSON.stringify(parsed.filter((v): v is string => typeof v === 'string' && allowed.includes(v)));
+  } catch {
+    return '[]';
+  }
+}
+
+adminApp.post('/terapeuci/:id', async (c) => {
+  const body = await formValues(c.req.raw);
+  const id = c.req.param('id');
+  const isNew = id === 'nowy';
+  const g = await guard(c, body, isNew ? ['admin'] : ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const { session } = g;
+
+  if (!isNew && !ownsTherapist(session.user, id)) {
+    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  }
+
+  const therapistIdValue = isNew ? randomId('th') : id;
+  const at = nowIso();
+  const slug = sanitizeLine(body.get('slug') ?? '', 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80);
+  if (!slug) return page(c.env, 'Błąd', '<h1>Nieprawidłowy slug</h1>', 400);
+
+  const isAdmin = session.user.role === 'admin';
+  const existing = isNew ? null : await getTherapistRowForAdmin(c.env, id);
+
+  const values = {
+    slug,
+    display_name: sanitizeLine(body.get('display_name') ?? '', 120),
+    headline: sanitizeLine(body.get('headline') ?? '', 200),
+    bio: sanitizeRichText(body.get('bio') ?? '', 4000),
+    photo_url: sanitizeLine(body.get('photo_url') ?? '', 500),
+    offers_online: body.get('offers_online') === '1' ? 1 : 0,
+    offers_in_person: body.get('offers_in_person') === '1' ? 1 : 0,
+    accepting_new_clients: body.get('accepting_new_clients') === '1' ? 1 : 0,
+    session_types: parseJsonList(body.get('session_types'), ['individual', 'couples', 'family']),
+    age_groups: parseJsonList(body.get('age_groups'), ['adults', 'teens', 'children', 'seniors']),
+    credentials: sanitizeRichText(body.get('credentials') ?? '[]', 4000),
+    cancellation_policy: sanitizeLine(body.get('cancellation_policy') ?? '', 500),
+    cancellation_cutoff_h: Math.min(Math.max(Number(body.get('cancellation_cutoff_h') ?? 24) || 24, 0), 168),
+    // Verification and publication remain admin-only, whatever the form posts.
+    verification_status: isAdmin
+      ? (['unverified', 'verified', 'rejected'].includes(body.get('verification_status') ?? '')
+          ? (body.get('verification_status') as string)
+          : 'unverified')
+      : (existing?.verification_status ?? 'unverified'),
+    verification_notes: isAdmin
+      ? sanitizeRichText(body.get('verification_notes') ?? '', 2000)
+      : (existing?.verification_notes ?? null),
+    status: isAdmin
+      ? (['draft', 'published', 'unpublished'].includes(body.get('status') ?? '')
+          ? (body.get('status') as string)
+          : 'draft')
+      : (existing?.status ?? 'draft'),
+  };
+  const verifiedAt =
+    values.verification_status === 'verified'
+      ? (existing?.verification_status === 'verified' ? existing.verified_at : at)
+      : null;
+
+  try {
+    JSON.parse(values.credentials);
+  } catch {
+    return page(c.env, 'Błąd', '<h1>Pole „Kwalifikacje” nie jest poprawnym JSON-em</h1>', 400);
+  }
+
+  if (isNew) {
+    await c.env.DB.prepare(
+      `INSERT INTO therapists (id, slug, display_name, headline, bio, photo_url, offers_online, offers_in_person,
+                               accepting_new_clients, age_groups, session_types, credentials, verification_status,
+                               verified_at, verification_notes, status, is_demo, timezone, cancellation_policy,
+                               cancellation_cutoff_h, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)`,
+    )
+      .bind(
+        therapistIdValue,
+        values.slug,
+        values.display_name,
+        values.headline,
+        values.bio,
+        values.photo_url || null,
+        values.offers_online,
+        values.offers_in_person,
+        values.accepting_new_clients,
+        values.age_groups,
+        values.session_types,
+        values.credentials,
+        values.verification_status,
+        verifiedAt,
+        values.verification_notes,
+        values.status,
+        values.cancellation_policy,
+        values.cancellation_cutoff_h,
+        at,
+        at,
+      )
+      .run();
+  } else {
+    await c.env.DB.prepare(
+      `UPDATE therapists SET slug=?, display_name=?, headline=?, bio=?, photo_url=?, offers_online=?,
+              offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?, credentials=?,
+              verification_status=?, verified_at=?, verification_notes=?, status=?, cancellation_policy=?,
+              cancellation_cutoff_h=?, updated_at=? WHERE id=?`,
+    )
+      .bind(
+        values.slug,
+        values.display_name,
+        values.headline,
+        values.bio,
+        values.photo_url || null,
+        values.offers_online,
+        values.offers_in_person,
+        values.accepting_new_clients,
+        values.age_groups,
+        values.session_types,
+        values.credentials,
+        values.verification_status,
+        verifiedAt,
+        values.verification_notes,
+        values.status,
+        values.cancellation_policy,
+        values.cancellation_cutoff_h,
+        at,
+        therapistIdValue,
+      )
+      .run();
+  }
+
+  // Relations are replaced wholesale - simpler and always consistent.
+  const languages = parseSlugList(body.get('languages'), 8);
+  const topics = parseSlugList(body.get('topics'), 12);
+  const modalities = parseSlugList(body.get('modalities'), 8);
+  const city = sanitizeLine(body.get('city') ?? '', 80);
+
+  const statements = [
+    c.env.DB.prepare(`DELETE FROM therapist_languages WHERE therapist_id = ?`).bind(therapistIdValue),
+    c.env.DB.prepare(`DELETE FROM therapist_specialties WHERE therapist_id = ?`).bind(therapistIdValue),
+    c.env.DB.prepare(`DELETE FROM therapist_modalities WHERE therapist_id = ?`).bind(therapistIdValue),
+  ];
+  for (const code of languages) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT OR IGNORE INTO therapist_languages (therapist_id, language_code)
+         SELECT ?, code FROM languages WHERE code = ?`,
+      ).bind(therapistIdValue, code),
+    );
+  }
+  for (const s of topics) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT OR IGNORE INTO therapist_specialties (therapist_id, specialty_slug)
+         SELECT ?, slug FROM specialties WHERE slug = ?`,
+      ).bind(therapistIdValue, s),
+    );
+  }
+  for (const m of modalities) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT OR IGNORE INTO therapist_modalities (therapist_id, modality_slug)
+         SELECT ?, slug FROM modalities WHERE slug = ?`,
+      ).bind(therapistIdValue, m),
+    );
+  }
+  if (city) {
+    statements.push(
+      c.env.DB.prepare(`DELETE FROM therapist_locations WHERE therapist_id = ?`).bind(therapistIdValue),
+      c.env.DB.prepare(
+        `INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, address_line, is_primary)
+         VALUES (?, ?, ?, ?, 'PL', ?, 1)`,
+      ).bind(
+        randomId('loc'),
+        therapistIdValue,
+        city,
+        normalizeForSearch(city),
+        sanitizeLine(body.get('address_line') ?? '', 160) || null,
+      ),
+    );
+  }
+  await c.env.DB.batch(statements);
+
+  await audit(c.env, {
+    actorType: session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: session.user.id,
+    action: isNew ? 'therapist.created' : 'therapist.updated',
+    subjectType: 'therapist',
+    subjectId: therapistIdValue,
+    meta: { to_status: values.status, status: values.verification_status },
+  });
+
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${therapistIdValue}` } });
+});
+
+adminApp.post('/terapeuci/:id/faq', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  if (body.get('approved') !== '1') {
+    return page(c.env, 'Błąd', '<h1>Wymagane potwierdzenie autorstwa</h1>', 400);
+  }
+
+  const at = nowIso();
+  const faqId = randomId('faq');
+  await c.env.DB.prepare(
+    `INSERT INTO faq_items (id, therapist_id, question, answer, category, position, status, approved_by, approved_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)`,
+  )
+    .bind(
+      faqId,
+      id,
+      sanitizeLine(body.get('question') ?? '', 200),
+      sanitizeRichText(body.get('answer') ?? '', 2000),
+      sanitizeLine(body.get('category') ?? 'general', 40),
+      Math.min(Math.max(Number(body.get('position') ?? 0) || 0, 0), 99),
+      g.session.user.id,
+      at,
+      at,
+      at,
+    )
+    .run();
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'faq.published',
+    subjectType: 'faq_item',
+    subjectId: faqId,
+    meta: { status: 'published' },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+});
+
+adminApp.post('/faq/:id/status', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const faqId = c.req.param('id');
+  const status = body.get('status') === 'published' ? 'published' : 'draft';
+
+  const row = await c.env.DB.prepare(`SELECT therapist_id FROM faq_items WHERE id = ?`)
+    .bind(faqId)
+    .first<{ therapist_id: string }>();
+  if (!row || !ownsTherapist(g.session.user, row.therapist_id)) {
+    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  }
+
+  await c.env.DB.prepare(
+    `UPDATE faq_items SET status = ?, approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
+  )
+    .bind(status, status === 'published' ? g.session.user.id : null, status === 'published' ? nowIso() : null, nowIso(), faqId)
+    .run();
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'faq.status_changed',
+    subjectType: 'faq_item',
+    subjectId: faqId,
+    meta: { to_status: status },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${row.therapist_id}` } });
+});
+
+adminApp.post('/terapeuci/:id/oferta', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const at = nowIso();
+  const offerId = randomId('of');
+  const price = Math.round(Math.min(Math.max(Number(body.get('price') ?? 0) || 0, 0), 5000) * 100);
+  await c.env.DB.prepare(
+    `INSERT INTO session_offers (id, therapist_id, title, session_type, mode, duration_minutes, price_minor, currency, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'PLN', 1, ?, ?)`,
+  )
+    .bind(
+      offerId,
+      id,
+      sanitizeLine(body.get('title') ?? 'Sesja', 120),
+      ['individual', 'couples', 'family'].includes(body.get('session_type') ?? '') ? body.get('session_type') : 'individual',
+      body.get('mode') === 'in_person' ? 'in_person' : 'online',
+      Math.min(Math.max(Number(body.get('duration_minutes') ?? 50) || 50, 15), 240),
+      price,
+      at,
+      at,
+    )
+    .run();
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'offer.created',
+    subjectType: 'session_offer',
+    subjectId: offerId,
+    meta: { price_minor: price, currency: 'PLN' },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+});
+
+adminApp.post('/terapeuci/:id/terminy', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const therapist = await getTherapistRowForAdmin(c.env, id);
+  if (!therapist) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
+
+  const offerId = sanitizeLine(body.get('offer_id_manual') || body.get('offer_id') || '', 64);
+  const offer = await c.env.DB.prepare(
+    `SELECT id, duration_minutes FROM session_offers WHERE id = ? AND therapist_id = ? AND active = 1`,
+  )
+    .bind(offerId, id)
+    .first<{ id: string; duration_minutes: number }>();
+  if (!offer) return page(c.env, 'Błąd', '<h1>Nie znaleziono aktywnej oferty o tym identyfikatorze</h1>', 400);
+
+  const days = Math.min(Math.max(Number(body.get('days') ?? 14) || 14, 1), 60);
+  const hours = (body.get('hours') ?? '9,11,13,15')
+    .split(',')
+    .map((h) => Number(h.trim()))
+    .filter((h) => Number.isInteger(h) && h >= 0 && h <= 23)
+    .slice(0, 12);
+
+  // The therapist works in a wall clock, not in UTC. The requested zone is
+  // validated against the runtime's own zone data; an unknown zone is refused
+  // rather than silently replaced.
+  const requestedTz = sanitizeLine(body.get('timezone') ?? '', 64);
+  const timezone = requestedTz || therapist.timezone || DEFAULT_TIMEZONE;
+  if (!isValidTimezone(timezone)) {
+    return page(c.env, 'Błąd', '<h1>Nieznana strefa czasowa</h1><p>Podaj identyfikator IANA, np. Europe/Warsaw.</p>', 400);
+  }
+
+  // Slots are built from a LOCAL date and a LOCAL hour, then converted to the
+  // UTC instant they denote. "10:00 in Europe/Warsaw" therefore stays 10:00 for
+  // the therapist on both sides of a daylight-saving transition, even though the
+  // stored UTC instant shifts by an hour.
+  const statements = [];
+  const today = civilDateIn(timezone, new Date());
+
+  for (let d = 1; d <= days; d++) {
+    const day = addCivilDays(today, d);
+    const weekday = weekdayIn(timezone, day);
+    if (weekday === 0 || weekday === 6) continue;
+
+    for (const hour of hours) {
+      const start = zonedTimeToUtc(day, hour, 0, timezone);
+      const end = new Date(start.getTime() + offer.duration_minutes * 60_000);
+      statements.push(
+        c.env.DB.prepare(
+          `INSERT OR IGNORE INTO appointment_slots
+             (id, therapist_id, offer_id, starts_at_utc, ends_at_utc, timezone, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+        ).bind(
+          randomId('sl'),
+          id,
+          offer.id,
+          start.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          end.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          timezone,
+          nowIso(),
+          nowIso(),
+        ),
+      );
+    }
+  }
+  if (statements.length > 0) await c.env.DB.batch(statements);
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'slots.generated',
+    subjectType: 'therapist',
+    subjectId: id,
+    meta: { count: statements.length, field: timezone },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+});
+
+adminApp.post('/terapeuci/:id/blokuj', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const slotId = sanitizeLine(body.get('slot_id') ?? '', 64);
+  // A booked slot can never be silently blocked - the booking must be cancelled first.
+  const result = await c.env.DB.prepare(
+    `UPDATE appointment_slots SET status = 'blocked', block_reason = ?, updated_at = ?
+      WHERE id = ? AND therapist_id = ? AND status = 'open'`,
+  )
+    .bind(sanitizeLine(body.get('reason') ?? '', 120), nowIso(), slotId, id)
+    .run();
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'slot.blocked',
+    subjectType: 'appointment_slot',
+    subjectId: slotId,
+    meta: { count: result.meta.changes ?? 0 },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+});
+
+// ------------------------------------------------------- booking cancelling ---
+
+adminApp.post('/rezerwacje/:id/anuluj', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'support', 'therapist']);
+  if ('response' in g) return g.response;
+  const bookingIdValue = c.req.param('id');
+  const reason = sanitizeLine(body.get('reason') ?? '', 120);
+  if (!reason) return page(c.env, 'Błąd', '<h1>Powód odwołania jest wymagany</h1>', 400);
+
+  const row = await c.env.DB.prepare(
+    `SELECT id, slot_id, therapist_id, user_id, status, public_ref FROM bookings WHERE id = ?`,
+  )
+    .bind(bookingIdValue)
+    .first<{
+      id: string;
+      slot_id: string;
+      therapist_id: string;
+      user_id: string;
+      status: string;
+      public_ref: string;
+    }>();
+  if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono rezerwacji</h1>', 404);
+  if (g.session.user.role === 'therapist' && !ownsTherapist(g.session.user, row.therapist_id)) {
+    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  }
+
+  if (row.status === 'confirmed') {
+    const at = nowIso();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE bookings SET status='cancelled', cancelled_at=?, cancelled_by=?, cancel_reason=?, updated_at=?
+          WHERE id=? AND status='confirmed'`,
+      ).bind(at, g.session.user.role, reason, at, row.id),
+      c.env.DB.prepare(
+        `UPDATE appointment_slots SET status='open', updated_at=? WHERE id=? AND status='booked'`,
+      ).bind(at, row.slot_id),
+    ]);
+
+    const owner = await c.env.DB.prepare(`SELECT email_enc FROM users WHERE id = ?`)
+      .bind(row.user_id)
+      .first<{ email_enc: string }>();
+    if (owner && c.env.PII_ENC_KEY) {
+      await enqueueNotification(c.env, 'booking.cancelled_by_staff', row.id, {
+        to: await decryptPii(c.env.PII_ENC_KEY, owner.email_enc),
+        subject: `Rezerwacja ${row.public_ref} została odwołana`,
+        text: `Rezerwacja ${row.public_ref} została odwołana przez zespół lub terapeutę.\nPowód: ${reason}`,
+      });
+      c.executionCtx.waitUntil(drainOutbox(c.env, 5));
+    }
+  }
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : g.session.user.role === 'support' ? 'support' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'booking.cancelled_by_staff',
+    subjectType: 'booking',
+    subjectId: row.id,
+    meta: { reason_code: 'staff', to_status: 'cancelled' },
+  });
+  return new Response(null, { status: 302, headers: { location: '/admin' } });
+});
+
+// ------------------------------------------------------------ crisis data ---
+
+adminApp.get('/kryzys', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  if (session.user.role !== 'admin') return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, audience, title, phone, url, verified_at, version, active FROM crisis_resources
+      WHERE country = 'PL' ORDER BY priority`,
+  ).all<{
+    id: string;
+    audience: string;
+    title: string;
+    phone: string | null;
+    url: string | null;
+    verified_at: string;
+    version: string;
+    active: number;
+  }>();
+
+  return page(
+    c.env,
+    'Zasoby kryzysowe',
+    `
+<h1>Zasoby kryzysowe (PL)</h1>
+<p>Dane są utrzymywane ręcznie. Zweryfikuj je względem oficjalnych źródeł co najmniej raz na 90 dni.</p>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Tytuł</th><th scope="col">Odbiorca</th><th scope="col">Telefon</th>
+<th scope="col">Zweryfikowano</th><th scope="col">Aktywne</th><th scope="col">Akcje</th></tr></thead>
+<tbody>
+${results
+  .map(
+    (r) => `<tr>
+  <td>${escapeHtml(r.title)}</td>
+  <td>${escapeHtml(r.audience)}</td>
+  <td>${escapeHtml(r.phone ?? '—')}</td>
+  <td>${escapeHtml(r.verified_at)}</td>
+  <td>${r.active ? 'tak' : 'nie'}</td>
+  <td>
+    <form method="post" action="/admin/kryzys/${escapeHtml(r.id)}">
+      ${csrfField(session)}
+      <label class="visually-hidden" for="p-${escapeHtml(r.id)}">Telefon</label>
+      <input id="p-${escapeHtml(r.id)}" name="phone" value="${escapeHtml(r.phone ?? '')}" maxlength="40">
+      <label class="visually-hidden" for="u-${escapeHtml(r.id)}">Adres</label>
+      <input id="u-${escapeHtml(r.id)}" name="url" value="${escapeHtml(r.url ?? '')}" maxlength="300">
+      <button class="btn secondary" name="action" value="verify" type="submit">Potwierdź weryfikację</button>
+      <button class="btn secondary" name="action" value="${r.active ? 'disable' : 'enable'}" type="submit">
+        ${r.active ? 'Wyłącz' : 'Włącz'}</button>
+    </form>
+  </td>
+</tr>`,
+  )
+  .join('')}
+</tbody></table></div>`,
+  );
+});
+
+adminApp.post('/kryzys/:id', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  const action = body.get('action');
+  const at = nowIso();
+
+  if (action === 'verify') {
+    await c.env.DB.prepare(
+      `UPDATE crisis_resources SET phone = ?, url = ?, verified_at = ?, version = ? WHERE id = ?`,
+    )
+      .bind(
+        sanitizeLine(body.get('phone') ?? '', 40) || null,
+        sanitizeLine(body.get('url') ?? '', 300) || null,
+        at.slice(0, 10),
+        at.slice(0, 10),
+        id,
+      )
+      .run();
+  } else if (action === 'disable' || action === 'enable') {
+    await c.env.DB.prepare(`UPDATE crisis_resources SET active = ? WHERE id = ?`)
+      .bind(action === 'enable' ? 1 : 0, id)
+      .run();
+  }
+
+  await audit(c.env, {
+    actorType: 'admin',
+    actorId: g.session.user.id,
+    action: 'crisis_resource.updated',
+    subjectType: 'crisis_resource',
+    subjectId: id,
+    meta: { to_status: String(action) },
+  });
+  return new Response(null, { status: 302, headers: { location: '/admin/kryzys' } });
+});
+
+// ------------------------------------------------------------- user rights ---
+
+adminApp.get('/uzytkownicy', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  if (session.user.role !== 'admin') return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  return page(
+    c.env,
+    'Dane użytkownika',
+    `
+<h1>Realizacja praw użytkownika</h1>
+<p>Wyszukiwanie po adresie e-mail działa na nieodwracalnym skrócie — baza nie przechowuje adresu w formie
+umożliwiającej przeszukiwanie.</p>
+
+<h2>Eksport danych</h2>
+<form method="post" action="/admin/uzytkownicy/eksport">
+  ${csrfField(session)}
+  <div class="field"><label for="e_email">Adres e-mail</label><input id="e_email" name="email" type="email" required maxlength="254"></div>
+  <p><button class="btn" type="submit">Pobierz dane (JSON)</button></p>
+</form>
+
+<h2>Usunięcie danych</h2>
+<div class="notice warn"><p>Operacja nieodwracalna. Usuwa dane kontaktowe i konto; sam fakt odbytej wizyty
+pozostaje w formie pozbawionej danych identyfikujących, ponieważ jest potrzebny do rozliczeń.</p></div>
+<form method="post" action="/admin/uzytkownicy/usun">
+  ${csrfField(session)}
+  <div class="field"><label for="d_email">Adres e-mail</label><input id="d_email" name="email" type="email" required maxlength="254"></div>
+  <div class="checkbox"><input id="d_conf" name="confirm" type="checkbox" value="yes" required>
+    <label for="d_conf">Potwierdzam żądanie usunięcia danych</label></div>
+  <p><button class="btn" type="submit">Usuń dane</button></p>
+</form>`,
+  );
+});
+
+async function findUserIdByEmail(env: Env, email: string): Promise<string | null> {
+  const row = await env.DB.prepare(`SELECT id FROM users WHERE email_hash = ? AND deleted_at IS NULL`)
+    .bind(await emailLookupHash(signingKey(env), email.trim().toLowerCase()))
+    .first<{ id: string }>();
+  return row?.id ?? null;
+}
+
+adminApp.post('/uzytkownicy/eksport', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin']);
+  if ('response' in g) return g.response;
+
+  const userId = await findUserIdByEmail(c.env, body.get('email') ?? '');
+  if (!userId) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono konta o tym adresie</h1>', 404);
+
+  const data = await exportUserData(c.env, userId);
+  await audit(c.env, {
+    actorType: 'admin',
+    actorId: g.session.user.id,
+    action: 'user.exported',
+    subjectType: 'user',
+    subjectId: userId,
+  });
+  return new Response(JSON.stringify(data, null, 2), {
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'content-disposition': `attachment; filename="eksport-${userId}.json"`,
+      'cache-control': 'no-store',
+    },
+  });
+});
+
+adminApp.post('/uzytkownicy/usun', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin']);
+  if ('response' in g) return g.response;
+  if (body.get('confirm') !== 'yes') return page(c.env, 'Błąd', '<h1>Wymagane potwierdzenie</h1>', 400);
+
+  const userId = await findUserIdByEmail(c.env, body.get('email') ?? '');
+  if (!userId) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono konta o tym adresie</h1>', 404);
+
+  await eraseUserData(c.env, userId);
+  await audit(c.env, {
+    actorType: 'admin',
+    actorId: g.session.user.id,
+    action: 'user.erased',
+    subjectType: 'user',
+    subjectId: userId,
+  });
+  return page(c.env, 'Usunięto', '<h1>Dane zostały usunięte</h1><p><a href="/admin">Wróć do panelu</a></p>');
+});
+
+// ------------------------------------------------------------------ audit ---
+
+adminApp.get('/audyt', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  if (session.user.role !== 'admin') return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT at, actor_type, actor_id, action, subject_type, subject_id, meta_json
+       FROM audit_events ORDER BY at DESC LIMIT 200`,
+  ).all<{
+    at: string;
+    actor_type: string;
+    actor_id: string | null;
+    action: string;
+    subject_type: string;
+    subject_id: string | null;
+    meta_json: string;
+  }>();
+
+  return page(
+    c.env,
+    'Audyt',
+    `
+<h1>Historia operacji</h1>
+<p class="hint">Audyt nie zawiera treści zdrowotnych, danych kontaktowych ani tokenów.</p>
+<div class="table-scroll"><table>
+<thead><tr><th scope="col">Kiedy</th><th scope="col">Kto</th><th scope="col">Operacja</th>
+<th scope="col">Obiekt</th><th scope="col">Szczegóły</th></tr></thead>
+<tbody>${results
+      .map(
+        (e) =>
+          `<tr><td>${escapeHtml(e.at)}</td><td>${escapeHtml(e.actor_type)}${e.actor_id ? ` (${escapeHtml(e.actor_id)})` : ''}</td>
+           <td>${escapeHtml(e.action)}</td><td>${escapeHtml(e.subject_type)} ${escapeHtml(e.subject_id ?? '')}</td>
+           <td><code>${escapeHtml(e.meta_json)}</code></td></tr>`,
+      )
+      .join('')}</tbody></table></div>`,
+  );
+});

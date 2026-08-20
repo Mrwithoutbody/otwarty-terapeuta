@@ -1,0 +1,49 @@
+{
+  "name": "otwarty-terapeuta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:widget": "node scripts/build-widget.mjs",
+    "build": "npm run build:widget && wrangler deploy --dry-run --outdir=dist/worker",
+    "dev": "npm run build:widget && wrangler dev",
+    "typecheck": "npm run build:widget && tsc --noEmit",
+    "lint": "eslint .",
+    "test": "npm run build:widget && vitest run",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:preview": "wrangler d1 migrations apply DB --env preview --remote",
+    "db:migrate:prod": "wrangler d1 migrations apply DB --env production --remote",
+    "db:seed:local": "wrangler d1 execute DB --local --file=seed/seed.sql",
+    "db:seed:preview": "wrangler d1 execute DB --env preview --remote --file=seed/seed.sql",
+    "db:reset:local": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed:local",
+    "cf-typegen": "wrangler types",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test && npm run test:e2e"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "hono": "4.13.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "5.20260819.1",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "esbuild": "0.28.2",
+    "eslint": "10.8.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11",
+    "wrangler": "4.124.0"
+  }
+}

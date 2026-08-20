@@ -1,0 +1,26 @@
+# Copy to `.dev.vars` for local development. NEVER commit `.dev.vars`.
+# In preview/production every value below is a Wrangler secret:
+#   wrangler secret put <NAME> --env preview
+
+# 32 bytes, base64. Generate: openssl rand -base64 32
+# Application-level AES-GCM key for contact PII (names, e-mails, phones).
+PII_ENC_KEY=
+
+# 32 bytes, base64. Generate: openssl rand -base64 32
+# HMAC key for confirmation tokens, booking manage links and login codes.
+TOKEN_SIGNING_KEY=
+
+# Cloudflare Turnstile secret key matching TURNSTILE_SITE_KEY in wrangler.jsonc.
+# Local default below is Cloudflare's documented "always passes" TEST secret.
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# E-mail delivery. Leave EMAIL_PROVIDER=console locally: notifications are
+# printed to the Worker log instead of being sent. Production MUST set
+# EMAIL_PROVIDER=brevo (or resend) plus its API key,
+# otherwise the Worker refuses to boot in the production environment.
+EMAIL_PROVIDER=console
+EMAIL_API_KEY=
+EMAIL_FROM=rezerwacje@otwartyterapeuta.pl
+
+# Comma-separated e-mails promoted to role `admin` on first login.
+ADMIN_BOOTSTRAP_EMAILS=

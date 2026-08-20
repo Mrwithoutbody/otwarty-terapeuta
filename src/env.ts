@@ -1,0 +1,103 @@
+/**
+ * Worker bindings and runtime configuration.
+ *
+ * `vars` come from wrangler.jsonc and are public. Everything in the "secrets"
+ * block is a Wrangler secret and must never appear in the repository.
+ */
+export interface Env {
+  // --- bindings ---
+  DB: D1Database;
+  /**
+   * Optional: only needed for photos uploaded through the admin panel. Demo
+   * avatars are generated in the Worker, so an environment without R2 enabled
+   * still runs - `/media/:key` simply reports 404.
+   */
+  MEDIA?: R2Bucket;
+  BOOKING_COORDINATOR: DurableObjectNamespace;
+  RL_PUBLIC: RateLimit;
+  RL_WRITE: RateLimit;
+  RL_AUTH: RateLimit;
+
+  // --- vars (public) ---
+  ENVIRONMENT: 'local' | 'preview' | 'production';
+  PUBLIC_BASE_URL: string;
+  PUBLIC_MCP_URL: string;
+  /** Empty until the plugin card exists in the OpenAI panel. Never invent one. */
+  PUBLIC_PLUGIN_URL: string;
+  TERMS_VERSION: string;
+  PRIVACY_VERSION: string;
+  TURNSTILE_SITE_KEY: string;
+  SUPPORT_EMAIL: string;
+
+  // --- secrets ---
+  PII_ENC_KEY?: string;
+  TOKEN_SIGNING_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  EMAIL_PROVIDER?: string;
+  EMAIL_API_KEY?: string;
+  EMAIL_FROM?: string;
+  ADMIN_BOOTSTRAP_EMAILS?: string;
+}
+
+/** Cloudflare rate-limiting binding (wrangler `ratelimits`). */
+export interface RateLimit {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
+export class ConfigError extends Error {
+  override name = 'ConfigError';
+}
+
+/**
+ * Fail fast, loudly, and before any request is served if a deployment is
+ * missing something it cannot safely run without. Production additionally
+ * refuses to boot with a console-only e-mail provider: pretending a
+ * confirmation was delivered is worse than refusing to deploy.
+ */
+export function assertConfig(env: Env): void {
+  const missing: string[] = [];
+  if (!env.PII_ENC_KEY) missing.push('PII_ENC_KEY');
+  if (!env.TOKEN_SIGNING_KEY) missing.push('TOKEN_SIGNING_KEY');
+  if (!env.TURNSTILE_SECRET_KEY) missing.push('TURNSTILE_SECRET_KEY');
+
+  if (env.ENVIRONMENT === 'production') {
+    if (!env.EMAIL_PROVIDER || env.EMAIL_PROVIDER === 'console') {
+      missing.push('EMAIL_PROVIDER (must be a real provider in production)');
+    } else if (env.EMAIL_PROVIDER !== 'resend' && env.EMAIL_PROVIDER !== 'brevo') {
+      missing.push('EMAIL_PROVIDER (supported: resend, brevo)');
+    }
+    if ((env.EMAIL_PROVIDER === 'resend' || env.EMAIL_PROVIDER === 'brevo') && !env.EMAIL_API_KEY) {
+      missing.push('EMAIL_API_KEY');
+    }
+    if (!env.EMAIL_FROM) missing.push('EMAIL_FROM');
+  }
+
+  if (missing.length > 0) {
+    throw new ConfigError(
+      `Brakujące sekrety/konfiguracja: ${missing.join(', ')}. ` +
+        'Ustaw je przez `wrangler secret put <NAZWA> --env <środowisko>` przed wdrożeniem. ' +
+        'Zobacz README.md, sekcja "Sekrety".',
+    );
+  }
+}
+
+/** Scopes this resource server understands. */
+export const SCOPES = {
+  catalogRead: 'catalog:read',
+  bookingRead: 'booking:read',
+  bookingWrite: 'booking:write',
+} as const;
+
+export const ALL_SCOPES: string[] = [SCOPES.catalogRead, SCOPES.bookingRead, SCOPES.bookingWrite];
+
+/** Versioned URI of the MCP Apps UI resource. Bump the suffix on breaking UI changes. */
+export const WIDGET_URI = 'ui://otwarty-terapeuta/widget/v1.html';
+
+/** MIME type for MCP Apps HTML resources. */
+export const RESOURCE_MIME_TYPE = 'text/html;profile=mcp-app';
+
+/** How long a `preview_booking` confirmation token stays valid. */
+export const CONFIRMATION_TOKEN_TTL_SECONDS = 600;
+
+/** How long `list_available_slots` results may be treated as fresh. */
+export const SLOT_FRESHNESS_SECONDS = 120;

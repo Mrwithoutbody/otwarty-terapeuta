@@ -1,0 +1,124 @@
+import type { Env } from '../env';
+import { escapeHtml } from '../lib/sanitize';
+
+/**
+ * Content-Security-Policy for the website. No inline scripts anywhere, which
+ * is why the stylesheet is a separate file and every form is server rendered.
+ * The only third-party origin is Turnstile, and only where a form needs it.
+ */
+export function contentSecurityPolicy(withTurnstile: boolean): string {
+  const script = withTurnstile
+    ? `script-src 'self' https://challenges.cloudflare.com`
+    : `script-src 'self'`;
+  const frame = withTurnstile ? `frame-src https://challenges.cloudflare.com` : `frame-src 'none'`;
+  return [
+    `default-src 'none'`,
+    script,
+    `style-src 'self'`,
+    `img-src 'self' data:`,
+    `font-src 'self'`,
+    `connect-src 'self'`,
+    frame,
+    `form-action 'self'`,
+    `base-uri 'none'`,
+    `frame-ancestors 'none'`,
+    `object-src 'none'`,
+  ].join('; ');
+}
+
+export function securityHeaders(env: Env, withTurnstile = false): Record<string, string> {
+  const headers: Record<string, string> = {
+    'content-type': 'text/html; charset=utf-8',
+    'content-security-policy': contentSecurityPolicy(withTurnstile),
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+    'cross-origin-opener-policy': 'same-origin',
+  };
+  if (env.ENVIRONMENT === 'production') {
+    headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+  }
+  return headers;
+}
+
+export interface NavItem {
+  href: string;
+  label: string;
+}
+
+const NAV: NavItem[] = [
+  { href: '/terapeuci', label: 'Terapeuci' },
+  { href: '/dla-terapeutow', label: 'Dla terapeutów' },
+  { href: '/jak-to-dziala', label: 'Jak to działa' },
+  { href: '/bezpieczenstwo', label: 'Bezpieczeństwo' },
+  { href: '/pomoc-w-kryzysie', label: 'Pomoc w kryzysie' },
+];
+
+export interface PageOptions {
+  title: string;
+  description?: string;
+  path: string;
+  /** Rendered inside <main>. Must already be escaped. */
+  body: string;
+  noindex?: boolean;
+}
+
+export function renderPage(env: Env, options: PageOptions): string {
+  const nav = NAV.map(
+    (item) =>
+      `<li><a href="${item.href}"${options.path === item.href ? ' aria-current="page"' : ''}>${escapeHtml(item.label)}</a></li>`,
+  ).join('');
+
+  return `<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(options.title)} — Otwarty Terapeuta</title>
+<meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
+${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
+<link rel="stylesheet" href="/assets/app.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<a class="skip-link" href="#tresc">Przejdź do treści</a>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">Otwarty <span>Terapeuta</span></a>
+    <nav class="site" aria-label="Nawigacja główna"><ul>${nav}</ul></nav>
+  </div>
+</header>
+<main id="tresc">
+  <div class="wrap">
+${options.body}
+  </div>
+</main>
+<footer class="site">
+  <div class="wrap">
+    <ul>
+      <li><a href="/regulamin">Regulamin</a></li>
+      <li><a href="/polityka-prywatnosci">Polityka prywatności</a></li>
+      <li><a href="/bezpieczenstwo">Bezpieczeństwo</a></li>
+      <li><a href="/pomoc-w-kryzysie">Pomoc w kryzysie</a></li>
+      <li><a href="mailto:${escapeHtml(env.SUPPORT_EMAIL)}">Kontakt</a></li>
+    </ul>
+    <p>
+      Otwarty Terapeuta jest katalogiem terapeutów i systemem rezerwacji wizyt.
+      Nie jest usługą terapeutyczną, nie stawia diagnoz i nie zastępuje pomocy
+      w nagłym zagrożeniu życia lub zdrowia. W takiej sytuacji zadzwoń pod
+      <strong>112</strong>, a po wsparcie emocjonalne pod <strong>116 123</strong>.
+    </p>
+    <p>Serwis przeznaczony dla osób pełnoletnich.</p>
+  </div>
+</footer>
+</body>
+</html>`;
+}
+
+export function htmlResponse(env: Env, html: string, init: ResponseInit = {}, withTurnstile = false): Response {
+  return new Response(html, {
+    ...init,
+    headers: { ...securityHeaders(env, withTurnstile), ...(init.headers ?? {}) },
+  });
+}
