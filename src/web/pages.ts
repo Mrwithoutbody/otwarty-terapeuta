@@ -200,9 +200,9 @@ siteApp.get('/', (c) =>
   <section class="home-section for-you-section" aria-labelledby="for-you-title">
     <div class="section-heading centered"><p class="kicker">Na różnych etapach</p><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
     <div class="audience-grid">
-      <article><span class="audience-art first" aria-hidden="true"></span><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
-      <article><span class="audience-art second" aria-hidden="true"></span><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
-      <article><span class="audience-art third" aria-hidden="true"></span><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
+      <article><img class="audience-art audience-art-first" src="/illustrations/audience-first-step.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
+      <article><img class="audience-art audience-art-choice" src="/illustrations/audience-conscious-choice.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
+      <article><img class="audience-art audience-art-transparency" src="/illustrations/audience-transparency.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
     </div>
   </section>
 

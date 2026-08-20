@@ -437,14 +437,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .for-you-section .section-heading { max-width: 45rem; }
 .audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2.5rem; }
 .audience-grid article { overflow: hidden; padding: 0 1.25rem 1.5rem; border: 1px solid var(--border); border-radius: 1rem; background: #fff; box-shadow: var(--shadow-sm); }
-.audience-art { display: block; height: 11rem; margin: 0 -1.25rem 1.4rem; border-bottom: 1px solid var(--border); background-color: #f3f5ea; }
-.audience-art::before, .audience-art::after { content: ""; display: block; position: relative; border: 1px solid rgba(98,114,0,0.18); }
-.audience-art::before { width: 6.5rem; height: 6.5rem; left: calc(50% - 3.25rem); top: 2.2rem; border-radius: 48% 52% 42% 58%; transform: rotate(25deg); }
-.audience-art::after { width: 2.7rem; height: 2.7rem; left: calc(50% - 1.35rem); top: -2.5rem; border-radius: 50%; background: rgba(255,255,255,0.55); }
-.audience-art.second { background: linear-gradient(135deg, #edf1e2, #f6efe3); }
-.audience-art.second::before { border-radius: 0.8rem; transform: rotate(-8deg); box-shadow: 2.4rem 1rem 0 -1px #f8f9f3, 2.4rem 1rem 0 0 rgba(98,114,0,0.14); }
-.audience-art.third { background: linear-gradient(150deg, #eef3e7, #e7eee4); }
-.audience-art.third::before { border-radius: 50% 50% 8% 8%; transform: none; }
+.audience-art { display: block; width: calc(100% + 2.5rem); max-width: none; height: 11rem; margin: 0 -1.25rem 1.4rem; border-bottom: 1px solid var(--border); object-fit: cover; background: #f3f5ea; }
+.audience-art-first { object-position: 50% 48%; }
+.audience-art-choice { object-position: 50% 43%; }
+.audience-art-transparency { object-position: 50% 44%; }
 .audience-grid h3 { margin: 0 0 0.6rem; font-size: 1.08rem; }
 .audience-grid p { margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.6; }
 
@@ -525,7 +521,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   .chat-widget { margin-left: 0; }
   .chat-caption { margin-left: 0; }
   .audience-grid { grid-template-columns: 1fr; }
-  .audience-art { height: 9rem; }
+  .audience-art { height: clamp(10rem, 48vw, 13rem); }
   .safety-section { padding: 2.5rem 1.25rem; border-radius: 1rem; }
   .home-cta { grid-template-columns: 1fr; padding: 2.5rem 1.25rem; border-radius: 1rem; }
   .home-cta > div:last-child { justify-items: stretch; }
