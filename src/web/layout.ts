@@ -78,7 +78,7 @@ export function renderPage(env: Env, options: PageOptions): string {
 <title>${escapeHtml(options.title)} — Otwarty Terapeuta</title>
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
-<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="/assets/app.css?v=20260820-3">
 <link rel="icon" href="data:,">
 </head>
 <body>
