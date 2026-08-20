@@ -1221,6 +1221,8 @@ function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } 
 }
 
 const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+/** Thumbnail side, and the suffix that pairs it with its master key. */
+const PHOTO_THUMB_SUFFIX = '160';
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
   const fail = (message: string, status: number): Response =>
@@ -1252,18 +1254,39 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
   const existing = await getTherapistRowForAdmin(c.env, id);
   if (!existing) return fail('Nie znaleziono profilu.', 404);
 
-  const file = form.get('photo');
-  if (!(file instanceof File)) return fail('Brak pliku.', 400);
-  if (file.size === 0 || file.size > PHOTO_MAX_BYTES) {
-    return fail('Plik musi mieć od 1 bajta do 2 MB.', 413);
+  /** Same checks for both renditions: a thumbnail is a file the browser sent too. */
+  const readImage = async (
+    field: string,
+    required: boolean,
+  ): Promise<{ bytes: Uint8Array; kind: { mime: string; extension: string } } | Response | null> => {
+    const value = form.get(field);
+    if (!(value instanceof File)) {
+      return required ? fail('Brak pliku.', 400) : null;
+    }
+    if (value.size === 0 || value.size > PHOTO_MAX_BYTES) {
+      return fail('Plik musi mieć od 1 bajta do 2 MB.', 413);
+    }
+    const bytes = new Uint8Array(await value.arrayBuffer());
+    const kind = sniffImageType(bytes);
+    if (!kind) return fail('Obsługiwane formaty to PNG, JPEG i WebP.', 415);
+    return { bytes, kind };
+  };
+
+  const master = await readImage('photo', true);
+  if (master === null || master instanceof Response) return master ?? fail('Brak pliku.', 400);
+  const thumbnail = await readImage('photo_thumb', false);
+  if (thumbnail instanceof Response) return thumbnail;
+
+  // Both renditions share one base key: the catalogue derives the thumbnail's
+  // address from the master's, so nothing extra is stored about it.
+  const base = `therapists/${id}/${randomId('img')}`;
+  const key = `${base}.${master.kind.extension}`;
+  await c.env.MEDIA.put(key, master.bytes, { httpMetadata: { contentType: master.kind.mime } });
+  if (thumbnail) {
+    await c.env.MEDIA.put(`${base}-${PHOTO_THUMB_SUFFIX}.${thumbnail.kind.extension}`, thumbnail.bytes, {
+      httpMetadata: { contentType: thumbnail.kind.mime },
+    });
   }
-
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const kind = sniffImageType(bytes);
-  if (!kind) return fail('Obsługiwane formaty to PNG, JPEG i WebP.', 415);
-
-  const key = `therapists/${id}/${randomId('img')}.${kind.extension}`;
-  await c.env.MEDIA.put(key, bytes, { httpMetadata: { contentType: kind.mime } });
 
   const url = `/media/${key}`;
   const at = nowIso();
@@ -1271,11 +1294,17 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
     .bind(url, at, id)
     .run();
 
-  // Replacing a photo leaves the previous object orphaned in the bucket unless
-  // it is removed here. Only keys this route created are ever touched.
+  // Replacing a photo leaves the previous objects orphaned in the bucket unless
+  // they are removed here. Only keys this route created are ever touched.
   const previous = existing.photo_url ?? '';
   if (previous.startsWith(`/media/therapists/${id}/`) && previous !== url) {
-    await c.env.MEDIA.delete(previous.slice('/media/'.length)).catch(() => undefined);
+    const previousKey = previous.slice('/media/'.length);
+    const previousBase = previousKey.replace(/\.[a-z]+$/, '');
+    await Promise.all(
+      [previousKey, `${previousBase}-${PHOTO_THUMB_SUFFIX}.webp`, `${previousBase}-${PHOTO_THUMB_SUFFIX}.png`].map(
+        (staleKey) => c.env.MEDIA!.delete(staleKey).catch(() => undefined),
+      ),
+    );
   }
 
   await audit(c.env, {
@@ -1284,7 +1313,7 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
     action: 'therapist.photo_updated',
     subjectType: 'therapist',
     subjectId: id,
-    meta: { field: kind.mime, count: bytes.length },
+    meta: { field: master.kind.mime, count: master.bytes.length },
   });
 
   return Response.json({ url, version: at }, { headers: { 'cache-control': 'no-store' } });

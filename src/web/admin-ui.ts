@@ -300,7 +300,11 @@ export const ADMIN_JS = String.raw`(function () {
   // ------------------------------------------------------------ photo crop ---
 
   var CROP_VIEW = 320;
-  var CROP_OUTPUT = 512;
+  // Master kept generously large: the original never reaches the server, so a
+  // rendition that was not produced here can never be produced at all.
+  var CROP_OUTPUT = 768;
+  // Catalogue card renders at 72 CSS px, so 160 covers a 2x display.
+  var CROP_THUMB = 160;
 
   function initCrop(wrap) {
     var fileInput = wrap.querySelector('[data-crop-file]');
@@ -433,29 +437,46 @@ export const ADMIN_JS = String.raw`(function () {
       saveButton.disabled = true;
       status.textContent = 'Wysyłanie…';
 
-      var output = document.createElement('canvas');
-      output.width = CROP_OUTPUT;
-      output.height = CROP_OUTPUT;
-      var ratio = CROP_OUTPUT / CROP_VIEW;
-      var outputContext = output.getContext('2d');
-      outputContext.drawImage(
-        image,
-        offsetX * ratio,
-        offsetY * ratio,
-        image.width * scale * ratio,
-        image.height * scale * ratio,
-      );
+      // Side of the crop measured in the SOURCE image's own pixels. Rendering
+      // larger than this would invent detail, so it caps the output instead.
+      var available = Math.round(CROP_VIEW / scale);
 
-      output.toBlob(
-        function (blob) {
+      function render(target) {
+        var side = Math.max(1, Math.min(target, available));
+        var canvasOut = document.createElement('canvas');
+        canvasOut.width = side;
+        canvasOut.height = side;
+        var ratio = side / CROP_VIEW;
+        var ctx = canvasOut.getContext('2d');
+        // Without this the browser does a single bilinear pass, which aliases
+        // badly once the source is more than about twice the target.
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(
+          image,
+          offsetX * ratio,
+          offsetY * ratio,
+          image.width * scale * ratio,
+          image.height * scale * ratio,
+        );
+        return new Promise(function (resolve) {
+          canvasOut.toBlob(resolve, 'image/webp', 0.85);
+        });
+      }
+
+      Promise.all([render(CROP_OUTPUT), render(CROP_THUMB)]).then(function (blobs) {
+          var blob = blobs[0];
+          var thumb = blobs[1];
           if (!blob) {
             status.textContent = 'Nie udało się przygotować pliku.';
             saveButton.disabled = false;
             return;
           }
+          var extension = blob.type === 'image/webp' ? 'webp' : 'png';
           var data = new FormData();
           data.append('csrf', wrap.getAttribute('data-crop-csrf') || '');
-          data.append('photo', blob, 'profil.' + (blob.type === 'image/webp' ? 'webp' : 'png'));
+          data.append('photo', blob, 'profil.' + extension);
+          if (thumb) data.append('photo_thumb', thumb, 'profil-160.' + extension);
           fetch(wrap.getAttribute('data-crop-action'), {
             method: 'POST',
             body: data,
@@ -482,10 +503,7 @@ export const ADMIN_JS = String.raw`(function () {
             .then(function () {
               saveButton.disabled = false;
             });
-        },
-        'image/webp',
-        0.85,
-      );
+      });
     });
   }
 

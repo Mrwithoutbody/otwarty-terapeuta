@@ -1,6 +1,7 @@
 import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_ASSET_VERSION } from './admin-ui';
+import { APP_CSS_VERSION } from './styles';
 
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere, which
@@ -84,7 +85,7 @@ export function renderPage(env: Env, options: PageOptions): string {
 <title>${escapeHtml(options.title)} — Otwarty Terapeuta</title>
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
-<link rel="stylesheet" href="/assets/app.css?v=20260820-7">
+<link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">
 ${
   options.adminAssets
     ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +

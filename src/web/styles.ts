@@ -227,6 +227,20 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   box-shadow: inset 0 0 0 5px rgba(255,255,255,0.2);
 }
 
+.profile-head { display: flex; gap: clamp(1rem, 3vw, 1.75rem); align-items: center; margin-bottom: var(--space-3); }
+.profile-head h1 { margin: 0; }
+.profile-head > div { min-width: 0; }
+.profile-avatar {
+  width: 160px; height: 160px; border-radius: 28px; object-fit: cover; flex: none;
+  border: 1px solid var(--border); background:
+    radial-gradient(circle at 35% 25%, rgba(255,255,255,0.75), transparent 34%), var(--accent-soft);
+  box-shadow: inset 0 0 0 6px rgba(255,255,255,0.2);
+}
+@media (max-width: 640px) {
+  .profile-head { gap: 1rem; }
+  .profile-avatar { width: 104px; height: 104px; border-radius: 20px; }
+}
+
 .tags { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; }
 .tags li + li { margin-top: 0; }
 .tag {
@@ -665,3 +679,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 `;
+
+/**
+ * Cache-busting suffix derived from the stylesheet itself, so editing APP_CSS
+ * invalidates the browser cache without anyone having to bump a hand-written
+ * version number. Same trick as ADMIN_ASSET_VERSION.
+ */
+export const APP_CSS_VERSION = APP_CSS.length.toString(36);

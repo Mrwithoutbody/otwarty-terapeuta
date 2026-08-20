@@ -227,13 +227,17 @@ describe('profile photo upload', () => {
     admin = await actor('photo-admin@example.invalid', 'admin');
   });
 
-  function upload(bytes: number[], csrf = admin.csrf): Promise<Response> {
+  function toFile(bytes: number[], name: string): File {
     const buffer = new ArrayBuffer(bytes.length);
     new Uint8Array(buffer).set(bytes);
+    return new File([buffer], name, { type: 'image/png' });
+  }
 
+  function upload(bytes: number[], csrf = admin.csrf, thumb?: number[]): Promise<Response> {
     const data = new FormData();
     data.append('csrf', csrf);
-    data.append('photo', new File([buffer], 'profil.png', { type: 'image/png' }));
+    data.append('photo', toFile(bytes, 'profil.png'));
+    if (thumb) data.append('photo_thumb', toFile(thumb, 'profil-160.png'));
     return SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/zdjecie`, {
       method: 'POST',
       headers: { cookie: admin.cookie },
@@ -269,6 +273,69 @@ describe('profile photo upload', () => {
     const served = await SELF.fetch(`https://localhost${payload.url}`);
     expect(served.status).toBe(200);
     expect(served.headers.get('content-type')).toBe('image/png');
+  });
+
+  it('stores the thumbnail beside the master under a derived key', async () => {
+    const response = await upload([...PNG_HEADER, 9, 9], admin.csrf, [...PNG_HEADER, 7]);
+    expect(response.status).toBe(200);
+
+    const { url } = (await response.json()) as { url: string };
+    const thumb = url.replace(/\.png$/, '-160.png');
+
+    const servedThumb = await SELF.fetch(`https://localhost${thumb}`);
+    expect(servedThumb.status).toBe(200);
+    expect(new Uint8Array(await servedThumb.arrayBuffer()).length).toBe(PNG_HEADER.length + 1);
+
+    const servedMaster = await SELF.fetch(`https://localhost${url}`);
+    expect(new Uint8Array(await servedMaster.arrayBuffer()).length).toBe(PNG_HEADER.length + 2);
+  });
+
+  it('falls back to the master when a thumbnail was never written', async () => {
+    // An upload from before thumbnails existed: master only.
+    const response = await upload([...PNG_HEADER, 1, 2, 3]);
+    expect(response.status).toBe(200);
+
+    const { url } = (await response.json()) as { url: string };
+    const served = await SELF.fetch(`https://localhost${url.replace(/\.png$/, '-160.png')}`);
+    expect(served.status).toBe(200);
+    expect(new Uint8Array(await served.arrayBuffer()).length).toBe(PNG_HEADER.length + 3);
+  });
+
+  it('rejects a thumbnail whose bytes are not an image', async () => {
+    const response = await upload([...PNG_HEADER, 1], admin.csrf, [0x3c, 0x73, 0x76, 0x67]);
+    expect(response.status).toBe(415);
+  });
+});
+
+describe('the public profile shows the photo', () => {
+  let admin: Actor;
+
+  beforeAll(async () => {
+    admin = await actor('profile-photo-admin@example.invalid', 'admin');
+  });
+
+  it('renders the master on the profile page and the thumbnail on the card', async () => {
+    await saveProfile(admin, [
+      ['photo_url', '/media/therapists/th_x/img_abc.webp'],
+      ['status', 'published'],
+    ]);
+
+    const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
+    expect(profile).toContain('class="profile-avatar" src="/media/therapists/th_x/img_abc.webp"');
+
+    const list = await (await SELF.fetch('https://localhost/terapeuci')).text();
+    expect(list).toContain('src="/media/therapists/th_x/img_abc-160.webp"');
+  });
+
+  it('leaves an address that is not an upload untouched', async () => {
+    await saveProfile(admin, [
+      ['photo_url', '/media/demo/avatar-1.svg'],
+      ['status', 'published'],
+    ]);
+
+    const list = await (await SELF.fetch('https://localhost/terapeuci')).text();
+    expect(list).toContain('src="/media/demo/avatar-1.svg"');
+    expect(list).not.toContain('avatar-1-160');
   });
 });
 

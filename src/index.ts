@@ -131,7 +131,15 @@ app.get('/media/demo/:file', (c) => {
 app.get('/media/:key{.+}', async (c) => {
   if (!c.env.MEDIA) return new Response('Not found', { status: 404 });
   const key = c.req.param('key');
-  const object = await c.env.MEDIA.get(key);
+  let object = await c.env.MEDIA.get(key);
+  // Thumbnails are written beside their master as `<base>-160.<ext>`, and the
+  // catalogue derives that address rather than storing it. A photo uploaded
+  // before thumbnails existed has no such object, so serve the master instead
+  // of a broken image.
+  if (!object) {
+    const master = key.replace(/-160(\.[a-z]+)$/, '$1');
+    if (master !== key) object = await c.env.MEDIA.get(master);
+  }
   if (!object) return new Response('Not found', { status: 404 });
   const type = object.httpMetadata?.contentType ?? 'application/octet-stream';
   // Only image types are ever served back, whatever was stored.

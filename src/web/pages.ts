@@ -43,6 +43,19 @@ function crisisBanner(): string {
   </div>`;
 }
 
+/**
+ * The admin uploader stores two renditions under one key: the master and a
+ * `-160` thumbnail beside it. Anything that does not match that shape - a demo
+ * avatar, a hand-typed address - is returned untouched, and `/media/:key`
+ * falls back to the master when a thumbnail was never written, so an older
+ * upload still renders.
+ */
+function thumbnailUrl(url: string | null): string | null {
+  if (!url) return null;
+  const match = /^(\/media\/therapists\/[^/]+\/[^/.]+)(\.[a-z]+)$/.exec(url);
+  return match ? `${match[1]}-160${match[2]}` : url;
+}
+
 function therapistCard(t: PublicTherapist, reasons: string[]): string {
   const price =
     t.price_min_minor === null
@@ -57,7 +70,11 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
 
   return `<li class="card therapist-card">
   <div style="display:flex;gap:0.9rem;align-items:flex-start">
-    ${t.photo_url ? `<img class="avatar" src="${escapeHtml(t.photo_url)}" alt="">` : `<span class="avatar" aria-hidden="true"></span>`}
+    ${
+      t.photo_url
+        ? `<img class="avatar" src="${escapeHtml(thumbnailUrl(t.photo_url))}" alt="" width="72" height="72" loading="lazy" decoding="async">`
+        : `<span class="avatar" aria-hidden="true"></span>`
+    }
     <div>
       <h3><a href="/terapeuci/${encodeURIComponent(t.slug)}">${escapeHtml(t.display_name)}</a></h3>
       <p class="meta">${escapeHtml(t.headline ?? '')}</p>
@@ -394,8 +411,17 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       body: `
 <article class="profile-page">
 <nav aria-label="Ścieżka"><p><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
-<h1>${escapeHtml(t.display_name)}</h1>
-<p class="meta">${escapeHtml(t.headline ?? '')}</p>
+<div class="profile-head">
+  ${
+    t.photo_url
+      ? `<img class="profile-avatar" src="${escapeHtml(t.photo_url)}" alt="" width="160" height="160" decoding="async">`
+      : '<span class="profile-avatar" aria-hidden="true"></span>'
+  }
+  <div>
+    <h1>${escapeHtml(t.display_name)}</h1>
+    <p class="meta">${escapeHtml(t.headline ?? '')}</p>
+  </div>
+</div>
 <ul class="tags">
   ${t.verification_status === 'verified' ? `<li class="tag verified">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="tag">dane deklarowane przez terapeutę</li>'}
   ${t.is_demo ? '<li class="tag demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
