@@ -362,20 +362,6 @@ describe('slot hours come from the hour chips', () => {
     });
   }
 
-  async function localHours(): Promise<string[]> {
-    const { results } = await env.DB.prepare(
-      `SELECT starts_at_utc FROM appointment_slots WHERE offer_id = ?`,
-    )
-      .bind(OFFER)
-      .all<{ starts_at_utc: string }>();
-    const format = new Intl.DateTimeFormat('pl-PL', {
-      timeZone: 'Europe/Warsaw',
-      hour: '2-digit',
-      hour12: false,
-    });
-    return [...new Set(results.map((row) => format.format(new Date(row.starts_at_utc))))].sort();
-  }
-
   async function countByLocalHour(): Promise<Record<string, number>> {
     const { results } = await env.DB.prepare(
       `SELECT starts_at_utc FROM appointment_slots WHERE offer_id = ?`,
@@ -393,6 +379,10 @@ describe('slot hours come from the hour chips', () => {
       counts[hour] = (counts[hour] ?? 0) + 1;
     }
     return counts;
+  }
+
+  async function localHours(): Promise<string[]> {
+    return Object.keys(await countByLocalHour()).sort();
   }
 
   it('accepts one entry per checked chip', async () => {

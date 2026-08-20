@@ -26,8 +26,7 @@ export const ADMIN_JS = String.raw`(function () {
     root.insertBefore(list, panels[0]);
 
     var tabs = panels.map(function (panel, index) {
-      var id = panel.id || 'panel-' + index;
-      panel.id = id;
+      var id = panel.id;
       var tab = document.createElement('button');
       tab.type = 'button';
       tab.className = 'tab';
@@ -132,8 +131,7 @@ export const ADMIN_JS = String.raw`(function () {
   function looksBold(node) {
     var name = node.nodeName;
     if (name === 'B' || name === 'STRONG') return true;
-    var weight = node.style && node.style.fontWeight;
-    return weight === 'bold' || weight === 'bolder' || Number(weight) >= 600;
+    return !!node.style && node.style.fontWeight === 'bold';
   }
 
   /** Reads only structure and bold. Any other markup the browser produced is dropped. */
@@ -255,12 +253,13 @@ export const ADMIN_JS = String.raw`(function () {
 
   // ------------------------------------------------------- repeatable rows ---
 
+  var MAX_REPEAT_ROWS = 20;
+
   function initRepeat(wrap) {
     var body = wrap.querySelector('[data-repeat-body]');
     var template = wrap.querySelector('template');
     var addButton = wrap.querySelector('[data-repeat-add]');
     if (!body || !template || !addButton) return;
-    var max = Number(wrap.getAttribute('data-repeat-max')) || 20;
 
     function reindex() {
       var rows = body.querySelectorAll('[data-repeat-row]');
@@ -274,11 +273,11 @@ export const ADMIN_JS = String.raw`(function () {
           if (label) label.setAttribute('for', fields[j].id);
         }
       }
-      addButton.disabled = rows.length >= max;
+      addButton.disabled = rows.length >= MAX_REPEAT_ROWS;
     }
 
     addButton.addEventListener('click', function () {
-      if (body.querySelectorAll('[data-repeat-row]').length >= max) return;
+      if (body.querySelectorAll('[data-repeat-row]').length >= MAX_REPEAT_ROWS) return;
       body.appendChild(template.content.cloneNode(true));
       reindex();
       var rows = body.querySelectorAll('[data-repeat-row]');
@@ -342,13 +341,13 @@ export const ADMIN_JS = String.raw`(function () {
       context.drawImage(image, offsetX, offsetY, image.width * scale, image.height * scale);
     }
 
-    function setScale(next, anchorX, anchorY) {
+    // Zooming keeps the centre of the frame put.
+    function setScale(next) {
       var previous = scale;
+      var centre = CROP_VIEW / 2;
       scale = Math.max(minScale, Math.min(minScale * 4, next));
-      var ax = anchorX === undefined ? CROP_VIEW / 2 : anchorX;
-      var ay = anchorY === undefined ? CROP_VIEW / 2 : anchorY;
-      offsetX = ax - ((ax - offsetX) / previous) * scale;
-      offsetY = ay - ((ay - offsetY) / previous) * scale;
+      offsetX = centre - ((centre - offsetX) / previous) * scale;
+      offsetY = centre - ((centre - offsetY) / previous) * scale;
       draw();
     }
 
@@ -491,7 +490,7 @@ export const ADMIN_JS = String.raw`(function () {
               if (!result.ok) throw new Error(result.payload.error || 'Wysyłka nie powiodła się.');
               urlField.value = result.payload.url;
               if (preview) {
-                preview.src = result.payload.url + '?t=' + result.payload.version;
+                preview.src = result.payload.url;
                 preview.hidden = false;
               }
               status.textContent = '';
@@ -536,7 +535,7 @@ export const ADMIN_CSS = String.raw`
   font: inherit; font-weight: 600; cursor: pointer;
   min-height: 2.5rem; padding: 0.5rem 1.1rem;
   border: 1px solid transparent; border-radius: 999px;
-  background: transparent; color: var(--muted);
+  background: transparent; color: var(--text-muted);
 }
 .tab:hover { background: var(--surface-alt); color: var(--text); }
 .tab[aria-selected="true"] {
@@ -553,43 +552,33 @@ export const ADMIN_CSS = String.raw`
   box-shadow: var(--shadow-sm);
 }
 
-/* Segmented radio group, used where a select held three fixed states. */
+/* Two chip groups share one look: the segmented status radios, and the hour
+   picker. The input itself is off-screen; its label is the visible control. */
 .seg-label {
   display: block; color: var(--text); font-size: 0.875rem; font-weight: 620; margin-bottom: var(--space-2);
 }
 .seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.seg input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.seg label {
-  margin: 0; cursor: pointer; font-weight: 600; font-size: 0.9375rem;
-  padding: 0.55rem 1.1rem; min-height: 2.5rem; display: inline-flex; align-items: center;
-  border: 1px solid var(--border-strong); border-radius: 999px;
-  background: var(--surface-solid); color: var(--muted);
-}
-.seg label:hover { border-color: var(--accent); color: var(--text); }
-.seg input:checked + label {
-  background: var(--accent-strong); border-color: var(--accent-strong); color: #fff;
-}
-.seg input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-.seg.danger input:checked + label { background: #8a1f1f; border-color: #8a1f1f; }
-
-/* Hour chips, replacing a text field that expected "9,11,13,15". */
 .hour-grid {
   display: grid; gap: 0.4rem;
   grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
 }
-.hour-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.hour-grid label {
+.seg input, .hour-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.seg label, .hour-grid label {
   margin: 0; cursor: pointer; font-weight: 600; font-size: 0.9375rem;
-  font-variant-numeric: tabular-nums; text-align: center;
-  padding: 0.5rem 0.4rem; min-height: 2.5rem; display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  background: var(--surface-solid); color: var(--muted);
+  min-height: 2.5rem; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); background: var(--surface-solid); color: var(--text-muted);
 }
-.hour-grid label:hover { border-color: var(--accent); color: var(--text); }
-.hour-grid input:checked + label {
+.seg label { padding: 0.55rem 1.1rem; border-radius: 999px; }
+.hour-grid label {
+  padding: 0.5rem 0.4rem; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums;
+}
+.seg label:hover, .hour-grid label:hover { border-color: var(--accent); color: var(--text); }
+.seg input:checked + label, .hour-grid input:checked + label {
   background: var(--accent-strong); border-color: var(--accent-strong); color: #fff;
 }
-.hour-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.seg input:focus-visible + label, .hour-grid input:focus-visible + label {
+  outline: 2px solid var(--accent-strong); outline-offset: 2px;
+}
 
 /* Checkbox grids replacing the hand-typed JSON and comma-separated slugs. */
 .choice-grid {
@@ -607,8 +596,8 @@ export const ADMIN_CSS = String.raw`
 }
 .editor-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
 .editor-btn[aria-pressed="true"] { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
-.editor-count { margin-left: auto; font-size: 0.8125rem; color: var(--muted); }
-.editor-count.over { color: #8a1f1f; font-weight: 700; }
+.editor-count { margin-left: auto; font-size: 0.8125rem; color: var(--text-muted); }
+.editor-count.over { color: var(--danger); font-weight: 700; }
 .editor-surface {
   min-height: 11rem; padding: 0.75rem 0.9rem; overflow-y: auto; max-height: 26rem;
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
@@ -630,9 +619,9 @@ export const ADMIN_CSS = String.raw`
 .repeat-remove {
   font: inherit; cursor: pointer; min-height: 2.5rem; padding: 0.5rem 0.9rem; margin-bottom: 0.05rem;
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  background: var(--surface-solid); color: #8a1f1f;
+  background: var(--surface-solid); color: var(--danger);
 }
-.repeat-remove:hover { border-color: #8a1f1f; background: #fdecec; }
+.repeat-remove:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 @media (max-width: 720px) {
   .repeat-row { grid-template-columns: 1fr 1fr; }
 }
@@ -658,12 +647,5 @@ export const ADMIN_CSS = String.raw`
 .crop-canvas:active { cursor: grabbing; }
 .crop-canvas:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
-.crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: #8a1f1f; }
+.crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
 `;
-
-/**
- * Cache-busting suffix for the two asset URLs. Derived from the content itself,
- * so editing the CSS or the script invalidates the browser cache without anyone
- * having to remember to bump a hand-written version number.
- */
-export const ADMIN_ASSET_VERSION = `${ADMIN_CSS.length.toString(36)}-${ADMIN_JS.length.toString(36)}`;

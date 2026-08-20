@@ -469,15 +469,6 @@ function parseStoredCredentials(value: string | null): CredentialInput[] {
   }
 }
 
-function toStringSet(rows: Array<Record<string, unknown>>, key: string): Set<string> {
-  const set = new Set<string>();
-  for (const row of rows) {
-    const value = row[key];
-    if (typeof value === 'string') set.add(value);
-  }
-  return set;
-}
-
 async function loadEditorContext(env: Env, therapistId: string | null): Promise<EditorContext> {
   const [languages, specialties, modalities] = await Promise.all([
     env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
@@ -530,9 +521,9 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
       .all<FaqRow>(),
   ]);
 
-  context.chosenLanguages = toStringSet(chosenLanguages.results, 'language_code');
-  context.chosenTopics = toStringSet(chosenTopics.results, 'specialty_slug');
-  context.chosenModalities = toStringSet(chosenModalities.results, 'modality_slug');
+  context.chosenLanguages = new Set(chosenLanguages.results.map((row) => row.language_code));
+  context.chosenTopics = new Set(chosenTopics.results.map((row) => row.specialty_slug));
+  context.chosenModalities = new Set(chosenModalities.results.map((row) => row.modality_slug));
   context.city = location?.city ?? '';
   context.addressLine = location?.address_line ?? '';
   context.offers = offers.results;
@@ -567,8 +558,8 @@ function hourGrid(checked: number[]): string {
   }).join('')}</div>`;
 }
 
-function segmented(name: string, current: string, options: RefTag[], extraClass = ''): string {
-  return `<div class="seg${extraClass ? ` ${extraClass}` : ''}">${options
+function segmented(name: string, current: string, options: RefTag[]): string {
+  return `<div class="seg">${options
     .map((option) => {
       const id = `${name}-${option.slug}`;
       return `<input id="${escapeHtml(id)}" type="radio" name="${escapeHtml(name)}" value="${escapeHtml(option.slug)}"${
@@ -590,25 +581,21 @@ function jsonListToSet(value: string | null | undefined, fallback: string[]): Se
   return new Set(fallback);
 }
 
-/** One spare row is always rendered, so adding a credential works without JavaScript. */
-const EMPTY_CREDENTIAL: CredentialInput = { title: '', issuer: '', year: '', verified: false };
-
 function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
   const suffix = entry ? `_${index}` : '';
   const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
-  const value = (raw: string): string => escapeHtml(raw);
   return `<div class="repeat-row" data-repeat-row>
   <div class="field">
     <label data-label-for="cred_title"${entry ? ` for="cred_title${suffix}"` : ''}>Nazwa</label>
-    <input data-name="cred_title"${nameAttr('cred_title')} maxlength="120" value="${value(entry?.title ?? '')}">
+    <input data-name="cred_title"${nameAttr('cred_title')} maxlength="120" value="${escapeHtml(entry?.title ?? '')}">
   </div>
   <div class="field">
     <label data-label-for="cred_issuer"${entry ? ` for="cred_issuer${suffix}"` : ''}>Wydający</label>
-    <input data-name="cred_issuer"${nameAttr('cred_issuer')} maxlength="120" value="${value(entry?.issuer ?? '')}">
+    <input data-name="cred_issuer"${nameAttr('cred_issuer')} maxlength="120" value="${escapeHtml(entry?.issuer ?? '')}">
   </div>
   <div class="field">
     <label data-label-for="cred_year"${entry ? ` for="cred_year${suffix}"` : ''}>Rok</label>
-    <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${value(entry?.year ?? '')}">
+    <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${escapeHtml(entry?.year ?? '')}">
   </div>
   ${
     isAdmin
@@ -720,9 +707,10 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   <fieldset><legend>Nurty</legend>
     ${checkboxGrid('modalities', context.modalities, context.chosenModalities)}</fieldset>
 
-  <fieldset data-repeat data-repeat-max="20">
+  <fieldset data-repeat>
     <legend>Kwalifikacje</legend>
-    <div data-repeat-body>${[...credentials, EMPTY_CREDENTIAL]
+    <!-- One spare row is always rendered, so adding a credential works without JavaScript. -->
+    <div data-repeat-body>${[...credentials, { title: '', issuer: '', year: '', verified: false }]
       .map((entry, index) => credentialRow(entry, index, isAdmin))
       .join('')}</div>
     <template>${credentialRow(null, 0, isAdmin)}</template>
@@ -1257,12 +1245,9 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
   /** Same checks for both renditions: a thumbnail is a file the browser sent too. */
   const readImage = async (
     field: string,
-    required: boolean,
-  ): Promise<{ bytes: Uint8Array; kind: { mime: string; extension: string } } | Response | null> => {
+  ): Promise<{ bytes: Uint8Array; kind: { mime: string; extension: string } } | Response> => {
     const value = form.get(field);
-    if (!(value instanceof File)) {
-      return required ? fail('Brak pliku.', 400) : null;
-    }
+    if (!(value instanceof File)) return fail('Brak pliku.', 400);
     if (value.size === 0 || value.size > PHOTO_MAX_BYTES) {
       return fail('Plik musi mieć od 1 bajta do 2 MB.', 413);
     }
@@ -1272,9 +1257,10 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
     return { bytes, kind };
   };
 
-  const master = await readImage('photo', true);
-  if (master === null || master instanceof Response) return master ?? fail('Brak pliku.', 400);
-  const thumbnail = await readImage('photo_thumb', false);
+  const master = await readImage('photo');
+  if (master instanceof Response) return master;
+  // The thumbnail is optional only in the sense that an older client may omit it.
+  const thumbnail = form.has('photo_thumb') ? await readImage('photo_thumb') : null;
   if (thumbnail instanceof Response) return thumbnail;
 
   // Both renditions share one base key: the catalogue derives the thumbnail's
@@ -1298,12 +1284,12 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
   // they are removed here. Only keys this route created are ever touched.
   const previous = existing.photo_url ?? '';
   if (previous.startsWith(`/media/therapists/${id}/`) && previous !== url) {
+    // Both renditions carry the extension of the blob they came from, so the
+    // thumbnail's key is the master's with the suffix spliced in.
     const previousKey = previous.slice('/media/'.length);
-    const previousBase = previousKey.replace(/\.[a-z]+$/, '');
+    const previousThumb = previousKey.replace(/(\.[a-z]+)$/, `-${PHOTO_THUMB_SUFFIX}$1`);
     await Promise.all(
-      [previousKey, `${previousBase}-${PHOTO_THUMB_SUFFIX}.webp`, `${previousBase}-${PHOTO_THUMB_SUFFIX}.png`].map(
-        (staleKey) => c.env.MEDIA!.delete(staleKey).catch(() => undefined),
-      ),
+      [previousKey, previousThumb].map((staleKey) => c.env.MEDIA!.delete(staleKey).catch(() => undefined)),
     );
   }
 
@@ -1316,7 +1302,8 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
     meta: { field: master.kind.mime, count: master.bytes.length },
   });
 
-  return Response.json({ url, version: at }, { headers: { 'cache-control': 'no-store' } });
+  // The key carries fresh randomness, so the URL alone busts any cache.
+  return Response.json({ url }, { headers: { 'cache-control': 'no-store' } });
 });
 
 adminApp.post('/terapeuci/:id/faq', async (c) => {

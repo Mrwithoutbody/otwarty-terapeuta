@@ -1,7 +1,18 @@
 import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
-import { ADMIN_ASSET_VERSION } from './admin-ui';
-import { APP_CSS_VERSION } from './styles';
+import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
+import { APP_CSS } from './styles';
+
+/**
+ * Cache-busting suffix derived from the asset's own bytes, so editing a
+ * stylesheet or the panel script invalidates the browser cache without anyone
+ * having to remember to bump a hand-written version number.
+ */
+const assetVersion = (...parts: string[]): string =>
+  parts.map((part) => part.length.toString(36)).join('-');
+
+const APP_CSS_VERSION = assetVersion(APP_CSS);
+const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
 
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere, which

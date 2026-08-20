@@ -679,10 +679,3 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 `;
-
-/**
- * Cache-busting suffix derived from the stylesheet itself, so editing APP_CSS
- * invalidates the browser cache without anyone having to bump a hand-written
- * version number. Same trick as ADMIN_ASSET_VERSION.
- */
-export const APP_CSS_VERSION = APP_CSS.length.toString(36);
