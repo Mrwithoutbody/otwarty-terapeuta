@@ -28,13 +28,9 @@ export const siteApp = new Hono<{ Bindings: Env }>();
 function pluginCta(env: Env): string {
   const url = env.PUBLIC_PLUGIN_URL?.trim();
   if (!url) {
-    // No invented link. Until the plugin card exists in the OpenAI panel the
-    // button is a clearly labelled, disabled control.
-    return `<p><span class="btn" aria-disabled="true" role="button" tabindex="0">Znajdź terapeutę z pomocą ChatGPT</span></p>
-            <p class="hint">Plugin w przygotowaniu. Po publikacji w katalogu OpenAI ten przycisk będzie prowadził
-            bezpośrednio do karty pluginu. Do tego czasu skorzystaj z <a href="/terapeuci">katalogu na stronie</a>.</p>`;
+    return `<a class="btn secondary" href="#w-chatgpt">Zobacz, jak działa w ChatGPT <span aria-hidden="true">↓</span></a>`;
   }
-  return `<p><a class="btn" href="${escapeHtml(url)}" rel="noopener">Znajdź terapeutę z pomocą ChatGPT</a></p>`;
+  return `<a class="btn secondary" href="${escapeHtml(url)}" rel="noopener">Znajdź terapeutę z pomocą ChatGPT <span aria-hidden="true">↗</span></a>`;
 }
 
 function crisisBanner(): string {
@@ -59,7 +55,7 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
     .filter(Boolean)
     .join(', ');
 
-  return `<li class="card">
+  return `<li class="card therapist-card">
   <div style="display:flex;gap:0.9rem;align-items:flex-start">
     ${t.photo_url ? `<img class="avatar" src="${escapeHtml(t.photo_url)}" alt="">` : `<span class="avatar" aria-hidden="true"></span>`}
     <div>
@@ -91,7 +87,7 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
           .join('')}</ul></div>`
       : ''
   }
-  <p><a href="/terapeuci/${encodeURIComponent(t.slug)}">Zobacz profil, FAQ i terminy</a></p>
+  <p class="card-actions"><a href="/terapeuci/${encodeURIComponent(t.slug)}">Zobacz profil, FAQ i terminy</a></p>
 </li>`;
 }
 
@@ -103,46 +99,129 @@ siteApp.get('/', (c) =>
     renderPage(c.env, {
       title: 'Znajdź psychoterapeutę',
       description:
-        'Katalog psychoterapeutów w Polsce z jasnymi cenami, zasadami odwołania i rezerwacją terminu. ' +
-        'Bez ukrytego rankingu i bez płatnych pozycji.',
+        'Katalog psychoterapeutów w Polsce z jasnymi cenami, zasadami odwołania i rezerwacją terminu. Bez ukrytego rankingu i bez płatnych pozycji.',
       path: '/',
       body: `
-<div class="hero">
-  <h1>Znajdź psychoterapeutę na swoich warunkach</h1>
-  <p class="lead">Porównaj profile po tym, co naprawdę ma znaczenie: formie spotkań, języku, cenie,
-  nurcie pracy i najbliższym wolnym terminie. Zarezerwuj wizytę bezpośrednio — także w rozmowie z ChatGPT.</p>
-  ${pluginCta(c.env)}
-  <p><a class="btn secondary" href="/terapeuci">Przeglądaj katalog na stronie</a></p>
-</div>
+<div class="home">
+  <section class="home-hero" aria-labelledby="home-title">
+    <div class="hero-copy">
+      <p class="eyebrow"><span aria-hidden="true"></span> Katalog psychoterapeutów i rezerwacja wizyt</p>
+      <h1 id="home-title">Znajdź psychoterapeutę na swoich warunkach.</h1>
+      <p class="lead">Porównaj profile po tym, co naprawdę ma znaczenie: formie spotkań, języku, cenie, nurcie pracy i najbliższym wolnym terminie. Zarezerwuj wizytę bezpośrednio — także w rozmowie z ChatGPT.</p>
+      <div class="hero-actions">
+        <a class="btn" href="/terapeuci">Przeglądaj katalog na stronie <span aria-hidden="true">→</span></a>
+        ${pluginCta(c.env)}
+      </div>
+      ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : '<p class="hero-availability"><span aria-hidden="true"></span> Integracja z ChatGPT jest w przygotowaniu do publikacji.</p>'}
+      <ul class="hero-assurances" aria-label="Najważniejsze zasady serwisu">
+        <li>Jawne ceny</li><li>Zweryfikowane profile</li><li>Bez opłat za wyszukiwanie</li>
+      </ul>
+    </div>
 
-<h2>Co to jest, a czym nie jest</h2>
-<div class="grid cols-2">
-  <div class="card">
-    <h3>To jest</h3>
-    <ul>
-      <li>katalog psychoterapeutów z jawnymi cenami i kwalifikacjami,</li>
-      <li>odpowiedzi na najczęstsze pytania napisane przez samych terapeutów,</li>
-      <li>podgląd wolnych terminów i rezerwacja wizyty,</li>
-      <li>zarządzanie własną rezerwacją i jej odwołanie.</li>
-    </ul>
+    <div class="finder-preview" aria-label="Przykładowy widok wyszukiwarki terapeutów">
+      <div class="preview-toolbar"><span class="preview-mark"><img src="/logo.svg" alt="" width="22" height="22"></span><span>Katalog Otwarty Terapeuta</span><span class="preview-status">widok strony</span></div>
+      <div class="preview-filters">
+        <span>Online</span><span>do 220 zł</span><span>najbliższy termin</span>
+      </div>
+      <div class="preview-result featured">
+        <span class="profile-photo" aria-hidden="true">MK</span>
+        <div><p class="result-label">Profil zweryfikowany</p><h2>Psychoterapia dopasowana do Ciebie</h2><p>Online · terapia indywidualna</p></div>
+        <span class="match-score">dobry wybór</span>
+      </div>
+      <div class="preview-slots">
+        <p>Najbliższe wolne terminy</p><span>Dziś 18:00</span><span>Jutro 10:30</span><a href="/terapeuci">Zobacz profil →</a>
+      </div>
+      <div class="preview-note"><span aria-hidden="true">✓</span><p><strong>Dlaczego ten profil?</strong><br>Pasuje do wybranej formy spotkań, budżetu i dostępności.</p></div>
+    </div>
+  </section>
+
+  <div class="trust-strip" aria-label="Zasady platformy">
+    <p><strong>Przejrzysty wybór</strong><span>każdy wynik ma uzasadnienie</span></p>
+    <p><strong>Bez płatnych pozycji</strong><span>kolejność wynika z kryteriów</span></p>
+    <p><strong>Twoja prywatność</strong><span>nie pytamy o diagnozę</span></p>
+    <p><strong>Prosta rezerwacja</strong><span>termin i zasady w jednym miejscu</span></p>
   </div>
-  <div class="card">
-    <h3>To nie jest</h3>
-    <ul>
-      <li>terapia, diagnoza ani porada kliniczna,</li>
-      <li>pomoc w nagłym zagrożeniu życia lub zdrowia,</li>
-      <li>ranking „najlepszych” terapeutów,</li>
-      <li>miejsce, w którym trzeba opisywać swoje objawy, żeby coś znaleźć.</li>
-    </ul>
-  </div>
-</div>
 
-<h2>Jak dobieramy profile</h2>
-<p>Dopasowanie działa na jawnych kryteriach: forma spotkań, miejscowość, język, budżet, dostępność,
-grupa wiekowa i obszary pracy. Przy każdym profilu pokazujemy konkretny powód, dla którego pasuje
-do podanych kryteriów. Nie ma płatnych pozycji w wynikach i nie ma ukrytego rankingu.</p>
+  <section class="home-section value-section" aria-labelledby="value-title">
+    <div class="section-heading">
+      <p class="kicker">Wszystko w jednym miejscu</p>
+      <h2 id="value-title">Mniej szukania.<br>Więcej pewności.</h2>
+      <p>Dobry wybór zaczyna się od konkretnych informacji. Dlatego pokazujemy to, co naprawdę pomaga podjąć decyzję.</p>
+    </div>
+    <div class="value-list">
+      <article><span class="feature-icon" aria-hidden="true">01</span><div><h3>Profile, które da się porównać</h3><p>Kwalifikacje, obszary pracy, języki, forma spotkań i cena zapisane w czytelny sposób.</p></div></article>
+      <article><span class="feature-icon" aria-hidden="true">02</span><div><h3>Wolne terminy bez telefonowania</h3><p>Sprawdź dostępność i przejdź do rezerwacji bez wymiany wielu wiadomości.</p></div></article>
+      <article><span class="feature-icon" aria-hidden="true">03</span><div><h3>Jasne powody dopasowania</h3><p>Przy profilu widzisz, które z Twoich kryteriów spełnia — bez tajemniczego wyniku procentowego.</p></div></article>
+    </div>
+  </section>
 
-${crisisBanner()}`,
+  <section class="home-section steps-section" aria-labelledby="steps-title">
+    <div class="section-heading centered">
+      <p class="kicker">Prosty początek</p>
+      <h2 id="steps-title">Od kryteriów do spotkania</h2>
+      <p>Nie musisz wiedzieć wszystkiego o psychoterapii. Zacznij od tego, co jest dla Ciebie ważne.</p>
+    </div>
+    <ol class="steps">
+      <li><span>1</span><h3>Wybierz kryteria</h3><p>Określ formę spotkań, lokalizację, budżet i dostępność.</p></li>
+      <li><span>2</span><h3>Porównaj profile</h3><p>Przeczytaj o doświadczeniu, podejściu i zasadach współpracy.</p></li>
+      <li><span>3</span><h3>Zarezerwuj termin</h3><p>Wybierz dogodny termin i otrzymaj jasne potwierdzenie wizyty.</p></li>
+    </ol>
+    <p class="section-action"><a class="btn" href="/terapeuci">Przejdź do katalogu <span aria-hidden="true">→</span></a></p>
+  </section>
+
+  <section class="home-section assistant-section" id="w-chatgpt" aria-labelledby="assistant-title">
+    <div class="chat-window" aria-label="Przykład działania Otwartego Terapeuty w rozmowie z ChatGPT">
+      <div class="chat-topbar"><span class="chatgpt-mark" aria-hidden="true">✦</span><strong>ChatGPT</strong><span class="chat-demo-label">przykładowa rozmowa</span></div>
+      <div class="chat-thread">
+        <p class="chat-user">Szukam terapii online, wieczorami, do 220 zł za spotkanie.</p>
+        <div class="chat-assistant"><span class="chatgpt-mark" aria-hidden="true">✦</span><p>Znalazłem profile pasujące do tych kryteriów. Możesz je porównać poniżej.</p></div>
+        <div class="chat-widget">
+          <div class="chat-widget-head"><span class="preview-mark"><img src="/logo.svg" alt="" width="20" height="20"></span><div><strong>Otwarty Terapeuta</strong><small>3 pasujące profile</small></div></div>
+          <div class="chat-profile">
+            <span class="profile-photo" aria-hidden="true">MK</span>
+            <div><span class="verified-dot">profil zweryfikowany</span><strong>Psychoterapia indywidualna</strong><small>Online · 200 zł · wolny termin jutro</small></div>
+          </div>
+          <div class="chat-reason"><span aria-hidden="true">✓</span><p><strong>Dlaczego ten profil?</strong> Pasuje do formy spotkań, budżetu i dostępności.</p></div>
+          <div class="chat-widget-actions"><span>Zobacz profil</span><span>Sprawdź terminy</span></div>
+        </div>
+        <p class="chat-caption">Po wyborze terminu ChatGPT pokaże pełne podsumowanie. Rezerwacja nastąpi dopiero po Twoim potwierdzeniu.</p>
+      </div>
+    </div>
+    <div class="assistant-copy">
+      <p class="kicker">Otwarty Terapeuta w ChatGPT</p>
+      <h2 id="assistant-title">Zapytaj po swojemu. Porównaj. Zarezerwuj.</h2>
+      <p>Nie musisz przeklikiwać wielu stron. W rozmowie podajesz ważne dla Ciebie kryteria, a ChatGPT korzysta z naszego katalogu i pokazuje wyniki w interaktywnym widżecie.</p>
+      <ol class="chat-steps"><li><span>1</span><p><strong>Opisz praktyczne kryteria</strong><small>Na przykład forma spotkań, budżet i dogodna pora.</small></p></li><li><span>2</span><p><strong>Porównaj profile w rozmowie</strong><small>Zobacz cenę, dostępność i powody dopasowania.</small></p></li><li><span>3</span><p><strong>Potwierdź wybrany termin</strong><small>Przed rezerwacją zobaczysz kompletne podsumowanie.</small></p></li></ol>
+      <p class="launch-note"><span aria-hidden="true"></span><strong>Aplikacja w przygotowaniu do publikacji w ChatGPT.</strong> Katalog na stronie działa niezależnie.</p>
+      <a href="/jak-to-dziala">Poznaj dokładne zasady działania →</a>
+    </div>
+  </section>
+
+  <section class="home-section for-you-section" aria-labelledby="for-you-title">
+    <div class="section-heading centered"><p class="kicker">Na różnych etapach</p><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
+    <div class="audience-grid">
+      <article><span class="audience-art first" aria-hidden="true"></span><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
+      <article><span class="audience-art second" aria-hidden="true"></span><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
+      <article><span class="audience-art third" aria-hidden="true"></span><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
+    </div>
+  </section>
+
+  <section class="home-section safety-section" aria-labelledby="safety-title">
+    <div class="safety-copy"><p class="kicker">Bezpieczeństwo i granice</p><h2 id="safety-title">Twoje dane.<br>Twoja decyzja.</h2><p>Projektujemy serwis tak, aby do znalezienia terapeuty wystarczało minimum informacji.</p><a href="/bezpieczenstwo">Jak chronimy dane →</a></div>
+    <div class="safety-list">
+      <article><span aria-hidden="true">✓</span><div><h3>Minimum danych</h3><p>Nie prosimy o opis objawów ani historię zdrowia podczas przeglądania.</p></div></article>
+      <article><span aria-hidden="true">✓</span><div><h3>Jawne zasady</h3><p>Wyjaśniamy, jak działa dopasowanie i co dzieje się z rezerwacją.</p></div></article>
+      <article><span aria-hidden="true">✓</span><div><h3>Pomoc w kryzysie</h3><p>Serwis nie zastępuje interwencji kryzysowej. Ważne numery są zawsze dostępne.</p></div></article>
+    </div>
+  </section>
+
+  <section class="home-cta" aria-labelledby="cta-title">
+    <div><p class="kicker">Pierwszy krok może być prosty</p><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
+    <div><a class="btn" href="/terapeuci">Przeglądaj terapeutów <span aria-hidden="true">→</span></a><a href="/pomoc-w-kryzysie">Potrzebuję pilnej pomocy</a></div>
+  </section>
+
+  <aside class="crisis-inline" aria-label="Pomoc w nagłym zagrożeniu"><p><strong>Nie jest usługą terapeutyczną ani pomocą kryzysową.</strong> W bezpośrednim zagrożeniu życia lub zdrowia zadzwoń pod <strong>112</strong>. Całodobowe wsparcie emocjonalne dla dorosłych: <strong>116 123</strong>.</p><a href="/pomoc-w-kryzysie">Wszystkie numery pomocy</a></aside>
+</div>`,
     }),
   ),
 );

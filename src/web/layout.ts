@@ -78,15 +78,23 @@ export function renderPage(env: Env, options: PageOptions): string {
 <title>${escapeHtml(options.title)} — Otwarty Terapeuta</title>
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
-<link rel="stylesheet" href="/assets/app.css?v=20260820-3">
+<link rel="stylesheet" href="/assets/app.css?v=20260820-5">
 <link rel="icon" href="data:,">
 </head>
 <body>
 <a class="skip-link" href="#tresc">Przejdź do treści</a>
 <header class="site">
   <div class="wrap">
-    <a class="brand" href="/">Otwarty <span>Terapeuta</span></a>
-    <nav class="site" aria-label="Nawigacja główna"><ul>${nav}</ul></nav>
+    <a class="brand" href="/" aria-label="Otwarty Terapeuta — strona główna">
+      <img src="/logo.svg" alt="" width="34" height="34">
+      <span>Otwarty Terapeuta</span>
+    </a>
+    <nav class="site desktop-nav" aria-label="Nawigacja główna"><ul>${nav}</ul></nav>
+    <a class="header-cta" href="/terapeuci">Znajdź terapeutę</a>
+    <details class="mobile-nav">
+      <summary>Menu</summary>
+      <nav aria-label="Nawigacja mobilna"><ul>${nav}</ul></nav>
+    </details>
   </div>
 </header>
 <main id="tresc">
@@ -96,20 +104,27 @@ ${options.body}
 </main>
 <footer class="site">
   <div class="wrap">
-    <ul>
-      <li><a href="/regulamin">Regulamin</a></li>
-      <li><a href="/polityka-prywatnosci">Polityka prywatności</a></li>
-      <li><a href="/bezpieczenstwo">Bezpieczeństwo</a></li>
-      <li><a href="/pomoc-w-kryzysie">Pomoc w kryzysie</a></li>
-      <li><a href="mailto:${escapeHtml(env.SUPPORT_EMAIL)}">Kontakt</a></li>
-    </ul>
-    <p>
-      Otwarty Terapeuta jest katalogiem terapeutów i systemem rezerwacji wizyt.
-      Nie jest usługą terapeutyczną, nie stawia diagnoz i nie zastępuje pomocy
-      w nagłym zagrożeniu życia lub zdrowia. W takiej sytuacji zadzwoń pod
-      <strong>112</strong>, a po wsparcie emocjonalne pod <strong>116 123</strong>.
-    </p>
-    <p>Serwis przeznaczony dla osób pełnoletnich.</p>
+    <div class="footer-brand">
+      <a class="brand" href="/"><img src="/logo.svg" alt="" width="36" height="36"><span>Otwarty Terapeuta</span></a>
+      <p>Przejrzysty katalog psychoterapeutów i prosta rezerwacja wizyt — bez ukrytego rankingu.</p>
+    </div>
+    <div class="footer-links">
+      <div><h2>Serwis</h2><ul>
+        <li><a href="/terapeuci">Terapeuci</a></li>
+        <li><a href="/jak-to-dziala">Jak to działa</a></li>
+        <li><a href="/dla-terapeutow">Dla terapeutów</a></li>
+      </ul></div>
+      <div><h2>Informacje</h2><ul>
+        <li><a href="/regulamin">Regulamin</a></li>
+        <li><a href="/polityka-prywatnosci">Prywatność</a></li>
+        <li><a href="/bezpieczenstwo">Bezpieczeństwo</a></li>
+        <li><a href="mailto:${escapeHtml(env.SUPPORT_EMAIL)}">Kontakt</a></li>
+      </ul></div>
+    </div>
+    <div class="footer-legal">
+      <p>Otwarty Terapeuta nie jest usługą terapeutyczną, nie diagnozuje i nie zastępuje pomocy w nagłym zagrożeniu życia lub zdrowia. W takiej sytuacji zadzwoń pod <strong>112</strong>, a po wsparcie emocjonalne pod <strong>116 123</strong>.</p>
+      <p>Serwis dla osób pełnoletnich.</p>
+    </div>
   </div>
 </footer>
 </body>

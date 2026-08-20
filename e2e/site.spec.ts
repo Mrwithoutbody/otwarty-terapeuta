@@ -11,24 +11,23 @@ test('landing page states what the service is and is not', async ({ page }) => {
 
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Znajdź psychoterapeutę');
-  await expect(page.getByText('Nie jest usługą terapeutyczną')).toBeVisible();
+  await expect(page.getByText('Nie jest usługą terapeutyczną').first()).toBeVisible();
   await expect(page.getByText('116 123').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
 
 test('the plugin CTA never links anywhere invented', async ({ page }) => {
   await page.goto('/');
-  const cta = page.getByRole('button', { name: 'Znajdź terapeutę z pomocą ChatGPT' });
   const link = page.getByRole('link', { name: 'Znajdź terapeutę z pomocą ChatGPT' });
 
   if (await link.count()) {
     // Configured: it must point at a real absolute URL.
     expect(await link.first().getAttribute('href')).toMatch(/^https:\/\//);
   } else {
-    // Not configured: a disabled control plus an explanation, not a dead link.
-    await expect(cta).toBeVisible();
-    await expect(cta).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.getByText('Plugin w przygotowaniu')).toBeVisible();
+    // Not configured: lead to the real explanation page, without a fake plugin URL.
+    const fallback = page.getByRole('link', { name: 'Zobacz, jak działa w ChatGPT' });
+    await expect(fallback).toBeVisible();
+    await expect(fallback).toHaveAttribute('href', '#w-chatgpt');
   }
 });
 
