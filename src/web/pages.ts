@@ -274,8 +274,8 @@ siteApp.get('/terapeuci', async (c) => {
       description: 'Przeglądaj i filtruj profile psychoterapeutów.',
       path: '/terapeuci',
       body: `
-<h1>Katalog terapeutów</h1>
-<p>Filtry działają na jawnych danych z profilu. Nie musisz nic opisywać ani zakładać konta, żeby przeglądać.</p>
+<div class="directory-page">
+<header class="directory-hero"><p class="kicker">Jawne kryteria, bez ukrytego rankingu</p><h1>Katalog terapeutów</h1><p>Filtry działają na jawnych danych z profilu. Nie musisz nic opisywać ani zakładać konta, żeby przeglądać.</p></header>
 
 <form class="filters" method="get" action="/terapeuci">
   <fieldset>
@@ -345,7 +345,7 @@ siteApp.get('/terapeuci', async (c) => {
   <a class="btn secondary" href="/terapeuci">Wyczyść filtry</a>
 </form>
 
-<h2 id="wyniki">Wyniki (${ranked.length})</h2>
+<section class="directory-results" aria-labelledby="wyniki"><div class="directory-results-heading"><p class="kicker">Profile w katalogu</p><h2 id="wyniki">Wyniki (${ranked.length})</h2></div>
 ${
   ranked.length === 0
     ? `<p class="notice">Brak profili pasujących do podanych kryteriów. Spróbuj rozszerzyć filtry.</p>`
@@ -354,7 +354,7 @@ ${
         .map((entry) => therapistCard(entry.therapist, entry.match_reasons))
         .join('')}</ul>`
 }
-`,
+</section></div>`,
     }),
   );
 });
@@ -392,6 +392,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       description: t.headline ?? 'Profil psychoterapeuty',
       path: '/terapeuci',
       body: `
+<article class="profile-page">
 <nav aria-label="Ścieżka"><p><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
 <h1>${escapeHtml(t.display_name)}</h1>
 <p class="meta">${escapeHtml(t.headline ?? '')}</p>
@@ -490,7 +491,8 @@ ${pluginCta(c.env)}
 <h2>Zasady odwołania</h2>
 <p>${escapeHtml(t.cancellation_policy || `Bezpłatne odwołanie do ${t.cancellation_cutoff_hours} godzin przed sesją.`)}</p>
 
-${crisisBanner()}`,
+${crisisBanner()}
+</article>`,
     }),
   );
 });
@@ -504,31 +506,38 @@ siteApp.get('/jak-to-dziala', (c) =>
       title: 'Jak to działa',
       path: '/jak-to-dziala',
       body: `
-<h1>Jak to działa</h1>
-<ol>
-  <li><strong>Mówisz, czego szukasz.</strong> Forma spotkań, miejscowość, język, budżet, dostępność,
-  grupa wiekowa i obszary pracy. Nie musisz opisywać swojej sytuacji ani objawów.</li>
-  <li><strong>Dostajesz 3–5 profili pasujących do kryteriów</strong>, z podanym powodem dopasowania.</li>
-  <li><strong>Czytasz FAQ terapeuty</strong> — odpowiedzi napisane lub zatwierdzone przez tę konkretną osobę.</li>
-  <li><strong>Sprawdzasz wolne terminy</strong> z ceną i formą spotkania.</li>
-  <li><strong>Widzisz pełne podsumowanie</strong>: terapeuta, termin, strefa czasowa, czas trwania, cena,
-  zasady odwołania oraz wersje regulaminu i polityki prywatności.</li>
-  <li><strong>Potwierdzasz.</strong> Dopiero wtedy rezerwacja jest zapisywana.</li>
-</ol>
+<div class="subpage how-page">
+  <header class="subpage-hero">
+    <p class="kicker">Prosto i bez presji</p>
+    <h1>Od pierwszego kryterium do rezerwacji</h1>
+    <p class="lead">Ty określasz, co jest dla Ciebie ważne. My pokazujemy jawne informacje i prowadzimy przez kolejne kroki — bez diagnozowania i bez ukrytego rankingu.</p>
+    <a class="btn" href="/terapeuci">Przejdź do katalogu <span aria-hidden="true">→</span></a>
+  </header>
 
-<h2>Czego nie robimy</h2>
-<ul>
-  <li>Nie zapisujemy Twoich rozmów z ChatGPT.</li>
-  <li>Nie zapisujemy powodów, dla których szukasz terapii.</li>
-  <li>Nie stawiamy diagnoz i nie kwalifikujemy do leczenia.</li>
-  <li>Nie sprzedajemy pozycji w wynikach i nie prowadzimy profilowania reklamowego.</li>
-</ul>
+  <section class="subpage-section" aria-labelledby="process-title">
+    <div class="subpage-heading"><p class="kicker">Cały proces</p><h2 id="process-title">Sześć spokojnych kroków</h2><p>Na każdym etapie widzisz tylko informacje potrzebne do podjęcia następnej decyzji.</p></div>
+    <ol class="process-grid">
+      <li><h3>Mówisz, czego szukasz</h3><p>Forma spotkań, miejscowość, język, budżet, dostępność, grupa wiekowa i obszary pracy. Nie musisz opisywać swojej sytuacji ani objawów.</p></li>
+      <li><h3>Otrzymujesz dopasowane profile</h3><p>Dostajesz 3–5 profili pasujących do kryteriów, wraz z jasnym powodem dopasowania.</p></li>
+      <li><h3>Poznajesz terapeutę</h3><p>Czytasz FAQ — odpowiedzi napisane lub zatwierdzone przez tę konkretną osobę.</p></li>
+      <li><h3>Sprawdzasz wolne terminy</h3><p>Od razu widzisz cenę, czas trwania oraz formę spotkania.</p></li>
+      <li><h3>Widzisz pełne podsumowanie</h3><p>Terapeuta, termin, strefa czasowa, cena, zasady odwołania oraz wersje dokumentów są w jednym miejscu.</p></li>
+      <li><h3>Potwierdzasz</h3><p>Dopiero po Twoim jednoznacznym potwierdzeniu rezerwacja zostaje zapisana.</p></li>
+    </ol>
+  </section>
 
-<h2>Skąd biorą się dane w profilach</h2>
-<p>Dane wprowadza terapeuta. Część z nich weryfikujemy — wtedy profil ma oznaczenie
-„profil zweryfikowany” z datą weryfikacji. Pozostałe dane są oznaczone jako deklarowane przez
-terapeutę. Profile demonstracyjne (fikcyjne, na potrzeby prezentacji) są zawsze wyraźnie oznaczone.</p>
-${crisisBanner()}`,
+  <section class="principles-panel" aria-label="Zasady serwisu">
+    <article>
+      <p class="kicker">Jasne granice</p><h2>Czego nie robimy</h2>
+      <ul class="calm-list"><li>Nie zapisujemy Twoich rozmów z ChatGPT.</li><li>Nie zapisujemy powodów, dla których szukasz terapii.</li><li>Nie stawiamy diagnoz i nie kwalifikujemy do leczenia.</li><li>Nie sprzedajemy pozycji w wynikach i nie prowadzimy profilowania reklamowego.</li></ul>
+    </article>
+    <article>
+      <p class="kicker">Jawne źródła</p><h2>Skąd biorą się dane</h2>
+      <p>Dane wprowadza terapeuta. Część z nich weryfikujemy — wtedy profil ma oznaczenie „profil zweryfikowany” z datą weryfikacji.</p><p>Pozostałe dane są oznaczone jako deklarowane przez terapeutę. Profile demonstracyjne są zawsze wyraźnie opisane.</p>
+    </article>
+  </section>
+  ${crisisBanner()}
+</div>`,
     }),
   ),
 );
@@ -540,42 +549,28 @@ siteApp.get('/bezpieczenstwo', (c) =>
       title: 'Bezpieczeństwo',
       path: '/bezpieczenstwo',
       body: `
-<h1>Bezpieczeństwo i granice usługi</h1>
+<div class="subpage safety-page">
+  <header class="subpage-hero">
+    <p class="kicker">Bezpieczeństwo i granice</p>
+    <h1>Twoje dane. Twoja decyzja.</h1>
+    <p class="lead">Serwis pomaga znaleźć terapeutę i zarezerwować termin. Nie diagnozuje, nie prowadzi terapii i zbiera tylko informacje niezbędne do wykonania wybranej czynności.</p>
+  </header>
 
-<h2>Granice kliniczne</h2>
-<p>Otwarty Terapeuta jest katalogiem i systemem rezerwacji. Nie prowadzimy terapii, nie stawiamy
-diagnoz, nie prowadzimy interwencji kryzysowej i nie kwalifikujemy nikogo do leczenia. Asystent
-ChatGPT korzystający z naszego pluginu również tego nie robi — może jedynie pokazać dane z katalogu
-i odpowiedzi napisane przez terapeutów.</p>
+  <section class="info-card-grid" aria-label="Najważniejsze zasady bezpieczeństwa">
+    <article class="info-card"><span class="info-index">01</span><h2>Granice kliniczne</h2><p>Otwarty Terapeuta jest katalogiem i systemem rezerwacji. Nie prowadzimy terapii, nie stawiamy diagnoz, nie prowadzimy interwencji kryzysowej i nie kwalifikujemy nikogo do leczenia.</p><p>Asystent ChatGPT może jedynie pokazać dane z katalogu i odpowiedzi napisane przez terapeutów.</p></article>
+    <article class="info-card crisis-card"><span class="info-index">02</span><h2>Kryzys</h2><p>W razie bezpośredniego zagrożenia życia lub zdrowia pokazujemy dane kontaktowe pomocy kryzysowej zamiast zwykłego wyszukiwania.</p><a href="/pomoc-w-kryzysie">Zobacz miejsca pomocy →</a></article>
+    <article class="info-card"><span class="info-index">03</span><h2>Wiek</h2><p>Serwis jest przeznaczony dla osób pełnoletnich. Osobom poniżej 18 roku życia pokazujemy osobne zasoby pomocy i nie prowadzimy standardowej rezerwacji.</p></article>
+    <article class="info-card"><span class="info-index">04</span><h2>Weryfikacja terapeutów</h2><p>Sprawdzamy tożsamość i przedstawione dokumenty potwierdzające kwalifikacje. Weryfikacja nie jest gwarancją jakości ani skuteczności terapii. Jej data jest widoczna w profilu.</p></article>
+  </section>
 
-<h2>Kryzys</h2>
-<p>Jeżeli rozmowa wskazuje na bezpośrednie zagrożenie życia lub zdrowia, plugin ma obowiązek pokazać
-dane kontaktowe pomocy kryzysowej zamiast prowadzić zwykłe wyszukiwanie.
-<a href="/pomoc-w-kryzysie">Zobacz listę miejsc pomocy</a>.</p>
+  <section class="data-panel" aria-labelledby="data-title">
+    <div><p class="kicker">Minimum informacji</p><h2 id="data-title">Jak chronimy dane</h2><p>Projektujemy każdą operację tak, aby ograniczyć zakres danych i możliwość ich niepotrzebnego użycia.</p></div>
+    <ul class="calm-list"><li>Nie zapisujemy treści rozmów ani powodów szukania terapii.</li><li>Dane kontaktowe są szyfrowane kluczem aplikacyjnym.</li><li>Adresy e-mail wyszukujemy po nieodwracalnym skrócie.</li><li>Logi i telemetria są filtrowane z danych osobowych i tokenów.</li><li>Operacje zapisu wymagają autoryzacji, walidacji i trafiają do audytu.</li><li>Nie stosujemy trackerów reklamowych ani zewnętrznych skryptów analitycznych.</li></ul>
+  </section>
 
-<h2>Wiek</h2>
-<p>Serwis jest przeznaczony dla osób pełnoletnich. Dla osób poniżej 18 roku życia pokazujemy osobne
-zasoby pomocy i nie prowadzimy standardowej rezerwacji.</p>
-
-<h2>Jak chronimy dane</h2>
-<ul>
-  <li>Nie zapisujemy treści rozmów ani powodów szukania terapii.</li>
-  <li>Dane kontaktowe (imię, e-mail, telefon) są szyfrowane w bazie kluczem aplikacyjnym.</li>
-  <li>Adresy e-mail są wyszukiwane po nieodwracalnym skrócie, nie po treści.</li>
-  <li>Logi i telemetria są filtrowane z danych osobowych i tokenów.</li>
-  <li>Każda operacja zapisu wymaga autoryzacji, walidacji, klucza idempotencji i trafia do audytu.</li>
-  <li>Nie stosujemy trackerów reklamowych ani zewnętrznych skryptów analitycznych.</li>
-</ul>
-
-<h2>Weryfikacja terapeutów</h2>
-<p>Weryfikacja obejmuje sprawdzenie tożsamości i przedstawionych dokumentów potwierdzających
-kwalifikacje. Weryfikacja nie jest gwarancją jakości ani skuteczności terapii. Data ostatniej
-weryfikacji jest widoczna w profilu.</p>
-
-<h2>Zgłaszanie problemów</h2>
-<p>Nieprawidłowości w profilu, podejrzenie nadużycia lub incydent bezpieczeństwa zgłoś na
-<a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p>
-${crisisBanner()}`,
+  <section class="contact-panel"><div><p class="kicker">Kontakt</p><h2>Zgłaszanie problemów</h2><p>Nieprawidłowości w profilu, podejrzenie nadużycia lub incydent bezpieczeństwa zgłoś na <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p></div></section>
+  ${crisisBanner()}
+</div>`,
     }),
   ),
 );
@@ -587,15 +582,17 @@ siteApp.get('/pomoc-w-kryzysie', async (c) => {
   ]);
 
   const renderList = (items: Awaited<ReturnType<typeof getCrisisResources>>): string =>
-    `<ul class="grid cols-2" style="list-style:none;padding:0">${items
+    `<ul class="resource-grid">${items
       .map(
-        (r) => `<li class="card">
+        (r) => `<li class="resource-card">
       <h3>${escapeHtml(r.title)}</h3>
       <p>${escapeHtml(r.description)}</p>
-      ${r.phone ? `<p><strong>Telefon:</strong> <a href="tel:${escapeHtml(r.phone.replace(/\s/g, ''))}">${escapeHtml(r.phone)}</a></p>` : ''}
-      ${r.url ? `<p><strong>Strona:</strong> <a href="${escapeHtml(r.url)}" rel="noopener">${escapeHtml(r.url)}</a></p>` : ''}
-      ${r.hours ? `<p class="meta">Dostępność: ${escapeHtml(r.hours)}</p>` : ''}
-      <p class="hint">Zweryfikowano: ${escapeHtml(r.verified_at)} · źródło: <a href="${escapeHtml(r.source_url)}" rel="noopener">oficjalna informacja</a></p>
+      <div class="resource-actions">
+        ${r.phone ? `<a class="resource-phone" href="tel:${escapeHtml(r.phone.replace(/\s/g, ''))}"><span>Zadzwoń</span><strong>${escapeHtml(r.phone)}</strong></a>` : ''}
+        ${r.url ? `<a class="resource-link" href="${escapeHtml(r.url)}" rel="noopener">Otwórz stronę <span aria-hidden="true">↗</span></a>` : ''}
+      </div>
+      ${r.hours ? `<p class="resource-hours"><span aria-hidden="true">●</span> ${escapeHtml(r.hours)}</p>` : ''}
+      <p class="resource-source">Zweryfikowano ${escapeHtml(r.verified_at)} · <a href="${escapeHtml(r.source_url)}" rel="noopener">oficjalne źródło</a></p>
     </li>`,
       )
       .join('')}</ul>`;
@@ -607,22 +604,18 @@ siteApp.get('/pomoc-w-kryzysie', async (c) => {
       description: 'Numery i miejsca pomocy w kryzysie psychicznym w Polsce.',
       path: '/pomoc-w-kryzysie',
       body: `
-<h1>Pomoc w kryzysie</h1>
-<div class="notice warn">
-  <p><strong>Rezerwacja wizyty nie jest pomocą w nagłym zagrożeniu.</strong> Jeżeli Ty lub ktoś
-  w Twoim otoczeniu jest w bezpośrednim niebezpieczeństwie, zadzwoń pod <strong>112</strong> lub
-  <strong>999</strong>.</p>
-</div>
+<div class="subpage crisis-page">
+  <header class="crisis-hero">
+    <div><p class="kicker">Sprawdzone miejsca pomocy</p><h1>Nie musisz zostawać z tym samodzielnie.</h1><p class="lead">Jeśli sytuacja nie jest bezpośrednim zagrożeniem, poniżej znajdziesz bezpłatne telefony i miejsca wsparcia.</p></div>
+    <aside class="emergency-panel" aria-label="Pomoc w bezpośrednim zagrożeniu"><p class="emergency-warning">Rezerwacja wizyty nie jest pomocą w nagłym zagrożeniu.</p><p>Bezpośrednie zagrożenie życia lub zdrowia</p><a href="tel:112">112</a><span>lub 999 · numery alarmowe</span></aside>
+  </header>
 
-<h2>Osoby dorosłe</h2>
-${renderList(adult)}
+  <section class="resource-section" aria-labelledby="adult-title"><div class="resource-heading"><p class="kicker">Pomoc dla pełnoletnich</p><h2 id="adult-title">Osoby dorosłe</h2><p>Telefony zaufania i publiczne miejsca pomocy dostępne bez skierowania.</p></div>${renderList(adult)}</section>
 
-<h2>Osoby poniżej 18 roku życia</h2>
-${renderList(minor)}
+  <section class="resource-section minor-resources" aria-labelledby="minor-title"><div class="resource-heading"><p class="kicker">Pomoc dla dzieci i młodzieży</p><h2 id="minor-title">Osoby poniżej 18 roku życia</h2><p>Anonimowe telefony wsparcia oraz osobna ścieżka pomocy dla młodszych osób.</p></div>${renderList(minor)}</section>
 
-<p class="hint">Dane są utrzymywane ręcznie i weryfikowane okresowo względem oficjalnych źródeł
-(pacjent.gov.pl, gov.pl). Jeżeli zauważysz nieaktualną informację, napisz na
-<a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p>`,
+  <aside class="source-note"><p>Dane utrzymujemy ręcznie i okresowo weryfikujemy względem oficjalnych źródeł (pacjent.gov.pl, gov.pl). Jeśli zauważysz nieaktualną informację, napisz na <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p></aside>
+</div>`,
     }),
   );
 });
@@ -634,47 +627,48 @@ siteApp.get('/polityka-prywatnosci', (c) =>
       title: 'Polityka prywatności',
       path: '/polityka-prywatnosci',
       body: `
-<h1>Polityka prywatności</h1>
-<p class="meta">Wersja ${escapeHtml(c.env.PRIVACY_VERSION)}</p>
-
-<h2>Jakie dane przetwarzamy</h2>
+<div class="document-page">
+<header class="document-hero"><p class="kicker">Dokumenty i zasady</p><h1>Polityka prywatności</h1><p class="lead">Przejrzyste wyjaśnienie, jakie dane są potrzebne do działania katalogu i rezerwacji oraz czego świadomie nie zbieramy.</p><p class="document-version">Wersja ${escapeHtml(c.env.PRIVACY_VERSION)}</p></header>
+<div class="document-content">
+<section><h2>Jakie dane przetwarzamy</h2>
 <ul>
   <li><strong>Konto:</strong> adres e-mail (przechowywany w postaci zaszyfrowanej oraz jako nieodwracalny skrót do wyszukiwania).</li>
   <li><strong>Profil terapeuty:</strong> dane zawodowe podane w zgłoszeniu, ustawienia oferty i dostępności oraz status weryfikacji. Adres e-mail pozostaje zaszyfrowany.</li>
   <li><strong>Rezerwacja:</strong> identyfikator terapeuty i terminu, cena, forma spotkania, opcjonalnie imię i telefon do kontaktu — zaszyfrowane.</li>
   <li><strong>Zgody:</strong> wersja regulaminu i polityki prywatności zaakceptowana w momencie rezerwacji.</li>
   <li><strong>Audyt:</strong> minimalny zapis operacji zapisu (co, kiedy, przez kogo), bez treści i bez danych zdrowotnych.</li>
-</ul>
+</ul></section>
 
-<h2>Czego nie przetwarzamy</h2>
+<section><h2>Czego nie przetwarzamy</h2>
 <ul>
   <li>Nie zapisujemy treści rozmów z ChatGPT ani ich fragmentów.</li>
   <li>Nie zapisujemy opisu objawów, historii leczenia ani diagnoz.</li>
   <li>Nie zapisujemy powodów szukania terapii poza filtrami wybranymi w trakcie wyszukiwania —
       a te nie są przypisywane do konta po zakończeniu wyszukiwania.</li>
   <li>Nie prowadzimy profilowania reklamowego i nie udostępniamy danych do marketingu.</li>
-</ul>
+</ul></section>
 
-<h2>Odbiorcy danych</h2>
+<section><h2>Odbiorcy danych</h2>
 <p>Terapeuta, u którego rezerwujesz wizytę, otrzymuje dane niezbędne do jej realizacji.
 Dostawca infrastruktury (Cloudflare) i dostawca poczty transakcyjnej przetwarzają dane
-na nasze zlecenie.</p>
+na nasze zlecenie.</p></section>
 
-<h2>Okres przechowywania</h2>
+<section><h2>Okres przechowywania</h2>
 <p>Szczegóły opisuje dokument retencji dostępny na żądanie. W skrócie: dane kontaktowe rezerwacji
 usuwamy po 12 miesiącach od terminu wizyty, zapisy audytowe po 24 miesiącach, dane logowania
 po 30 dniach. Niepotwierdzone zgłoszenie terapeuty wygasa po 15 minutach; dane aktywnego profilu
-przechowujemy przez czas prowadzenia konta.</p>
+przechowujemy przez czas prowadzenia konta.</p></section>
 
-<h2>Twoje prawa</h2>
+<section><h2>Twoje prawa</h2>
 <p>Możesz zażądać kopii swoich danych lub ich usunięcia, pisząc na
 <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.
 Usunięcie konta usuwa dane kontaktowe; sam fakt odbytej wizyty pozostaje w formie
-pozbawionej danych identyfikujących, ponieważ jest potrzebny do rozliczeń.</p>
+pozbawionej danych identyfikujących, ponieważ jest potrzebny do rozliczeń.</p></section>
 
-<h2>Bezpieczeństwo</h2>
+<section><h2>Bezpieczeństwo</h2>
 <p>Dane kontaktowe są szyfrowane na poziomie aplikacji. Dostęp do panelu administracyjnego
-jest ograniczony rolami i chroniony logowaniem jednorazowym kodem.</p>`,
+jest ograniczony rolami i chroniony logowaniem jednorazowym kodem.</p></section>
+</div></div>`,
     }),
   ),
 );
@@ -686,44 +680,45 @@ siteApp.get('/regulamin', (c) =>
       title: 'Regulamin',
       path: '/regulamin',
       body: `
-<h1>Regulamin</h1>
-<p class="meta">Wersja ${escapeHtml(c.env.TERMS_VERSION)}</p>
-
-<h2>1. Czym jest serwis</h2>
+<div class="document-page">
+<header class="document-hero"><p class="kicker">Dokumenty i zasady</p><h1>Regulamin</h1><p class="lead">Najważniejsze zasady korzystania z katalogu i rezerwacji, opisane możliwie prostym językiem.</p><p class="document-version">Wersja ${escapeHtml(c.env.TERMS_VERSION)}</p></header>
+<div class="document-content">
+<section><h2>1. Czym jest serwis</h2>
 <p>Otwarty Terapeuta udostępnia katalog psychoterapeutów oraz umożliwia rezerwację terminu wizyty.
 Serwis nie świadczy usług terapeutycznych ani medycznych i nie jest stroną umowy między osobą
-rezerwującą a terapeutą.</p>
+rezerwującą a terapeutą.</p></section>
 
-<h2>2. Kto może korzystać</h2>
-<p>Z rezerwacji mogą korzystać wyłącznie osoby pełnoletnie.</p>
+<section><h2>2. Kto może korzystać</h2><p>Z rezerwacji mogą korzystać wyłącznie osoby pełnoletnie.</p></section>
 
-<h2>3. Profile terapeutów</h2>
+<section><h2>3. Profile terapeutów</h2>
 <p>Terapeuta może utworzyć konto po potwierdzeniu adresu e-mail. Nowy profil jest roboczy i
 niezweryfikowany. Utworzenie konta nie gwarantuje publikacji; administrator może poprosić o
-dokumenty, odmówić publikacji albo wycofać profil naruszający regulamin.</p>
+dokumenty, odmówić publikacji albo wycofać profil naruszający regulamin.</p></section>
 
-<h2>4. Rezerwacja</h2>
+<section><h2>4. Rezerwacja</h2>
 <p>Rezerwacja jest skuteczna po wyświetleniu pełnego podsumowania i jego jednoznacznym potwierdzeniu.
-Cena, czas trwania i forma spotkania obowiązują w wersji przedstawionej w podsumowaniu.</p>
+Cena, czas trwania i forma spotkania obowiązują w wersji przedstawionej w podsumowaniu.</p></section>
 
-<h2>5. Odwołanie wizyty</h2>
+<section><h2>5. Odwołanie wizyty</h2>
 <p>Zasady odwołania określa terapeuta i są widoczne w jego profilu oraz w podsumowaniu rezerwacji.
 Odwołanie po upływie bezpłatnego okresu może wiązać się z opłatą ustaloną przez terapeutę.</p>
+</section>
 
-<h2>6. Płatności</h2>
+<section><h2>6. Płatności</h2>
 <p>Rozliczenie następuje bezpośrednio między osobą rezerwującą a terapeutą, zgodnie z informacją
-w profilu terapeuty. Serwis nie pośredniczy w płatnościach.</p>
+w profilu terapeuty. Serwis nie pośredniczy w płatnościach.</p></section>
 
-<h2>7. Dane w profilach</h2>
+<section><h2>7. Dane w profilach</h2>
 <p>Za treść profilu i odpowiedzi FAQ odpowiada terapeuta. Serwis oznacza, które dane zostały
 zweryfikowane i kiedy. Weryfikacja nie jest gwarancją jakości usługi.</p>
+</section>
 
-<h2>8. Pomoc w kryzysie</h2>
+<section><h2>8. Pomoc w kryzysie</h2>
 <p>Serwis nie jest pomocą w nagłym zagrożeniu życia lub zdrowia. W takiej sytuacji należy
-skorzystać z numerów wskazanych na stronie <a href="/pomoc-w-kryzysie">Pomoc w kryzysie</a>.</p>
+skorzystać z numerów wskazanych na stronie <a href="/pomoc-w-kryzysie">Pomoc w kryzysie</a>.</p></section>
 
-<h2>9. Kontakt</h2>
-<p><a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a></p>`,
+<section><h2>9. Kontakt</h2><p><a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a></p></section>
+</div></div>`,
     }),
   ),
 );

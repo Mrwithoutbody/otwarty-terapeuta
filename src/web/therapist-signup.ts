@@ -51,9 +51,9 @@ async function formValues(request: Request): Promise<URLSearchParams> {
 
 function signupForm(env: Env, error?: string): string {
   return `
-<h1>Dołącz jako terapeuta</h1>
-<p>Utwórz profil roboczy i uzupełnij go później w swoim panelu. Zgłoszenie nie pojawi się
-publicznie, dopóki administrator go nie przejrzy i nie opublikuje.</p>
+<div class="signup-page">
+<header class="signup-intro"><p class="kicker">Dla psychoterapeutów</p><h1>Dołącz jako terapeuta</h1>
+<p>Utwórz profil roboczy i uzupełnij go później w swoim panelu. Zgłoszenie nie pojawi się publicznie, dopóki administrator go nie przejrzy i nie opublikuje.</p></header>
 ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 <form method="post" action="/dla-terapeutow/start">
   <div class="field-row two">
@@ -85,13 +85,13 @@ ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <p><button class="btn" type="submit">Wyślij kod i utwórz zgłoszenie</button></p>
 </form>
-<p class="hint">Masz już profil? <a href="/admin">Zaloguj się do panelu</a>.</p>`;
+<p class="hint">Masz już profil? <a href="/admin">Zaloguj się do panelu</a>.</p></div>`;
 }
 
 function codeForm(challengeId: string, error?: string): string {
   return `
-<h1>Potwierdź adres e-mail</h1>
-<p>Wysłaliśmy sześciocyfrowy kod. Jest ważny 15 minut.</p>
+<div class="signup-page"><header class="signup-intro"><p class="kicker">Ostatni krok</p><h1>Potwierdź adres e-mail</h1>
+<p>Wysłaliśmy sześciocyfrowy kod. Jest ważny 15 minut.</p></header>
 ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 <form method="post" action="/dla-terapeutow/potwierdz">
   <input type="hidden" name="challenge_id" value="${escapeHtml(challengeId)}">
@@ -99,7 +99,7 @@ ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
     <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}"
            autocomplete="one-time-code" required maxlength="6"></div>
   <p><button class="btn" type="submit">Potwierdź i przejdź do profilu</button></p>
-</form>`;
+</form></div>`;
 }
 
 function signingKey(env: Env): string {
