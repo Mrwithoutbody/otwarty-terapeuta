@@ -218,6 +218,9 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: 0; font-size: 0.875rem; }
 .card dt { color: var(--text-muted); }
 .card dd { margin: 0; overflow-wrap: anywhere; }
+.lang { display: inline-flex; align-items: center; gap: 0.4em; }
+/* Przygaszone: flaga ma być znacznikiem, nie najjaśniejszym punktem strony. */
+.lang svg { width: 1.15em; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; filter: saturate(0.62); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); flex: none; }
 .therapist-card .card-actions { margin-top: auto; padding-top: var(--space-2); }
 
 .avatar {

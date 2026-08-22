@@ -12,6 +12,12 @@ export interface PublicCredential {
   verified: boolean;
 }
 
+/** Publiczna wizytówka terapeuty w innym serwisie. Wyłącznie https. */
+export interface PublicLink {
+  label: string;
+  url: string;
+}
+
 export interface PublicLocation {
   city: string;
   region: string | null;
@@ -52,6 +58,7 @@ export interface PublicTherapist {
   age_groups: AgeGroup[];
   accepting_new_clients: boolean;
   credentials: PublicCredential[];
+  links: PublicLink[];
   verification_status: 'unverified' | 'verified' | 'rejected';
   verified_at: string | null;
   offers: PublicOffer[];
@@ -119,6 +126,7 @@ export interface TherapistRow {
   age_groups: string;
   session_types: string;
   credentials: string;
+  links: string;
   verification_status: 'unverified' | 'verified' | 'rejected';
   verified_at: string | null;
   /** PRIVATE. Never included in any public projection. */

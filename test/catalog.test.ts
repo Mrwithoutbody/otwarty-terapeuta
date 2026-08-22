@@ -90,6 +90,9 @@ describe('FAQ', () => {
   it('returns only published items', async () => {
     const items = await getPublishedFaq(env, ANNA);
     expect(items.length).toBeGreaterThan(0);
+    // Every consumer (widget key, MCP payload, deep link) reads faq_id, so an
+    // item without one is a broken row, not a cosmetic gap.
+    expect(items.every((i) => typeof i.faq_id === 'string' && i.faq_id !== '')).toBe(true);
     expect(items.every((i) => i.approved_at !== null)).toBe(true);
     expect(items.some((i) => i.answer.includes('ROBOCZA ODPOWIEDŹ'))).toBe(false);
   });
@@ -161,5 +164,24 @@ describe('crisis resources', () => {
     const minor = await getCrisisResources(env, 'PL', 'minor');
     expect(minor.some((r) => r.phone === '116 111')).toBe(true);
     expect(minor.some((r) => r.phone === '116 123')).toBe(false);
+  });
+});
+
+describe('links', () => {
+  it('publishes https links and drops anything else', async () => {
+    await env.DB.prepare(`UPDATE therapists SET links = ? WHERE id = ?`)
+      .bind(
+        JSON.stringify([
+          { label: 'Facebook', url: 'https://www.facebook.com/p/Gabinet-100063470173359/' },
+          { label: 'Skrypt', url: 'javascript:alert(1)' },
+          { label: '', url: 'https://example.com' },
+          { label: 'Bez adresu', url: '' },
+        ]),
+        ANNA,
+      )
+      .run();
+
+    const t = await getTherapist(env, { therapist_id: ANNA });
+    expect(t?.links).toEqual([{ label: 'Facebook', url: 'https://www.facebook.com/p/Gabinet-100063470173359/' }]);
   });
 });

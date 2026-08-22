@@ -25,6 +25,62 @@ import { htmlResponse, renderPage } from './layout';
 
 export const siteApp = new Hono<{ Bindings: Env }>();
 
+/**
+ * Słowniki mają nazwy po polsku, ale profil publiczny dostaje z bazy same
+ * identyfikatory ("individual", "pl"). Kod jest kontraktem — MCP filtruje po
+ * nim — więc tłumaczymy dopiero przy renderowaniu, z zapasem na wartość spoza
+ * listy.
+ */
+const PUBLIC_LABELS: Record<string, string> = {
+  individual: 'indywidualne',
+  couples: 'dla par',
+  family: 'rodzinne',
+  adults: 'dorośli',
+  teens: 'młodzież',
+  children: 'dzieci',
+  seniors: 'seniorzy',
+  pl: 'polski',
+  en: 'angielski',
+  uk: 'ukraiński',
+  ru: 'rosyjski',
+  de: 'niemiecki',
+  fr: 'francuski',
+  es: 'hiszpański',
+  be: 'białoruski',
+};
+
+function labelList(values: string[], empty: string): string {
+  return values.map((value) => PUBLIC_LABELS[value] ?? value).join(', ') || empty;
+}
+
+/**
+ * Flagi rysowane inline: żadnej zewnętrznej biblioteki ani pliku, bo strona ma
+ * ścisły CSP i nie wolno jej nic dociągać. Kształty są uproszczone — przy 1em
+ * i tak widać tylko układ barw. Flaga oznacza język, nie kraj; to skrót
+ * wizualny, więc nazwa języka zostaje obok jako właściwa informacja.
+ */
+const LANGUAGE_FLAGS: Record<string, string> = {
+  pl: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect y="1" width="3" height="1" fill="#d4213d"/></svg>',
+  en: '<svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#012169"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#fff" stroke-width="8"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#c8102e" stroke-width="4"/><path d="M30,0 V40 M0,20 H60" stroke="#fff" stroke-width="12"/><path d="M30,0 V40 M0,20 H60" stroke="#c8102e" stroke-width="6"/></svg>',
+  uk: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#ffd500"/><rect width="3" height="1" fill="#005bbb"/></svg>',
+  ru: '<svg viewBox="0 0 3 3"><rect width="3" height="3" fill="#d52b1e"/><rect width="3" height="2" fill="#0039a6"/><rect width="3" height="1" fill="#fff"/></svg>',
+  de: '<svg viewBox="0 0 3 3"><rect width="3" height="3" fill="#ffce00"/><rect width="3" height="2" fill="#dd0000"/><rect width="3" height="1" fill="#000"/></svg>',
+  fr: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#ce1126"/><rect width="2" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/></svg>',
+  es: '<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#aa151b"/><rect y="2" width="12" height="4" fill="#f1bf00"/></svg>',
+  be: '<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#007c30"/><rect width="12" height="5" fill="#cf0921"/><rect width="2" height="8" fill="#fff"/></svg>',
+};
+
+function languageList(codes: string[]): string {
+  if (codes.length === 0) return 'brak danych';
+  return codes
+    .map((code) => {
+      const name = escapeHtml(PUBLIC_LABELS[code] ?? code);
+      const flag = LANGUAGE_FLAGS[code];
+      return flag ? `<span class="lang">${flag}${name}</span>` : name;
+    })
+    .join(', ');
+}
+
 function pluginCta(env: Env): string {
   const url = env.PUBLIC_PLUGIN_URL?.trim();
   if (!url) {
@@ -89,7 +145,7 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
     <dt>Forma</dt><dd>${escapeHtml(modes || 'brak danych')}</dd>
     <dt>Miejscowość</dt><dd>${escapeHtml(t.locations.map((l) => l.city).join(', ') || 'tylko online')}</dd>
     <dt>Cena</dt><dd>${escapeHtml(price)}</dd>
-    <dt>Języki</dt><dd>${escapeHtml(t.languages.join(', '))}</dd>
+    <dt>Języki</dt><dd>${languageList(t.languages)}</dd>
     <dt>Najbliższy termin</dt>
     <dd>${t.next_available_slot_utc ? escapeHtml(formatDateTime(t.next_available_slot_utc, t.timezone)) : 'brak wolnych terminów'}</dd>
   </dl>
@@ -437,10 +493,20 @@ ${renderBodyText(t.bio)}
     <dl>
       <dt>Forma</dt><dd>${escapeHtml([t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null].filter(Boolean).join(', ') || 'brak danych')}</dd>
       <dt>Miejscowość</dt><dd>${escapeHtml(t.locations.map((l) => `${l.city}${l.address_line ? `, ${l.address_line}` : ''}`).join('; ') || 'tylko online')}</dd>
-      <dt>Języki</dt><dd>${escapeHtml(t.languages.join(', '))}</dd>
-      <dt>Typ spotkań</dt><dd>${escapeHtml(t.session_types.join(', '))}</dd>
-      <dt>Grupy wiekowe</dt><dd>${escapeHtml(t.age_groups.join(', '))}</dd>
+      <dt>Języki</dt><dd>${languageList(t.languages)}</dd>
+      <dt>Typ spotkań</dt><dd>${escapeHtml(labelList(t.session_types, 'brak danych'))}</dd>
+      <dt>Grupy wiekowe</dt><dd>${escapeHtml(labelList(t.age_groups, 'brak danych'))}</dd>
       <dt>Strefa czasowa</dt><dd>${escapeHtml(t.timezone)}</dd>
+      ${
+        t.links.length === 0
+          ? ''
+          : `<dt>W sieci</dt><dd>${t.links
+              .map(
+                (l) =>
+                  `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)}</a>`,
+              )
+              .join(', ')}</dd>`
+      }
     </dl>
   </div>
   <div class="card">

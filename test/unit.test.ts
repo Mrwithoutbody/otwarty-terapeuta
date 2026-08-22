@@ -167,6 +167,7 @@ function therapist(overrides: Partial<PublicTherapist>): PublicTherapist {
     age_groups: ['adults'],
     accepting_new_clients: true,
     credentials: [],
+    links: [],
     verification_status: 'unverified',
     verified_at: null,
     offers: [],

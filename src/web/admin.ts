@@ -21,7 +21,7 @@ import {
   randomLoginCode,
   timingSafeEqual,
 } from '../lib/crypto';
-import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { escapeHtml, isEmail, normalizeForSearch, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import {
   addCivilDays,
   civilDateIn,
@@ -427,6 +427,7 @@ interface EditorContext {
   city: string;
   addressLine: string;
   credentials: CredentialInput[];
+  links: LinkInput[];
   offers: OfferRow[];
   faq: FaqRow[];
 }
@@ -443,6 +444,29 @@ const AGE_GROUP_LABELS: RefTag[] = [
   { slug: 'children', name_pl: 'dzieci' },
   { slug: 'seniors', name_pl: 'seniorzy' },
 ];
+
+interface LinkInput {
+  label: string;
+  url: string;
+}
+
+/** Ten sam kształt co kwalifikacje: lista rośnie i kurczy się w formularzu. */
+function parseStoredLinks(value: string | null): LinkInput[] {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
+      .slice(0, 8)
+      .map((entry) => ({
+        label: typeof entry.label === 'string' ? entry.label : '',
+        url: typeof entry.url === 'string' ? entry.url : '',
+      }))
+      .filter((entry) => entry.label !== '' && entry.url !== '');
+  } catch {
+    return [];
+  }
+}
 
 /** Tolerant: a profile edited through the old free-text JSON field may hold anything. */
 function parseStoredCredentials(value: string | null): CredentialInput[] {
@@ -486,6 +510,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     city: '',
     addressLine: '',
     credentials: [],
+    links: [],
     offers: [],
     faq: [],
   };
@@ -579,6 +604,22 @@ function jsonListToSet(value: string | null | undefined, fallback: string[]): Se
     /* fall through to the default */
   }
   return new Set(fallback);
+}
+
+function linkRow(entry: LinkInput | null, index: number): string {
+  const suffix = entry ? `_${index}` : '';
+  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
+  return `<div class="repeat-row" data-repeat-row>
+  <div class="field">
+    <label data-label-for="link_label"${entry ? ` for="link_label${suffix}"` : ''}>Nazwa</label>
+    <input data-name="link_label"${nameAttr('link_label')} maxlength="40" placeholder="Facebook" value="${escapeHtml(entry?.label ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="link_url"${entry ? ` for="link_url${suffix}"` : ''}>Adres (https)</label>
+    <input data-name="link_url"${nameAttr('link_url')} type="url" maxlength="500" placeholder="https://" value="${escapeHtml(entry?.url ?? '')}">
+  </div>
+  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
+</div>`;
 }
 
 function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
@@ -720,6 +761,18 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
         ? '<p class="hint">„Zweryfikowane” oznacza, że zespół widział dokument. Terapeuta nie może ustawić tego sam.</p>'
         : '<p class="hint">Oznaczenie „zweryfikowane” nadaje wyłącznie zespół po sprawdzeniu dokumentu.</p>'
     }
+  </fieldset>
+
+  <fieldset data-repeat>
+    <legend>Linki i wizytówki</legend>
+    <div data-repeat-body>${[...context.links, { label: '', url: '' }]
+      .map((entry, index) => linkRow(entry, index))
+      .join('')}</div>
+    <template>${linkRow(null, 0)}</template>
+    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj link</button></p>
+    <p class="hint">Facebook, Instagram, wizytówka Google, własna strona. Tylko adresy https.
+      Wizytówkę Google skopiuj przyciskiem „Udostępnij” z panelu firmy — adres z paska wyszukiwarki
+      niesie parametry sesji i po czasie przestaje działać.</p>
   </fieldset>
 
   <div class="field-row two">
@@ -932,6 +985,7 @@ adminApp.get('/terapeuci/:id', async (c) => {
 
   const context = await loadEditorContext(c.env, id);
   context.credentials = parseStoredCredentials(row.credentials);
+  context.links = parseStoredLinks(row.links);
 
   return page(
     c.env,
@@ -990,6 +1044,21 @@ function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: C
   return JSON.stringify(out);
 }
 
+/**
+ * Linki do wizytówek w innych serwisach. `safeUrl` przepuszcza wyłącznie https,
+ * więc `javascript:` albo `//evil` odpada zanim trafi do bazy i na profil.
+ */
+function collectLinks(body: URLSearchParams): string {
+  const out: LinkInput[] = [];
+  for (let index = 0; index < 20 && out.length < 8; index++) {
+    const label = sanitizeLine(body.get(`link_label_${index}`) ?? '', 40);
+    const url = safeUrl(sanitizeLine(body.get(`link_url_${index}`) ?? '', 500));
+    if (!label || !url) continue;
+    out.push({ label, url });
+  }
+  return JSON.stringify(out);
+}
+
 adminApp.post('/terapeuci/:id', async (c) => {
   const body = await formValues(c.req.raw);
   const id = c.req.param('id');
@@ -1030,6 +1099,7 @@ adminApp.post('/terapeuci/:id', async (c) => {
       checkedValues(body, 'age_groups', ['adults', 'teens', 'children', 'seniors'], 4),
     ),
     credentials: collectCredentials(body, isAdmin, parseStoredCredentials(existing?.credentials ?? null)),
+    links: collectLinks(body),
     cancellation_policy: sanitizeLine(body.get('cancellation_policy') ?? '', 500),
     cancellation_cutoff_h: Math.min(Math.max(Number(body.get('cancellation_cutoff_h') ?? 24) || 24, 0), 168),
     // Verification and publication remain admin-only, whatever the form posts.
@@ -1056,10 +1126,10 @@ adminApp.post('/terapeuci/:id', async (c) => {
   if (isNew) {
     await c.env.DB.prepare(
       `INSERT INTO therapists (id, slug, display_name, headline, bio, photo_url, offers_online, offers_in_person,
-                               accepting_new_clients, age_groups, session_types, credentials, verification_status,
+                               accepting_new_clients, age_groups, session_types, credentials, links, verification_status,
                                verified_at, verification_notes, status, is_demo, timezone, cancellation_policy,
                                cancellation_cutoff_h, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)`,
     )
       .bind(
         therapistIdValue,
@@ -1074,6 +1144,7 @@ adminApp.post('/terapeuci/:id', async (c) => {
         values.age_groups,
         values.session_types,
         values.credentials,
+        values.links,
         values.verification_status,
         verifiedAt,
         values.verification_notes,
@@ -1087,7 +1158,7 @@ adminApp.post('/terapeuci/:id', async (c) => {
   } else {
     await c.env.DB.prepare(
       `UPDATE therapists SET slug=?, display_name=?, headline=?, bio=?, photo_url=?, offers_online=?,
-              offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?, credentials=?,
+              offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?, credentials=?, links=?,
               verification_status=?, verified_at=?, verification_notes=?, status=?, cancellation_policy=?,
               cancellation_cutoff_h=?, updated_at=? WHERE id=?`,
     )
@@ -1103,6 +1174,7 @@ adminApp.post('/terapeuci/:id', async (c) => {
         values.age_groups,
         values.session_types,
         values.credentials,
+        values.links,
         values.verification_status,
         verifiedAt,
         values.verification_notes,

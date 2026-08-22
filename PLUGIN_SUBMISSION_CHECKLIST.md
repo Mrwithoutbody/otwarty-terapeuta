@@ -96,14 +96,24 @@ npx @modelcontextprotocol/inspector
 # Transport: Streamable HTTP → https://mcp.otwartyterapeuta.pl/mcp
 ```
 
-- [ ] `initialize` zwraca `instructions` z zasadami bezpieczeństwa
-- [ ] `tools/list` zwraca dokładnie 10 narzędzi, każde ze schematem wejścia i wyjścia
-- [ ] `resources/list` zwraca zasób UI i słowniki
-- [ ] `resources/read ui://otwarty-terapeuta/widget/v1.html` zwraca HTML z MIME `text/html;profile=mcp-app`
-- [ ] `search_therapists` z poprawnymi filtrami → wyniki z `match_reasons`
-- [ ] `search_therapists` z `price_min > price_max` → czytelny błąd
-- [ ] `preview_booking` bez tokenu → wynik z `mcp/www_authenticate`
-- [ ] nieprawidłowy `Bearer` → HTTP 401 z `WWW-Authenticate`
+Przeszło 2026-08-22 na produkcji (surowe JSON-RPC przez `curl`, Streamable HTTP).
+
+- [x] `initialize` zwraca `instructions` z zasadami bezpieczeństwa
+- [x] `tools/list` zwraca dokładnie 10 narzędzi, każde ze schematem wejścia i wyjścia
+      (adnotacje i `securitySchemes` zgodne z §3: katalogowe `noauth`, rezerwacyjne `oauth2`)
+- [x] `resources/list` zwraca zasób UI i słowniki
+- [x] `resources/read ui://otwarty-terapeuta/widget/v1.html` zwraca HTML z MIME `text/html;profile=mcp-app`
+      (214 660 B; `_meta.ui.resourceUri` i `openai/outputTemplate` tylko przy `render_otwarty_terapeuta_widget`, CSP puste)
+- [x] `search_therapists` z poprawnymi filtrami → wyniki z `match_reasons`
+      **Uwaga:** w produkcji jest 1 opublikowany profil i ma puste `languages`
+      oraz `topics`, więc filtr `languages:["pl"]` zwraca 0 wyników. Bez filtrów
+      wynik i `match_reasons` są poprawne. Do uzupełnienia przed §7.2.
+- [x] `search_therapists` z `price_min > price_max` → czytelny błąd
+      (`isError`, `openai/error_code: invalid_input`)
+- [x] `preview_booking` bez tokenu → wynik z `mcp/www_authenticate`
+      (to samo dla `list_my_bookings`; walidacja wejścia biegnie przed bramką auth,
+      więc do testu potrzebny `slot_id` w formacie `sl_[0-9a-f]{16,48}`)
+- [x] nieprawidłowy `Bearer` → HTTP 401 z `WWW-Authenticate`
 
 ### 7.2. ChatGPT developer mode
 
@@ -184,6 +194,72 @@ komunikatem.
 - [ ] `DPIA_CHECKLIST.md` §11 zamknięte
 - [ ] `seed/seed.sql` **nieobecny** w bazie produkcyjnej
 - [ ] Sekrety produkcyjne ustawione (Worker startuje, nie zwraca 503)
+- [ ] Weryfikacja domeny przeprowadzona — §11
 - [ ] Zasoby kryzysowe zweryfikowane w ciągu ostatnich 90 dni
 - [ ] Co najmniej jeden realny, zweryfikowany profil terapeuty opublikowany
 - [ ] Polityka prywatności i regulamin zatwierdzone prawnie
+
+## 11. Weryfikacja domeny — `OPENAI_APPS_CHALLENGE`
+
+Portal OpenAI musi się upewnić, że domena należy do zgłaszającego. Robi to tak:
+generuje token, a Ty masz go wystawić pod stałym adresem na swojej domenie.
+
+Endpoint jest już w kodzie (`src/index.ts:90`) i **celowo zwraca 404, dopóki
+sekret nie jest ustawiony** — nie ma sensu wystawiać pustej odpowiedzi zanim
+portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
+`text/plain`, `no-store`, bez żadnego innego znaku.
+
+### Kolejność — token powstaje w portalu, nie u nas
+
+1. Zaloguj się na **<https://platform.openai.com>** i wybierz właściwą organizację
+   (prawy górny róg — token weryfikacyjny jest przypisany do organizacji, nie do konta).
+2. Sprawdź uprawnienia: **<https://platform.openai.com/settings/organization/people/roles>**
+   → rola **Apps Management** musi być ustawiona na **Write**. Bez tego portal
+   zgłoszeń nie wyświetli formularza.
+3. Otwórz portal zgłoszeń: **<https://platform.openai.com/plugins>** i wejdź w
+   zgłoszenie **Otwarty Terapeuta** (aplikacja jest już założona:
+   `plugin_asdk_app_6a8715a992e08191b266bbdd873011f5`; jeśli jej tam nie widać —
+   **Create plugin**).
+4. W kroku weryfikacji domeny **skopiuj wygenerowany token**. Portal pokaże
+   pełny adres, pod którym go szuka:
+   `https://<challenge-base-host>/.well-known/openai-apps-challenge`.
+   Host to `otwartyterapeuta.pl` albo `mcp.otwartyterapeuta.pl` — obie domeny
+   obsługuje ten sam Worker, więc endpoint odpowie pod każdą z nich.
+   Odpowiedź ma zawierać **wyłącznie token tego jednego pluginu** — nie JSON,
+   nie listę tokenów.
+5. Wgraj token jako sekret. Komenda pyta o wartość interaktywnie — wklejasz ją
+   sam, token nigdzie nie zostaje zapisany w repo:
+
+   ```bash
+   npx wrangler secret put OPENAI_APPS_CHALLENGE --env production
+   ```
+
+   `wrangler secret put` sam publikuje nową wersję Workera, więc osobny
+   `wrangler deploy` nie jest potrzebny. Jeżeli akurat masz niewdrożone zmiany
+   w kodzie, wdróż je normalnie — sekret to przetrwa.
+
+6. Sprawdź, zanim klikniesz cokolwiek w portalu:
+
+   ```bash
+   curl -i https://otwartyterapeuta.pl/.well-known/openai-apps-challenge
+   curl -i https://mcp.otwartyterapeuta.pl/.well-known/openai-apps-challenge
+   ```
+
+   Oczekiwane: `200`, `content-type: text/plain; charset=utf-8`, a w ciele
+   **wyłącznie token** — bez cudzysłowów, bez HTML-a, bez pustej linii.
+   Nadmiarowe białe znaki są obcinane (`.trim()`), ale token wklejony z błędem
+   przejdzie i weryfikacja padnie bez wyjaśnienia.
+
+7. Wróć do portalu i uruchom weryfikację.
+
+### Kiedy to robić
+
+Ten krok ma sens dopiero przy samym zgłoszeniu — token bywa jednorazowy
+i związany z konkretnym zgłoszeniem. Nie ustawiaj go „na zapas".
+
+### Po weryfikacji
+
+Sekret zostaje. Endpoint nadal zwraca token, co jest w porządku: to publiczny
+dowód posiadania domeny, nie tajemnica. Usunięcie sekretu (`wrangler secret
+delete OPENAI_APPS_CHALLENGE --env production`) przywraca 404 i może unieważnić
+weryfikację, jeśli portal sprawdza ją ponownie.

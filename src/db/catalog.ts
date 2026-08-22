@@ -6,6 +6,7 @@ import type {
   CrisisResource,
   NamedTag,
   PublicCredential,
+  PublicLink,
   PublicFaqItem,
   PublicLocation,
   PublicOffer,
@@ -37,6 +38,23 @@ function parseJsonArray<T>(raw: string, allowed: readonly string[]): T[] {
 
 const AGE_GROUPS = ['adults', 'teens', 'children', 'seniors'] as const;
 const SESSION_TYPES = ['individual', 'couples', 'family'] as const;
+
+/** Linki wpisuje człowiek w panelu, więc adres jest walidowany jeszcze raz przy odczycie. */
+function parseLinks(raw: string): PublicLink[] {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+    return value
+      .slice(0, 8)
+      .map((entry) => {
+        const l = entry as Record<string, unknown>;
+        return { label: String(l.label ?? '').slice(0, 40), url: safeUrl(String(l.url ?? '')) };
+      })
+      .filter((l): l is PublicLink => l.label !== '' && l.url !== null);
+  } catch {
+    return [];
+  }
+}
 
 function parseCredentials(raw: string): PublicCredential[] {
   try {
@@ -196,6 +214,7 @@ function toPublicTherapist(row: TherapistRow, related: Related, baseUrl: string)
     age_groups: parseJsonArray<AgeGroup>(row.age_groups, AGE_GROUPS),
     accepting_new_clients: row.accepting_new_clients === 1,
     credentials: parseCredentials(row.credentials),
+    links: parseLinks(row.links),
     verification_status: row.verification_status,
     verified_at: row.verified_at,
     offers,
@@ -340,7 +359,7 @@ export async function getPublishedFaq(
   question?: string,
 ): Promise<PublicFaqItem[]> {
   const { results } = await env.DB.prepare(
-    `SELECT f.id, f.therapist_id, f.question, f.answer, f.category, f.updated_at, f.approved_at
+    `SELECT f.id AS faq_id, f.therapist_id, f.question, f.answer, f.category, f.updated_at, f.approved_at
        FROM faq_items f
        JOIN therapists t ON t.id = f.therapist_id
       WHERE f.therapist_id = ? AND f.status = 'published' AND ${PUBLISHED}
