@@ -6,14 +6,9 @@
  *  - the user's timezone only affects presentation, never storage.
  */
 
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const DEFAULT_TIMEZONE = 'Europe/Warsaw';
-
-export function isIsoUtc(value: string): boolean {
-  return ISO_UTC.test(value) && !Number.isNaN(Date.parse(value));
-}
 
 export function isIsoDate(value: string): boolean {
   return ISO_DATE.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));

@@ -21,7 +21,7 @@ function requiredOAuth(scope: string): ToolSecurityScheme[] {
   return [{ type: 'oauth2', scopes: [scope] }];
 }
 
-export const TOOL_SECURITY_SCHEMES: Readonly<Record<string, ToolSecurityScheme[]>> = {
+const TOOL_SECURITY_SCHEMES: Readonly<Record<string, ToolSecurityScheme[]>> = {
   search_therapists: NO_AUTH,
   get_therapist_profile: NO_AUTH,
   get_therapist_faq: NO_AUTH,

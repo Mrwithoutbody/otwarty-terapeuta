@@ -10,8 +10,6 @@
   "triggers": { "crons": ["*/5 * * * *"] },
 
   // --- Local / default environment -------------------------------------
-  // Replace every `REPLACE_ME` id with the value printed by the matching
-  // `wrangler d1 create` / `wrangler r2 bucket create` command (see README).
   "vars": {
     "ENVIRONMENT": "local",
     "PUBLIC_BASE_URL": "http://localhost:8787",

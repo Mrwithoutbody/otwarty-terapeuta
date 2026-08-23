@@ -12,9 +12,9 @@ import { isIsoDate, isValidTimezone } from '../lib/time';
  *    cannot smuggle a payload through a "free text" field.
  */
 
-export const SESSION_TYPE = z.enum(['individual', 'couples', 'family']);
-export const SESSION_MODE = z.enum(['online', 'in_person']);
-export const AGE_GROUP = z.enum(['adults', 'teens', 'children', 'seniors']);
+const SESSION_TYPE = z.enum(['individual', 'couples', 'family']);
+const SESSION_MODE = z.enum(['online', 'in_person']);
+const AGE_GROUP = z.enum(['adults', 'teens', 'children', 'seniors']);
 
 const slug = z
   .string()

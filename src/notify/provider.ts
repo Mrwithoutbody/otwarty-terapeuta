@@ -31,7 +31,7 @@ async function postEmail(url: string, headers: HeadersInit, body: unknown): Prom
   if (!res.ok) throw new Error(`Dostawca e-mail odrzucił wiadomość (HTTP ${res.status}).`);
 }
 
-export const sendViaResend =
+const sendViaResend =
   (apiKey: string, from: string): SendNotification =>
   (message) =>
     postEmail(

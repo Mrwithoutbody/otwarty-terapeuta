@@ -19,7 +19,7 @@ const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
  * is why the stylesheet is a separate file and every form is server rendered.
  * The only third-party origin is Turnstile, and only where a form needs it.
  */
-export function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin?: string): string {
+function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin?: string): string {
   const script = withTurnstile
     ? `script-src 'self' https://challenges.cloudflare.com`
     : `script-src 'self'`;
