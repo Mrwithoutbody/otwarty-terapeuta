@@ -141,16 +141,45 @@ przetwarzania danych realnych osób.
 
 ## 11. Bramka „gotowe do produkcji”
 
-Nie wdrażaj na dane realnych osób, dopóki **wszystkie** poniższe nie są spełnione:
+**To jest jedyna lista, która odpowiada na pytanie „co blokuje wydanie".**
+Pozostałe dokumenty opisują szczegóły poszczególnych pozycji, ale żaden nie
+prowadzi własnego rejestru blokerów — jeśli coś ma wstrzymać wydanie, wpis
+należy tutaj.
 
-1. [ ] Sekcje 1–4 (role i podstawy, lokalizacja, granice kliniczne, weryfikacja
-       terapeutów) zamknięte.
-2. [ ] DPIA przeprowadzona i udokumentowana.
-3. [ ] Umowy powierzenia podpisane.
-4. [ ] Automatyczna retencja wdrożona i przetestowana.
-5. [ ] Polityka prywatności i regulamin zatwierdzone prawnie.
-6. [ ] Procedura incydentu z uzupełnionymi kontaktami.
-7. [ ] Proces moderacji profili i FAQ działa.
-8. [ ] Właściciel i harmonogram weryfikacji zasobów kryzysowych ustalony.
-9. [ ] Dane demonstracyjne (`is_demo = 1`) **nieobecne** w bazie produkcyjnej.
-10. [ ] Testy akceptacyjne scenariuszy kryzysowych zaliczone z udziałem klinicysty.
+Nie wdrażaj na dane realnych osób, dopóki **wszystkie** pozycje oznaczone jako
+blokujące nie są spełnione.
+
+### Blokujące
+
+| # | Pozycja | Właściciel | Szczegóły |
+| --- | --- | --- | --- |
+| 1 | Sekcje 1–4 zamknięte (role i podstawy prawne, lokalizacja danych, granice kliniczne, weryfikacja terapeutów) | prawnik + klinicysta | §1–§4 tego dokumentu |
+| 2 | DPIA przeprowadzona i udokumentowana | prawnik | §0 |
+| 3 | Ustalony administrator danych: operator, terapeuta czy współadministrowanie | prawnik | §1 tego dokumentu |
+| 4 | Podstawa prawna dla każdej kategorii (art. 6 i 9 RODO), w tym czy powiązanie osoba ↔ terapeuta to dane o zdrowiu | prawnik | §1 tego dokumentu; kategorie danych w `PRIVACY_DATA_MAP.md` §3 |
+| 5 | Umowy powierzenia podpisane (Cloudflare, dostawca poczty) | prawnik | `PRIVACY_DATA_MAP.md` §5 |
+| 6 | Rejestr czynności przetwarzania | prawnik | — |
+| 7 | Polityka prywatności i regulamin zatwierdzone prawnie | prawnik | obecne wersje to roboczy opis techniczny |
+| 8 | Automatyczna retencja wdrożona i przetestowana na preview | inżynieria | `RETENTION_POLICY.md` §5 (gotowy SQL) |
+| 9 | Potwierdzona procedura kopii zapasowych D1 — usunięcie musi obejmować kopie | inżynieria | `RETENTION_POLICY.md` §6 |
+| 10 | Konsultacja kliniczna ścieżki kryzysowej | klinicysta | §3 tego dokumentu |
+| 11 | Testy akceptacyjne scenariuszy kryzysowych zaliczone z udziałem klinicysty | klinicysta | — |
+| 12 | Proces moderacji profili i FAQ przed publikacją działa | operacje | §4 tego dokumentu |
+| 13 | Właściciel i harmonogram weryfikacji zasobów kryzysowych (90 dni) ustalony | operacje | `SECURITY.md`, „Nieaktualne dane kryzysowe” |
+| 14 | Procedura incydentu z uzupełnionymi kontaktami | operacje | `SECURITY.md` |
+| 15 | Dane demonstracyjne (`is_demo = 1`) **nieobecne** w bazie produkcyjnej | inżynieria | `seed/seed.sql` wyłącznie dla local/preview |
+
+### Blokujące warunkowo
+
+| # | Pozycja | Właściciel | Warunek |
+| --- | --- | --- | --- |
+| 16 | Ścieżka dla osób poniżej 18 lat albo jawne jej wykluczenie | prawnik + klinicysta | blokuje, jeśli MVP ma obsługiwać małoletnich |
+
+### Niepilne — nie blokują wydania
+
+| # | Pozycja | Właściciel |
+| --- | --- | --- |
+| 17 | Wersjonowanie kluczy szyfrujących (rotacja bez przestoju) | inżynieria |
+| 18 | Monitoring nadużyć rezerwacji (wiele kont) | operacje |
+
+Dług czysto techniczny, niezwiązany z wydaniem, żyje w `ARCHITECTURE.md` §10.

@@ -117,7 +117,7 @@ Panel wysyła jednorazowy kod e-mailem. Lokalnie `EMAIL_PROVIDER=console`, więc
 kod pojawia się **w logu `wrangler dev`**:
 
 ```
-[ConsoleNotificationProvider] WIADOMOSC NIE ZOSTALA WYSLANA (tryb lokalny)
+[console] WIADOMOSC NIE ZOSTALA WYSLANA (tryb lokalny)
   do: twoj@email.pl
   temat: Kod logowania do panelu — Otwarty Terapeuta
 ```
@@ -127,8 +127,8 @@ kod pojawia się **w logu `wrangler dev`**:
 ## Testy
 
 ```bash
-npm test          # 108 testów: Vitest w runtime Workers, na prawdziwym D1 i DO
-npm run test:e2e  # 18 testów przeglądarkowych (Playwright + lokalny Chrome)
+npm test          # Vitest w runtime Workers, na prawdziwym D1 i Durable Object
+npm run test:e2e  # testy przeglądarkowe (Playwright + lokalny Chrome)
 npm run typecheck # TypeScript strict, zero błędów
 npm run lint      # ESLint, zero błędów
 npm run build     # build widżetu + `wrangler deploy --dry-run`
@@ -137,7 +137,7 @@ npm run build     # build widżetu + `wrangler deploy --dry-run`
 `npm run test:e2e` sam podnosi `wrangler dev` na porcie 8788. Baza musi być
 wcześniej zmigrowana i zaseedowana (`npm run db:reset:local`).
 
-Zakres testów opisuje [`ARCHITECTURE.md`](./ARCHITECTURE.md#testy).
+Co pokrywają testy — nazwy `it()` w `test/` i `e2e/`.
 
 ---
 
@@ -294,7 +294,7 @@ statusu na `published`; weryfikacja kwalifikacji pozostaje osobną decyzją admi
 │   ├── lib/               # crypto, czas, sanityzacja, błędy, logi, audyt, Turnstile
 │   ├── matching/rank.ts   # deterministyczny, wyjaśnialny ranking
 │   ├── mcp/               # schematy Zod + rejestracja narzędzi i zasobów
-│   ├── notify/            # NotificationProvider + outbox z ponawianiem
+│   ├── notify/            # wysyłka poczty + outbox z ponawianiem
 │   ├── web/               # strona publiczna, panel, layout z CSP, style
 │   └── widget/            # widżet React + most MCP Apps (+ wygenerowany bundle)
 ├── test/                  # testy w runtime Workers (Vitest)
@@ -307,11 +307,9 @@ statusu na `published`; weryfikacja kwalifikacji pozostaje osobną decyzją admi
 
 ## Pozostałe dokumenty
 
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — jak to działa i dlaczego tak
-- [`DECISIONS.md`](./DECISIONS.md) — decyzje projektowe i różnice względem założeń
-- [`SECURITY.md`](./SECURITY.md) — zgłaszanie incydentów, rotacja sekretów
-- [`THREAT_MODEL.md`](./THREAT_MODEL.md) — model zagrożeń
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — jak to działa, dlaczego tak, dług techniczny
+- [`SECURITY.md`](./SECURITY.md) — model zagrożeń, środki, rotacja sekretów, incydenty
+- [`DPIA_CHECKLIST.md`](./DPIA_CHECKLIST.md) — ocena prawna i **jedyna bramka wydania** (§11)
 - [`PRIVACY_DATA_MAP.md`](./PRIVACY_DATA_MAP.md) — mapa danych osobowych
 - [`RETENTION_POLICY.md`](./RETENTION_POLICY.md) — polityka retencji
-- [`DPIA_CHECKLIST.md`](./DPIA_CHECKLIST.md) — checklista przed oceną prawną
 - [`PLUGIN_SUBMISSION_CHECKLIST.md`](./PLUGIN_SUBMISSION_CHECKLIST.md) — zgłoszenie pluginu w OpenAI

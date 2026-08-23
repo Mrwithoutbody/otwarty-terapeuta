@@ -54,10 +54,11 @@ trwałego powiązania między osobą a powodem szukania pomocy.
 `user_id`, `kind` (`terms`/`privacy`), `version`, `granted_at`, `source`.
 Bez treści, bez adresu IP, bez user-agenta.
 
-### 3.4. Autoryzacja — `oauth_tokens`, `oauth_auth_codes`, `login_challenges`, `therapist_signup_challenges`, `admin_sessions`
+### 3.4. Autoryzacja — `oauth_tokens`, `oauth_auth_codes`, `login_challenges`, `admin_sessions`
 Wyłącznie skróty HMAC oraz metadane (klient, zakres, `resource`, wygaśnięcie).
 `login_challenges.email_enc` jest zaszyfrowany i usuwany po wygaśnięciu wyzwania.
-`therapist_signup_challenges` przechowuje przez 15 minut zaszyfrowany e-mail oraz
+Ta sama tabela obsługuje logowanie do panelu, zgodę OAuth i rejestrację terapeuty
+(kolumna `purpose`); przy rejestracji `context` przechowuje przez 15 minut
 tymczasową treść zgłoszenia potrzebną do utworzenia profilu po wpisaniu kodu.
 **Żaden token nie jest przechowywany w postaci jawnej.**
 
@@ -149,12 +150,7 @@ Wszystkie operacje na danych użytkownika trafiają do `audit_events`.
 
 ## 8. Do ustalenia przed produkcją
 
-1. Kto jest administratorem danych: operator serwisu, terapeuta, czy obaj
-   (współadministrowanie)? Od tego zależy treść polityki i umów.
-2. Podstawa prawna dla każdej kategorii (art. 6 i art. 9 RODO) — w szczególności
-   czy powiązanie osoba ↔ terapeuta stanowi dane o zdrowiu w rozumieniu art. 9.
-3. Umowy powierzenia: Cloudflare, dostawca poczty.
-4. Rejestr czynności przetwarzania.
-5. Lokalizacja danych i transfery poza EOG.
-6. Treść polityki prywatności zatwierdzona przez prawnika (obecna wersja jest
-   roboczym opisem technicznym, nie dokumentem prawnym).
+Pytania prawne z tej sekcji (administrator danych, podstawa prawna z art. 6 i 9,
+umowy powierzenia, rejestr czynności, transfery poza EOG, zatwierdzenie polityki)
+są pozycjami 3–7 bramki wydania w **`DPIA_CHECKLIST.md` §11**. Merytoryczny
+kontekst każdej z nich znajdziesz w sekcjach §1–§5 powyżej.

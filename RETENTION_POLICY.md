@@ -14,8 +14,8 @@ roszczeniem, usuwamy najwcześniej jak to możliwe.
 | Dane | Okres | Co się dzieje po upływie | Mechanizm |
 | --- | --- | --- | --- |
 | Filtry wyszukiwania | **0** | nigdy nie są zapisywane | z założenia |
-| Kody logowania (`login_challenges`) | 15 min (ważność) | usunięcie wiersza | cron co 5 min |
-| Niepotwierdzone zgłoszenia (`therapist_signup_challenges`) | 15 min | usunięcie wiersza wraz z tymczasowymi danymi profilu | cron co 5 min |
+| Kody logowania (`login_challenges`, `purpose` = `oauth`/`admin`) | 15 min (ważność) | usunięcie wiersza | cron co 5 min |
+| Niepotwierdzone zgłoszenia (`login_challenges`, `purpose` = `therapist_signup`) | 15 min | usunięcie wiersza wraz z tymczasowymi danymi profilu w `context` | cron co 5 min |
 | Kody autoryzacyjne (`oauth_auth_codes`) | 5 min | usunięcie wiersza | cron |
 | Tokeny dostępu (`oauth_tokens`, `access`) | 1 h | usunięcie wiersza | cron |
 | Tokeny odświeżania (`oauth_tokens`, `refresh`) | 30 dni | usunięcie wiersza | cron |
@@ -59,7 +59,9 @@ cena, status) oraz wpisy audytowe wskazujące na już nieistniejące konto.
 Uzasadnienie: terapeuta i operator muszą móc wykazać, że płatna wizyta się odbyła.
 **Ta ocena wymaga potwierdzenia prawnego.**
 
-## 5. Do wdrożenia przed produkcją
+## 5. Zapytania retencyjne do dopisania do crona
+
+Pozycja 8 bramki wydania (`DPIA_CHECKLIST.md` §11). Tutaj jest gotowy SQL.
 
 Zadanie cron istnieje (`scheduled` w `src/index.ts`), ale realizuje dziś tylko
 czyszczenie stanu autoryzacji i ponawianie powiadomień. Przed produkcją należy
