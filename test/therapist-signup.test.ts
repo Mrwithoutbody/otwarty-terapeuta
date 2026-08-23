@@ -7,17 +7,17 @@ const TOKEN_KEY = env.TOKEN_SIGNING_KEY!;
 const PII_KEY = env.PII_ENC_KEY!;
 
 async function challenge(email: string, code: string, name: string): Promise<string> {
-  const id = randomId('tsc');
+  const id = randomId('lc');
   await env.DB.prepare(
-    `INSERT INTO therapist_signup_challenges
-       (id, email_hash, email_enc, code_hash, profile_json, attempts, expires_at, created_at)
-     VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+    `INSERT INTO login_challenges
+       (id, email_hash, email_enc, code_hash, purpose, context, attempts, expires_at, created_at)
+     VALUES (?, ?, ?, ?, 'therapist_signup', ?, 0, ?, ?)`,
   )
     .bind(
       id,
       await emailLookupHash(TOKEN_KEY, email),
       await encryptPii(PII_KEY, email),
-      await hmacHex(TOKEN_KEY, `therapist-signup:${id}:${code}`),
+      await hmacHex(TOKEN_KEY, `login:${id}:${code}`),
       JSON.stringify({
         displayName: name,
         headline: 'Psychoterapeuta',

@@ -147,6 +147,8 @@ export interface CreateBookingInput {
   contact_email?: string;
   contact_phone?: string;
   accepted_terms_version: string;
+  /** Explicit user consent. Never inferred, never defaulted. */
+  confirm: boolean;
   accepted_privacy_version: string;
 }
 
@@ -165,6 +167,17 @@ export async function createBooking(
   user: UserRow,
   input: CreateBookingInput,
 ): Promise<CreateBookingResult> {
+  // Creating a booking blocks a therapist's slot and sends her an e-mail, so it
+  // gets the same explicit gate as cancelling one. Holding a confirmation token is
+  // not consent: a model can obtain one and call straight through without ever
+  // asking the person. This makes that a deliberate act, not an accident.
+  if (input.confirm !== true) {
+    throw errors.invalid(
+      'Rezerwacja wymaga jednoznacznego potwierdzenia użytkownika (confirm = true). ' +
+        'Najpierw pokaż pełne podsumowanie z preview_booking i poczekaj na zgodę.',
+    );
+  }
+
   const signingKey = requireSigningKey(env);
   const piiKey = requirePiiKey(env);
 

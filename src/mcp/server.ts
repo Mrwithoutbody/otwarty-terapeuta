@@ -174,6 +174,16 @@ function decodeCursor(cursor: string | undefined): number {
 
 // ------------------------------------------------------------------ tools ---
 
+/**
+ * Photos are stored as site-relative paths, which is right for the site itself.
+ * The MCP widget renders on the host's origin, so a relative path would resolve
+ * against ChatGPT and 404 - every photo leaving over MCP must be absolute.
+ */
+function absolutePhoto(photoUrl: string | null, baseUrl: string): string | null {
+  if (!photoUrl) return null;
+  return photoUrl.startsWith('/') ? `${baseUrl}${photoUrl}` : photoUrl;
+}
+
 export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpServer {
   return (ctx: McpRequestContext): McpServer => {
     const server = new McpServer(
@@ -211,6 +221,8 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
       {
         title: 'Znajdź terapeutów',
         description:
+          'STOP, jeżeli użytkownik podał wiek poniżej 18 lat: NIE wywołuj tego narzędzia, ' +
+          'tylko get_crisis_resources z audience="minor". Serwis nie obsługuje rezerwacji dla małoletnich. ' +
           'Zwraca profile psychoterapeutów pasujące do PODANYCH USTRUKTURYZOWANYCH KRYTERIÓW. ' +
           'Użyj po zebraniu od użytkownika: formy spotkań (online/stacjonarnie), miejscowości, języka, ' +
           'budżetu, dostępności, grupy wiekowej i obszarów pracy ze słownika. ' +
@@ -229,6 +241,17 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
       },
       async (args): Promise<CallToolResult> => {
         try {
+          // The instructions already forbid matching minors, but a model is free to
+          // ignore instructions - and did. Refuse at the tool boundary instead, and
+          // hand back the route that IS correct for a minor.
+          if (args.age_group === 'teens' || args.age_group === 'children') {
+            throw new AppError(
+              'invalid_input',
+              'Otwarty Terapeuta obsługuje wyłącznie osoby pełnoletnie. Dla osoby poniżej 18 roku życia ' +
+                'wywołaj get_crisis_resources z audience="minor" i przekaż zwrócone dane, w tym telefon 116 111.',
+              400,
+            );
+          }
           const filters: SearchFilters = {
             location: args.location,
             online: args.online,
@@ -263,7 +286,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
               slug: t.slug,
               display_name: t.display_name,
               headline: t.headline,
-              photo_url: t.photo_url,
+              photo_url: absolutePhoto(t.photo_url, env.PUBLIC_BASE_URL),
               profile_url: t.profile_url,
               cities: t.locations.map((l) => l.city),
               offers_online: t.offers_online,
@@ -327,6 +350,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
       {
         title: 'Profil terapeuty',
         description:
+          'Jeżeli użytkownik ma mniej niż 18 lat, NIE wywołuj tego narzędzia — serwis nie obsługuje małoletnich; wywołaj get_crisis_resources z audience="minor". ' +
           'Zwraca pełny PUBLICZNY profil terapeuty po therapist_id albo slug: opis, kwalifikacje, ' +
           'nurty, obszary pracy, ofertę i ceny, zasady odwołania oraz status weryfikacji. ' +
           'Nie zwraca żadnych danych prywatnych ani notatek weryfikacyjnych.',
@@ -355,7 +379,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
               display_name: t.display_name,
               headline: t.headline,
               bio: t.bio,
-              photo_url: t.photo_url,
+              photo_url: absolutePhoto(t.photo_url, env.PUBLIC_BASE_URL),
               profile_url: t.profile_url,
               locations: t.locations,
               offers_online: t.offers_online,
@@ -410,6 +434,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
       {
         title: 'FAQ terapeuty',
         description:
+          'Jeżeli użytkownik ma mniej niż 18 lat, NIE wywołuj tego narzędzia — serwis nie obsługuje małoletnich; wywołaj get_crisis_resources z audience="minor". ' +
           'Zwraca WYŁĄCZNIE opublikowane odpowiedzi napisane lub zatwierdzone przez danego terapeutę ' +
           '(pierwsze spotkanie, nurt, odwoływanie wizyt, sesje online, płatności, poufność, dostępność gabinetu). ' +
           'Możesz streścić zwróconą treść, ale NIE WOLNO Ci tworzyć odpowiedzi w imieniu terapeuty. ' +
@@ -469,6 +494,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
       {
         title: 'Wolne terminy',
         description:
+          'Jeżeli użytkownik ma mniej niż 18 lat, NIE wywołuj tego narzędzia — serwis nie obsługuje małoletnich; wywołaj get_crisis_resources z audience="minor". ' +
           'Zwraca wolne terminy danego terapeuty w podanym zakresie dat, wraz z ceną, formą spotkania, ' +
           'strefą czasową wizyty i czasem ważności danych (fresh_until_utc). ' +
           'Po upływie fresh_until_utc NIE obiecuj dostępności — sprawdź terminy ponownie.',
@@ -554,7 +580,9 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
       {
         title: 'Podsumowanie przed rezerwacją',
         description:
-          'NIE tworzy rezerwacji. Sprawdza dostępność terminu i zwraca pełne podsumowanie ' +
+          'WYWOŁAJ TO ZAWSZE, gdy użytkownik chce zarezerwować termin albo prosi o podsumowanie ' +
+          'rezerwacji — to obowiązkowy pierwszy krok, bez którego create_booking nie zadziała. ' +
+          'Samo NIE tworzy rezerwacji. Sprawdza dostępność terminu i zwraca pełne podsumowanie ' +
           '(terapeuta, termin, strefa czasowa, forma, czas trwania, cena, zasady odwołania, wersje dokumentów) ' +
           'oraz krótko ważny confirmation_token. Pokaż użytkownikowi całe podsumowanie i poproś o wyraźne ' +
           'potwierdzenie, zanim wywołasz create_booking. Wymaga połączonego konta.',
@@ -844,9 +872,10 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
             resourceUri: WIDGET_URI,
             prefersBorder: true,
             csp: {
-              // The widget is fully self-contained: no origin is needed.
+              // No network calls of its own, but therapist photos are served from
+              // our own origin, so that one host must be allowed as a resource.
               connectDomains: [],
-              resourceDomains: [],
+              resourceDomains: [new URL(env.PUBLIC_BASE_URL).origin],
             },
           },
           // ChatGPT compatibility alias for the same binding.

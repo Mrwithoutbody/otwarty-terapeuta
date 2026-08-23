@@ -1,14 +1,11 @@
 import { Hono } from 'hono';
 import { ALL_SCOPES, type Env } from '../env';
 import { findOrCreateUserByEmail } from '../db/users';
+import { consumeEmailCode, issueEmailCode, verifyEmailCode } from './challenge';
 import { audit } from '../lib/audit';
 import {
-  decryptPii,
-  emailLookupHash,
-  encryptPii,
   hmacHex,
   randomId,
-  randomLoginCode,
   randomSecret,
   timingSafeEqual,
   toBase64Url,
@@ -37,8 +34,6 @@ import { htmlResponse, renderPage } from '../web/layout';
 const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600;
 const AUTH_CODE_TTL_SECONDS = 300;
-const LOGIN_CODE_TTL_SECONDS = 900;
-const MAX_LOGIN_ATTEMPTS = 5;
 
 export interface AuthorizeParams {
   client_id: string;
@@ -46,6 +41,11 @@ export interface AuthorizeParams {
   scope: string;
   state: string;
   code_challenge: string;
+  // Always "S256" - `parseAuthorizeParams` refuses anything else. It is carried
+  // in the params (and therefore in every form's hidden fields) because each POST
+  // on the consent screens re-parses the request, and a missing method would fail
+  // that re-parse even though the original redirect was valid.
+  code_challenge_method: 'S256';
   resource: string;
 }
 
@@ -231,6 +231,18 @@ function errorPage(env: Env, message: string): Response {
   );
 }
 
+/**
+ * Origin the browser will be redirected to after the form posts. It must be named
+ * in `form-action`, or the submit is blocked before it leaves the page.
+ */
+function redirectOrigin(redirectUri: string): string | undefined {
+  try {
+    return new URL(redirectUri).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Parses and validates the authorize request. */
 async function parseAuthorizeParams(
   env: Env,
@@ -264,6 +276,7 @@ async function parseAuthorizeParams(
       scope: normalizeScope(source.get('scope'), client.scope),
       state: (source.get('state') ?? '').slice(0, 512),
       code_challenge: challenge,
+      code_challenge_method: 'S256',
       resource,
     },
   };
@@ -350,7 +363,7 @@ oauthApp.post('/register', async (c) => {
 oauthApp.get('/authorize', async (c) => {
   const parsed = await parseAuthorizeParams(c.env, new URL(c.req.url).searchParams);
   if ('error' in parsed) return errorPage(c.env, parsed.error);
-  return htmlResponse(c.env, loginPage(c.env, parsed.params, parsed.client), { status: 200 }, true);
+  return htmlResponse(c.env, loginPage(c.env, parsed.params, parsed.client), { status: 200 }, true, redirectOrigin(parsed.params.redirect_uri));
 });
 
 /**
@@ -441,6 +454,7 @@ oauthApp.post('/authorize', async (c) => {
       loginPage(env, parsed.params, parsed.client, 'Zbyt wiele prób. Spróbuj ponownie za minutę.'),
       { status: 429 },
       true,
+      redirectOrigin(parsed.params.redirect_uri),
     );
   }
 
@@ -450,6 +464,7 @@ oauthApp.post('/authorize', async (c) => {
       loginPage(env, parsed.params, parsed.client, 'Aby kontynuować, potwierdź wiek oraz akceptację dokumentów.'),
       { status: 400 },
       true,
+      redirectOrigin(parsed.params.redirect_uri),
     );
   }
 
@@ -460,6 +475,7 @@ oauthApp.post('/authorize', async (c) => {
       loginPage(env, parsed.params, parsed.client, 'Podaj poprawny adres e-mail.'),
       { status: 400 },
       true,
+      redirectOrigin(parsed.params.redirect_uri),
     );
   }
 
@@ -470,26 +486,11 @@ oauthApp.post('/authorize', async (c) => {
       loginPage(env, parsed.params, parsed.client, 'Weryfikacja antyspamowa nie powiodła się. Spróbuj ponownie.'),
       { status: 400 },
       true,
+      redirectOrigin(parsed.params.redirect_uri),
     );
   }
 
-  const key = signingKey(env);
-  const code = randomLoginCode();
-  const challengeId = randomId('lc');
-  await env.DB.prepare(
-    `INSERT INTO login_challenges (id, email_hash, email_enc, code_hash, purpose, context, attempts, expires_at, created_at)
-     VALUES (?, ?, ?, ?, 'oauth', ?, 0, ?, ?)`,
-  )
-    .bind(
-      challengeId,
-      await emailLookupHash(key, email),
-      await encryptPii(env.PII_ENC_KEY ?? '', email),
-      await hmacHex(key, `login:${challengeId}:${code}`),
-      JSON.stringify(parsed.params),
-      isoPlusSeconds(LOGIN_CODE_TTL_SECONDS),
-      nowIso(),
-    )
-    .run();
+  const { challengeId, code } = await issueEmailCode(env, 'oauth', email, parsed.params);
 
   await enqueueNotification(env, 'login.code', null, {
     to: email,
@@ -500,7 +501,7 @@ oauthApp.post('/authorize', async (c) => {
   });
   c.executionCtx.waitUntil(drainOutbox(env, 5));
 
-  return htmlResponse(env, codePage(env, challengeId, parsed.params), { status: 200 }, false);
+  return htmlResponse(env, codePage(env, challengeId, parsed.params), { status: 200 }, false, redirectOrigin(parsed.params.redirect_uri));
 });
 
 /** Step 2: one-time code -> authorization code -> redirect back to the client. */
@@ -519,47 +520,32 @@ oauthApp.post('/authorize/confirm', async (c) => {
   const submitted = (source.get('code') ?? '').trim();
   const key = signingKey(env);
 
-  const challenge = await env.DB.prepare(
-    `SELECT id, email_enc, code_hash, attempts, expires_at, consumed_at, context
-       FROM login_challenges WHERE id = ? AND purpose = 'oauth'`,
-  )
-    .bind(challengeId)
-    .first<{
-      id: string;
-      email_enc: string;
-      code_hash: string;
-      attempts: number;
-      expires_at: string;
-      consumed_at: string | null;
-      context: string;
-    }>();
-
   const invalid = (message: string): Response =>
-    htmlResponse(env, codePage(env, challengeId, parsed.params, message), { status: 400 }, false);
+    htmlResponse(env, codePage(env, challengeId, parsed.params, message), { status: 400 }, false, redirectOrigin(parsed.params.redirect_uri));
 
-  if (!challenge || challenge.consumed_at !== null) return invalid('Kod jest nieprawidłowy lub został już użyty.');
-  if (Date.parse(challenge.expires_at) < Date.now()) return invalid('Kod wygasł. Rozpocznij logowanie od nowa.');
-  if (challenge.attempts >= MAX_LOGIN_ATTEMPTS) return invalid('Przekroczono liczbę prób. Rozpocznij logowanie od nowa.');
-
-  const expected = await hmacHex(key, `login:${challengeId}:${submitted}`);
-  if (!timingSafeEqual(expected, challenge.code_hash)) {
-    await env.DB.prepare(`UPDATE login_challenges SET attempts = attempts + 1 WHERE id = ?`)
-      .bind(challengeId)
-      .run();
-    return invalid('Kod jest nieprawidłowy.');
+  const verdict = await verifyEmailCode(env, 'oauth', challengeId, submitted);
+  if (!verdict.ok) {
+    return invalid(
+      verdict.reason === 'expired'
+        ? 'Kod wygasł. Rozpocznij logowanie od nowa.'
+        : verdict.reason === 'attempts'
+          ? 'Przekroczono liczbę prób. Rozpocznij logowanie od nowa.'
+          : verdict.reason === 'unknown'
+            ? 'Kod jest nieprawidłowy lub został już użyty.'
+            : 'Kod jest nieprawidłowy.',
+    );
   }
 
   // The authorize parameters are taken from the challenge row, not from the
   // form, so a tampered hidden field cannot redirect the code elsewhere.
-  const stored = JSON.parse(challenge.context) as AuthorizeParams;
+  const stored = JSON.parse(verdict.context) as AuthorizeParams;
 
   if (!env.PII_ENC_KEY) return errorPage(env, 'Serwer nie ma skonfigurowanego klucza szyfrowania.');
-  const email = await decryptPii(env.PII_ENC_KEY, challenge.email_enc);
-  const user = await findOrCreateUserByEmail(env, email);
+  const user = await findOrCreateUserByEmail(env, verdict.email);
 
   const authCode = randomSecret(32);
   await env.DB.batch([
-    env.DB.prepare(`UPDATE login_challenges SET consumed_at = ? WHERE id = ?`).bind(nowIso(), challengeId),
+    consumeEmailCode(env, challengeId),
     env.DB.prepare(
       `INSERT INTO oauth_auth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge,
                                      code_challenge_method, scope, resource, expires_at, created_at)
@@ -790,7 +776,6 @@ export async function purgeExpiredAuthState(env: Env): Promise<void> {
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM oauth_auth_codes WHERE expires_at < ?`).bind(at),
     env.DB.prepare(`DELETE FROM login_challenges WHERE expires_at < ?`).bind(at),
-    env.DB.prepare(`DELETE FROM therapist_signup_challenges WHERE expires_at < ?`).bind(at),
     env.DB.prepare(`DELETE FROM oauth_tokens WHERE expires_at < ?`).bind(at),
     env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at < ?`).bind(at),
     env.DB.prepare(

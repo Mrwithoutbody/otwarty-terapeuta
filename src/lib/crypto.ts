@@ -8,22 +8,14 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 
 export function toBase64Url(bytes: Uint8Array): string {
-  let s = '';
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return bytes.toBase64({ alphabet: 'base64url', omitPadding: true });
 }
 
 export function fromBase64Url(value: string): Uint8Array {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4));
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
+  return Uint8Array.fromBase64(value, { alphabet: 'base64url' });
 }
 
-function toHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
+const toHex = (bytes: Uint8Array): string => bytes.toHex();
 
 /** Cryptographically random opaque identifier, e.g. `th_4f1a…` (24 hex chars). */
 export function randomId(prefix: string, bytes = 12): string {
@@ -80,16 +72,24 @@ export async function hmacBase64Url(secret: string, data: string): Promise<strin
   return toBase64Url(new Uint8Array(sig));
 }
 
-/** Constant-time comparison for equal-length hex/base64url strings. */
+// `lib: DOM` shadows the Workers `SubtleCrypto` (workers-types declares it as a
+// class, so the two do not merge). This module only ever runs in the Worker.
+const subtle = crypto.subtle as SubtleCrypto & {
+  timingSafeEqual(a: ArrayBufferView, b: ArrayBufferView): boolean;
+};
+
+/**
+ * Constant-time comparison for equal-length hex/base64url strings. The Workers
+ * primitive throws on a length mismatch, so the (non-secret) length is compared
+ * first - exactly as before.
+ */
 export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+  return subtle.timingSafeEqual(enc.encode(a), enc.encode(b));
 }
 
 async function aesKey(base64Key: string): Promise<CryptoKey> {
-  const raw = Uint8Array.from(atob(base64Key), (c) => c.charCodeAt(0));
+  const raw = Uint8Array.fromBase64(base64Key);
   if (raw.byteLength !== 32) {
     throw new Error('PII_ENC_KEY musi być 32-bajtowym kluczem zakodowanym w base64.');
   }

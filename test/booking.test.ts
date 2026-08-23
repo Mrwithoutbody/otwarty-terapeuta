@@ -22,10 +22,15 @@ async function anyOpenSlot(therapistId = ANNA): Promise<string> {
   return slot.slot_id;
 }
 
-function acceptance(): { accepted_terms_version: string; accepted_privacy_version: string } {
+function acceptance(): {
+  accepted_terms_version: string;
+  accepted_privacy_version: string;
+  confirm: boolean;
+} {
   return {
     accepted_terms_version: env.TERMS_VERSION,
     accepted_privacy_version: env.PRIVACY_VERSION,
+    confirm: true,
   };
 }
 
@@ -271,6 +276,7 @@ describe('booking flow', () => {
         idempotency_key: `wrong-version-${seq}`,
         accepted_terms_version: '1999-01-01',
         accepted_privacy_version: env.PRIVACY_VERSION,
+        confirm: true,
       }),
     ).rejects.toBeInstanceOf(AppError);
   });
@@ -359,6 +365,23 @@ describe('cancellation', () => {
       .bind(booking.booking_id)
       .first<{ status: string }>();
     expect(still?.status).toBe('confirmed');
+  });
+});
+
+describe('booking needs explicit consent', () => {
+  it('refuses to create a booking when confirm is not true', async () => {
+    const [alice] = await pair();
+    const preview = await previewBooking(env, alice, { slot_id: await anyOpenSlot() });
+    // Holding a valid confirmation token is NOT consent: a model can obtain one
+    // and call straight through without ever asking the person.
+    await expect(
+      createBooking(env, alice, {
+        confirmation_token: preview.confirmation_token,
+        idempotency_key: `no-consent-${seq}`,
+        ...acceptance(),
+        confirm: false,
+      }),
+    ).rejects.toMatchObject({ code: 'invalid_input' });
   });
 });
 

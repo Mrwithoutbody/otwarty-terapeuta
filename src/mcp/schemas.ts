@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isIsoDate, isIsoUtc, isValidTimezone } from '../lib/time';
+import { isIsoDate, isValidTimezone } from '../lib/time';
 
 /**
  * Input and output schemas for every MCP tool.
@@ -46,13 +46,25 @@ const bookingId = z
   .regex(/^bk_[0-9a-f]{16,48}$/, 'Nieprawidłowy identyfikator rezerwacji.');
 
 const isoDate = z.string().refine(isIsoDate, 'Oczekiwano daty w formacie YYYY-MM-DD.');
-const isoUtc = z.string().refine(isIsoUtc, 'Oczekiwano czasu UTC w formacie ISO-8601 (…Z).');
 const timezone = z
   .string()
   .max(64)
   .refine(isValidTimezone, 'Nieznana strefa czasowa IANA (np. Europe/Warsaw).');
 
 const priceMinor = z.number().int().min(0).max(10_000_000);
+
+// Kontrolowane słowniki. MUSZĄ być zgodne z tabelami `specialties` i `modalities`
+// (migrations/0003_reference_data.sql i późniejsze). Wyliczenie zamiast odsyłacza do
+// zasobu jest tym, co powstrzymuje model przed zmyślaniem slugów typu "anxiety".
+const TOPIC_SLUG = z.enum([
+  'lek', 'depresja', 'stres-zawodowy', 'relacje', 'zwiazki', 'rodzicielstwo',
+  'zaloba', 'trauma', 'samoocena', 'zmiana-zyciowa', 'sen', 'uzaleznienia',
+  'zaburzenia-odzywiania', 'lgbtq', 'migracja', 'neuroroznorodnosc', 'seksualnosc',
+]);
+const MODALITY_SLUG = z.enum([
+  'poznawczo-behawioralna', 'psychodynamiczna', 'humanistyczna', 'systemowa',
+  'schematu', 'act', 'emdr', 'integracyjna', 'gestalt', 'dbt',
+]);
 
 // ---------------------------------------------------------------- search ---
 
@@ -70,18 +82,27 @@ export const searchTherapistsInput = z.object({
     .optional()
     .describe('Kody języków, w których ma być prowadzona sesja. Wszystkie muszą być spełnione.'),
   topics: z
-    .array(slug)
+    .array(TOPIC_SLUG)
     .max(8)
     .optional()
     .describe(
-      'Obszary pracy wybrane ze słownika (patrz zasób "otwarty-terapeuta://slowniki"). ' +
+      'Obszary pracy — wyłącznie wartości z tej listy, po polsku. Dopasuj potrzebę użytkownika ' +
+        'do najbliższego slugu (lęk → "lek", stres/wypalenie → "stres-zawodowy"). ' +
         'Nie przekazuj tu opisu objawów ani historii osoby.',
     ),
-  modalities: z.array(slug).max(6).optional().describe('Preferowane nurty pracy ze słownika.'),
+  modalities: z
+    .array(MODALITY_SLUG)
+    .max(6)
+    .optional()
+    .describe('Preferowane nurty pracy — wyłącznie wartości z tej listy.'),
   session_types: z.array(SESSION_TYPE).max(3).optional(),
   age_group: AGE_GROUP.optional().describe('Grupa wiekowa osoby, która ma korzystać z terapii.'),
-  price_min: priceMinor.optional().describe('Dolna granica ceny za sesję w groszach.'),
-  price_max: priceMinor.optional().describe('Górna granica ceny za sesję w groszach.'),
+  price_min: priceMinor
+    .optional()
+    .describe('Dolna granica ceny za sesję W GROSZACH, nie w złotych. 150 zł = 15000.'),
+  price_max: priceMinor
+    .optional()
+    .describe('Górna granica ceny za sesję W GROSZACH, nie w złotych. 300 zł = 30000.'),
   available_from: isoDate.optional().describe('Najwcześniejsza akceptowalna data wizyty.'),
   accepting_new_clients: z.boolean().optional(),
   limit: z.number().int().min(1).max(10).default(5),
@@ -300,6 +321,13 @@ export const previewBookingOutput = z.object({
 });
 
 export const createBookingInput = z.object({
+  confirm: z
+    .boolean()
+    .describe(
+      'Ustaw true WYŁĄCZNIE po tym, jak pokazałeś użytkownikowi pełne podsumowanie z preview_booking ' +
+        'i użytkownik odpowiedział jednoznaczną zgodą ("tak, rezerwuję"). Nigdy nie ustawiaj tego pola ' +
+        'we własnym imieniu ani w tej samej turze, w której wywołałeś preview_booking.',
+    ),
   confirmation_token: z
     .string()
     .min(20)
@@ -432,4 +460,3 @@ export const renderWidgetOutput = z.object({
   item_count: z.number().int(),
 });
 
-export { isoUtc, timezone as timezoneSchema };

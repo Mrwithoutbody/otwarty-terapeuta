@@ -100,25 +100,22 @@ app.get('/.well-known/openai-apps-challenge', (c) => {
 });
 
 /**
- * Placeholder avatars for the demo profiles. Generated locally as neutral
- * abstract shapes: no stock photography, and nothing that could be mistaken
- * for a real person.
+ * Placeholder avatar for the demo profiles: a neutral abstract shape, no stock
+ * photography, nothing that could be mistaken for a real person. `currentColor`
+ * lets the stylesheet tint it per card instead of the server baking in a palette.
+ *
+ * The filename is matched whole and parsed here: a Hono param with a regex
+ * followed by a literal suffix in the same segment does not match.
  */
-const DEMO_PALETTE = ['#1f5f5b', '#4a6fa5', '#7a5b8c', '#8a6b3f', '#3f7a5b', '#8a4b5f', '#5b6b8a', '#6b8a4b'];
-
-// The filename is matched whole and parsed here: a Hono param with a regex
-// followed by a literal suffix in the same segment does not match.
-app.get('/media/demo/:file', (c) => {
-  const match = /^avatar-([1-9])\.svg$/.exec(c.req.param('file'));
-  if (!match) return new Response('Not found', { status: 404 });
-  const index = (Number(match[1]) - 1) % DEMO_PALETTE.length;
-  const color = DEMO_PALETTE[index] ?? DEMO_PALETTE[0];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Ilustracja zastępcza">
-  <rect width="128" height="128" rx="64" fill="${color}" opacity="0.14"/>
-  <circle cx="64" cy="50" r="22" fill="${color}" opacity="0.42"/>
-  <path d="M20 118a44 44 0 0 1 88 0z" fill="${color}" opacity="0.42"/>
+const DEMO_AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Ilustracja zastępcza" fill="currentColor" color="#1f5f5b">
+  <rect width="128" height="128" rx="64" opacity="0.14"/>
+  <circle cx="64" cy="50" r="22" opacity="0.42"/>
+  <path d="M20 118a44 44 0 0 1 88 0z" opacity="0.42"/>
 </svg>`;
-  return new Response(svg, {
+
+app.get('/media/demo/:file', (c) => {
+  if (!/^avatar-[1-9]\.svg$/.test(c.req.param('file'))) return new Response('Not found', { status: 404 });
+  return new Response(DEMO_AVATAR_SVG, {
     headers: {
       'content-type': 'image/svg+xml; charset=utf-8',
       'cache-control': 'public, max-age=86400',

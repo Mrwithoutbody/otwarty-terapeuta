@@ -19,18 +19,6 @@ export function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (c) => HTML_ESCAPES[c] ?? c);
 }
 
-// `<`, `>`, `&` end a script block early; U+2028/U+2029 are literal line
-// terminators in JS but legal inside a JSON string.
-const SCRIPT_UNSAFE = new RegExp('[<>&\\u2028\\u2029]', 'g');
-
-/** Escapes a value for safe interpolation inside an inline <script> block. */
-export function escapeJsonForScript(value: unknown): string {
-  return JSON.stringify(value ?? null).replace(
-    SCRIPT_UNSAFE,
-    (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'),
-  );
-}
-
 // C0/C1 control characters (tab, LF and CR excluded), soft hyphen, zero-width
 // and bidi-override characters, word joiner range, and the BOM.
 const INVISIBLE = new RegExp(

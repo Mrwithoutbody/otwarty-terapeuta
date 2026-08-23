@@ -53,8 +53,7 @@ await writeFile(
   outPath,
   `/* GENERATED FILE - do not edit. Produced by scripts/build-widget.mjs. */\n` +
     `/* eslint-disable */\n` +
-    `export const WIDGET_HTML = ${JSON.stringify(html)};\n` +
-    `export const WIDGET_BYTES = ${html.length};\n`,
+    `export const WIDGET_HTML = ${JSON.stringify(html)};\n`,
   'utf8',
 );
 

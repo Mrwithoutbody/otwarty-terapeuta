@@ -72,6 +72,25 @@ async function mintToken(email: string, scope: string): Promise<string> {
   return token;
 }
 
+describe('minors are refused at the tool boundary', () => {
+  it('refuses a search for teens or children and points at the minor crisis route', async () => {
+    for (const ageGroup of ['teens', 'children']) {
+      const res = await call('search_therapists', { age_group: ageGroup });
+      expect(res.result?.isError, ageGroup).toBe(true);
+      const text = res.result?.content?.[0]?.text ?? '';
+      expect(text, ageGroup).toContain('wyłącznie osoby pełnoletnie');
+      expect(text, ageGroup).toContain('116 111');
+    }
+  });
+
+  it('still serves adults and seniors', async () => {
+    for (const ageGroup of ['adults', 'seniors']) {
+      const res = await call('search_therapists', { age_group: ageGroup });
+      expect(res.result?.isError, ageGroup).toBeFalsy();
+    }
+  });
+});
+
 describe('protocol surface', () => {
   it('does not expose an OpenAI domain challenge before the portal issues one', async () => {
     const response = await SELF.fetch('http://localhost/.well-known/openai-apps-challenge');
@@ -230,7 +249,9 @@ describe('protocol surface', () => {
     const ui = meta.ui as { resourceUri: string; csp: unknown; prefersBorder: boolean };
     expect(ui.resourceUri).toBe(WIDGET_URI);
     expect(meta['openai/outputTemplate']).toBe(WIDGET_URI);
-    expect(ui.csp).toEqual({ connectDomains: [], resourceDomains: [] });
+    // The widget makes no network calls of its own, but it does render therapist
+    // photos, which are served from our own origin - and only from there.
+    expect(ui.csp).toEqual({ connectDomains: [], resourceDomains: [new URL(env.PUBLIC_BASE_URL).origin] });
   });
 
   it('serves the widget as a self-contained MCP Apps resource', async () => {
@@ -394,7 +415,7 @@ describe('authorisation', () => {
   it('challenges every private tool when no token is presented', async () => {
     for (const [name, args] of [
       ['preview_booking', { slot_id: 'sl_000000000000000000000000' }],
-      ['create_booking', { confirmation_token: 'x'.repeat(40), idempotency_key: 'abcdefgh', accepted_terms_version: 'v', accepted_privacy_version: 'v' }],
+      ['create_booking', { confirm: true, confirmation_token: 'x'.repeat(40), idempotency_key: 'abcdefgh', accepted_terms_version: 'v', accepted_privacy_version: 'v' }],
       ['list_my_bookings', {}],
       ['cancel_booking', { booking_id: 'bk_000000000000000000000000', confirm: true }],
     ] as Array<[string, Record<string, unknown>]>) {
@@ -478,6 +499,7 @@ describe('booking over MCP', () => {
     const created = await call(
       'create_booking',
       {
+        confirm: true,
         confirmation_token: previewData.confirmation_token,
         idempotency_key: 'mcp-flow-1',
         accepted_terms_version: previewData.summary.terms_version,

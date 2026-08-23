@@ -99,13 +99,13 @@ VALUES
   'unverified',NULL,'DEMO — profil roboczy do testów.','draft',1,'Europe/Warsaw','',24,
   '2026-05-01T10:00:00Z','2026-08-01T10:00:00Z');
 
-INSERT INTO therapist_locations (id, therapist_id, city, city_norm, region, country, address_line, postal_code, is_primary) VALUES
- ('loc_01','th_4f1a9c72e5b83d016a7c2e40','Warszawa','warszawa','mazowieckie','PL','ul. Przykładowa 1/2','00-001',1),
- ('loc_02','th_8b2d6e10f4a97c53d1e08b26','Kraków','krakow','małopolskie','PL','ul. Demonstracyjna 8','31-001',1),
- ('loc_04','th_1e07b8d3629af45c0d2e7a91','Gdańsk','gdansk','pomorskie','PL','al. Testowa 14','80-001',1),
- ('loc_05','th_7a4c2f9051d3e86b4f0a5c18','Wrocław','wroclaw','dolnośląskie','PL','ul. Fikcyjna 3','50-001',1),
- ('loc_06','th_5d8f3b6270e91a4c8b3d0f27','Poznań','poznan','wielkopolskie','PL','ul. Wzorcowa 21','60-001',1),
- ('loc_08','th_9f0b4d7382e6a15c7d2b8e34','Łódź','lodz','łódzkie','PL','ul. Próbna 5','90-001',1);
+INSERT INTO therapist_locations (id, therapist_id, city, city_norm, region, country, address_line, is_primary) VALUES
+ ('loc_01','th_4f1a9c72e5b83d016a7c2e40','Warszawa','warszawa','mazowieckie','PL','ul. Przykładowa 1/2',1),
+ ('loc_02','th_8b2d6e10f4a97c53d1e08b26','Kraków','krakow','małopolskie','PL','ul. Demonstracyjna 8',1),
+ ('loc_04','th_1e07b8d3629af45c0d2e7a91','Gdańsk','gdansk','pomorskie','PL','al. Testowa 14',1),
+ ('loc_05','th_7a4c2f9051d3e86b4f0a5c18','Wrocław','wroclaw','dolnośląskie','PL','ul. Fikcyjna 3',1),
+ ('loc_06','th_5d8f3b6270e91a4c8b3d0f27','Poznań','poznan','wielkopolskie','PL','ul. Wzorcowa 21',1),
+ ('loc_08','th_9f0b4d7382e6a15c7d2b8e34','Łódź','lodz','łódzkie','PL','ul. Próbna 5',1);
 
 INSERT INTO therapist_languages (therapist_id, language_code) VALUES
  ('th_4f1a9c72e5b83d016a7c2e40','pl'),('th_4f1a9c72e5b83d016a7c2e40','en'),

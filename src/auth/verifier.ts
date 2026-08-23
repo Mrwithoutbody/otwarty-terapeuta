@@ -54,9 +54,3 @@ export class D1TokenVerifier implements OAuthTokenVerifier {
     };
   }
 }
-
-/** Extracts the account id an `AuthInfo` was issued for. */
-export function userIdFromAuth(auth: AuthInfo | undefined): string | null {
-  const value = auth?.extra?.userId;
-  return typeof value === 'string' ? value : null;
-}

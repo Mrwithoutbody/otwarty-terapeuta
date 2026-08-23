@@ -14,7 +14,7 @@ import {
   zonedTimeToUtc,
 } from '../src/lib/time';
 import type { PublicTherapist } from '../src/db/types';
-import { BrevoNotificationProvider } from '../src/notify/provider';
+import { sendViaBrevo } from '../src/notify/provider';
 
 const KEY = env.TOKEN_SIGNING_KEY!;
 const PII = env.PII_ENC_KEY!;
@@ -29,7 +29,7 @@ describe('Brevo notifications', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await new BrevoNotificationProvider('test-api-key', 'rezerwacje@otwartyterapeuta.pl').send({
+    await sendViaBrevo('test-api-key', 'rezerwacje@otwartyterapeuta.pl')({
       to: 'pacjent@example.com',
       subject: 'Potwierdzenie rezerwacji',
       text: 'Treść wiadomości',

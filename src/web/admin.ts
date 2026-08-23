@@ -11,16 +11,9 @@ import {
   verifyCsrf,
   type AdminSession,
 } from '../auth/session';
+import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/challenge';
 import { audit } from '../lib/audit';
-import {
-  decryptPii,
-  emailLookupHash,
-  encryptPii,
-  hmacHex,
-  randomId,
-  randomLoginCode,
-  timingSafeEqual,
-} from '../lib/crypto';
+import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
 import { escapeHtml, isEmail, normalizeForSearch, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import {
   addCivilDays,
@@ -28,7 +21,6 @@ import {
   DEFAULT_TIMEZONE,
   formatDateTime,
   formatPrice,
-  isoPlusSeconds,
   isValidTimezone,
   nowIso,
   weekdayIn,
@@ -49,7 +41,6 @@ import { htmlResponse, renderPage } from './layout';
 
 export const adminApp = new Hono<{ Bindings: Env }>();
 
-const LOGIN_CODE_TTL_SECONDS = 900;
 
 function page(env: Env, title: string, body: string, status = 200, turnstile = false): Response {
   return htmlResponse(
@@ -141,10 +132,7 @@ adminApp.post('/login', async (c) => {
     return page(c.env, 'Zaloguj się', loginForm(c.env, 'Weryfikacja antyspamowa nie powiodła się.'), 400, true);
   }
 
-  const key = signingKey(c.env);
-  const challengeId = randomId('lc');
-  const code = randomLoginCode();
-  const emailHash = await emailLookupHash(key, email);
+  const emailHash = await emailLookupHash(signingKey(c.env), email);
 
   // Only an existing account may receive a panel code. The response is
   // identical either way, so the form cannot be used to enumerate staff.
@@ -160,24 +148,16 @@ adminApp.post('/login', async (c) => {
     .filter(Boolean)
     .includes(email);
 
+  // A challenge id is minted either way so the code form looks identical to a
+  // stranger; only a real staff account gets a row and an e-mail.
+  let challengeId = randomId('lc');
   if ((existing && existing.role !== 'user') || bootstrap) {
-    await c.env.DB.prepare(
-      `INSERT INTO login_challenges (id, email_hash, email_enc, code_hash, purpose, context, attempts, expires_at, created_at)
-       VALUES (?, ?, ?, ?, 'admin', '{}', 0, ?, ?)`,
-    )
-      .bind(
-        challengeId,
-        emailHash,
-        await encryptPii(c.env.PII_ENC_KEY ?? '', email),
-        await hmacHex(key, `login:${challengeId}:${code}`),
-        isoPlusSeconds(LOGIN_CODE_TTL_SECONDS),
-        nowIso(),
-      )
-      .run();
+    const issued = await issueEmailCode(c.env, 'admin', email);
+    challengeId = issued.challengeId;
     await enqueueNotification(c.env, 'admin.login_code', null, {
       to: email,
       subject: 'Kod logowania do panelu — Otwarty Terapeuta',
-      text: `Kod logowania do panelu: ${code}\nKod jest ważny 15 minut.`,
+      text: `Kod logowania do panelu: ${issued.code}\nKod jest ważny 15 minut.`,
     });
     c.executionCtx.waitUntil(drainOutbox(c.env, 5));
   }
@@ -189,42 +169,27 @@ adminApp.post('/login/confirm', async (c) => {
   const body = await formValues(c.req.raw);
   const challengeId = body.get('challenge_id') ?? '';
   const submitted = (body.get('code') ?? '').trim();
-  const key = signingKey(c.env);
-
-  const challenge = await c.env.DB.prepare(
-    `SELECT id, email_enc, code_hash, attempts, expires_at, consumed_at
-       FROM login_challenges WHERE id = ? AND purpose = 'admin'`,
-  )
-    .bind(challengeId)
-    .first<{
-      id: string;
-      email_enc: string;
-      code_hash: string;
-      attempts: number;
-      expires_at: string;
-      consumed_at: string | null;
-    }>();
 
   const fail = (message: string): Response => page(c.env, 'Wpisz kod', codeForm(challengeId, message), 400);
-  if (!challenge || challenge.consumed_at !== null) return fail('Kod jest nieprawidłowy lub został użyty.');
-  if (Date.parse(challenge.expires_at) < Date.now()) return fail('Kod wygasł.');
-  if (challenge.attempts >= 5) return fail('Przekroczono liczbę prób.');
-  if (!timingSafeEqual(await hmacHex(key, `login:${challengeId}:${submitted}`), challenge.code_hash)) {
-    await c.env.DB.prepare(`UPDATE login_challenges SET attempts = attempts + 1 WHERE id = ?`)
-      .bind(challengeId)
-      .run();
-    return fail('Kod jest nieprawidłowy.');
+  const verdict = await verifyEmailCode(c.env, 'admin', challengeId, submitted);
+  if (!verdict.ok) {
+    return fail(
+      verdict.reason === 'expired'
+        ? 'Kod wygasł.'
+        : verdict.reason === 'attempts'
+          ? 'Przekroczono liczbę prób.'
+          : verdict.reason === 'unknown'
+            ? 'Kod jest nieprawidłowy lub został użyty.'
+            : 'Kod jest nieprawidłowy.',
+    );
   }
 
-  const email = await decryptPii(c.env.PII_ENC_KEY ?? '', challenge.email_enc);
-  const user = await findOrCreateUserByEmail(c.env, email);
+  const user = await findOrCreateUserByEmail(c.env, verdict.email);
   if (user.role === 'user') {
     return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1><p>To konto nie ma dostępu do panelu.</p>', 403);
   }
 
-  await c.env.DB.prepare(`UPDATE login_challenges SET consumed_at = ? WHERE id = ?`)
-    .bind(nowIso(), challengeId)
-    .run();
+  await consumeEmailCode(c.env, challengeId).run();
   const { cookie } = await createAdminSession(c.env, user.id);
   await audit(c.env, {
     actorType: user.role === 'admin' ? 'admin' : user.role === 'support' ? 'support' : 'therapist',

@@ -2,7 +2,7 @@ import type { Env } from '../env';
 import { decryptPii, encryptPii, randomId } from '../lib/crypto';
 import { log } from '../lib/log';
 import { isoPlusSeconds, nowIso } from '../lib/time';
-import { createNotificationProvider, type NotificationMessage } from './provider';
+import { createNotificationSender, type NotificationMessage } from './provider';
 
 /**
  * Notifications live in an outbox, not in the booking transaction. A booking
@@ -51,7 +51,7 @@ interface OutboxRow {
  */
 export async function drainOutbox(env: Env, limit = 20): Promise<{ sent: number; failed: number }> {
   if (!env.PII_ENC_KEY) return { sent: 0, failed: 0 };
-  const provider = createNotificationProvider(env);
+  const send = createNotificationSender(env);
 
   const { results } = await env.DB.prepare(
     `SELECT id, kind, payload_enc, attempts FROM notification_outbox
@@ -66,7 +66,7 @@ export async function drainOutbox(env: Env, limit = 20): Promise<{ sent: number;
   for (const row of results) {
     try {
       const message = JSON.parse(await decryptPii(env.PII_ENC_KEY, row.payload_enc)) as NotificationMessage;
-      await provider.send(message);
+      await send(message);
       await env.DB.prepare(
         `UPDATE notification_outbox SET status = 'sent', attempts = attempts + 1, updated_at = ? WHERE id = ?`,
       )

@@ -60,6 +60,8 @@ button { font: inherit; }
   border-radius: var(--radius); padding: 12px;
 }
 .card-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; justify-content: space-between; }
+.identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.photo { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid var(--border); background: var(--border); }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { font-size: 0.75rem; border-radius: 999px; padding: 2px 8px; border: 1px solid var(--border); color: var(--muted); }
 .badge.ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }

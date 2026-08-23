@@ -13,8 +13,6 @@ export type AppErrorCode =
   | 'token_invalid'
   | 'price_changed'
   | 'conflict'
-  | 'cancellation_window_closed'
-  | 'config_error'
   | 'internal';
 
 export class AppError extends Error {
@@ -40,11 +38,7 @@ export class AppError extends Error {
 export const errors = {
   notFound: (message = 'Nie znaleziono zasobu.') => new AppError('not_found', message, 404),
   invalid: (message: string, details = {}) => new AppError('invalid_input', message, 400, details),
-  unauthorized: (message = 'Wymagane zalogowanie.') => new AppError('unauthorized', message, 401),
   forbidden: (message = 'Brak uprawnień do tej operacji.') => new AppError('forbidden', message, 403),
-  rateLimited: (message = 'Zbyt wiele żądań. Spróbuj ponownie za chwilę.') =>
-    new AppError('rate_limited', message, 429),
-  conflict: (message: string, details = {}) => new AppError('conflict', message, 409, details),
   internal: (message = 'Wystąpił błąd po stronie serwera.') => new AppError('internal', message, 500),
 };
 

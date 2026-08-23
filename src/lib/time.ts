@@ -58,21 +58,6 @@ export function formatDateTime(iso: string, timeZone = DEFAULT_TIMEZONE, locale 
   }).format(new Date(iso));
 }
 
-export function formatTime(iso: string, timeZone = DEFAULT_TIMEZONE, locale = 'pl-PL'): string {
-  return new Intl.DateTimeFormat(locale, { timeZone, hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  );
-}
-
-export function formatDate(iso: string, timeZone = DEFAULT_TIMEZONE, locale = 'pl-PL'): string {
-  return new Intl.DateTimeFormat(locale, {
-    timeZone,
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(iso));
-}
-
 /** Short zone label, e.g. "GMT+2", to disambiguate cross-timezone bookings. */
 export function timezoneLabel(iso: string, timeZone: string, locale = 'pl-PL'): string {
   const part = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'shortOffset' })

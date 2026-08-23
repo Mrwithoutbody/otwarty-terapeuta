@@ -2,25 +2,17 @@ import { Hono } from 'hono';
 import type { Env } from '../env';
 import { createAdminSession } from '../auth/session';
 import { findOrCreateUserByEmail } from '../db/users';
+import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/challenge';
 import { audit } from '../lib/audit';
-import {
-  decryptPii,
-  emailLookupHash,
-  encryptPii,
-  hmacHex,
-  randomId,
-  randomLoginCode,
-  timingSafeEqual,
-} from '../lib/crypto';
+import { encryptPii, randomId } from '../lib/crypto';
 import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { isoPlusSeconds, nowIso } from '../lib/time';
+import { nowIso } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { htmlResponse, renderPage } from './layout';
 
 export const therapistSignupApp = new Hono<{ Bindings: Env }>();
 
-const CODE_TTL_SECONDS = 900;
 
 interface PendingProfile {
   displayName: string;
@@ -102,11 +94,6 @@ ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 </form></div>`;
 }
 
-function signingKey(env: Env): string {
-  if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
-  return env.TOKEN_SIGNING_KEY;
-}
-
 function slugFor(name: string, therapistId: string): string {
   const base = normalizeForSearch(name)
     .replace(/[^a-z0-9]+/g, '-')
@@ -141,9 +128,6 @@ therapistSignupApp.post('/start', async (c) => {
     return page(c.env, 'Dołącz jako terapeuta', signupForm(c.env, 'Weryfikacja antyspamowa nie powiodła się.'), 400, true);
   }
 
-  const key = signingKey(c.env);
-  const challengeId = randomId('tsc');
-  const code = randomLoginCode();
   const pending: PendingProfile = {
     displayName,
     headline: sanitizeLine(body.get('headline') ?? '', 200),
@@ -153,21 +137,7 @@ therapistSignupApp.post('/start', async (c) => {
     offersInPerson,
   };
 
-  await c.env.DB.prepare(
-    `INSERT INTO therapist_signup_challenges
-       (id, email_hash, email_enc, code_hash, profile_json, attempts, expires_at, created_at)
-     VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-  )
-    .bind(
-      challengeId,
-      await emailLookupHash(key, email),
-      await encryptPii(c.env.PII_ENC_KEY ?? '', email),
-      await hmacHex(key, `therapist-signup:${challengeId}:${code}`),
-      JSON.stringify(pending),
-      isoPlusSeconds(CODE_TTL_SECONDS),
-      nowIso(),
-    )
-    .run();
+  const { challengeId, code } = await issueEmailCode(c.env, 'therapist_signup', email, pending);
 
   await enqueueNotification(c.env, 'therapist.signup_code', null, {
     to: email,
@@ -182,39 +152,25 @@ therapistSignupApp.post('/potwierdz', async (c) => {
   const body = await formValues(c.req.raw);
   const challengeId = body.get('challenge_id') ?? '';
   const submitted = (body.get('code') ?? '').trim();
-  const key = signingKey(c.env);
-  const challenge = await c.env.DB.prepare(
-    `SELECT id, email_enc, code_hash, profile_json, attempts, expires_at, consumed_at
-       FROM therapist_signup_challenges WHERE id = ?`,
-  )
-    .bind(challengeId)
-    .first<{
-      id: string;
-      email_enc: string;
-      code_hash: string;
-      profile_json: string;
-      attempts: number;
-      expires_at: string;
-      consumed_at: string | null;
-    }>();
 
   const fail = (message: string): Response => page(c.env, 'Potwierdź adres e-mail', codeForm(challengeId, message), 400);
-  if (!challenge || challenge.consumed_at) return fail('Kod jest nieprawidłowy lub został użyty.');
-  if (Date.parse(challenge.expires_at) < Date.now()) return fail('Kod wygasł. Rozpocznij zgłoszenie ponownie.');
-  if (challenge.attempts >= 5) return fail('Przekroczono liczbę prób. Rozpocznij zgłoszenie ponownie.');
-  if (!timingSafeEqual(await hmacHex(key, `therapist-signup:${challengeId}:${submitted}`), challenge.code_hash)) {
-    await c.env.DB.prepare(`UPDATE therapist_signup_challenges SET attempts = attempts + 1 WHERE id = ?`)
-      .bind(challengeId)
-      .run();
-    return fail('Kod jest nieprawidłowy.');
+  const verdict = await verifyEmailCode(c.env, 'therapist_signup', challengeId, submitted);
+  if (!verdict.ok) {
+    return fail(
+      verdict.reason === 'expired'
+        ? 'Kod wygasł. Rozpocznij zgłoszenie ponownie.'
+        : verdict.reason === 'attempts'
+          ? 'Przekroczono liczbę prób. Rozpocznij zgłoszenie ponownie.'
+          : verdict.reason === 'unknown'
+            ? 'Kod jest nieprawidłowy lub został użyty.'
+            : 'Kod jest nieprawidłowy.',
+    );
   }
 
-  const email = await decryptPii(c.env.PII_ENC_KEY ?? '', challenge.email_enc);
+  const email = verdict.email;
   const user = await findOrCreateUserByEmail(c.env, email);
   if (user.role === 'therapist' && user.therapist_id) {
-    await c.env.DB.prepare(`UPDATE therapist_signup_challenges SET consumed_at = ? WHERE id = ?`)
-      .bind(nowIso(), challengeId)
-      .run();
+    await consumeEmailCode(c.env, challengeId).run();
     const { cookie } = await createAdminSession(c.env, user.id);
     return new Response(null, { status: 302, headers: { location: '/admin', 'set-cookie': cookie } });
   }
@@ -224,7 +180,7 @@ therapistSignupApp.post('/potwierdz', async (c) => {
 
   let pending: PendingProfile;
   try {
-    pending = JSON.parse(challenge.profile_json) as PendingProfile;
+    pending = JSON.parse(verdict.context) as PendingProfile;
   } catch {
     return fail('Zgłoszenie jest uszkodzone. Rozpocznij je ponownie.');
   }
@@ -261,7 +217,7 @@ therapistSignupApp.post('/potwierdz', async (c) => {
       `INSERT INTO consent_records (id, user_id, kind, version, granted_at, source)
        VALUES (?, ?, 'privacy', ?, ?, 'web:therapist_signup')`,
     ).bind(randomId('cons'), user.id, c.env.PRIVACY_VERSION, at),
-    c.env.DB.prepare(`UPDATE therapist_signup_challenges SET consumed_at = ? WHERE id = ?`).bind(at, challengeId),
+    consumeEmailCode(c.env, challengeId),
     c.env.DB.prepare(
       `INSERT OR IGNORE INTO therapist_languages (therapist_id, language_code)
        SELECT ?, code FROM languages WHERE code = 'pl'`,

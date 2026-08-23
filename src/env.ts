@@ -41,11 +41,6 @@ export interface Env {
   OPENAI_APPS_CHALLENGE?: string;
 }
 
-/** Cloudflare rate-limiting binding (wrangler `ratelimits`). */
-export interface RateLimit {
-  limit(options: { key: string }): Promise<{ success: boolean }>;
-}
-
 export class ConfigError extends Error {
   override name = 'ConfigError';
 }

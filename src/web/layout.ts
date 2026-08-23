@@ -19,7 +19,7 @@ const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
  * is why the stylesheet is a separate file and every form is server rendered.
  * The only third-party origin is Turnstile, and only where a form needs it.
  */
-export function contentSecurityPolicy(withTurnstile: boolean): string {
+export function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin?: string): string {
   const script = withTurnstile
     ? `script-src 'self' https://challenges.cloudflare.com`
     : `script-src 'self'`;
@@ -32,17 +32,25 @@ export function contentSecurityPolicy(withTurnstile: boolean): string {
     `font-src 'self'`,
     `connect-src 'self'`,
     frame,
-    `form-action 'self'`,
+    // Browsers apply form-action to the WHOLE redirect chain, not just the action
+    // URL. The OAuth consent form posts to us and we then 302 the browser to the
+    // client's redirect_uri, so that origin has to be allowed here or the submit is
+    // blocked outright - with a misleading message naming our own URL.
+    formActionOrigin ? `form-action 'self' ${formActionOrigin}` : `form-action 'self'`,
     `base-uri 'none'`,
     `frame-ancestors 'none'`,
     `object-src 'none'`,
   ].join('; ');
 }
 
-export function securityHeaders(env: Env, withTurnstile = false): Record<string, string> {
+export function securityHeaders(
+  env: Env,
+  withTurnstile = false,
+  formActionOrigin?: string,
+): Record<string, string> {
   const headers: Record<string, string> = {
     'content-type': 'text/html; charset=utf-8',
-    'content-security-policy': contentSecurityPolicy(withTurnstile),
+    'content-security-policy': contentSecurityPolicy(withTurnstile, formActionOrigin),
     'referrer-policy': 'strict-origin-when-cross-origin',
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
@@ -155,9 +163,15 @@ ${options.body}
 </html>`;
 }
 
-export function htmlResponse(env: Env, html: string, init: ResponseInit = {}, withTurnstile = false): Response {
+export function htmlResponse(
+  env: Env,
+  html: string,
+  init: ResponseInit = {},
+  withTurnstile = false,
+  formActionOrigin?: string,
+): Response {
   return new Response(html, {
     ...init,
-    headers: { ...securityHeaders(env, withTurnstile), ...(init.headers ?? {}) },
+    headers: { ...securityHeaders(env, withTurnstile, formActionOrigin), ...(init.headers ?? {}) },
   });
 }

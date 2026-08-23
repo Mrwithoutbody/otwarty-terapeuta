@@ -47,6 +47,41 @@ describe('deferred OAuth sign-in', () => {
     expect(html.indexOf('Korzystaj bez konta')).toBeLessThan(html.indexOf('Adres e-mail'));
   });
 
+  it('allows the client redirect origin in form-action', async () => {
+    // Regression: `form-action 'self'` blocked the consent form outright, because
+    // browsers apply the directive to the whole redirect chain and our POST ends in
+    // a 302 to the client. Chrome even names OUR url in the error, which hides it.
+    const clientId = await registerClient();
+    const query = authorizeParams(clientId, await challengeFor(VERIFIER));
+    const res = await SELF.fetch(`http://localhost/oauth/authorize?${query}`);
+    const csp = res.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain(`form-action 'self' ${new URL(REDIRECT_URI).origin}`);
+  });
+
+  it('round-trips every parameter the consent form needs', async () => {
+    // Regression: the hidden fields once dropped `code_challenge_method`, and each
+    // POST on the consent screens re-parses the request - so every button on the
+    // page died with "Wymagane jest PKCE z metodą S256." Submit exactly what the
+    // rendered HTML carries, not a hand-built form, or the gap stays invisible.
+    const clientId = await registerClient();
+    const query = authorizeParams(clientId, await challengeFor(VERIFIER));
+    const html = await (await SELF.fetch(`http://localhost/oauth/authorize?${query}`)).text();
+
+    const hidden = new URLSearchParams();
+    for (const match of html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)) {
+      hidden.set(match[1] ?? '', match[2] ?? '');
+    }
+    expect(hidden.get('code_challenge_method')).toBe('S256');
+
+    const authorize = await SELF.fetch('http://localhost/oauth/authorize/anonymous', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: hidden.toString(),
+      redirect: 'manual',
+    });
+    expect(authorize.status).toBe(302);
+  });
+
   it('down-scopes the anonymous grant to catalog:read', async () => {
     const clientId = await registerClient();
     const form = authorizeParams(clientId, await challengeFor(VERIFIER));

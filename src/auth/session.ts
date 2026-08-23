@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import { getUser, type Role, type UserRow } from '../db/users';
+import { getUser, type UserRow } from '../db/users';
 import { hmacHex, randomSecret, timingSafeEqual } from '../lib/crypto';
 import { isoPlusSeconds, nowIso } from '../lib/time';
 
@@ -35,8 +35,8 @@ export async function createAdminSession(env: Env, userId: string): Promise<{ co
   const sessionSecret = randomSecret(32);
 
   await env.DB.prepare(
-    `INSERT INTO admin_sessions (session_hash, user_id, csrf_hash, expires_at, created_at)
-     VALUES (?, ?, '', ?, ?)`,
+    `INSERT INTO admin_sessions (session_hash, user_id, expires_at, created_at)
+     VALUES (?, ?, ?, ?)`,
   )
     .bind(
       await hmacHex(key, `session:${sessionSecret}`),
@@ -92,16 +92,6 @@ export async function destroyAdminSession(env: Env, request: Request): Promise<s
       .run();
   }
   return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
-}
-
-const ROLE_RANK: Record<Role, number> = { user: 0, support: 1, therapist: 2, admin: 3 };
-
-export function hasRole(user: UserRow, ...allowed: Role[]): boolean {
-  return allowed.includes(user.role);
-}
-
-export function atLeast(user: UserRow, role: Role): boolean {
-  return ROLE_RANK[user.role] >= ROLE_RANK[role];
 }
 
 /** A therapist may only ever touch their own profile. */

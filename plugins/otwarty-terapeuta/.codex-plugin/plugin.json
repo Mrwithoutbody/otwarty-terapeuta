@@ -1,7 +1,7 @@
 {
   "name": "otwarty-terapeuta",
   "version": "0.1.1+codex.20260820172545",
-  "description": "Znajdowanie psychoterapeut\u00f3w i rezerwacja wizyt z logowaniem wymaganym dopiero przy rezerwacji.",
+  "description": "Znajdowanie psychoterapeutów i rezerwacja wizyt z logowaniem wymaganym dopiero przy rezerwacji.",
   "author": {
     "name": "Otwarty Terapeuta",
     "email": "kontakt@otwartyterapeuta.pl",
@@ -17,8 +17,8 @@
   ],
   "interface": {
     "displayName": "Otwarty Terapeuta",
-    "shortDescription": "Znajd\u017a psychoterapeut\u0119 i sprawd\u017a wolne terminy.",
-    "longDescription": "Przeszukuj katalog psychoterapeut\u00f3w wed\u0142ug miejsca, formy spotkania, j\u0119zyka, obszar\u00f3w pracy i bud\u017cetu. Czytaj zweryfikowane profile i FAQ oraz sprawdzaj dost\u0119pne terminy bez zak\u0142adania konta. Logowanie jest wymagane dopiero do podsumowania, utworzenia lub obs\u0142ugi rezerwacji. Otwarty Terapeuta nie diagnozuje, nie prowadzi terapii i nie zast\u0119puje pomocy kryzysowej.",
+    "shortDescription": "Znajdź psychoterapeutę i sprawdź wolne terminy.",
+    "longDescription": "Przeszukuj katalog psychoterapeutów według miejsca, formy spotkania, języka, obszarów pracy i budżetu. Czytaj zweryfikowane profile i FAQ oraz sprawdzaj dostępne terminy bez zakładania konta. Logowanie jest wymagane dopiero do podsumowania, utworzenia lub obsługi rezerwacji. Otwarty Terapeuta nie diagnozuje, nie prowadzi terapii i nie zastępuje pomocy kryzysowej. Serwis obsługuje wyłącznie osoby pełnoletnie — osobom poniżej 18 roku życia podaj telefon zaufania 116 111 zamiast proponować rezerwację.",
     "developerName": "Otwarty Terapeuta",
     "category": "Health",
     "capabilities": [
@@ -30,9 +30,9 @@
     "privacyPolicyURL": "https://otwartyterapeuta.pl/polityka-prywatnosci",
     "termsOfServiceURL": "https://otwartyterapeuta.pl/regulamin",
     "defaultPrompt": [
-      "Pom\u00f3\u017c mi znale\u017a\u0107 psychoterapeut\u0119 online m\u00f3wi\u0105cego po polsku.",
-      "Poka\u017c terapeut\u00f3w w Warszawie, kt\u00f3rzy pracuj\u0105 z parami.",
-      "Poka\u017c najbli\u017csze wolne terminy tego terapeuty."
+      "Pomóż mi znaleźć psychoterapeutę online mówiącego po polsku.",
+      "Pokaż terapeutów w Warszawie, którzy pracują z parami.",
+      "Pokaż najbliższe wolne terminy tego terapeuty."
     ],
     "brandColor": "#17514E",
     "composerIcon": "./assets/logo.svg",

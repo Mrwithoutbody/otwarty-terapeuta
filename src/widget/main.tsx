@@ -102,12 +102,22 @@ function VerifiedBadge({ status }: { status: unknown }): React.ReactElement {
 
 // ------------------------------------------------------------------ views ---
 
+function Photo({ url, name }: { url: unknown; name: string }): React.ReactElement | null {
+  const src = text(url);
+  // The bridge payload is untrusted: only an absolute https image is ever rendered.
+  if (!src || !src.startsWith('https://')) return null;
+  return <img className="photo" src={src} alt={`Zdjęcie profilowe: ${name}`} loading="lazy" decoding="async" />;
+}
+
 function TherapistCard({ item }: { item: Record<string, unknown> }): React.ReactElement {
   const reasons = list(item.match_reasons).map((r) => text(r)).filter(Boolean);
   return (
     <li className="card">
       <div className="card-head">
-        <h3>{text(item.display_name, 'Terapeuta')}</h3>
+        <div className="identity">
+          <Photo url={item.photo_url} name={text(item.display_name, 'Terapeuta')} />
+          <h3>{text(item.display_name, 'Terapeuta')}</h3>
+        </div>
         <div className="badges">
           <VerifiedBadge status={item.verification_status} />
           <DemoBadge isDemo={item.is_demo} />
@@ -178,7 +188,10 @@ function TherapistProfile({ data }: { data: Record<string, unknown> }): React.Re
   return (
     <article className="profile">
       <div className="card-head">
-        <h3>{text(t.display_name, 'Terapeuta')}</h3>
+        <div className="identity">
+          <Photo url={t.photo_url} name={text(t.display_name, 'Terapeuta')} />
+          <h3>{text(t.display_name, 'Terapeuta')}</h3>
+        </div>
         <div className="badges">
           <VerifiedBadge status={t.verification_status} />
           <DemoBadge isDemo={t.is_demo} />

@@ -22,10 +22,7 @@ type Listener = (payload: unknown) => void;
 interface OpenAiGlobal {
   toolInput?: unknown;
   toolOutput?: unknown;
-  widgetState?: unknown;
-  setWidgetState?: (state: unknown) => void;
   callTool?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
-  sendFollowUpMessage?: (message: { prompt: string }) => Promise<void>;
 }
 
 declare global {
@@ -43,12 +40,45 @@ class McpAppBridge {
   constructor() {
     if (typeof window === 'undefined') return;
     window.addEventListener('message', this.onMessage);
-    // ChatGPT delivers the first payload synchronously on the global.
+    // ChatGPT delivers the payload on `window.openai`, not over the `ui/*` bridge,
+    // and it may not be populated yet when this module is evaluated. It announces
+    // every later assignment with an `openai:set_globals` event - without listening
+    // for it the widget sits on "Wczytuję dane…" forever inside ChatGPT.
+    window.addEventListener('openai:set_globals', this.onGlobals);
     const initial = window.openai?.toolOutput;
     if (initial !== undefined && initial !== null) this.latestToolResult = initial;
+    // ChatGPT does not reliably emit `openai:set_globals`, and the iframe can mount
+    // either before or after the payload lands - which is why the widget rendered
+    // fine on one turn and sat on "Wczytuję dane…" on the next. Poll until the data
+    // shows up rather than giving up after a few seconds.
+    else this.pollForOutput();
     // Tell the host the surface is ready to receive notifications.
     this.notify('ui/initialize', {});
   }
+
+  private pollForOutput(): void {
+    let attempts = 0;
+    // ponytail: polling, because no delivery path is guaranteed in every host.
+    // 250 ms x 480 = 2 minutes, well past any render; drop this once one push
+    // channel proves reliable across ChatGPT and the Inspector.
+    const timer = setInterval(() => {
+      attempts += 1;
+      const output = window.openai?.toolOutput;
+      if (output !== undefined && output !== null) {
+        clearInterval(timer);
+        this.onGlobals();
+      } else if (attempts >= 480) {
+        clearInterval(timer);
+      }
+    }, 250);
+  }
+
+  private readonly onGlobals = (): void => {
+    const output = window.openai?.toolOutput;
+    if (output === undefined || output === null || output === this.latestToolResult) return;
+    this.latestToolResult = output;
+    for (const listener of this.resultListeners) listener(output);
+  };
 
   private readonly onMessage = (event: MessageEvent): void => {
     const data = event.data as HostMessage | undefined;
@@ -118,21 +148,6 @@ class McpAppBridge {
     return this.request('tools/call', { name, arguments: args });
   }
 
-  async sendFollowUp(prompt: string): Promise<void> {
-    if (window.openai?.sendFollowUpMessage) {
-      await window.openai.sendFollowUpMessage({ prompt });
-      return;
-    }
-    this.notify('ui/message', { prompt });
-  }
-
-  setState(state: unknown): void {
-    window.openai?.setWidgetState?.(state);
-  }
-
-  getState(): unknown {
-    return window.openai?.widgetState ?? null;
-  }
 }
 
 export const bridge = typeof window === 'undefined' ? null : new McpAppBridge();
