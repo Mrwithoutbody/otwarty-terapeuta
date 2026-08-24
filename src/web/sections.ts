@@ -239,20 +239,23 @@ function heroBody(
       ? `<figure class="phero-frame">${photo}${opts.badge}</figure>`
       : photo;
 
+  // Each fact is finished HTML by the time it lands here: the plain ones are
+  // escaped as they are built, and the language list arrives with the inline
+  // flag SVGs it draws itself. Escaping the lot printed that markup as text.
   const facts = card
     ? [
         t.price_min_minor === null
           ? null
-          : `${formatPrice(t.price_min_minor, t.currency)}${t.offers[0] ? ` / ${t.offers[0].duration_minutes} min` : ''}`,
-        t.locations.map((l) => [l.city, l.address_line].filter(Boolean).join(', ')).find((x) => x !== '') ?? null,
+          : escapeHtml(`${formatPrice(t.price_min_minor, t.currency)}${t.offers[0] ? ` / ${t.offers[0].duration_minutes} min` : ''}`),
+        escapeHtml(t.locations.map((l) => [l.city, l.address_line].filter(Boolean).join(', ')).find((x) => x !== '') ?? ''),
         t.offers_online ? 'lub online' : null,
-        t.session_types.length > 0 ? labelList(t.session_types, '') : null,
+        t.session_types.length > 0 ? escapeHtml(labelList(t.session_types, '')) : null,
       ]
     : [
-        t.locations.map((l) => l.city).join(', ') || null,
-        formats.join(' i ') || null,
+        escapeHtml(t.locations.map((l) => l.city).join(', ')),
+        escapeHtml(formats.join(' i ')),
         languageList(t.languages),
-        t.session_types.length > 0 ? labelList(t.session_types, '') : null,
+        t.session_types.length > 0 ? escapeHtml(labelList(t.session_types, '')) : null,
       ];
   const shown = facts.filter((x): x is string => x !== null && x !== '');
 
@@ -272,7 +275,7 @@ function heroBody(
       ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
       ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
-    ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>` : ''}
+    ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
     ${profileLinks(t)}
   </div>`;
 }

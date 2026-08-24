@@ -130,3 +130,20 @@ describe('every heading block declares what the profile is', () => {
     });
   }
 });
+
+// The fact pills carry the language list, which draws its own flag SVGs. A pass
+// through escapeHtml printed that markup as text in the hero.
+describe('hero facts', () => {
+  it('renders the language flags instead of printing their markup', () => {
+    const html = renderSections([{ type: 'hero' }], CTX);
+    expect(html).toContain('<span class="lang">');
+    expect(html).not.toContain('&lt;span class=&quot;lang&quot;');
+  });
+
+  it('still escapes a city name that contains markup', () => {
+    const nasty = { ...THERAPIST, locations: [{ city: '<script>x</script>', region: null, country: 'PL', address_line: null }] };
+    const html = renderSections([{ type: 'hero' }], { ...CTX, therapist: nasty as PublicTherapist });
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<script>x');
+  });
+});
