@@ -46,6 +46,25 @@ function signupForm(env: Env, error?: string): string {
 <div class="signup-page">
 <header class="signup-intro"><p class="kicker">Dla psychoterapeutów</p><h1>Dołącz jako terapeuta</h1>
 <p>Utwórz profil roboczy i uzupełnij go później w swoim panelu. Zgłoszenie nie pojawi się publicznie, dopóki administrator go nie przejrzy i nie opublikuje.</p></header>
+
+<!-- Co terapeutka z tego ma. Do tej pory ta strona pokazywała wyłącznie
+     formularz, czyli koszt bez powodu. -->
+<ul class="pillars">
+  <li><h3>Własna strona, nie wiersz w katalogu</h3>
+    <p>Układasz profil z sekcji: własne teksty, filary, cytat, zdjęcie obok słów.
+    Wybierasz motyw, skalę nagłówków i rytm strony — profil ma wyglądać jak Twój,
+    a nie jak formularz.</p></li>
+  <li><h3>Terminy i rezerwacje bez telefonowania</h3>
+    <p>Wolne godziny wpisujesz w panelu. Osoba szukająca pomocy widzi je na profilu
+    i rezerwuje przez asystenta ChatGPT. Logowanie jest potrzebne dopiero przy
+    rezerwacji, nigdy do samego przeglądania.</p></li>
+  <li><h3>Bez prowizji i płatnego pozycjonowania</h3>
+    <p>Rozliczasz się bezpośrednio z osobą, która przychodzi. W wynikach nie ma
+    pola „promowany” — kolejność zależy od dopasowania, nie od opłaty.</p></li>
+</ul>
+<p class="hint">Chcesz zobaczyć, jak to wygląda?
+<a href="/terapeuci/katarzyna-wrona-demo">Otwórz przykładowy profil</a> — to profil
+demonstracyjny, osoba fikcyjna, złożony z tych samych sekcji, które dostajesz w panelu.</p>
 ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 <form method="post" action="/dla-terapeutow/start">
   <div class="field-row two">
