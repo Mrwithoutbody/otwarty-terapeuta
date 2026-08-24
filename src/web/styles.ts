@@ -29,6 +29,7 @@ export const APP_CSS = `
   --surface: rgba(255, 255, 252, 0.94);
   --surface-solid: #fffefa;
   --surface-alt: #f2f3e9;
+  --band: #e9efe0;
   --border: #e2e5d8;
   --border-strong: #d1d8c1;
   --text: #344125;
@@ -422,8 +423,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .profile-page .crumbs { margin: 0; }
 
 /* --- profile spine: never moves, so profiles stay comparable ------------- */
+/* Every other heading on the site is a painted panel - the directory, the
+   documents, the crisis page, the signup. The profile was the one page that
+   opened on flat ivory, which is what made it read as colourless beside the
+   home page. The two variants that paint themselves override this. */
 .phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 4rem);
-  align-items: center; padding-block: clamp(1.5rem, 4vw, 5rem) clamp(2rem, 5vw, 6rem); }
+  align-items: center; margin-top: var(--space-6); padding: clamp(1.8rem, 3.5vw, 3.2rem);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, #eef4e8, #faf9eb); }
 .phero > div { order: -1; }
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
@@ -466,7 +473,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* Dark, centred, portrait above the name - the shape a single-person site uses
    when the person is the whole offer. */
 .phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
-  text-align: center; background: #344125; color: #f0f3d6; border-radius: var(--radius-lg);
+  text-align: center; background: #344125; color: #f0f3d6; border: 0; border-radius: var(--radius-lg);
   padding: clamp(2rem, 5vw, 3.5rem); margin-top: var(--space-6); }
 .phero--spotlight > div { order: 0; }
 .phero--spotlight h1 { color: #fffefa; }
@@ -585,8 +592,11 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    scrollbar) from adding a horizontal scrollbar. */
 .pblock--alt, .pblock--dark, .pblock--narrow {
   margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
-.pblock--alt { background: var(--surface-alt); border-block: 1px solid var(--border); }
-.pblock--narrow { background: var(--surface-alt); border-block: 1px solid var(--border);
+/* --surface-alt is two percent of lightness away from the page background: as a
+   full-width band it was invisible, so seven sections read as one beige. The
+   band gets a tone of its own and an edge dark enough to be an edge. */
+.pblock--alt { background: var(--band); border-block: 1px solid var(--border-strong); }
+.pblock--narrow { background: var(--band); border-block: 1px solid var(--border-strong);
   padding-block: clamp(1.2rem, 2vw, 1.6rem); }
 /* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
    the dullest thing the profile had to say. */
