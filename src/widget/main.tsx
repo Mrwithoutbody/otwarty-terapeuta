@@ -259,6 +259,17 @@ function Faq({ data }: { data: Record<string, unknown> }): React.ReactElement {
   );
 }
 
+/**
+ * Slots as a day grid, four columns wide. The widget renders in a narrow frame,
+ * which is exactly why ZnanyLekarz shows four days in its result cards and not
+ * a week - and why a flat list of twenty tall buttons, each carrying a full
+ * Polish date, was the wrong shape here.
+ *
+ * Unlike the website these cells ARE buttons: they lead to preview_booking.
+ */
+const WIDGET_DAYS_SHOWN = 4;
+const WIDGET_ROWS_SHOWN = 4;
+
 function Slots({
   data,
   onPreview,
@@ -279,6 +290,21 @@ function Slots({
       />
     );
   }
+
+  // Grouped by the days actually present, not by "today plus four": the
+  // assistant may have asked for a range weeks out, and empty columns anchored
+  // to today would say nothing.
+  const byDay = new Map<string, Record<string, unknown>[]>();
+  for (const slot of slots) {
+    const key = text(slot.local_day_iso, text(slot.local_start));
+    const bucket = byDay.get(key);
+    if (bucket) bucket.push(slot);
+    else byDay.set(key, [slot]);
+  }
+  const columns = [...byDay.values()].slice(0, WIDGET_DAYS_SHOWN);
+  const rows = Math.min(WIDGET_ROWS_SHOWN, Math.max(...columns.map((c) => c.length)));
+  const hidden = slots.length - columns.reduce((n, c) => n + Math.min(c.length, rows), 0);
+
   return (
     <>
       {stale ? (
@@ -286,29 +312,44 @@ function Slots({
           Te terminy mogły się zmienić. Poproś asystenta o odświeżenie listy przed rezerwacją.
         </p>
       ) : null}
-      <ul className="slots">
-        {slots.map((slot, index) => {
-          const id = text(slot.slot_id, String(index));
+      <div className="slot-grid" role="group" aria-label="Wolne terminy">
+        {columns.map((items, col) => {
+          const head = items[0] ?? {};
           return (
-            <li key={id}>
-              <button
-                type="button"
-                className="slot"
-                onClick={() => onPreview(id)}
-                disabled={busySlot !== null}
-                aria-busy={busySlot === id}
-              >
-                <span className="slot-time">{text(slot.local_start)}</span>
-                <span className="slot-meta">
-                  {text(slot.duration_minutes)} min · {slot.mode === 'online' ? 'online' : 'stacjonarnie'} ·{' '}
-                  {text(slot.price_display)}
-                </span>
-                <span className="slot-cta">{busySlot === id ? 'Przygotowuję podsumowanie…' : 'Pokaż podsumowanie'}</span>
-              </button>
-            </li>
+            <div className="slot-col" key={text(head.local_day_iso, String(col))}>
+              <p className="slot-col-head">
+                <b>{text(head.local_day_label, '—')}</b>
+              </p>
+              {Array.from({ length: rows }, (_, row) => {
+                const slot = items[row];
+                if (!slot) {
+                  return (
+                    <span className="slot-none" key={row} aria-hidden="true">
+                      –
+                    </span>
+                  );
+                }
+                const id = text(slot.slot_id, `${col}-${row}`);
+                return (
+                  <button
+                    type="button"
+                    className="slot"
+                    key={id}
+                    onClick={() => onPreview(id)}
+                    disabled={busySlot !== null}
+                    aria-busy={busySlot === id}
+                    aria-label={`${text(slot.local_start)}, ${text(slot.price_display)}`}
+                  >
+                    <span className="slot-time">{text(slot.local_time, text(slot.local_start))}</span>
+                    <span className="slot-mode">{slot.mode === 'online' ? 'online' : 'gabinet'}</span>
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
-      </ul>
+      </div>
+      {hidden > 0 ? <p className="disclaimer">…i {hidden} kolejnych terminów. Zapytaj asystenta o więcej.</p> : null}
       <p className="disclaimer">{text(data.freshness_note)}</p>
     </>
   );

@@ -93,18 +93,22 @@ button { font: inherit; }
 .faq dd { margin: 0; }
 .faq dd p { white-space: pre-wrap; }
 
-.slots { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-@media (min-width: 30rem) { .slots { grid-template-columns: 1fr 1fr; } }
+/* Day columns, hours beneath. Four days because the widget frame is narrow -
+   the same reason ZnanyLekarz shows four in a result card and seven on a page. */
+.slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.slot-col { display: grid; gap: 6px; align-content: start; }
+.slot-col-head { margin: 0 0 2px; text-align: center; font-size: 0.8rem; }
+.slot-col-head b { font-weight: 620; text-transform: capitalize; }
 .slot {
-  width: 100%; text-align: left; cursor: pointer;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 10px 12px; display: grid; gap: 2px; color: var(--text);
+  display: grid; gap: 1px; width: 100%; padding: 8px 4px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  color: inherit; font: inherit; text-align: center;
 }
 .slot:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
 .slot:disabled { opacity: 0.6; cursor: default; }
-.slot-time { font-weight: 620; }
-.slot-meta { color: var(--muted); font-size: 0.85rem; }
-.slot-cta { color: var(--accent); font-size: 0.85rem; }
+.slot-time { font-weight: 620; font-variant-numeric: tabular-nums; color: var(--text); }
+.slot-mode { color: var(--muted); font-size: 0.72rem; }
+.slot-none { display: block; padding: 8px 4px; text-align: center; color: var(--border); }
 
 button.primary {
   background: var(--accent); color: #fff; border: 2px solid var(--accent);

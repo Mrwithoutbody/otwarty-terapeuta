@@ -21,7 +21,7 @@ import { rankTherapists } from '../matching/rank';
 import { cancelBooking, createBooking, listMyBookings, previewBooking } from '../booking/service';
 import { AppError, toPublicError } from '../lib/errors';
 import { log } from '../lib/log';
-import { formatDateTime, formatPrice, isoPlusSeconds, nowIso, timezoneLabel } from '../lib/time';
+import { civilDateIn, formatDateTime, formatPrice, formatTime, isoPlusSeconds, nowIso, timezoneLabel } from '../lib/time';
 import { fromBase64Url, toBase64Url } from '../lib/crypto';
 import { WIDGET_HTML } from '../widget/generated';
 import * as S from './schemas';
@@ -179,6 +179,37 @@ function decodeCursor(cursor: string | undefined): number {
  * The MCP widget renders on the host's origin, so a relative path would resolve
  * against ChatGPT and 404 - every photo leaving over MCP must be absolute.
  */
+/**
+ * The widget renders slots as a day grid, so it needs the day and the hour
+ * apart rather than one long "wtorek, 1 września 2026, 10:00" string. Computed
+ * here because only the server knows the viewer's timezone argument.
+ */
+function localDayParts(
+  startsAtUtc: string,
+  userTimezone: string,
+): { local_day_iso: string; local_day_label: string; local_time: string } {
+  const at = new Date(startsAtUtc);
+  const day = civilDateIn(userTimezone, at);
+  const today = civilDateIn(userTimezone, new Date());
+  const diffDays = Math.round(
+    (Date.UTC(day.year, day.month - 1, day.day) -
+      Date.UTC(today.year, today.month - 1, today.day)) /
+      86_400_000,
+  );
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const label =
+    diffDays === 0
+      ? 'Dziś'
+      : diffDays === 1
+        ? 'Jutro'
+        : new Intl.DateTimeFormat('pl-PL', { timeZone: userTimezone, weekday: 'short' }).format(at);
+  return {
+    local_day_iso: `${day.year}-${pad(day.month)}-${pad(day.day)}`,
+    local_day_label: label,
+    local_time: formatTime(startsAtUtc, userTimezone),
+  };
+}
+
 function absolutePhoto(photoUrl: string | null, baseUrl: string): string | null {
   if (!photoUrl) return null;
   return photoUrl.startsWith('/') ? `${baseUrl}${photoUrl}` : photoUrl;
@@ -540,6 +571,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
               ends_at_utc: s.ends_at_utc,
               appointment_timezone: s.timezone,
               local_start: formatDateTime(s.starts_at_utc, args.user_timezone),
+              ...localDayParts(s.starts_at_utc, args.user_timezone),
               local_timezone_label: timezoneLabel(s.starts_at_utc, args.user_timezone),
               duration_minutes: s.duration_minutes,
               session_type: s.session_type,

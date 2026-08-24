@@ -64,6 +64,9 @@ const SLOTS_RESULT = {
       {
         slot_id: 'sl_abc',
         local_start: 'wtorek, 1 września 2026, 10:00',
+        local_day_iso: '2026-09-01',
+        local_day_label: 'wt.',
+        local_time: '10:00',
         local_timezone_label: 'GMT+2',
         duration_minutes: 50,
         mode: 'online',

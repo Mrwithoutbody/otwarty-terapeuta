@@ -265,6 +265,10 @@ export const listAvailableSlotsOutput = z.object({
       ends_at_utc: z.string(),
       appointment_timezone: z.string(),
       local_start: z.string(),
+      /** Same instant split for grid rendering: "2026-08-24", "Dziś", "11:00". */
+      local_day_iso: z.string(),
+      local_day_label: z.string(),
+      local_time: z.string(),
       local_timezone_label: z.string(),
       duration_minutes: z.number(),
       session_type: z.string(),
