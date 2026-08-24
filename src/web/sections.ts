@@ -713,7 +713,7 @@ ${pluginCta(env)}`;
         ['Dla kogo', labelList(t.age_groups, '')],
         ['Nurt', t.modalities.map((m) => m.name).join(', ')],
         ['Najbliższy termin', next ? compactDateTime(next.starts_at_utc, next.timezone) : 'brak wolnych terminów'],
-        ['Bezpłatne odwołanie', `do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
+        ['Bezpłatne odwołanie', `najpóźniej ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
       ].filter((row): row is [string, string] => row[1] !== '');
 
       if (rows.length === 0) return '';
