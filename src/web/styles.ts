@@ -434,6 +434,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
   display: block; box-shadow: var(--shadow); }
 .phero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: var(--space-6) 0 var(--space-6); }
+/* The same drawing the demo profiles are served, so an empty photo slot and a
+   demo avatar cannot end up looking like two different ideas. */
+.phero-photo.empty, .psplit-empty, .phero-card-empty {
+  background: #f1ece4 url("/avatar-placeholder.webp") center / cover no-repeat; }
 .phero-photo.empty { display: block; }
 
 /* --- heading blocks ------------------------------------------------------ */
@@ -453,7 +457,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero-card { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; }
 .phero-card img, .phero-card-empty { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
-  object-fit: cover; background: linear-gradient(140deg, #e8ecd6, #f2f3e9 55%, #e2e5d8); }
+  object-fit: cover; }
 .phero-card figcaption { padding: 1.1rem 1.3rem; border-top: 1px solid var(--border); }
 .phero-card strong { display: block; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
 .phero-card span { display: block; color: var(--text-muted); font-size: 0.9rem; }

@@ -107,23 +107,14 @@ app.get('/.well-known/openai-apps-challenge', (c) => {
  * The filename is matched whole and parsed here: a Hono param with a regex
  * followed by a literal suffix in the same segment does not match.
  */
-const DEMO_AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Ilustracja zastępcza" fill="currentColor" color="#1f5f5b">
-  <rect width="128" height="128" rx="64" opacity="0.14"/>
-  <circle cx="64" cy="50" r="22" opacity="0.42"/>
-  <path d="M20 118a44 44 0 0 1 88 0z" opacity="0.42"/>
-</svg>`;
-
-app.get('/media/demo/:file', (c) => {
-  if (!/^avatar-[1-9]\.svg$/.test(c.req.param('file'))) return new Response('Not found', { status: 404 });
-  return new Response(DEMO_AVATAR_SVG, {
-    headers: {
-      'content-type': 'image/svg+xml; charset=utf-8',
-      'cache-control': 'public, max-age=86400',
-      'x-content-type-options': 'nosniff',
-    },
-  });
-});
-
+/**
+ * The stand-in for a therapist who has not uploaded a photograph yet.
+ *
+ * Drawn at 4:5 because that is the crop every profile block uses - the previous
+ * one was square, and stretching it to portrait produced a giant forehead. A
+ * neutral figure: this stands in for anyone, so no hair, no clothing detail and
+ * no colour that reads as a gender.
+ */
 /** Therapist photos uploaded by an administrator live in R2, when it is bound. */
 app.get('/media/:key{.+}', async (c) => {
   if (!c.env.MEDIA) return new Response('Not found', { status: 404 });

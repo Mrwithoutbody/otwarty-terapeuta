@@ -131,7 +131,7 @@ describe('every heading block declares what the profile is', () => {
   const demo = { ...THERAPIST, is_demo: true } as PublicTherapist;
   const ctx = { ...CTX, therapist: demo };
 
-  for (const type of Object.keys(SECTIONS_DEF).filter((t) => SECTIONS_DEF[t].family === 'hero')) {
+  for (const type of Object.keys(SECTIONS_DEF).filter((t) => SECTIONS_DEF[t]?.family === 'hero')) {
     it(`${type} carries the demo badge`, () => {
       expect(renderSections([{ type }], ctx)).toContain('osoba fikcyjna');
     });
