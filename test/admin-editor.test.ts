@@ -149,6 +149,30 @@ describe('therapist editor form state', () => {
   });
 });
 
+describe('licznik odsłon w panelu', () => {
+  let admin: Actor;
+
+  beforeAll(async () => {
+    admin = await actor('views-admin@example.invalid', 'admin');
+  });
+
+  it('pokazuje sumę i podział na źródła', async () => {
+    await env.DB.prepare(
+      `INSERT INTO profile_views (therapist_id, day, source, views) VALUES (?, ?, 'web', 7)
+       ON CONFLICT (therapist_id, day, source) DO UPDATE SET views = 7`,
+    )
+      .bind(ANNA, new Date().toISOString().slice(0, 10))
+      .run();
+
+    const html = await SELF.fetch('https://localhost/admin', {
+      headers: { cookie: admin.cookie },
+    }).then((r) => r.text());
+
+    expect(html).toContain('Odsłony (30 dni)');
+    expect(html).toContain('strona 7');
+  });
+});
+
 describe('the way the page is presented', () => {
   let admin: Actor;
 

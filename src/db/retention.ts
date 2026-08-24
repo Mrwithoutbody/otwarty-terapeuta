@@ -26,10 +26,11 @@ export interface PurgeResult {
   outbox: number;
   bookingContacts: number;
   auditEvents: number;
+  profileViews: number;
 }
 
 export async function purgeExpiredData(env: Env): Promise<PurgeResult> {
-  const [outbox, contacts, audit] = await env.DB.batch([
+  const [outbox, contacts, audit, views] = await env.DB.batch([
     // Powiadomienia: wysłane po 30 dniach, nieudane po 90 - treść jest
     // zaszyfrowana, ale zaszyfrowany adres to nadal adres.
     env.DB.prepare(
@@ -50,11 +51,18 @@ export async function purgeExpiredData(env: Env): Promise<PurgeResult> {
     ).bind('-12 months'),
 
     env.DB.prepare(`DELETE FROM audit_events WHERE at < ${CUTOFF}`).bind('-24 months'),
+
+    // Licznik odsłon: 24 miesiące. To agregat bez danych osobowych, ale
+    // nieskończenie rosnąca tabela też jest problemem.
+    env.DB.prepare(
+      `DELETE FROM profile_views WHERE day < strftime('%Y-%m-%d','now','-24 months')`,
+    ),
   ]);
 
   return {
     outbox: outbox?.meta.changes ?? 0,
     bookingContacts: contacts?.meta.changes ?? 0,
     auditEvents: audit?.meta.changes ?? 0,
+    profileViews: views?.meta.changes ?? 0,
   };
 }

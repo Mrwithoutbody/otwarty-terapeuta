@@ -164,6 +164,22 @@ i katalog, który przestaje wyglądać jak jeden serwis. Z tego samego powodu ka
 w katalogu bierze z motywu tylko włos akcentu i barwę odnośnika, nigdy całej
 palety.
 
+### 4.2. Jedyna statystyka, jaką prowadzimy
+
+`profile_views`: agregat dobowy (profil, dzień, źródło) z licznikiem odsłon,
+zapisywany przy renderowaniu profilu na stronie i przy `get_therapist_profile`
+w MCP. Bez adresu IP, bez nagłówka przeglądarki, bez ciasteczka i bez
+identyfikatora osoby — z tej tabeli nie da się odtworzyć, kto oglądał, tylko ile
+razy oglądano. Terapeutka widzi liczbę dla własnego profilu w panelu, retencja
+kasuje wiersze po 24 miesiącach.
+
+Zapis idzie prosto do D1 jednym UPSERT-em na odsłonę i przy tej skali to
+wystarcza. Gdyby ruch urósł do tysięcy odsłon na minutę, właściwym miejscem jest
+Analytics Engine, a ta tabela zostaje jako agregat dobowy.
+
+Czego świadomie nie ma: Cloudflare Web Analytics (to skrypt-beacon, a CSP ma
+`script-src 'self'`), zewnętrznej analityki i ciasteczek analitycznych.
+
 ## 5. Rezerwacja: współbieżność i odporność na błędy
 
 | Sytuacja | Zachowanie |

@@ -21,6 +21,7 @@ import { rankTherapists } from '../matching/rank';
 import { cancelBooking, createBooking, listMyBookings, previewBooking } from '../booking/service';
 import { AppError, toPublicError } from '../lib/errors';
 import { log } from '../lib/log';
+import { recordProfileView } from '../db/views';
 import { civilDateIn, formatDateTime, formatPrice, formatTime, isoPlusSeconds, nowIso, timezoneLabel } from '../lib/time';
 import { fromBase64Url, toBase64Url } from '../lib/crypto';
 import { WIDGET_HTML } from '../widget/generated';
@@ -402,6 +403,10 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
             slug: args.slug,
           });
           if (!t) throw new AppError('not_found', 'Nie znaleziono opublikowanego profilu o takim identyfikatorze.', 404);
+
+          // Profil otwarty przez asystenta liczy się tak samo jak otwarty na
+          // stronie - to ta sama ciekawość, tylko innym wejściem.
+          await recordProfileView(env, t.therapist_id, 'mcp');
 
           const structured = {
             therapist: {

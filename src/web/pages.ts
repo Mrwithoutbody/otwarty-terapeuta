@@ -16,6 +16,7 @@ import { escapeHtml } from '../lib/sanitize';
 import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
+import { recordProfileView } from '../db/views';
 import { htmlResponse, renderPage } from './layout';
 import {
   languageList,
@@ -404,6 +405,9 @@ siteApp.get('/terapeuci/:slug', async (c) => {
     }),
   ]);
 
+  // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
+  c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
+
   const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
   const sections = pageSections(parseSections(t.sections));
   const body = renderSections(sections, ctx, { nav: parseLayout(t.layout).nav === 'kotwice' });
@@ -596,7 +600,14 @@ Przeglądanie katalogu nie wymaga podania żadnych danych.</p></section>
       w adresie w pasku przeglądarki, czyli w historii Twojego urządzenia; jeżeli przez
       ChatGPT — treść rozmowy pozostaje po stronie OpenAI, nie po naszej.</li>
   <li>Nie prowadzimy profilowania reklamowego i nie udostępniamy danych do marketingu.</li>
-</ul></section>
+  <li>Nie używamy ciasteczek analitycznych, zewnętrznej analityki ani skryptów śledzących.
+      Jedyne ciasteczko w serwisie to sesja panelu dla zalogowanego terapeuty lub administratora.</li>
+</ul>
+<p>Liczymy natomiast <strong>odsłony profili</strong>: dla każdego profilu, dnia i źródła
+(strona albo asystent ChatGPT) rośnie jeden licznik. Nie zapisujemy przy tym adresu IP,
+przeglądarki ani żadnego identyfikatora osoby, więc z tych danych nie da się odtworzyć, kto
+oglądał profil — wyłącznie ile razy go otwarto. Terapeuta widzi tę liczbę dla własnego profilu,
+my usuwamy ją po 24 miesiącach.</p></section>
 
 <section><h2>Odbiorcy danych</h2>
 <p>Terapeuta, u którego rezerwujesz, otrzymuje <strong>dane potrzebne do przeprowadzenia

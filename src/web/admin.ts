@@ -246,6 +246,25 @@ adminApp.get('/', async (c) => {
     accepting_new_clients: number;
   }>();
 
+  /**
+   * Odsłony profili z ostatnich 30 dni, jednym zapytaniem dla całej listy -
+   * nie po jednym na wiersz. Agregat dobowy, bez identyfikatora osoby: to
+   * odpowiedź na „ile razy oglądano", nie na „kto oglądał".
+   */
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const viewRows = await c.env.DB.prepare(
+    `SELECT therapist_id, source, SUM(views) AS views FROM profile_views
+      WHERE day >= ? GROUP BY therapist_id, source`,
+  )
+    .bind(since)
+    .all<{ therapist_id: string; source: 'web' | 'mcp'; views: number }>();
+  const views = new Map<string, { web: number; mcp: number }>();
+  for (const row of viewRows.results) {
+    const entry = views.get(row.therapist_id) ?? { web: 0, mcp: 0 };
+    entry[row.source] += row.views;
+    views.set(row.therapist_id, entry);
+  }
+
   const upcoming = await c.env.DB.prepare(
     `SELECT b.id, b.public_ref, b.status, b.starts_at_utc, b.timezone, b.price_minor, b.currency,
             b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc,
@@ -311,7 +330,8 @@ ${
 <div class="table-scroll">
 <table>
   <thead><tr><th scope="col">Nazwa</th><th scope="col">Status</th><th scope="col">Weryfikacja</th>
-  <th scope="col">Nowe osoby</th><th scope="col">Akcje</th></tr></thead>
+  <th scope="col">Nowe osoby</th><th scope="col">Odsłony (30 dni)</th>
+  <th scope="col">Akcje</th></tr></thead>
   <tbody>
   ${therapists.results
     .map(
@@ -320,6 +340,12 @@ ${
       <td>${escapeHtml(t.status)}</td>
       <td>${escapeHtml(t.verification_status)}</td>
       <td>${t.accepting_new_clients ? 'tak' : 'nie'}</td>
+      <td>${((entry) =>
+        entry === undefined
+          ? '—'
+          : `<strong>${entry.web + entry.mcp}</strong> <span class="meta">(strona ${entry.web} · ChatGPT ${entry.mcp})</span>`)(
+        views.get(t.id),
+      )}</td>
       <td><a href="/admin/terapeuci/${escapeHtml(t.id)}">Edytuj</a></td>
     </tr>`,
     )
