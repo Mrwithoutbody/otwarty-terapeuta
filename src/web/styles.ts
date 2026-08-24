@@ -141,9 +141,7 @@ main { display: block; padding-block: clamp(2rem, 4vw, 3rem) clamp(4rem, 8vw, 6r
 /* A band that breaks out to the full viewport has to meet the footer. Left with
    main's bottom padding under it, the page ends on a strip of white below a
    dark block, which reads as a mistake - because it is one. */
-main:has(.profile-page > .pblock--dark:last-child),
-main:has(.profile-page > .pblock--alt:last-child),
-main:has(.profile-page > .pblock--narrow:last-child) { padding-bottom: 0; }
+main:has(.profile-page > .pblock--dark:last-child) { padding-bottom: 0; }
 main > .wrap > :first-child { margin-top: 0; }
 
 footer.site { border-top: 1px solid var(--border); background: #f1f3e8; padding-block: clamp(3rem, 6vw, 5rem) 2rem; }
@@ -593,19 +591,26 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    full-width sections wrapping an inner container.
    overflow-x: clip on the root is what keeps 100vw (which counts the
    scrollbar) from adding a horizontal scrollbar. */
-.pblock--alt, .pblock--dark, .pblock--narrow {
-  margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
-/* --surface-alt is two percent of lightness away from the page background: as a
-   full-width band it was invisible, so seven sections read as one beige. The
-   band gets a tone of its own and an edge dark enough to be an edge.
-   The tone is sand (hue 46), not sage. Measured, not guessed: every surface
-   token on this site sits between hue 64 and 70, and the three illustrations
-   the home page is carried by are 95% warm - hue 45 amber and hue 30 clay,
-   under one percent green. A band at hue 84 was the coldest thing in the
-   palette and pulled the profile further from the home page, not closer. */
-.pblock--alt { background: var(--band); border-block: 1px solid var(--border-strong); }
-.pblock--narrow { background: var(--band); border-block: 1px solid var(--border-strong);
-  padding-block: clamp(1.2rem, 2vw, 1.6rem); }
+.pblock--dark { margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
+/* A tinted section is a panel, not a stripe. Two flat full-width fills tried
+   here first - one sage, one sand - and both turned the page below the heading
+   into wallpaper: the tint ran wall to wall, the sections lost their edges and
+   the whole scroll read as one colour. The heading works because it is a framed
+   panel with a wash inside it, so the tinted sections are built the same way,
+   with the pool of light on the opposite side. Consecutive panels mirror, so
+   two in a row are not the same picture twice. */
+.pblock--alt, .pblock--narrow {
+  padding-inline: clamp(1.6rem, 3vw, 3rem); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); background:
+    radial-gradient(circle at 84% 10%, rgba(238, 244, 145, 0.42), transparent 20rem),
+    linear-gradient(140deg, #f3f6ec, var(--band)); }
+.pblock--alt:nth-of-type(even), .pblock--narrow:nth-of-type(even) { background:
+    radial-gradient(circle at 14% 88%, rgba(238, 244, 145, 0.42), transparent 20rem),
+    linear-gradient(220deg, #f3f6ec, var(--band)); }
+.pblock--narrow { padding-block: clamp(1.2rem, 2vw, 1.6rem); }
+/* Panels need air around them; a stripe did not. */
+.pblock--alt, .pblock--narrow { margin-block: var(--space-6); }
+.pblock--alt + .pblock, .pblock--narrow + .pblock { padding-top: clamp(1.6rem, 3vw, 3rem); }
 /* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
    the dullest thing the profile had to say. */
 .pblock--dark { background: #344125; color: #f0f3d6; border-block: 0;
