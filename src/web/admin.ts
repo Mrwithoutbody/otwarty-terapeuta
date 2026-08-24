@@ -548,7 +548,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  */
 function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmin: boolean): string {
   const stored = parseSections(row?.sections_json ?? null);
-  const autoFilled = autoContentFlags(row, context);
+  const summary = autoSummary(row, context);
   const sections = stored.length > 0
     ? stored
     : defaultSections();
@@ -557,16 +557,19 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmi
     .map((section, index) => {
       const def = SECTIONS_DEF[section.type];
       if (!def) return '';
-      // A section with nothing in it is listed but marked: she can see what
-      // filling it in would add, rather than wondering why it never appears.
+      // A section with nothing in it is listed but says so, and an auto one says
+      // what it holds today - otherwise the screen is ten names and no content.
+      const holds = def.auto === true ? (summary[section.type] ?? def.hint) : '';
       const empty = def.auto === true
-        ? autoFilled[section.type] === false
+        ? holds.startsWith('brak') || holds.startsWith('pusty') || holds.includes('bez odpowiedzi')
         : filled(def.fields ?? [], section, true) === 0;
       return `<li class="sec-item" data-section draggable="true">
   <div class="sec-head">
     <span class="grip" aria-hidden="true">⠿</span>
     <span class="sec-copy"><strong>${escapeHtml(def.label)}</strong>
-      <span>${escapeHtml(def.hint)}${empty ? ' — jeszcze puste, sekcja się nie pokaże' : ''}</span></span>
+      <span>${escapeHtml(def.auto === true ? holds : def.hint)}${
+        empty ? ' · sekcja się nie pokaże' : ''
+      }</span></span>
     <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
     <label class="sec-pos"><span class="visually-hidden">Pozycja sekcji ${escapeHtml(def.label)}</span>
       <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_SECTIONS}" data-section-pos></label>
@@ -680,22 +683,51 @@ function sectionField(field: Field, value: unknown, name: string, isAdmin = true
 
 
 /**
- * Which auto sections would show anything today. A section that would render
- * nothing is still listed - she can see what filling it in would add, rather
- * than wondering why it never appears.
+ * What each auto section will actually put on the page. "Twój opis i nurt pracy"
+ * says what the section is for; this says what is in it right now and where it
+ * comes from, which is the thing that was missing - a builder listing ten
+ * section names and no content reads as an empty screen.
  */
-function autoContentFlags(row: TherapistRow | null, context: EditorContext): Record<string, boolean> {
+function autoSummary(row: TherapistRow | null, context: EditorContext): Record<string, string> {
+  const count = (n: number, one: string, few: string, many: string): string =>
+    `${n} ${n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many}`;
+
+  const bio = (row?.bio ?? '').trim();
+  const firstMeeting = [row?.first_meeting_course, row?.first_meeting_prep, row?.first_meeting_decision]
+    .filter((x) => (x ?? '').trim() !== '').length;
+  const credentials = parseStoredCredentials(row?.credentials ?? null).length;
+  const links = parseStoredLinks(row?.links ?? null).length;
+
   return {
-    intro: (row?.bio ?? '').trim() !== '',
-    first_meeting:
-      `${row?.first_meeting_course ?? ''}${row?.first_meeting_prep ?? ''}${row?.first_meeting_decision ?? ''}`.trim() !== '',
-    topics: context.chosenTopics.size > 0,
-    offers: context.offers.length > 0,
-    slots: true,
-    faq: context.faq.length > 0,
-    credentials: parseStoredCredentials(row?.credentials ?? null).length > 0,
-    links: parseStoredLinks(row?.links ?? null).length > 0,
-    policy: true,
+    hero: `imię, zdjęcie i ${links > 0 ? count(links, 'link', 'linki', 'linków') : 'fakty'} — z zakładki O mnie`,
+    'hero-obietnica': 'Twoje zdanie w tytule, nazwisko na karcie',
+    'hero-spotlight': 'imię i zdanie na powitanie',
+    'hero-okladka': 'imię, zdjęcie i najbliższy termin',
+    kluczowe: 'cena, długość sesji i najbliższy termin',
+    dane: 'wszystkie fakty z zakładek O mnie, Oferta i Dostępność',
+    intro: bio === '' ? 'pusty opis — uzupełnij w zakładce O mnie' : `${count(bio.length, 'znak', 'znaki', 'znaków')} opisu`,
+    first_meeting: firstMeeting === 0
+      ? 'trzy pytania bez odpowiedzi — wypełnij poniżej'
+      : count(firstMeeting, 'odpowiedź', 'odpowiedzi', 'odpowiedzi'),
+    topics: context.chosenTopics.size === 0
+      ? 'brak obszarów — zaznacz w zakładce O mnie'
+      : count(context.chosenTopics.size, 'obszar', 'obszary', 'obszarów'),
+    offers: context.offers.length === 0
+      ? 'brak ofert — dodaj w zakładce Oferta'
+      : count(context.offers.length, 'oferta', 'oferty', 'ofert'),
+    'oferta-lista': context.offers.length === 0
+      ? 'brak ofert — dodaj w zakładce Oferta'
+      : count(context.offers.length, 'oferta', 'oferty', 'ofert'),
+    zestawienie: 'oferta i najbliższe terminy obok siebie',
+    slots: 'wolne terminy z zakładki Dostępność',
+    faq: context.faq.length === 0
+      ? 'brak pytań — dodaj w zakładce FAQ'
+      : count(context.faq.length, 'pytanie', 'pytania', 'pytań'),
+    credentials: credentials === 0
+      ? 'brak kwalifikacji — wypełnij poniżej'
+      : count(credentials, 'kwalifikacja', 'kwalifikacje', 'kwalifikacji'),
+    policy: 'wyliczone z Twojego wyprzedzenia',
+    zaproszenie: 'zaproszenie zbudowane z Twoich danych',
   };
 }
 
