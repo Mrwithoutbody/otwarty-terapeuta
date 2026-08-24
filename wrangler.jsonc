@@ -17,8 +17,8 @@
     // Empty until the plugin card is published in the OpenAI panel.
     // The site then renders a controlled "Plugin w przygotowaniu" notice.
     "PUBLIC_PLUGIN_URL": "",
-    "TERMS_VERSION": "2026-08-01",
-    "PRIVACY_VERSION": "2026-08-01",
+    "TERMS_VERSION": "2026-08-24",
+    "PRIVACY_VERSION": "2026-08-24",
     // Turnstile "always passes" TEST key - safe to commit, never used in prod.
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
     "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
@@ -61,8 +61,8 @@
         "PUBLIC_BASE_URL": "https://otwarty-terapeuta-preview.gotoreadyai.workers.dev",
         "PUBLIC_MCP_URL": "https://otwarty-terapeuta-preview.gotoreadyai.workers.dev/mcp",
         "PUBLIC_PLUGIN_URL": "",
-        "TERMS_VERSION": "2026-08-01",
-        "PRIVACY_VERSION": "2026-08-01",
+        "TERMS_VERSION": "2026-08-24",
+        "PRIVACY_VERSION": "2026-08-24",
         // Cloudflare's documented TEST key: the challenge ALWAYS passes.
         // Replace with a real Turnstile site key before letting anyone but the
         // team near this environment.
@@ -106,8 +106,8 @@
         "PUBLIC_BASE_URL": "https://otwartyterapeuta.pl",
         "PUBLIC_MCP_URL": "https://mcp.otwartyterapeuta.pl/mcp",
         "PUBLIC_PLUGIN_URL": "",
-        "TERMS_VERSION": "2026-08-01",
-        "PRIVACY_VERSION": "2026-08-01",
+        "TERMS_VERSION": "2026-08-24",
+        "PRIVACY_VERSION": "2026-08-24",
         "TURNSTILE_SITE_KEY": "0x4AAAAAAEWXHmpKhU2Qq-rI",
         "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
       },

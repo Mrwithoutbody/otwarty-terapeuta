@@ -590,8 +590,11 @@ Przeglądanie katalogu nie wymaga podania żadnych danych.</p></section>
 <ul>
   <li>Nie zapisujemy treści rozmów z ChatGPT ani ich fragmentów.</li>
   <li>Nie zapisujemy opisu objawów, historii leczenia ani diagnoz.</li>
-  <li>Nie zapisujemy powodów szukania terapii poza filtrami wybranymi w trakcie wyszukiwania —
-      a te nie są przypisywane do konta po zakończeniu wyszukiwania.</li>
+  <li>Nie zapisujemy kryteriów wyszukiwania. Filtry służą wyłącznie do policzenia wyników
+      i nie trafiają ani do bazy danych, ani do dziennika zdarzeń — w dzienniku zapisujemy
+      samą ścieżkę adresu, bez parametrów. Jeżeli szukasz na stronie, wybrane filtry widnieją
+      w adresie w pasku przeglądarki, czyli w historii Twojego urządzenia; jeżeli przez
+      ChatGPT — treść rozmowy pozostaje po stronie OpenAI, nie po naszej.</li>
   <li>Nie prowadzimy profilowania reklamowego i nie udostępniamy danych do marketingu.</li>
 </ul></section>
 
