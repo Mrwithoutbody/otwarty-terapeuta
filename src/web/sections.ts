@@ -498,17 +498,6 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
 
 
   /**
-   * The dense end of the range. A thumbnail, the name, the facts on one line -
-   * a card, not a landing page. Someone who wants her profile read in ten
-   * seconds picks this and nothing about the page argues with her.
-   */
-  'hero-zwiezly': {
-    label: 'Nagłówek — zwięzły', hint: 'Miniatura i fakty w jednej linii, bez dużego portretu',
-    auto: true, family: 'hero', fields: [],
-    render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
-  },
-
-  /**
    * Price, length and the next free slot in one line. Separate from the heading
    * because it is the row people compare between profiles, and it has to sit in
    * the same place whichever heading she picked.

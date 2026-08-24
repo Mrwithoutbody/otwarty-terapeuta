@@ -480,29 +480,9 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--spotlight .phero-actions { justify-content: center; }
 .phero--spotlight .btn.ghost { color: #f0f3d6; border-color: rgba(240, 243, 214, 0.45); }
 
-/* A page built around the dense heading keeps that register throughout: half
-   the band padding, a tighter fact row, no landing-page air. */
-.profile-page--gesty .pblock { padding-block: clamp(1.6rem, 3vw, 2.4rem); }
-.profile-page--gesty .pfacts { margin-top: var(--space-4); padding: var(--space-4) var(--space-6); }
-.profile-page--gesty .pfact strong { font-size: 1.25rem; }
-.profile-page--gesty .pblock > .block-lead { margin-bottom: var(--space-4); }
-.profile-page--gesty .pblock > h2 { font-size: clamp(1.4rem, 1.2rem + 0.9vw, 1.8rem); }
-
-/* The dense end of the range: a thumbnail on a line with the name, no column of
-   its own. A profile that wants to be read in ten seconds, not scrolled. */
-.phero--zwiezly { grid-template-columns: 5.5rem 1fr; gap: var(--space-6); align-items: start;
-  padding-block: var(--space-6); }
-.phero--zwiezly > div { order: 0; }
-.phero--zwiezly .phero-photo { width: 5.5rem; aspect-ratio: 1; border-radius: 50%; }
-.phero--zwiezly h1 { font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.9rem); margin-bottom: var(--space-2); }
-.phero--zwiezly .phero-headline { font-size: 1rem; margin-bottom: var(--space-3); }
-.phero--zwiezly .badges { margin-bottom: var(--space-2); }
-.phero--zwiezly .phero-actions { margin: var(--space-4) 0 0; }
-
 /* Label and value, two pairs across - the layout the catalogue card has always
-   used for exactly these facts. */
-/* Two columns of pairs, not three: at three the label and its value drift apart
-   and the eye stops pairing them. */
+   used for exactly these facts. Two columns rather than three: at three the
+   label and its value drift apart and the eye stops pairing them. */
 .pdata { display: grid; grid-template-columns: repeat(auto-fit, minmax(26rem, 1fr));
   gap: 0 var(--space-8); margin: 0; }
 .pdata > div { display: grid; grid-template-columns: minmax(8rem, auto) minmax(0, 1fr);
