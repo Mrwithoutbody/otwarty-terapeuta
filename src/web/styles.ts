@@ -683,6 +683,17 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   color: var(--surface-solid); border-radius: 50%; font-size: 0.9rem; font-weight: 600; }
 .meeting-steps h3 { margin: 0.3rem 0 0.4rem; font-size: 1.02rem; }
 .meeting-steps p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+/* A card at --surface-solid on the --bg page is three percent of lightness
+   away from it, and all that said "card" was a #e2e5d8 hairline and a shadow at
+   four percent opacity. That was already thin; beside a tinted band the eye
+   adapts and the card stops existing. The profile's cards get an edge and a
+   shadow strong enough to survive the comparison. */
+.pfacts, .pcard, .offer-card, .meeting-steps li, .phero-card, .phero-badge {
+  border-color: var(--border-strong); box-shadow: var(--shadow); }
+/* Stacked rows and pills: an edge, but no shadow - four dropped cards in a
+   column is a pile, not a list. */
+.pblock details, .chips li { border-color: var(--border-strong); }
+
 .read-more { margin-top: var(--space-4); }
 .policy-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-6); }
 .policy-box p { margin: 0; color: var(--text-muted); }
