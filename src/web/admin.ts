@@ -34,6 +34,7 @@ import {
   LAYOUT_BANDS,
   LAYOUT_HERO,
   MAX_SECTIONS,
+  parseLayout,
   parseSections,
   SECTION_GROUPS,
   SECTIONS_DEF,
@@ -553,7 +554,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * ten: the sections carry the content, this carries the shape.
  */
 function layoutChoice(row: TherapistRow | null): string {
-  const layout = parseLayoutValues(row?.layout_json ?? null);
+  const layout = parseLayout(row?.layout_json ?? null);
   const options = (
     list: ReadonlyArray<readonly [string, string]>,
     current: string,
@@ -578,29 +579,9 @@ function layoutChoice(row: TherapistRow | null): string {
 </fieldset>`;
 }
 
-/** The first option of a list is what an unset - or bogus - value falls back to. */
-function pickOption(value: unknown, list: ReadonlyArray<readonly [string, string]>): string {
-  const fallback = list[0]?.[0] ?? '';
-  return typeof value === 'string' && list.some(([v]) => v === value) ? value : fallback;
-}
-
-function parseLayoutValues(raw: string | null): { bands: string; hero: string } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw || '{}');
-  } catch {
-    parsed = null;
-  }
-  const values = (typeof parsed === 'object' && parsed !== null ? parsed : {}) as Record<string, unknown>;
-  return { bands: pickOption(values.bands, LAYOUT_BANDS), hero: pickOption(values.hero, LAYOUT_HERO) };
-}
-
-/** What the two selects posted, ready for the column. */
+/** What the two selects posted, validated by the same reader the page uses. */
 function collectLayout(body: URLSearchParams): string {
-  return JSON.stringify({
-    bands: pickOption(body.get('layout_bands'), LAYOUT_BANDS),
-    hero: pickOption(body.get('layout_hero'), LAYOUT_HERO),
-  });
+  return JSON.stringify(parseLayout({ bands: body.get('layout_bands'), hero: body.get('layout_hero') }));
 }
 
 function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {

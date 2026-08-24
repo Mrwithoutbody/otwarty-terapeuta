@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultSections,
   layoutClasses,
+  parseLayout,
   pageSections,
   parseSections,
   renderSections,
@@ -166,5 +167,12 @@ describe('page layout', () => {
 
   it('ignores a value it does not know', () => {
     expect(layoutClasses({ bands: 'onclick=x', hero: 'onclick=x' })).toBe('');
+  });
+
+  it('reads the column as stored, and survives a hand edit', () => {
+    expect(parseLayout('{"bands":"pasy","hero":"karta"}')).toEqual({ bands: 'pasy', hero: 'karta' });
+    expect(parseLayout('nie-json')).toEqual({ bands: 'panele', hero: '' });
+    expect(parseLayout('[]')).toEqual({ bands: 'panele', hero: '' });
+    expect(layoutClasses('{"bands":"pasy"}')).toBe(' profile-page--pasy profile-page--hero-goly');
   });
 });

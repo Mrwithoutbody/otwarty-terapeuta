@@ -915,13 +915,40 @@ export const LAYOUT_HERO = [
   ['goly', 'Nigdy w karcie'],
 ] as const;
 
-export function layoutClasses(layout: { bands?: string; hero?: string } | undefined): string {
-  const bands = layout?.bands === 'pasy' ? 'pasy' : 'panele';
-  const asked = layout?.hero === 'karta' || layout?.hero === 'goly' ? layout.hero : '';
-  const hero = asked || (bands === 'pasy' ? 'goly' : 'karta');
-  const out = [];
+export interface PageLayout { bands: string; hero: string }
+
+/** The first option of a list is what an unset - or bogus - value falls back to. */
+function layoutOption(value: unknown, list: ReadonlyArray<readonly [string, string]>): string {
+  const fallback = list[0]?.[0] ?? '';
+  return typeof value === 'string' && list.some(([v]) => v === value) ? value : fallback;
+}
+
+/**
+ * The one reader of this column, whether it comes from the database as a
+ * string, from the panel as two form values, or from a hand edit. Everything
+ * that is not one of the options above becomes the default.
+ */
+export function parseLayout(raw: unknown): PageLayout {
+  let parsed: unknown = raw;
+  if (typeof raw === 'string' || raw === null || raw === undefined) {
+    try {
+      parsed = JSON.parse((raw as string) || '{}');
+    } catch {
+      parsed = null;
+    }
+  }
+  const values = (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+    ? parsed
+    : {}) as Record<string, unknown>;
+  return { bands: layoutOption(values.bands, LAYOUT_BANDS), hero: layoutOption(values.hero, LAYOUT_HERO) };
+}
+
+/** What the layout means for the page element, once the automatic case is resolved. */
+export function layoutClasses(raw: unknown): string {
+  const { bands, hero } = parseLayout(raw);
+  const out: string[] = [];
   if (bands === 'pasy') out.push('profile-page--pasy');
-  if (hero === 'goly') out.push('profile-page--hero-goly');
+  if (hero === 'goly' || (hero === '' && bands === 'pasy')) out.push('profile-page--hero-goly');
   return out.length > 0 ? ` ${out.join(' ')}` : '';
 }
 
