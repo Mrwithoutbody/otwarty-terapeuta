@@ -155,7 +155,7 @@ blokujące nie są spełnione.
 | --- | --- | --- | --- |
 | 1 | Sekcje 1–4 zamknięte (role i podstawy prawne, lokalizacja danych, granice kliniczne, weryfikacja terapeutów) | prawnik + klinicysta | §1–§4 tego dokumentu |
 | 2 | DPIA przeprowadzona i udokumentowana | prawnik | §0 |
-| 3 | Ustalony administrator danych: operator, terapeuta czy współadministrowanie | prawnik | §1 tego dokumentu |
+| 3 | Ustalony administrator danych: operator, terapeuta czy współadministrowanie | prawnik | operator wskazany przez zarząd: **Blockbox sp. z o.o.** (`src/web/controller.ts`); do rozstrzygnięcia zostaje status terapeuty i ewentualne współadministrowanie — §1 tego dokumentu |
 | 4 | Podstawa prawna dla każdej kategorii (art. 6 i 9 RODO), w tym czy powiązanie osoba ↔ terapeuta to dane o zdrowiu | prawnik | §1 tego dokumentu; kategorie danych w `PRIVACY_DATA_MAP.md` §3 |
 | 5 | Umowy powierzenia podpisane (Cloudflare, dostawca poczty) | prawnik | `PRIVACY_DATA_MAP.md` §5 |
 | 6 | Rejestr czynności przetwarzania | prawnik | — |

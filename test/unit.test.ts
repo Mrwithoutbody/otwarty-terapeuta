@@ -4,6 +4,7 @@ import { escapeHtml, isEmail, isPhone, normalizeForSearch, safeUrl, sanitizeRich
 import { signConfirmationToken, verifyConfirmationToken } from '../src/lib/tokens';
 import { rankTherapists } from '../src/matching/rank';
 import { redact } from '../src/lib/log';
+import { controllerDetails, controllerIsComplete } from '../src/web/controller';
 import { decryptPii, encryptPii, timingSafeEqual } from '../src/lib/crypto';
 import {
   addCivilDays,
@@ -391,5 +392,38 @@ describe('slot generation in the therapist timezone', () => {
       minute: '2-digit',
     }).format(instant);
     expect(shown).toBe('03:30');
+  });
+});
+
+describe('tożsamość administratora danych', () => {
+  // Numer z rejestru albo go nie ma - pusta rubryka i numer zmyślony to dwa
+  // sposoby na to samo: dokument, który wprowadza w błąd.
+  it('nie renderuje rubryki, dla której nie ma potwierdzonej wartości', () => {
+    const html = controllerDetails({
+      name: 'Blockbox sp. z o.o.', street: '', city: '', krs: '', nip: '', regon: '',
+      court: '', email: 'kontakt@example.org', dpo: '',
+    });
+    expect(html).toContain('Blockbox sp. z o.o.');
+    expect(html).not.toContain('KRS');
+    expect(html).not.toContain('NIP');
+    expect(html).toContain('kontakt@example.org');
+  });
+
+  it('pokazuje komplet, gdy komplet jest', () => {
+    const full = {
+      name: 'Blockbox sp. z o.o.', street: 'ul. Przykładowa 1', city: '00-001 Warszawa',
+      krs: '0000000000', nip: '0000000000', regon: '000000000',
+      court: 'Sąd Rejonowy dla m.st. Warszawy', email: 'kontakt@example.org', dpo: '',
+    };
+    expect(controllerIsComplete(full)).toBe(true);
+    const html = controllerDetails(full);
+    for (const value of [full.krs, full.nip, full.regon, full.street, full.city]) {
+      expect(html).toContain(value);
+    }
+  });
+
+  it('mówi wprost, że inspektora nie powołano, zamiast milczeć', () => {
+    expect(controllerDetails()).toContain('Nie powołaliśmy inspektora ochrony danych');
+    expect(controllerIsComplete()).toBe(false);
   });
 });

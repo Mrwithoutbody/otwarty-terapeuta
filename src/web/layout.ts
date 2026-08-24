@@ -1,6 +1,7 @@
 import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
+import { CONTROLLER } from './controller';
 import { APP_CSS } from './styles';
 
 /**
@@ -185,6 +186,11 @@ ${options.body}
     <div class="footer-legal">
       <p>Otwarty Terapeuta nie jest usługą terapeutyczną, nie diagnozuje i nie zastępuje pomocy w nagłym zagrożeniu życia lub zdrowia.</p>
       <p>Serwis dla osób pełnoletnich.</p>
+      <!-- Bez kropki na końcu: nazwa spółki kończy się skrótem "o.o." i druga
+           kropka wygląda jak literówka. -->
+      <p>Operator serwisu i administrator danych: ${escapeHtml(CONTROLLER.name)}${
+        CONTROLLER.city.trim() === '' ? '' : `, ${escapeHtml(CONTROLLER.city)}`
+      }</p>
     </div>
   </div>
 </footer>

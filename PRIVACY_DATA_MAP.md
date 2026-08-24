@@ -3,6 +3,21 @@
 Dokument techniczny: co jest przechowywane, gdzie, po co i jak długo.
 Nie jest opinią prawną ani deklaracją zgodności.
 
+## 0. Administrator danych
+
+Administratorem danych przetwarzanych w serwisie jest **Blockbox sp. z o.o.** —
+decyzja zarządu spółki, nie rozstrzygnięcie prawnika; ocena, czy w odniesieniu do
+rezerwacji zachodzi współadministrowanie z terapeutą, pozostaje otwarta
+(`DPIA_CHECKLIST.md` §11 poz. 3).
+
+Tożsamość administratora ma jedno źródło w kodzie: `src/web/controller.ts`.
+Polityka prywatności, regulamin i stopka renderują się z tej samej stałej, a pole
+bez potwierdzonej wartości **nie renderuje wiersza** — dokument nigdy nie pokaże
+numeru rejestrowego, którego nikt nie potwierdził.
+
+Terapeuta jest odrębnym administratorem danych, które otrzymuje w celu
+przeprowadzenia wizyty i prowadzenia własnej dokumentacji.
+
 ## 1. Zasada nadrzędna
 
 Produkt dotyczy zdrowia psychicznego, więc **każde dane użytkownika traktujemy

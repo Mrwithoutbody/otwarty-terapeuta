@@ -15,6 +15,7 @@ import { rankTherapists } from '../matching/rank';
 import { escapeHtml } from '../lib/sanitize';
 import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
+import { controllerDetails, CONTROLLER } from './controller';
 import { htmlResponse, renderPage } from './layout';
 import {
   languageList,
@@ -554,6 +555,28 @@ siteApp.get('/polityka-prywatnosci', (c) =>
 <div class="document-page">
 <header class="document-hero"><p class="kicker">Dokumenty i zasady</p><h1>Polityka prywatności</h1><p class="lead">Przejrzyste wyjaśnienie, jakie dane są potrzebne do działania katalogu i rezerwacji oraz czego świadomie nie zbieramy.</p><p class="document-version">Wersja ${escapeHtml(c.env.PRIVACY_VERSION)}</p></header>
 <div class="document-content">
+<section><h2>Administrator danych</h2>
+<p>Administratorem danych osobowych przetwarzanych w serwisie Otwarty Terapeuta jest:</p>
+${controllerDetails()}
+<p>Terapeuta, u którego rezerwujesz wizytę, jest odrębnym administratorem danych, które
+otrzymuje w celu przeprowadzenia tej wizyty i prowadzenia własnej dokumentacji.</p></section>
+
+<section><h2>Podstawy prawne i cele</h2>
+<ul>
+  <li><strong>Rezerwacja wizyty i obsługa konta</strong> — art. 6 ust. 1 lit. b RODO,
+      przetwarzanie niezbędne do wykonania umowy o świadczenie usługi.</li>
+  <li><strong>Kontakt z terapeutą w sprawie wizyty</strong> — art. 6 ust. 1 lit. b RODO;
+      w zakresie, w jakim sam fakt rezerwacji ujawnia informację o zdrowiu, przetwarzanie
+      opiera się na Twojej wyraźnej zgodzie wyrażonej przy rezerwacji (art. 9 ust. 2 lit. a).</li>
+  <li><strong>Bezpieczeństwo, zapobieganie nadużyciom, zapisy audytowe</strong> —
+      art. 6 ust. 1 lit. f, nasz uzasadniony interes w utrzymaniu bezpiecznej usługi.</li>
+  <li><strong>Obowiązki rozliczeniowe i archiwalne</strong> — art. 6 ust. 1 lit. c,
+      w zakresie wymaganym przepisami.</li>
+</ul>
+<p>Podanie adresu e-mail jest dobrowolne, ale konieczne do dokonania rezerwacji —
+bez niego nie prześlemy potwierdzenia ani nie umożliwimy odwołania wizyty.
+Przeglądanie katalogu nie wymaga podania żadnych danych.</p></section>
+
 <section><h2>Jakie dane przetwarzamy</h2>
 <ul>
   <li><strong>Konto:</strong> adres e-mail (przechowywany w postaci zaszyfrowanej oraz jako nieodwracalny skrót do wyszukiwania).</li>
@@ -584,14 +607,39 @@ po 30 dniach. Niepotwierdzone zgłoszenie terapeuty wygasa po 15 minutach; dane 
 przechowujemy przez czas prowadzenia konta.</p></section>
 
 <section><h2>Twoje prawa</h2>
-<p>Możesz zażądać kopii swoich danych lub ich usunięcia, pisząc na
-<a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.
+<ul>
+  <li>dostęp do danych i otrzymanie ich kopii,</li>
+  <li>sprostowanie danych nieprawidłowych,</li>
+  <li>usunięcie danych, o ile nie stoi temu na przeszkodzie obowiązek prawny,</li>
+  <li>ograniczenie przetwarzania,</li>
+  <li>przeniesienie danych przetwarzanych na podstawie umowy,</li>
+  <li>sprzeciw wobec przetwarzania opartego na uzasadnionym interesie,</li>
+  <li>cofnięcie zgody w każdej chwili — bez wpływu na to, co wydarzyło się wcześniej.</li>
+</ul>
+<p>Żądanie wystarczy wysłać na
+<a href="mailto:${escapeHtml(CONTROLLER.email)}">${escapeHtml(CONTROLLER.email)}</a>.
 Usunięcie konta usuwa dane kontaktowe; sam fakt odbytej wizyty pozostaje w formie
 pozbawionej danych identyfikujących, ponieważ jest potrzebny do rozliczeń.</p></section>
+
+<section><h2>Automatyczne decyzje i profilowanie</h2>
+<p>Nie podejmujemy wobec Ciebie decyzji opartych wyłącznie na zautomatyzowanym przetwarzaniu,
+które wywoływałyby skutki prawne. Kolejność wyników wyszukiwania wynika z podanych przez Ciebie
+kryteriów i danych profilu terapeuty; nie buduje profilu Twojej osoby, nie korzysta z historii
+i nie zawiera czynnika komercyjnego.</p></section>
+
+<section><h2>Przekazywanie poza EOG</h2>
+<p>Dane przechowujemy w bazie Cloudflare D1. Dostawcy infrastruktury i poczty transakcyjnej
+przetwarzają dane na nasze zlecenie, na podstawie umów powierzenia; jeżeli w konkretnym
+przypadku wiąże się to z przekazaniem poza Europejski Obszar Gospodarczy, odbywa się ono
+na standardowych klauzulach umownych.</p></section>
 
 <section><h2>Bezpieczeństwo</h2>
 <p>Dane kontaktowe są szyfrowane na poziomie aplikacji. Dostęp do panelu administracyjnego
 jest ograniczony rolami i chroniony logowaniem jednorazowym kodem.</p></section>
+
+<section><h2>Skarga do organu nadzorczego</h2>
+<p>Jeżeli uważasz, że przetwarzamy Twoje dane niezgodnie z prawem, możesz wnieść skargę do
+Prezesa Urzędu Ochrony Danych Osobowych, ul. Stawki 2, 00-193 Warszawa.</p></section>
 </div></div>`,
     }),
   ),
@@ -607,41 +655,45 @@ siteApp.get('/regulamin', (c) =>
 <div class="document-page">
 <header class="document-hero"><p class="kicker">Dokumenty i zasady</p><h1>Regulamin</h1><p class="lead">Najważniejsze zasady korzystania z katalogu i rezerwacji, opisane możliwie prostym językiem.</p><p class="document-version">Wersja ${escapeHtml(c.env.TERMS_VERSION)}</p></header>
 <div class="document-content">
-<section><h2>1. Czym jest serwis</h2>
+<section><h2>1. Kto prowadzi serwis</h2>
+<p>Usługodawcą i operatorem serwisu Otwarty Terapeuta jest:</p>
+${controllerDetails()}</section>
+
+<section><h2>2. Czym jest serwis</h2>
 <p>Otwarty Terapeuta udostępnia katalog psychoterapeutów oraz umożliwia rezerwację terminu wizyty.
 Serwis nie świadczy usług terapeutycznych ani medycznych i nie jest stroną umowy między osobą
 rezerwującą a terapeutą.</p></section>
 
-<section><h2>2. Kto może korzystać</h2><p>Z rezerwacji mogą korzystać wyłącznie osoby pełnoletnie.</p></section>
+<section><h2>3. Kto może korzystać</h2><p>Z rezerwacji mogą korzystać wyłącznie osoby pełnoletnie.</p></section>
 
-<section><h2>3. Profile terapeutów</h2>
+<section><h2>4. Profile terapeutów</h2>
 <p>Terapeuta może utworzyć konto po potwierdzeniu adresu e-mail. Nowy profil jest roboczy i
 niezweryfikowany. Utworzenie konta nie gwarantuje publikacji; administrator może poprosić o
 dokumenty, odmówić publikacji albo wycofać profil naruszający regulamin.</p></section>
 
-<section><h2>4. Rezerwacja</h2>
+<section><h2>5. Rezerwacja</h2>
 <p>Rezerwacja jest skuteczna po wyświetleniu pełnego podsumowania i jego jednoznacznym potwierdzeniu.
 Cena, czas trwania i forma spotkania obowiązują w wersji przedstawionej w podsumowaniu.</p></section>
 
-<section><h2>5. Odwołanie wizyty</h2>
+<section><h2>6. Odwołanie wizyty</h2>
 <p>Zasady odwołania określa terapeuta i są widoczne w jego profilu oraz w podsumowaniu rezerwacji.
 Odwołanie po upływie bezpłatnego okresu może wiązać się z opłatą ustaloną przez terapeutę.</p>
 </section>
 
-<section><h2>6. Płatności</h2>
+<section><h2>7. Płatności</h2>
 <p>Rozliczenie następuje bezpośrednio między osobą rezerwującą a terapeutą, zgodnie z informacją
 w profilu terapeuty. Serwis nie pośredniczy w płatnościach.</p></section>
 
-<section><h2>7. Dane w profilach</h2>
+<section><h2>8. Dane w profilach</h2>
 <p>Za treść profilu i odpowiedzi FAQ odpowiada terapeuta. Serwis oznacza, które dane zostały
 zweryfikowane i kiedy. Weryfikacja nie jest gwarancją jakości usługi.</p>
 </section>
 
-<section><h2>8. Pomoc w kryzysie</h2>
+<section><h2>9. Pomoc w kryzysie</h2>
 <p>Serwis nie jest pomocą w nagłym zagrożeniu życia lub zdrowia. W takiej sytuacji należy
 skorzystać z numerów wskazanych na stronie <a href="/pomoc-w-kryzysie">Pomoc w kryzysie</a>.</p></section>
 
-<section><h2>9. Kontakt</h2><p><a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a></p></section>
+<section><h2>10. Kontakt</h2><p><a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a></p></section>
 </div></div>`,
     }),
   ),
