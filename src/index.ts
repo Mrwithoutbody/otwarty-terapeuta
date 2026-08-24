@@ -23,8 +23,9 @@ import { APP_CSS } from './web/styles';
 import { ADMIN_CSS, ADMIN_JS } from './web/admin-ui';
 import { topUpDemoSlots } from './db/demo';
 import { log } from './lib/log';
+import { purgeExpiredData } from './db/retention';
 import { drainOutbox } from './notify/outbox';
-import { nowIso } from './lib/time';
+
 
 export { TherapistBookingCoordinator } from './booking/coordinator';
 
@@ -356,7 +357,8 @@ export default {
   },
 
   /**
-   * Housekeeping: retry queued notifications and purge expired auth state.
+   * Housekeeping: retry queued notifications, purge expired auth state and run
+   * the retention the privacy policy promises.
    * Notification delivery is deliberately outside the booking transaction.
    */
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -365,8 +367,14 @@ export default {
         try {
           const result = await drainOutbox(env, 50);
           await purgeExpiredAuthState(env);
+          const purged = await purgeExpiredData(env);
           const demo = await topUpDemoSlots(env);
-          log.info('scheduled.done', { count: result.sent, demoSlots: demo.added, reason: nowIso() });
+          log.info('scheduled.done', {
+            count: result.sent,
+            demoSlots: demo.added,
+            // Liczby, nie treści: ile wierszy przeszło retencję.
+            reason: `purge:${purged.outbox}/${purged.bookingContacts}/${purged.auditEvents}`,
+          });
         } catch (error) {
           log.error('scheduled.failed', error);
         }

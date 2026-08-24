@@ -59,13 +59,17 @@ cena, status) oraz wpisy audytowe wskazujące na już nieistniejące konto.
 Uzasadnienie: terapeuta i operator muszą móc wykazać, że płatna wizyta się odbyła.
 **Ta ocena wymaga potwierdzenia prawnego.**
 
-## 5. Zapytania retencyjne do dopisania do crona
+## 5. Zapytania retencyjne — wdrożone
 
-Pozycja 8 bramki wydania (`DPIA_CHECKLIST.md` §11). Tutaj jest gotowy SQL.
+Kod: `src/db/retention.ts`, wołany z `scheduled` w `src/index.ts` co pięć minut.
+Test pilnujący progów: `test/booking.test.ts`, sekcja „retencja".
 
-Zadanie cron istnieje (`scheduled` w `src/index.ts`), ale realizuje dziś tylko
-czyszczenie stanu autoryzacji i ponawianie powiadomień. Przed produkcją należy
-dopisać do niego:
+Uwaga do SQL poniżej: znaczniki czasu zapisujemy przez `toISOString()`, więc
+porównanie musi mieć ten sam kształt. `datetime('now','-12 months')` zwraca
+„YYYY-MM-DD HH:MM:SS" — ze spacją zamiast „T" i bez „Z" — i porównanie tekstowe
+z takim napisem nie trafia w nic. W kodzie jest `strftime('%Y-%m-%dT%H:%M:%SZ', …)`.
+
+Co robi zadanie:
 
 ```sql
 -- Powiadomienia: usuń wysłane po 30 dniach, nieudane po 90.
@@ -84,9 +88,12 @@ UPDATE bookings
 DELETE FROM audit_events WHERE at < datetime('now','-24 months');
 ```
 
-Wymagane przed uruchomieniem tych zapytań:
-1. zatwierdzenie okresów przez prawnika,
-2. potwierdzona procedura kopii zapasowych D1 (usunięcie musi obejmować kopie),
+Nadal otwarte, mimo że kod działa (`DPIA_CHECKLIST.md` §11 poz. 8-9):
+1. zatwierdzenie okresów przez prawnika — terminy są publicznie obiecane w
+   polityce prywatności, więc kod je wykonuje; ocena, czy są właściwe, należy
+   do prawnika,
+2. potwierdzona procedura kopii zapasowych D1 — usunięcie musi obejmować kopie,
+   a dziś nie wiadomo, czy i gdzie kopie powstają,
 3. test na środowisku preview z realistycznym wolumenem.
 
 ## 6. Kopie zapasowe

@@ -6,6 +6,7 @@ import { listOpenSlots } from '../src/db/catalog';
 import { nowIso } from '../src/lib/time';
 import { signConfirmationToken } from '../src/lib/tokens';
 import { AppError } from '../src/lib/errors';
+import { purgeExpiredData } from '../src/db/retention';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const KEY = env.TOKEN_SIGNING_KEY!;
@@ -397,5 +398,55 @@ describe('my bookings', () => {
 
     expect((await listMyBookings(env, alice)).length).toBe(1);
     expect(await listMyBookings(env, bob)).toEqual([]);
+  });
+});
+
+/**
+ * Polityka prywatności obiecuje te terminy publicznie, więc test pilnuje, żeby
+ * cron faktycznie je wykonywał - i żeby nie ruszał danych, które są jeszcze w
+ * okresie przechowywania.
+ */
+describe('retencja', () => {
+  it('czyści dane kontaktowe rezerwacji po 12 miesiącach, świeże zostawia', async () => {
+    // Klucze obce są włączone, więc rezerwacja musi wisieć na realnych wierszach.
+    const slots = await env.DB.prepare(
+      `SELECT id, therapist_id FROM appointment_slots
+        WHERE id NOT IN (SELECT slot_id FROM bookings) LIMIT 2`,
+    ).all<{ id: string; therapist_id: string }>();
+    const user = await findOrCreateUserByEmail(env, 'retencja@example.invalid');
+    const old = '2024-01-15T10:00:00.000Z';
+    const fresh = nowIso();
+
+    // Jeden aktywny booking na slot, więc każdy wiersz dostaje własny termin.
+    const pairs = [['bk_stara', old, 0], ['bk_swieza', fresh, 1]] as const;
+    for (const [id, at, index] of pairs) {
+      const slot = slots.results[index]!;
+      await env.DB.prepare(
+        `INSERT INTO bookings (id, public_ref, slot_id, therapist_id, user_id, status,
+           starts_at_utc, ends_at_utc, timezone, session_type, mode, price_minor, currency,
+           contact_name_enc, contact_email_enc, terms_version, privacy_version,
+           manage_token_hash, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?, 'Europe/Warsaw',
+           'individual', 'online', 20000, 'PLN', 'enc', 'enc', 'v', 'v', ?, ?, ?)`,
+      ).bind(id, id.toUpperCase(), slot.id, slot.therapist_id, user.id, at, at, id, at, at).run();
+    }
+    await env.DB.prepare(
+      `INSERT INTO audit_events (id, at, actor_type, action, subject_type, subject_id)
+       VALUES ('ae_stare', '2023-01-01T00:00:00.000Z', 'system', 'test', 'booking', 'bk_stara')`,
+    ).run();
+
+    const result = await purgeExpiredData(env);
+    expect(result.bookingContacts).toBe(1);
+    expect(result.auditEvents).toBe(1);
+
+    const rows = await env.DB.prepare(
+      `SELECT id, contact_email_enc FROM bookings WHERE id IN ('bk_stara','bk_swieza') ORDER BY id`,
+    ).all<{ id: string; contact_email_enc: string | null }>();
+    expect(rows.results[0]?.contact_email_enc).toBeNull();
+    expect(rows.results[1]?.contact_email_enc).toBe('enc');
+
+    const audit = await env.DB.prepare(`SELECT COUNT(*) n FROM audit_events WHERE id = 'ae_stare'`)
+      .first<{ n: number }>();
+    expect(audit?.n).toBe(0);
   });
 });

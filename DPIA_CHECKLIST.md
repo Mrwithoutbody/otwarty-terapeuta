@@ -160,7 +160,7 @@ blokujące nie są spełnione.
 | 5 | Umowy powierzenia podpisane (Cloudflare, dostawca poczty) | prawnik | `PRIVACY_DATA_MAP.md` §5 |
 | 6 | Rejestr czynności przetwarzania | prawnik | — |
 | 7 | Polityka prywatności i regulamin zatwierdzone prawnie | prawnik | obecne wersje to roboczy opis techniczny |
-| 8 | Automatyczna retencja wdrożona i przetestowana na preview | inżynieria | `RETENTION_POLICY.md` §5 (gotowy SQL) |
+| 8 | Automatyczna retencja wdrożona i przetestowana na preview | inżynieria | kod wdrożony (`src/db/retention.ts`, cron co 5 min, test w `test/booking.test.ts`); zostaje test na preview z realistycznym wolumenem i zatwierdzenie okresów przez prawnika |
 | 9 | Potwierdzona procedura kopii zapasowych D1 — usunięcie musi obejmować kopie | inżynieria | `RETENTION_POLICY.md` §6 |
 | 10 | Konsultacja kliniczna ścieżki kryzysowej | klinicysta | §3 tego dokumentu |
 | 11 | Testy akceptacyjne scenariuszy kryzysowych zaliczone z udziałem klinicysty | klinicysta | — |

@@ -599,15 +599,24 @@ Przeglądanie katalogu nie wymaga podania żadnych danych.</p></section>
 </ul></section>
 
 <section><h2>Odbiorcy danych</h2>
-<p>Terapeuta, u którego rezerwujesz wizytę, otrzymuje dane niezbędne do jej realizacji.
-Dostawca infrastruktury (Cloudflare) i dostawca poczty transakcyjnej przetwarzają dane
-na nasze zlecenie.</p></section>
+<p>Terapeuta widzi w swoim panelu <strong>fakt rezerwacji</strong>: termin, formę spotkania,
+cenę i numer rezerwacji. Nie widzi Twojego imienia, adresu e-mail ani telefonu — dane
+kontaktowe podane przy rezerwacji służą wyłącznie do wysłania Ci potwierdzenia i informacji
+o odwołaniu.</p>
+<p>Dostawca infrastruktury (Cloudflare) oraz dostawca poczty transakcyjnej przetwarzają dane
+wyłącznie na nasze zlecenie i w zakresie potrzebnym do świadczenia usługi.</p></section>
 
 <section><h2>Okres przechowywania</h2>
-<p>Szczegóły opisuje dokument retencji dostępny na żądanie. W skrócie: dane kontaktowe rezerwacji
-usuwamy po 12 miesiącach od terminu wizyty, zapisy audytowe po 24 miesiącach, dane logowania
-po 30 dniach. Niepotwierdzone zgłoszenie terapeuty wygasa po 15 minutach; dane aktywnego profilu
-przechowujemy przez czas prowadzenia konta.</p></section>
+<p>Usuwaniem zajmuje się zadanie uruchamiane co pięć minut, nie ręczna decyzja:</p>
+<ul>
+  <li>dane kontaktowe rezerwacji — 12 miesięcy od terminu wizyty; sama rezerwacja zostaje
+      bez danych identyfikujących, bo jest potrzebna do rozliczeń,</li>
+  <li>zapisy audytowe — 24 miesiące,</li>
+  <li>wysłane powiadomienia — 30 dni, nieudane — 90 dni,</li>
+  <li>kody logowania — 15 minut, sesja panelu — 8 godzin, token odświeżający — 30 dni,</li>
+  <li>niepotwierdzone zgłoszenie terapeuty — 15 minut, razem z danymi z formularza.</li>
+</ul>
+<p>Dane opublikowanego profilu terapeuty przechowujemy przez czas prowadzenia konta.</p></section>
 
 <section><h2>Twoje prawa</h2>
 <ul>
@@ -631,10 +640,9 @@ kryteriów i danych profilu terapeuty; nie buduje profilu Twojej osoby, nie korz
 i nie zawiera czynnika komercyjnego.</p></section>
 
 <section><h2>Przekazywanie poza EOG</h2>
-<p>Dane przechowujemy w bazie Cloudflare D1. Dostawcy infrastruktury i poczty transakcyjnej
-przetwarzają dane na nasze zlecenie, na podstawie umów powierzenia; jeżeli w konkretnym
-przypadku wiąże się to z przekazaniem poza Europejski Obszar Gospodarczy, odbywa się ono
-na standardowych klauzulach umownych.</p></section>
+<p>Dane przechowujemy w bazie Cloudflare D1. Jeżeli korzystanie z infrastruktury dostawcy
+wiąże się z przekazaniem danych poza Europejski Obszar Gospodarczy, odbywa się to na
+standardowych klauzulach umownych stosowanych przez tego dostawcę.</p></section>
 
 <section><h2>Bezpieczeństwo</h2>
 <p>Dane kontaktowe są szyfrowane na poziomie aplikacji. Dostęp do panelu administracyjnego
