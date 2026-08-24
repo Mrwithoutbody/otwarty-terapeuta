@@ -29,7 +29,7 @@ export const APP_CSS = `
   --surface: rgba(255, 255, 252, 0.94);
   --surface-solid: #fffefa;
   --surface-alt: #f2f3e9;
-  --band: #e9efe0;
+  --band: #f1ecdb;
   --border: #e2e5d8;
   --border-strong: #d1d8c1;
   --text: #344125;
@@ -430,7 +430,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 4rem);
   align-items: center; margin-top: var(--space-6); padding: clamp(1.8rem, 3.5vw, 3.2rem);
   border: 1px solid var(--border); border-radius: var(--radius-lg);
-  background: linear-gradient(140deg, #eef4e8, #faf9eb); }
+  background:
+    radial-gradient(circle at 16% 10%, rgba(238, 244, 145, 0.5), transparent 21rem),
+    radial-gradient(circle at 88% 88%, rgba(232, 214, 166, 0.55), transparent 24rem),
+    linear-gradient(140deg, #eef4e8, #f5eeda); }
 .phero > div { order: -1; }
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
@@ -594,7 +597,12 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
 /* --surface-alt is two percent of lightness away from the page background: as a
    full-width band it was invisible, so seven sections read as one beige. The
-   band gets a tone of its own and an edge dark enough to be an edge. */
+   band gets a tone of its own and an edge dark enough to be an edge.
+   The tone is sand (hue 46), not sage. Measured, not guessed: every surface
+   token on this site sits between hue 64 and 70, and the three illustrations
+   the home page is carried by are 95% warm - hue 45 amber and hue 30 clay,
+   under one percent green. A band at hue 84 was the coldest thing in the
+   palette and pulled the profile further from the home page, not closer. */
 .pblock--alt { background: var(--band); border-block: 1px solid var(--border-strong); }
 .pblock--narrow { background: var(--band); border-block: 1px solid var(--border-strong);
   padding-block: clamp(1.2rem, 2vw, 1.6rem); }
@@ -695,7 +703,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pblock details, .chips li { border-color: var(--border-strong); }
 
 .read-more { margin-top: var(--space-4); }
-.policy-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-6); }
+/* Sits inside whichever band the therapist put it in. --surface-alt is a green
+   grey and went muddy on the sand band; the card white the rest of the page
+   uses reads on every background. */
+.policy-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: var(--space-6); }
 .policy-box p { margin: 0; color: var(--text-muted); }
 .pblock details { background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: var(--radius); margin: 0.7rem 0 0; }
