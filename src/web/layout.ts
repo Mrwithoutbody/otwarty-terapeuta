@@ -148,6 +148,19 @@ ${options.body}
 </main>
 <footer class="site">
   <div class="wrap">
+    <!-- The crisis numbers used to be a box repeated on three subpages and a
+         sentence in the legal small print. In the footer they are on every page
+         instead, which is where someone scrolling to the end of a bad day gets
+         to them. -->
+    <aside class="footer-crisis" aria-labelledby="kryzys-naglowek">
+      <h2 id="kryzys-naglowek">Potrzebujesz pomocy natychmiast?</h2>
+      <ul>
+        <li><a href="tel:112"><b>112</b><span>bezpośrednie zagrożenie życia</span></a></li>
+        <li><a href="tel:116123"><b>116 123</b><span>wsparcie emocjonalne, całą dobę</span></a></li>
+        <li><a href="tel:116111"><b>116 111</b><span>telefon zaufania dla młodzieży</span></a></li>
+      </ul>
+      <p><a href="/pomoc-w-kryzysie">Pełna lista miejsc pomocy <span aria-hidden="true">→</span></a></p>
+    </aside>
     <div class="footer-brand">
       <a class="brand" href="/"><img src="/logo.svg" alt="" width="36" height="36"><span>Otwarty Terapeuta</span></a>
       <p>Przejrzysty katalog psychoterapeutów i prosta rezerwacja wizyt — bez ukrytego rankingu.</p>
@@ -166,7 +179,7 @@ ${options.body}
       </ul></div>
     </div>
     <div class="footer-legal">
-      <p>Otwarty Terapeuta nie jest usługą terapeutyczną, nie diagnozuje i nie zastępuje pomocy w nagłym zagrożeniu życia lub zdrowia. W takiej sytuacji zadzwoń pod <strong>112</strong>, a po wsparcie emocjonalne pod <strong>116 123</strong>.</p>
+      <p>Otwarty Terapeuta nie jest usługą terapeutyczną, nie diagnozuje i nie zastępuje pomocy w nagłym zagrożeniu życia lub zdrowia.</p>
       <p>Serwis dla osób pełnoletnich.</p>
     </div>
   </div>

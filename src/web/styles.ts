@@ -141,6 +141,29 @@ main > .wrap > :first-child { margin-top: 0; }
 
 footer.site { border-top: 1px solid var(--border); background: #f1f3e8; padding-block: clamp(3rem, 6vw, 5rem) 2rem; }
 footer.site .wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr); gap: 3rem 6rem; }
+/* The crisis numbers open the footer, across its full width, with the accent
+   rule down the side. Loud enough to find while scrolling past, quiet enough
+   not to shout at someone who is not in a crisis. */
+.footer-crisis { grid-column: 1 / -1; background: var(--surface-solid);
+  border: 1px solid var(--border); border-left: 4px solid var(--accent-strong);
+  border-radius: var(--radius); padding: var(--space-6) var(--space-8); margin-bottom: 0.5rem; }
+.footer-crisis h2 { font-size: 1.05rem; margin: 0 0 var(--space-4); }
+.footer-crisis ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-4); list-style: none; margin: 0; padding: 0; }
+/* The link-list rule in footer.site sets a top margin and ties with this
+   selector, so it has to be beaten on specificity - otherwise the second and
+   third numbers sit lower than the first. */
+footer.site .footer-crisis li + li { margin-top: 0; }
+.footer-crisis li a { display: block; text-decoration: none; color: inherit; }
+.footer-crisis b { display: block; font-family: var(--serif); font-size: 1.5rem; font-weight: 600;
+  letter-spacing: -0.02em; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+.footer-crisis li span { display: block; color: var(--text-muted); font-size: 0.84rem; }
+.footer-crisis li a:hover b { text-decoration: underline; }
+/* The global paragraph measure would wrap the arrow onto its own line. */
+.footer-crisis > p { margin: var(--space-4) 0 0; max-width: none; }
+.footer-crisis > p a { font-size: 0.88rem; color: var(--accent-strong); }
+@media (max-width: 40rem) { .footer-crisis { padding: var(--space-6); } }
+
 .footer-brand p { color: var(--text-muted); margin-top: 1rem; max-width: 38ch; font-size: 0.9rem; }
 .footer-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; }
 .footer-links h2 { margin: 0 0 0.8rem; font: 700 0.72rem/1.3 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; }

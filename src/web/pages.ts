@@ -33,21 +33,6 @@ import {
 
 export const siteApp = new Hono<{ Bindings: Env }>();
 
-/**
- * Słowniki mają nazwy po polsku, ale profil publiczny dostaje z bazy same
- * identyfikatory ("individual", "pl"). Kod jest kontraktem — MCP filtruje po
- * nim — więc tłumaczymy dopiero przy renderowaniu, z zapasem na wartość spoza
- * listy.
- */
-function crisisBanner(): string {
-  return `<div class="notice warn">
-    <h2>Potrzebujesz pomocy natychmiast?</h2>
-    <p>Jeżeli Ty lub ktoś w Twoim otoczeniu jest w bezpośrednim niebezpieczeństwie, zadzwoń pod
-    <strong>112</strong>. Całodobowe wsparcie emocjonalne dla osób dorosłych: <strong>116 123</strong>.
-    Dla osób poniżej 18 roku życia: <strong>116 111</strong>.</p>
-    <p><a href="/pomoc-w-kryzysie">Zobacz pełną listę miejsc pomocy</a></p>
-  </div>`;
-}
 
 /**
  * The admin uploader stores two renditions under one key: the master and a
@@ -432,7 +417,6 @@ siteApp.get('/terapeuci/:slug', async (c) => {
 <nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
 
 ${body}
-${crisisBanner()}
 </article>`,
     }),
   );
@@ -477,7 +461,6 @@ siteApp.get('/jak-to-dziala', (c) =>
       <p>Dane wprowadza terapeuta. Część z nich weryfikujemy — wtedy profil ma oznaczenie „profil zweryfikowany” z datą weryfikacji.</p><p>Pozostałe dane są oznaczone jako deklarowane przez terapeutę. Profile demonstracyjne są zawsze wyraźnie opisane.</p>
     </article>
   </section>
-  ${crisisBanner()}
 </div>`,
     }),
   ),
@@ -510,7 +493,6 @@ siteApp.get('/bezpieczenstwo', (c) =>
   </section>
 
   <section class="contact-panel"><div><p class="kicker">Kontakt</p><h2>Zgłaszanie problemów</h2><p>Nieprawidłowości w profilu, podejrzenie nadużycia lub incydent bezpieczeństwa zgłoś na <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p></div></section>
-  ${crisisBanner()}
 </div>`,
     }),
   ),
