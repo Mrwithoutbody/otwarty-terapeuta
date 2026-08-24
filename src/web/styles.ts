@@ -137,6 +137,12 @@ nav.site a:hover, nav.site a[aria-current="page"] {
 .mobile-nav { display: none; position: relative; }
 
 main { display: block; padding-block: clamp(2rem, 4vw, 3rem) clamp(4rem, 8vw, 6rem); }
+/* A band that breaks out to the full viewport has to meet the footer. Left with
+   main's bottom padding under it, the page ends on a strip of white below a
+   dark block, which reads as a mistake - because it is one. */
+main:has(.profile-page > .pblock--dark:last-child),
+main:has(.profile-page > .pblock--alt:last-child),
+main:has(.profile-page > .pblock--narrow:last-child) { padding-bottom: 0; }
 main > .wrap > :first-child { margin-top: 0; }
 
 footer.site { border-top: 1px solid var(--border); background: #f1f3e8; padding-block: clamp(3rem, 6vw, 5rem) 2rem; }
@@ -456,7 +462,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 
 /* A page built around the dense heading keeps that register throughout: half
    the band padding, a tighter fact row, no landing-page air. */
-.profile-page--gesty .pblock { padding-block: clamp(2rem, 3.5vw, 3rem); }
+.profile-page--gesty .pblock { padding-block: clamp(1.6rem, 3vw, 2.4rem); }
 .profile-page--gesty .pfacts { margin-top: var(--space-4); padding: var(--space-4) var(--space-6); }
 .profile-page--gesty .pfact strong { font-size: 1.25rem; }
 .profile-page--gesty .pblock > .block-lead { margin-bottom: var(--space-4); }
@@ -472,6 +478,23 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--zwiezly .phero-headline { font-size: 1rem; margin-bottom: var(--space-3); }
 .phero--zwiezly .badges { margin-bottom: var(--space-2); }
 .phero--zwiezly .phero-actions { margin: var(--space-4) 0 0; }
+
+/* Two cards in one row: the whole "what it costs and when" in a single glance,
+   instead of two full-width bands one under the other. */
+.pcards { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  align-items: start; }
+.pcard { background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm); }
+.pcard h3 { margin: 0 0 var(--space-4); font-size: 0.82rem; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-muted); font-family: var(--sans); font-weight: 600; }
+.pcard .offer-rows { border: 0; border-radius: 0; background: none; }
+.pcard .offer-rows li { padding-inline: 0; }
+.pcard .hint { margin: var(--space-3) 0 0; }
+.slot-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+.slot-chips li { margin: 0; background: var(--bg); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); padding: 0.5rem 0.85rem; }
+.slot-chips b { display: block; font-size: 0.92rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.slot-chips span { display: block; color: var(--text-muted); font-size: 0.78rem; }
 
 /* The offer as rows: three cards of one line each is a lot of furniture. */
 .offer-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border);
@@ -515,16 +538,19 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pfact.empty strong { font-family: var(--sans); font-size: 1rem; font-weight: 500; color: var(--text-muted); }
 
 /* --- sections: the therapist's own arrangement --------------------------- */
-.pblock { padding-block: clamp(3.5rem, 7vw, 6rem); border-top: 1px solid var(--border); }
+/* Not a landing page by default. Six rems of air between bands is right for a
+   page selling something and wrong for a profile someone is comparing against
+   three others. */
+.pblock { padding-block: clamp(2.4rem, 4.5vw, 3.6rem); border-top: 1px solid var(--border); }
 /* The first section sits right under the fact card, which already has its own
    outline - a hairline there separates nothing. A tinted section draws its own
    bottom border, so the one after it must not add a second. */
 .pblock:first-of-type { border-top: 0; }
 .pblock--alt + .pblock, .pblock--dark + .pblock, .pblock--narrow + .pblock { border-top: 0; }
-.pblock > h2 { margin: 0 0 var(--space-4); font-size: clamp(1.7rem, 1.4rem + 1.3vw, 2.3rem); }
-.pblock > .block-lead { max-width: 56ch; color: var(--text-muted); font-size: 1.05rem;
-  margin-bottom: var(--space-8); }
-.pblock > h2 + .chips, .pblock > h2 + .offer-grid, .pblock > h2 + .meeting-steps { margin-top: var(--space-8); }
+.pblock > h2 { margin: 0 0 var(--space-4); font-size: clamp(1.5rem, 1.3rem + 1vw, 2rem); }
+.pblock > .block-lead { max-width: 56ch; color: var(--text-muted); font-size: 1.02rem;
+  margin-bottom: var(--space-6); }
+.pblock > h2 + .chips, .pblock > h2 + .offer-grid, .pblock > h2 + .meeting-steps { margin-top: var(--space-6); }
 /* Background belongs to the section, not to its position. Tinting every second
    block gave seven identical bands; now she picks, and a page can have one
    tinted stretch, a narrow strip and a dark close.

@@ -567,6 +567,54 @@ ${pluginCta(env)}`;
     },
   },
 
+
+  /**
+   * Offer and next slots side by side, in two cards. Two full-width bands for
+   * "one session, 260 zl" and "here are the hours" is what makes a profile
+   * sprawl; someone comparing four therapists wants both facts in one glance.
+   */
+  zestawienie: {
+    label: 'Oferta i terminy obok siebie', hint: 'Dwie karty w jednym rzędzie — zwarty układ',
+    auto: true, fields: [HEADING_FIELD],
+    render: (s, { therapist: t, slots, env }) => {
+      if (t.offers.length === 0 && slots.length === 0) return '';
+      const soon = slots.slice(0, 6);
+      const rest = slots.length - soon.length;
+      return `${eyebrow('W skrócie')}<h2>${escapeHtml(heading(s, 'Ile kosztuje i kiedy możemy się spotkać'))}</h2>
+<div class="pcards">
+  ${
+    t.offers.length === 0
+      ? ''
+      : `<div class="pcard">
+    <h3>Oferta</h3>
+    <ul class="offer-rows">${t.offers
+        .map(
+          (o) => `<li><span class="offer-name">${escapeHtml(o.title)}</span>
+      <span class="offer-meta">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
+      <span class="offer-price">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span></li>`,
+        )
+        .join('')}</ul>
+  </div>`
+  }
+  ${
+    soon.length === 0
+      ? ''
+      : `<div class="pcard" id="terminy">
+    <h3>Najbliższe wolne terminy</h3>
+    <ul class="slot-chips">${soon
+        .map(
+          (slot) => `<li><b>${escapeHtml(compactDateTime(slot.starts_at_utc, slot.timezone))}</b>
+      <span>${slot.mode === 'online' ? 'online' : 'gabinet'} · ${slot.duration_minutes} min</span></li>`,
+        )
+        .join('')}</ul>
+    ${rest > 0 ? `<p class="hint">…i ${rest} ${rest === 1 ? 'kolejny termin' : 'kolejnych terminów'}.</p>` : ''}
+    ${pluginCta(env)}
+  </div>`
+  }
+</div>`;
+    },
+  },
+
   faq: {
     label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
