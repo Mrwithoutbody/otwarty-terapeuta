@@ -7,9 +7,21 @@ import { APP_CSS } from './styles';
  * Cache-busting suffix derived from the asset's own bytes, so editing a
  * stylesheet or the panel script invalidates the browser cache without anyone
  * having to remember to bump a hand-written version number.
+ *
+ * This hashes the content, not its length. Length alone silently fails on any
+ * edit that keeps the byte count - `68rem` to `46rem` is the same size, so the
+ * URL never changed and browsers kept serving the old stylesheet for an hour.
  */
-const assetVersion = (...parts: string[]): string =>
-  parts.map((part) => part.length.toString(36)).join('-');
+function fnv1a(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000'));
 
 const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
