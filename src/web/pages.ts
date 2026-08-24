@@ -22,7 +22,6 @@ import {
   parseSections,
   pluginCta,
   renderSections,
-  sectionHasContent,
   type SectionCtx,
 } from './sections';
 
@@ -415,9 +414,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
   ]);
 
   const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
-  const sections = pageSections(parseSections(t.sections), t.profile_blocks, (type) =>
-    sectionHasContent(type, ctx),
-  );
+  const sections = pageSections(parseSections(t.sections), t.profile_blocks);
   const body = renderSections(sections, ctx);
   // Picking the dense heading is a statement about the whole page, not just its
   // top: the bands tighten to match instead of leaving it stranded in a landing

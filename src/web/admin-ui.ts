@@ -705,13 +705,12 @@ export const ADMIN_CSS = String.raw`
 .composer .hint { max-width: 62ch; }
 .sec-item { border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fff;
   margin-bottom: 0.7rem; overflow: hidden; }
-.sec-head { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 0.9rem; align-items: center;
+.sec-head { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.9rem; align-items: center;
   padding: 0.75rem 0.9rem; }
 .sec-item .grip { cursor: grab; color: var(--border-strong, #d1d8c1); font-size: 1.15rem; line-height: 1; }
 .sec-copy strong { display: block; font-size: 0.98rem; }
 .sec-copy span { color: var(--text-muted, #6a7360); font-size: 0.85rem; }
 .sec-pos input { width: 3.2rem; }
-.sec-variant select { font-size: 0.85rem; }
 .sec-del { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--text-muted, #6a7360); }
 .sec-fields { border-top: 1px solid var(--border, #e3e6d8); background: #fbfcf7; }
 .sec-fields > summary { cursor: pointer; padding: 0.55rem 0.9rem; font-size: 0.86rem;

@@ -40,9 +40,10 @@ describe('parseSections', () => {
     expect(String(parsed[0]?.body)).toHaveLength(400);
   });
 
-  it('keeps only declared variants', () => {
-    expect(parseSections('[{"type":"tekst","body":"a","variant":"dark"}]')[0]?.variant).toBe('dark');
-    expect(parseSections('[{"type":"tekst","body":"a","variant":"neon"}]')[0]?.variant).toBeUndefined();
+  // Background used to be a per-section field. It is a property of the type
+  // now, so a stored value from that design is dropped rather than honoured.
+  it('ignores a background stored by the old design', () => {
+    expect(parseSections('[{"type":"tekst","body":"a","variant":"dark"}]')[0]?.variant).toBeUndefined();
   });
 
   it('survives broken input instead of throwing', () => {
@@ -70,9 +71,11 @@ describe('renderSections', () => {
     expect(html).toContain('Gestalt');
   });
 
-  it('puts the background on the section, not on its position', () => {
-    const html = renderSections([{ type: 'intro', variant: 'dark' }], CTX);
-    expect(html).toContain('class="pblock pblock--dark"');
+  it('takes the background from the type, not from the section', () => {
+    expect(renderSections([{ type: 'intro' }], CTX)).toContain('class="pblock"');
+    expect(renderSections([{ type: 'zaproszenie' }], CTX)).toContain('class="pblock pblock--dark"');
+    // Asking for another tone changes nothing: there is no such knob.
+    expect(renderSections([{ type: 'intro', variant: 'dark' }], CTX)).toContain('class="pblock"');
   });
 
   it('gives one anchor to the first section that claims it', () => {
@@ -99,14 +102,11 @@ describe('defaultSections', () => {
       'hero', 'kluczowe', 'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
       'credentials', 'links', 'policy', 'zaproszenie',
     ]);
-    expect(sections[3]?.variant).toBe('alt');
+    expect(sections.every((section) => section.variant === undefined)).toBe(true);
   });
 
-  // Alternating tints are assigned by position; the closing band must not lose
-  // its dark because it happened to land on an even one.
-  it('leaves a section that has a background of its own alone', () => {
-    const sections = defaultSections([]);
-    expect(sections.at(-1)).toEqual({ type: 'zaproszenie' });
+  it('closes on the invitation, which carries its own dark band', () => {
+    expect(defaultSections([]).at(-1)).toEqual({ type: 'zaproszenie' });
     expect(renderSections([{ type: 'zaproszenie' }], CTX)).toContain('pblock--dark');
   });
 

@@ -35,9 +35,6 @@ import {
   parseSections,
   SECTION_GROUPS,
   SECTIONS_DEF,
-  variantOf,
-  VARIANT_LABELS,
-  VARIANTS,
   type Field,
   type SecDef,
   type Section,
@@ -554,7 +551,7 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmi
   const filled = autoContentFlags(row, context);
   const sections = stored.length > 0
     ? stored
-    : defaultSections(parseStoredBlocks(row?.profile_blocks ?? null), (type) => filled[type] !== false);
+    : defaultSections(parseStoredBlocks(row?.profile_blocks ?? null));
 
   const rows = sections
     .map((section, index) => {
@@ -571,11 +568,6 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmi
     <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
     <label class="sec-pos"><span class="visually-hidden">Pozycja sekcji ${escapeHtml(def.label)}</span>
       <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_SECTIONS}" data-section-pos></label>
-    <label class="sec-variant"><span class="visually-hidden">Tło sekcji ${escapeHtml(def.label)}</span>
-      <select name="sec_${index}_variant">${VARIANT_LABELS.map(
-        ([value, label]) =>
-          `<option value="${escapeHtml(value)}"${variantOf(section) === value ? ' selected' : ''}>${escapeHtml(label)}</option>`,
-      ).join('')}</select></label>
     <label class="sec-del"><input type="checkbox" name="sec_${index}_del" value="1"><span>usuń</span></label>
   </div>
   ${sectionFields(def, section, index, row, isAdmin)}
@@ -1160,8 +1152,6 @@ function collectSections(body: URLSearchParams): string {
     if (!def) continue;
 
     const section: Section = { type };
-    const variant = body.get(`sec_${index}_variant`) ?? '';
-    if (variant !== '' && (VARIANTS as readonly string[]).includes(variant)) section.variant = variant;
     for (const field of def.fields ?? []) {
       const value = readField(body, field, `sec_${index}_${field.name}`);
       if (value !== undefined) section[field.name] = value;

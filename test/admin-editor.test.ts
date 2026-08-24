@@ -455,15 +455,14 @@ describe('page layout saves on its own', () => {
     admin = await actor('layout-admin@example.invalid', 'admin');
   });
 
-  it('stores the sections in the posted order, with their variants', async () => {
+  it('stores the sections in the posted order', async () => {
     await saveSections(admin, [
-      ['sec_0_type', 'intro'], ['sec_0_pos', '2'], ['sec_0_variant', 'alt'],
+      ['sec_0_type', 'intro'], ['sec_0_pos', '2'],
       ['sec_1_type', 'cytat'], ['sec_1_pos', '1'], ['sec_1_body', 'Jedno zdanie.'],
     ]);
 
     const sections = await storedSections();
     expect(sections.map((section) => section.type)).toEqual(['cytat', 'intro']);
-    expect(sections[1]?.variant).toBe('alt');
   });
 
   it('keeps the layout when the profile form is saved', async () => {

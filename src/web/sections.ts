@@ -31,35 +31,13 @@ export interface Section extends Values {
 }
 
 /**
- * Background is a property of the section, not of its position. The old page
- * tinted every second block, which on seven blocks reads as one long column
- * with stripes rather than as a page with a shape.
+ * How a block sits on the page. This is a property of the type, not something
+ * to set per section: a settable background is a second axis on top of "which
+ * block", and every block then needs thinking about twice. Where two tones are
+ * genuinely wanted - a plain paragraph and a highlighted one - they are two
+ * blocks.
  */
-export const VARIANT_LABELS = [
-  ['', 'jasne tło'],
-  ['alt', 'przyciemnione tło'],
-  ['dark', 'ciemny pas'],
-  ['narrow', 'wąski pasek'],
-] as const;
-export type Variant = (typeof VARIANT_LABELS)[number][0];
-export const VARIANTS: readonly string[] = VARIANT_LABELS.map(([value]) => value);
-
-/**
- * Layouts for the top of the profile. The facts and their order are the same in
- * all four - someone comparing profiles must find the price and the next slot
- * in the same place - only the shape changes.
- */
-export const HERO_VARIANTS: Array<[string, string]> = [
-  ['', 'klasyczny — tekst obok portretu'],
-  ['odwrocony', 'odwrócony — portret po lewej'],
-  ['spotlight', 'spotlight — ciemne tło'],
-  ['okladka', 'okładka — zdjęcie na całą szerokość'],
-];
-
-/** Falls back to the classic layout for anything the code does not know. */
-export function heroVariant(stored: string): string {
-  return HERO_VARIANTS.some(([value]) => value === stored) && stored !== '' ? stored : 'klasyczny';
-}
+export type Tone = '' | 'alt' | 'dark' | 'narrow';
 
 type FieldKind = 'text' | 'textarea' | 'url' | 'select' | 'list';
 
@@ -95,8 +73,8 @@ export interface SecDef {
   /** True when the content comes from the database rather than from these fields. */
   auto?: boolean;
   fields?: Field[];
-  /** Sensible starting background; the therapist can still change it. */
-  defaultVariant?: Variant;
+  /** How this block sits on the page. Fixed for the type. */
+  tone?: Tone;
   /** May this type appear more than once on one profile? */
   repeatable?: boolean;
   /**
@@ -220,6 +198,28 @@ function ctaButton(section: Section, ghost = false): string {
   const href = safeUrl(str(section.cta_href));
   if (label === '' || href === null) return '';
   return `<a class="btn${ghost ? ' ghost' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+}
+
+/** Her words beside her portrait; `flip` puts the photograph on the left. */
+function splitBody(s: Section, ctx: SectionCtx, flip: boolean): string {
+  const body = renderBodyText(str(s.body));
+  if (body === '') return '';
+  const title = str(s.heading);
+  const photo = ctx.therapist.photo_url
+    ? `<img src="${escapeHtml(ctx.therapist.photo_url)}" alt="" width="320" height="400" loading="lazy" decoding="async">`
+    : '<span class="psplit-empty" aria-hidden="true"></span>';
+  return `<div class="psplit${flip ? ' psplit--flip' : ''}">
+  <div>${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s, true)}</div>
+  <figure class="psplit-photo">${photo}</figure>
+</div>`;
+}
+
+/** A heading, a paragraph and an optional button - the plain text blocks. */
+function plainBody(s: Section): string {
+  const body = renderBodyText(str(s.body));
+  if (body === '') return '';
+  const title = str(s.heading);
+  return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s)}`;
 }
 
 /**
@@ -506,7 +506,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
   },
 
   topics: {
-    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', auto: true,
+    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: t }) =>
       t.topics.length === 0
@@ -555,7 +555,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
   },
 
   slots: {
-    label: 'Wolne terminy', hint: 'Z Twojego kalendarza', auto: true,
+    label: 'Wolne terminy', hint: 'Z Twojego kalendarza', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: _t, slots, env }) => {
       const table = slotsByDay(slots);
@@ -587,7 +587,7 @@ ${faq
   },
 
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', auto: true,
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     data: {
       fields: [{
@@ -680,7 +680,7 @@ ${t.credentials
 
   // The free-text policy is often empty, so the cutoff carries the meaning.
   policy: {
-    label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', auto: true,
+    label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'alt', auto: true,
     fields: [HEADING_FIELD],
     render: (s, { therapist: t }) =>
       `${eyebrow('Zasady odwołania')}<h2>${escapeHtml(heading(s, 'Kiedy musisz odwołać'))}</h2>
@@ -698,7 +698,7 @@ ${t.credentials
    */
   zaproszenie: {
     label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', auto: true,
-    defaultVariant: 'dark', fields: [HEADING_FIELD, AREA('body', 'Treść', { max: 600 })],
+    tone: 'dark', fields: [HEADING_FIELD, AREA('body', 'Treść', { max: 600 })],
     render: (s, { therapist: t, env }) => {
       const body = str(s.body);
       const written = body === ''
@@ -726,12 +726,7 @@ ${written}
       T('cta_label', 'Przycisk — napis', { max: 60 }),
       { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
     ],
-    render: (s) => {
-      const body = renderBodyText(str(s.body));
-      if (body === '') return '';
-      const title = str(s.heading);
-      return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s)}`;
-    },
+    render: (s) => plainBody(s),
   },
 
   cytat: {
@@ -757,25 +752,34 @@ ${written}
     fields: [
       T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD,
       AREA('body', 'Treść'),
-      {
-        kind: 'select', name: 'strona', label: 'Zdjęcie po stronie',
-        options: [['prawa', 'prawej'], ['lewa', 'lewej']],
-      },
       T('cta_label', 'Przycisk — napis', { max: 60 }),
       { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
     ],
-    render: (s, { therapist: t }) => {
-      const body = renderBodyText(str(s.body));
-      if (body === '') return '';
-      const title = str(s.heading);
-      const photo = t.photo_url
-        ? `<img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" loading="lazy" decoding="async">`
-        : '<span class="psplit-empty" aria-hidden="true"></span>';
-      return `<div class="psplit${str(s.strona) === 'lewa' ? ' psplit--flip' : ''}">
-  <div>${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s, true)}</div>
-  <figure class="psplit-photo">${photo}</figure>
-</div>`;
-    },
+    render: (s, ctx) => splitBody(s, ctx, false),
+  },
+
+  'tekst-zdjecie': {
+    label: 'Tekst i zdjęcie', hint: 'Dwie kolumny: portret po lewej, słowa po prawej',
+    repeatable: true,
+    fields: [
+      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD,
+      AREA('body', 'Treść'),
+      T('cta_label', 'Przycisk — napis', { max: 60 }),
+      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
+    ],
+    render: (s, ctx) => splitBody(s, ctx, true),
+  },
+
+  /** A paragraph that carries its own tinted band, for something worth stopping on. */
+  'tekst-wyrozniony': {
+    label: 'Tekst wyróżniony', hint: 'Akapit na przyciemnionym tle', repeatable: true, tone: 'alt',
+    fields: [
+      T('eyebrow', 'Nadtytuł', { max: 60, hint: 'małe litery nad nagłówkiem' }),
+      HEADING_FIELD, AREA('body', 'Treść', { hint: 'pusta linia = nowy akapit' }),
+      T('cta_label', 'Przycisk — napis', { max: 60 }),
+      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
+    ],
+    render: (s) => plainBody(s),
   },
 
   kroki: {
@@ -807,7 +811,7 @@ ${written}
    */
   fakty: {
     label: 'Pasek faktów', hint: 'Cztery krótkie fakty w jednej linii',
-    repeatable: true, defaultVariant: 'narrow',
+    repeatable: true, tone: 'narrow',
     fields: [
       {
         kind: 'list', name: 'items', label: 'Fakty', max: 4,
@@ -831,7 +835,7 @@ ${written}
    */
   wyroznienie: {
     label: 'Wyróżniony pas', hint: 'Ciemny pas — dobre domknięcie strony',
-    repeatable: true, defaultVariant: 'dark',
+    repeatable: true, tone: 'dark',
     fields: [
       HEADING_FIELD, AREA('body', 'Treść', { max: 600 }),
       T('cta_label', 'Przycisk — napis', { max: 60 }),
@@ -886,10 +890,6 @@ function cleanSection(entry: unknown): Section | null {
   if (!def) return null;
 
   const out: Section = { type };
-  // An explicit '' is a choice ("light background"), not the absence of one:
-  // it is how she overrides a type that ships dark. Only a missing key falls
-  // back to the type's own default.
-  if (typeof raw.variant === 'string' && VARIANTS.includes(raw.variant)) out.variant = raw.variant;
   for (const field of def.fields ?? []) {
     const value = cleanField(field, raw[field.name]);
     if (value !== undefined) out[field.name] = value;
@@ -939,18 +939,14 @@ const DEFAULT_ORDER = [
  * one has no `<h1>` and no photograph, which is broken rather than minimal, so
  * it is not something the builder can leave out by accident.
  */
-export function pageSections(
-  arranged: Section[],
-  blocks: readonly string[],
-  hasContent?: (type: string) => boolean,
-): Section[] {
-  if (arranged.length === 0) return defaultSections(blocks, hasContent);
+export function pageSections(arranged: Section[], blocks: readonly string[]): Section[] {
+  if (arranged.length === 0) return defaultSections(blocks);
   return arranged.some((section) => SECTIONS_DEF[section.type]?.family === 'hero')
     ? arranged
     : [{ type: 'hero' }, ...arranged];
 }
 
-export function defaultSections(blocks: readonly string[], hasContent?: (type: string) => boolean): Section[] {
+export function defaultSections(blocks: readonly string[]): Section[] {
   // `profile_blocks` was written with a default of its own by an old migration,
   // so it is almost never empty and the closing band would never appear. It is
   // part of the spine, not a choice - a page has to land somewhere.
@@ -959,30 +955,12 @@ export function defaultSections(blocks: readonly string[], hasContent?: (type: s
   // `profile_blocks` predates both of these, so an old value carries neither.
   const hasHead = withClose.some((id) => SECTIONS_DEF[id]?.family === 'hero');
   const order = hasHead ? withClose : ['hero', 'kluczowe', ...withClose];
-  // Tinting follows what actually renders, not the position in the list: with
-  // one empty section in between, counting positions puts two tinted sections
-  // side by side. The builder keeps listing the empty ones - it just does not
-  // let them consume a stripe.
-  let shown = 0;
   return order
     .filter((id) => SECTIONS_DEF[id]?.auto === true)
-    .map((id) => {
-      // The masthead and the fact row are not bands and take no tint.
-      if (SECTIONS_DEF[id]?.family === 'hero' || id === 'kluczowe') return { type: id };
-      // A type with a background of its own keeps it - the closing band must not
-      // lose its dark just because it landed on an even position.
-      if (SECTIONS_DEF[id]?.defaultVariant) return { type: id };
-      const visible = hasContent ? hasContent(id) : true;
-      const variant = visible && shown++ % 2 === 1 ? 'alt' : '';
-      return variant === '' ? { type: id } : { type: id, variant };
-    });
+    .map((id) => ({ type: id }));
 }
 
-export function variantOf(section: Section): Variant {
-  const declared = section.variant;
-  if (typeof declared === 'string' && VARIANTS.includes(declared)) return declared as Variant;
-  return SECTIONS_DEF[section.type]?.defaultVariant ?? '';
-}
+
 
 /** Anchors kept from the old markup: the hero and the widget link to them. */
 const ANCHORS: Record<string, string> = { slots: 'terminy', faq: 'faq', first_meeting: 'pierwsze' };
@@ -1012,10 +990,10 @@ export function renderSections(sections: Section[], ctx: SectionCtx): string {
       if (def.family === 'hero') {
         return `<header class="phero phero--${escapeHtml(section.type.replace(/^hero-?/, '') || 'klasyczny')}">${inner}</header>`;
       }
-      const variant = variantOf(section);
       const anchor = ANCHORS[section.type];
       const id = anchor && !seenAnchor.has(anchor) && !!seenAnchor.add(anchor) ? ` id="${anchor}"` : '';
-      const cls = variant === '' ? 'pblock' : `pblock pblock--${variant}`;
+      const tone = def.tone ?? '';
+      const cls = tone === '' ? 'pblock' : `pblock pblock--${tone}`;
       return `<section class="${cls}"${id}>${inner}</section>`;
     })
     .join('');
