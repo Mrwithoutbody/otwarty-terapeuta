@@ -419,6 +419,10 @@ siteApp.get('/terapeuci/:slug', async (c) => {
     sectionHasContent(type, ctx),
   );
   const body = renderSections(sections, ctx);
+  // Picking the dense heading is a statement about the whole page, not just its
+  // top: the bands tighten to match instead of leaving it stranded in a landing
+  // page's worth of air.
+  const dense = sections.some((section) => section.type === 'hero-zwiezly') ? ' profile-page--gesty' : '';
 
   return htmlResponse(
     c.env,
@@ -427,7 +431,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       description: t.headline ?? 'Profil psychoterapeuty',
       path: '/terapeuci',
       body: `
-<article class="profile-page">
+<article class="profile-page${dense}">
 <nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
 
 ${body}

@@ -431,6 +431,18 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
   },
 
+
+  /**
+   * The dense end of the range. A thumbnail, the name, the facts on one line -
+   * a card, not a landing page. Someone who wants her profile read in ten
+   * seconds picks this and nothing about the page argues with her.
+   */
+  'hero-zwiezly': {
+    label: 'Nagłówek — zwięzły', hint: 'Miniatura i fakty w jednej linii, bez dużego portretu',
+    auto: true, family: 'hero', fields: [],
+    render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
+  },
+
   /**
    * Price, length and the next free slot in one line. Separate from the heading
    * because it is the row people compare between profiles, and it has to sit in
@@ -504,8 +516,8 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
   },
 
   offers: {
-    label: 'Oferta i ceny', hint: 'Rodzaje sesji i ceny', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
+    label: 'Oferta — karty', hint: 'Każda sesja na osobnej karcie', auto: true,
+    family: 'oferta', fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: t }) =>
       t.offers.length === 0
         ? ''
@@ -519,6 +531,27 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
       </div>`,
             )
             .join('')}</div>`,
+  },
+
+
+  /**
+   * The offer as rows rather than cards. Three cards of one line each is a lot
+   * of furniture for "one session, one price".
+   */
+  'oferta-lista': {
+    label: 'Oferta — lista', hint: 'Wiersze zamiast kart, dla zwięzłej strony',
+    auto: true, family: 'oferta', fields: [HEADING_FIELD, LEAD_FIELD],
+    render: (s, { therapist: t }) =>
+      t.offers.length === 0
+        ? ''
+        : `${eyebrow('Oferta')}<h2>${escapeHtml(heading(s, 'Jedna cena, bez gwiazdek'))}</h2>${lead(s)}
+<ul class="offer-rows">${t.offers
+            .map(
+              (o) => `<li><span class="offer-name">${escapeHtml(o.title)}</span>
+        <span class="offer-meta">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
+        <span class="offer-price">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span></li>`,
+            )
+            .join('')}</ul>`,
   },
 
   slots: {

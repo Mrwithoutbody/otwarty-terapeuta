@@ -431,6 +431,35 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--spotlight .phero-actions { justify-content: center; }
 .phero--spotlight .btn.ghost { color: #f0f3d6; border-color: rgba(240, 243, 214, 0.45); }
 
+/* A page built around the dense heading keeps that register throughout: half
+   the band padding, a tighter fact row, no landing-page air. */
+.profile-page--gesty .pblock { padding-block: clamp(2rem, 3.5vw, 3rem); }
+.profile-page--gesty .pfacts { margin-top: var(--space-4); padding: var(--space-4) var(--space-6); }
+.profile-page--gesty .pfact strong { font-size: 1.25rem; }
+.profile-page--gesty .pblock > .block-lead { margin-bottom: var(--space-4); }
+.profile-page--gesty .pblock > h2 { font-size: clamp(1.4rem, 1.2rem + 0.9vw, 1.8rem); }
+
+/* The dense end of the range: a thumbnail on a line with the name, no column of
+   its own. A profile that wants to be read in ten seconds, not scrolled. */
+.phero--zwiezly { grid-template-columns: 5.5rem 1fr; gap: var(--space-6); align-items: start;
+  padding-block: var(--space-6); }
+.phero--zwiezly > div { order: 0; }
+.phero--zwiezly .phero-photo { width: 5.5rem; aspect-ratio: 1; border-radius: 50%; }
+.phero--zwiezly h1 { font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.9rem); margin-bottom: var(--space-2); }
+.phero--zwiezly .phero-headline { font-size: 1rem; margin-bottom: var(--space-3); }
+.phero--zwiezly .badges { margin-bottom: var(--space-2); }
+.phero--zwiezly .phero-actions { margin: var(--space-4) 0 0; }
+
+/* The offer as rows: three cards of one line each is a lot of furniture. */
+.offer-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface-solid); overflow: hidden; }
+.offer-rows li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4);
+  margin: 0; padding: 0.9rem var(--space-6); border-top: 1px solid var(--border); }
+.offer-rows li:first-child { border-top: 0; }
+.offer-name { font-weight: 500; }
+.offer-meta { color: var(--text-muted); font-size: 0.88rem; }
+.offer-price { margin-left: auto; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+
 /* A wide photograph with the details on a card riding over its lower edge. */
 .phero--okladka { grid-template-columns: minmax(0, 1fr); gap: 0; }
 .phero--okladka > div { order: 0; position: relative; z-index: 1; margin: -5rem auto 0;
