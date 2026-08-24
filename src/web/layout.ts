@@ -35,7 +35,9 @@ function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin?: string
   const script = withTurnstile
     ? `script-src 'self' https://challenges.cloudflare.com`
     : `script-src 'self'`;
-  const frame = withTurnstile ? `frame-src https://challenges.cloudflare.com` : `frame-src 'none'`;
+  const frame = withTurnstile
+    ? `frame-src 'self' https://challenges.cloudflare.com`
+    : `frame-src 'self'`;
   return [
     `default-src 'none'`,
     script,
@@ -50,7 +52,7 @@ function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin?: string
     // blocked outright - with a misleading message naming our own URL.
     formActionOrigin ? `form-action 'self' ${formActionOrigin}` : `form-action 'self'`,
     `base-uri 'none'`,
-    `frame-ancestors 'none'`,
+    `frame-ancestors 'self'`,
     `object-src 'none'`,
   ].join('; ');
 }
@@ -65,7 +67,9 @@ export function securityHeaders(
     'content-security-policy': contentSecurityPolicy(withTurnstile, formActionOrigin),
     'referrer-policy': 'strict-origin-when-cross-origin',
     'x-content-type-options': 'nosniff',
-    'x-frame-options': 'DENY',
+    // SAMEORIGIN, not DENY: the layout builder frames the profile being edited.
+    // The header is the legacy twin of frame-ancestors above.
+    'x-frame-options': 'SAMEORIGIN',
     'permissions-policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
     'cross-origin-opener-policy': 'same-origin',
   };

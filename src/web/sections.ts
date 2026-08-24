@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import type { PublicFaqItem, PublicSlot, PublicTherapist, TherapistRow } from '../db/types';
+import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
 import { escapeHtml, renderBodyText, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
@@ -46,8 +46,6 @@ export interface Field {
   name: string;
   label: string;
   hint?: string;
-  /** Only an administrator may set it; the therapist never sees the input. */
-  adminOnly?: boolean;
   /** Character budget for text fields, item budget for lists. */
   max?: number;
   options?: Array<[string, string]>;
@@ -58,18 +56,6 @@ export interface Field {
 export interface SecDef {
   label: string;
   hint: string;
-  /**
-   * An auto section whose content the therapist edits right here, in the
-   * builder, rather than in a separate fixed form. The values live in their own
-   * columns - the MCP tools and the catalogue read them - so the section says
-   * how to read them out of a row and how to write them back, and they never
-   * enter `sections_json`.
-   */
-  data?: {
-    fields: Field[];
-    read(row: TherapistRow): Values;
-    write(values: Values, row: TherapistRow | null, isAdmin: boolean): Partial<TherapistRow>;
-  };
   /** True when the content comes from the database rather than from these fields. */
   auto?: boolean;
   fields?: Field[];
@@ -93,25 +79,8 @@ const AREA = (name: string, label: string, extra: Partial<Field> = {}): Field =>
 
 export const MAX_SECTIONS = 24;
 
-/** Rows the therapist edits inside a section, cleaned the way the column wants. */
-function textRows(values: Values): Values[] {
-  return Array.isArray(values.items) ? (values.items as Values[]) : [];
-}
 
-/** A JSON column holding a list of objects, read defensively. */
-function parseJsonRows(raw: string | null): Values[] {
-  try {
-    const parsed: unknown = JSON.parse(raw ?? '[]');
-    return Array.isArray(parsed) ? (parsed.filter((x) => typeof x === 'object' && x !== null) as Values[]) : [];
-  } catch {
-    return [];
-  }
-}
 
-/** Same credential twice under one title+issuer is the same credential. */
-function credentialKey(title: string, issuer: string): string {
-  return `${title.toLowerCase()}|${issuer.toLowerCase()}`;
-}
 
 const PUBLIC_LABELS: Record<string, string> = {
   individual: 'indywidualne',
@@ -165,11 +134,6 @@ export function languageList(codes: string[]): string {
 
 // --------------------------------------------------------------- helpers ---
 
-/** A heading the therapist may override, falling back to the block's own. */
-function heading(section: Section, fallback: string): string {
-  const own = str(section.heading);
-  return own === '' ? fallback : own;
-}
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -183,15 +147,6 @@ function eyebrow(text: string): string {
   return text === '' ? '' : `<p class="eyebrow">${escapeHtml(text)}</p>`;
 }
 
-/**
- * The lead under a heading is optional on purpose. Every block used to carry
- * one, and a sentence that only restates the heading is what made the page read
- * as a template being filled in.
- */
-function lead(section: Section): string {
-  const text = str(section.lead);
-  return text === '' ? '' : `<p class="block-lead">${escapeHtml(text)}</p>`;
-}
 
 function ctaButton(section: Section, ghost = false): string {
   const label = str(section.cta_label);
@@ -558,11 +513,10 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
   // --- auto: her data, already in the panel --------------------------------
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis i nurt pracy', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
+    fields: [],
     render: (s, { therapist: t }) => {
       if (t.bio.trim() === '') return '';
-      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml(heading(s, 'Tak wygląda praca ze mną'))}</h2>${lead(s)}
-${introBody(t.bio)}
+      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>${introBody(t.bio)}
 ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => `<li>${escapeHtml(m.name)}</li>`).join('')}</ul>`}`;
     },
   },
@@ -573,7 +527,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
    * is - each answer she gave, in the order the person will live them.
    */
   first_meeting: {
-    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', tone: 'alt', auto: true, fields: [HEADING_FIELD, LEAD_FIELD],
+    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', tone: 'alt', auto: true, fields: [],
     render: (s, { therapist: t }) => {
       const candidates: Array<[string, string]> = [
         ['Jak wygląda pierwsze spotkanie', t.first_meeting.course],
@@ -582,8 +536,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
       ];
       const steps = candidates.filter(([, body]) => body.trim() !== '');
       if (steps.length === 0) return '';
-      return `${eyebrow('Pierwsze spotkanie')}<h2>${escapeHtml(heading(s, 'Zanim się umówisz'))}</h2>${lead(s)}
-<ol class="meeting-steps">${steps
+      return `${eyebrow('Pierwsze spotkanie')}<h2>${escapeHtml('Zanim się umówisz')}</h2><ol class="meeting-steps">${steps
         .map(([title, body]) => `<li><h3>${escapeHtml(title)}</h3><p>${escapeHtml(body)}</p></li>`)
         .join('')}</ol>`;
     },
@@ -591,22 +544,20 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
 
   topics: {
     label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', tone: 'alt', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
+    fields: [],
     render: (s, { therapist: t }) =>
       t.topics.length === 0
         ? ''
-        : `${eyebrow('Z czym pracuję')}<h2>${escapeHtml(heading(s, 'Nie musisz wiedzieć, jak to nazwać'))}</h2>${lead(s)}
-<ul class="chips">${t.topics.map((x) => `<li>${escapeHtml(x.name)}</li>`).join('')}</ul>`,
+        : `${eyebrow('Z czym pracuję')}<h2>${escapeHtml('Nie musisz wiedzieć, jak to nazwać')}</h2><ul class="chips">${t.topics.map((x) => `<li>${escapeHtml(x.name)}</li>`).join('')}</ul>`,
   },
 
   offers: {
     label: 'Oferta — karty', hint: 'Każda sesja na osobnej karcie', auto: true,
-    family: 'oferta', fields: [HEADING_FIELD, LEAD_FIELD],
+    family: 'oferta', fields: [],
     render: (s, { therapist: t }) =>
       t.offers.length === 0
         ? ''
-        : `${eyebrow('Oferta')}<h2>${escapeHtml(heading(s, 'Jedna cena, bez gwiazdek'))}</h2>${lead(s)}
-<div class="offer-grid">${t.offers
+        : `${eyebrow('Oferta')}<h2>${escapeHtml('Jedna cena, bez gwiazdek')}</h2><div class="offer-grid">${t.offers
             .map(
               (o) => `<div class="offer-card">
         <h3>${escapeHtml(o.title)}</h3>
@@ -624,22 +575,20 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
    */
   'oferta-lista': {
     label: 'Oferta — lista', hint: 'Wiersze zamiast kart, dla zwięzłej strony',
-    auto: true, family: 'oferta', fields: [HEADING_FIELD, LEAD_FIELD],
+    auto: true, family: 'oferta', fields: [],
     render: (s, { therapist: t }) =>
       t.offers.length === 0
         ? ''
-        : `${eyebrow('Oferta')}<h2>${escapeHtml(heading(s, 'Jedna cena, bez gwiazdek'))}</h2>${lead(s)}
-${offerRows(t)}`,
+        : `${eyebrow('Oferta')}<h2>${escapeHtml('Jedna cena, bez gwiazdek')}</h2>${offerRows(t)}`,
   },
 
   slots: {
     label: 'Wolne terminy', hint: 'Z Twojego kalendarza', tone: 'alt', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
+    fields: [],
     render: (s, { therapist: _t, slots, env }) => {
       const table = slotsByDay(slots);
       if (table === '') return '';
-      return `${eyebrow('Najbliższe wolne terminy')}<h2>${escapeHtml(heading(s, 'Kiedy możemy się spotkać'))}</h2>${lead(s)}
-${table}
+      return `${eyebrow('Najbliższe wolne terminy')}<h2>${escapeHtml('Kiedy możemy się spotkać')}</h2>${table}
 <p class="hint">Rezerwacja odbywa się przez asystenta ChatGPT.</p>
 ${pluginCta(env)}`;
     },
@@ -653,12 +602,12 @@ ${pluginCta(env)}`;
    */
   zestawienie: {
     label: 'Oferta i terminy obok siebie', hint: 'Dwie karty w jednym rzędzie — zwarty układ',
-    auto: true, fields: [HEADING_FIELD],
+    auto: true, fields: [],
     render: (s, { therapist: t, slots, env }) => {
       if (t.offers.length === 0 && slots.length === 0) return '';
       const soon = slots.slice(0, 6);
       const rest = slots.length - soon.length;
-      return `${eyebrow('W skrócie')}<h2>${escapeHtml(heading(s, 'Ile kosztuje i kiedy możemy się spotkać'))}</h2>
+      return `${eyebrow('W skrócie')}<h2>${escapeHtml('Ile kosztuje i kiedy możemy się spotkać')}</h2>
 <div class="pcards">
   ${
     t.offers.length === 0
@@ -695,7 +644,7 @@ ${pluginCta(env)}`;
    */
   dane: {
     label: 'Podstawowe informacje', hint: 'Wszystkie fakty w dwóch kolumnach', tone: 'alt', auto: true,
-    fields: [HEADING_FIELD],
+    fields: [],
     render: (s, { therapist: t, slots }) => {
       const duration = t.offers[0]?.duration_minutes ?? null;
       const price =
@@ -724,7 +673,7 @@ ${pluginCta(env)}`;
       ].filter((row): row is [string, string] => row[1] !== '');
 
       if (rows.length === 0) return '';
-      return `${eyebrow('W skrócie')}<h2>${escapeHtml(heading(s, 'Podstawowe informacje'))}</h2>
+      return `${eyebrow('W skrócie')}<h2>${escapeHtml('Podstawowe informacje')}</h2>
 <dl class="pdata">${rows
         .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${label === 'Języki' ? value : escapeHtml(value)}</dd></div>`)
         .join('')}</dl>`;
@@ -733,12 +682,11 @@ ${pluginCta(env)}`;
 
   faq: {
     label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
+    fields: [],
     render: (s, { faq }) =>
       faq.length === 0
         ? ''
-        : `${eyebrow('Pytania i odpowiedzi')}<h2>${escapeHtml(heading(s, 'Pytania, które padają najczęściej'))}</h2>${lead(s)}
-${faq
+        : `${eyebrow('Pytania i odpowiedzi')}<h2>${escapeHtml('Pytania, które padają najczęściej')}</h2>${faq
             .map(
               (item) => `<details id="faq-${escapeHtml(item.faq_id)}">
         <summary>${escapeHtml(item.question)}</summary>
@@ -752,55 +700,12 @@ ${faq
 
   credentials: {
     label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
-    data: {
-      fields: [{
-        kind: 'list', name: 'items', label: 'Kwalifikacje', max: 20,
-        of: [
-          T('title', 'Nazwa'), T('issuer', 'Wydający'),
-          { kind: 'text', name: 'year', label: 'Rok', max: 4 },
-          { kind: 'select', name: 'verified', label: 'Zweryfikowane', adminOnly: true,
-            options: [['', 'deklarowane'], ['1', 'zweryfikowane']] },
-        ],
-      }],
-      read: (row) => ({
-        items: parseJsonRows(row.credentials).map((c) => ({
-          title: str(c.title), issuer: str(c.issuer),
-          year: c.year === null || c.year === undefined ? '' : String(c.year),
-          verified: c.verified === true ? '1' : '',
-        })),
-      }),
-      write: (values, row, isAdmin) => {
-        // A therapist may edit her own entries but never mark one verified; an
-        // entry keeps the flag an administrator already gave it, keyed by what
-        // it says, so renaming it drops the claim rather than carrying it over.
-        const alreadyVerified = new Set(
-          parseJsonRows(row?.credentials ?? null)
-            .filter((c) => c.verified === true)
-            .map((c) => credentialKey(str(c.title), str(c.issuer))),
-        );
-        const out = textRows(values)
-          .map((item) => {
-            const title = sanitizeLine(str(item.title), 120);
-            const issuer = sanitizeLine(str(item.issuer), 120);
-            const parsed = Number(str(item.year));
-            return {
-              title, issuer,
-              year: Number.isInteger(parsed) && parsed >= 1950 && parsed <= 2100 ? parsed : null,
-              verified: isAdmin
-                ? str(item.verified) === '1'
-                : alreadyVerified.has(credentialKey(title, issuer)),
-            };
-          })
-          .filter((c) => c.title !== '');
-        return { credentials: JSON.stringify(out) };
-      },
-    },
+    fields: [],
+
     render: (s, { therapist: t }) =>
       t.credentials.length === 0
         ? ''
-        : `${eyebrow('Kwalifikacje')}<h2>${escapeHtml(heading(s, 'Skąd mam do tego przygotowanie'))}</h2>${lead(s)}
-${t.credentials
+        : `${eyebrow('Kwalifikacje')}<h2>${escapeHtml('Skąd mam do tego przygotowanie')}</h2>${t.credentials
             .map(
               (cr) => `<details><summary>${escapeHtml(cr.title)}</summary><div class="details-body">
         <p>${cr.issuer ? `${escapeHtml(cr.issuer)}` : 'Wystawca nie podany'}${cr.year ? `, ${cr.year}` : ''} —
@@ -812,9 +717,9 @@ ${t.credentials
   // The free-text policy is often empty, so the cutoff carries the meaning.
   policy: {
     label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'alt', auto: true,
-    fields: [HEADING_FIELD],
+    fields: [],
     render: (s, { therapist: t }) =>
-      `${eyebrow('Zasady odwołania')}<h2>${escapeHtml(heading(s, 'Kiedy musisz odwołać'))}</h2>
+      `${eyebrow('Zasady odwołania')}<h2>${escapeHtml('Kiedy musisz odwołać')}</h2>
 <div class="policy-box"><p>${
         t.cancellation_policy.trim() !== ''
           ? escapeHtml(t.cancellation_policy)
@@ -829,15 +734,12 @@ ${t.credentials
    */
   zaproszenie: {
     label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', auto: true,
-    fields: [HEADING_FIELD, AREA('body', 'Treść', { max: 600 })],
-    render: (s, { therapist: t, env }) => {
-      const body = str(s.body);
-      const written = body === ''
-        ? `<p>${t.accepting_new_clients
+    fields: [],
+    render: (_s, { therapist: t, env }) => {
+      const written = `<p>${t.accepting_new_clients
             ? 'Nie musisz wiedzieć, od czego zacząć ani jak nazwać to, z czym przychodzisz. Wystarczy pierwsze pytanie.'
-            : 'W tej chwili nie przyjmuję nowych osób, ale możesz sprawdzić terminy później albo poszukać kogoś innego w katalogu.'}</p>`
-        : renderBodyText(body);
-      return `<h2>${escapeHtml(heading(s, t.accepting_new_clients ? 'Nie wiesz, czy to dla Ciebie?' : 'Wróć, kiedy zwolnią się miejsca'))}</h2>
+            : 'W tej chwili nie przyjmuję nowych osób, ale możesz sprawdzić terminy później albo poszukać kogoś innego w katalogu.'}</p>`;
+      return `<h2>${escapeHtml(t.accepting_new_clients ? 'Nie wiesz, czy to dla Ciebie?' : 'Wróć, kiedy zwolnią się miejsca')}</h2>
 ${written}
 <p class="phero-actions">${
         t.accepting_new_clients && t.next_available_slot_utc
@@ -927,8 +829,7 @@ ${profileLinks(t)}`;
       const steps = items(s).filter((it) => str(it.title) !== '');
       if (steps.length === 0) return '';
       const title = str(s.heading);
-      return `${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${lead(s)}
-<ol class="meeting-steps">${steps
+      return `${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}<ol class="meeting-steps">${steps
         .map((it) => `<li><h3>${escapeHtml(str(it.title))}</h3>${
           str(it.desc) === '' ? '' : `<p>${escapeHtml(str(it.desc))}</p>`
         }</li>`)

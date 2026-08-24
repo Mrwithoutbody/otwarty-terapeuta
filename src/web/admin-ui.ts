@@ -724,6 +724,21 @@ export const ADMIN_CSS = String.raw`
 .sec-add { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
 .sec-add select { min-width: 18rem; }
 .sec-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+/* Arrange on the left, watch on the right. Building a page while looking at a
+   list of twelve names is what made this feel like paperwork. */
+.composer-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
+  gap: 1.5rem; align-items: start; }
+.composer-preview { position: sticky; top: 1rem; }
+.composer-preview .hint { margin: 0 0 0.5rem; }
+.composer-preview iframe { width: 100%; height: min(78vh, 900px); border: 1px solid var(--border, #e3e6d8);
+  border-radius: 12px; background: #fff; }
+@media (max-width: 68rem) {
+  .composer-split { grid-template-columns: 1fr; }
+  .composer-preview { position: static; }
+  .composer-preview iframe { height: 60vh; }
+}
+.sec-save { margin: 0.9rem 0 0; }
+
 .sec-hero { display: grid; gap: 0.5rem; margin-top: 1rem; padding: 0.9rem;
   border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fbfcf7; }
 .sec-hero span { display: block; color: var(--text-muted, #6a7360); font-size: 0.86rem; }

@@ -14,7 +14,7 @@ import {
 import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/challenge';
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
-import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { escapeHtml, isEmail, normalizeForSearch, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import {
   addCivilDays,
   civilDateIn,
@@ -546,7 +546,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * carried by numeric position inputs; the drag-and-drop in `admin.js` only
  * rewrites those numbers, so both paths post the same thing.
  */
-function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmin: boolean): string {
+function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {
   const stored = parseSections(row?.sections_json ?? null);
   const summary = autoSummary(row, context);
   const sections = stored.length > 0
@@ -575,7 +575,7 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmi
       <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_SECTIONS}" data-section-pos></label>
     <label class="sec-del"><input type="checkbox" name="sec_${index}_del" value="1"><span>usuń</span></label>
   </div>
-  ${sectionFields(def, section, index, row, isAdmin)}
+  ${sectionFields(def, section, index)}
 </li>`;
     })
     .join('');
@@ -619,37 +619,108 @@ function filled(fields: Field[], values: Values, skipTitles = false): number {
  * Eight sections with their fields all open is a wall of empty inputs; the
  * summary says whether there is anything inside worth opening.
  */
-function sectionFields(
-  def: SecDef,
-  section: Section,
-  index: number,
-  row: TherapistRow | null,
-  isAdmin: boolean,
-): string {
-  // Her own content first: it is what she came here to write. The heading and
-  // the background come after, because they are decoration on top of it.
-  const stored = def.data && row ? def.data.read(row) : {};
-  const own = (def.data?.fields ?? [])
-    .filter((field) => isAdmin || field.adminOnly !== true)
-    .map((field) => sectionField(field, stored[field.name], `dat_${index}_${field.name}`, isAdmin))
-    .join('');
-  const fields = own + (def.fields ?? [])
-    .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`, isAdmin))
+function sectionFields(def: SecDef, section: Section, index: number): string {
+  const fields = (def.fields ?? [])
+    .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`))
     .join('');
   if (fields === '') return '';
-  const count = filled(def.fields ?? [], section) + filled(def.data?.fields ?? [], stored);
-  const editable = def.data !== undefined;
-  const summary = count > 0
-    ? `Treść i nagłówek (${count} ${count === 1 ? 'pole' : 'pola'})`
-    : editable || def.auto !== true ? 'Wpisz treść' : 'Zmień nagłówek';
-  return `<details class="sec-fields"${def.auto === true && !editable ? '' : count > 0 ? '' : ' open'}>
+  const count = filled(def.fields ?? [], section);
+  const summary = count > 0 ? `Treść (${count} ${count === 1 ? 'pole' : 'pola'})` : 'Wpisz treść';
+  return `<details class="sec-fields"${count > 0 ? '' : ' open'}>
   <summary>${escapeHtml(summary)}</summary>
   <div class="sec-fields-body">${fields}</div>
 </details>`;
 }
 
-function sectionField(field: Field, value: unknown, name: string, isAdmin = true): string {
-  if (field.adminOnly === true && !isAdmin) return '';
+function linkRow(entry: LinkInput | null, index: number): string {
+  const suffix = entry ? `_${index}` : '';
+  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
+  return `<div class="repeat-row" data-repeat-row>
+  <div class="field">
+    <label data-label-for="link_label"${entry ? ` for="link_label${suffix}"` : ''}>Nazwa</label>
+    <input data-name="link_label"${nameAttr('link_label')} maxlength="40" placeholder="Facebook" value="${escapeHtml(entry?.label ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="link_url"${entry ? ` for="link_url${suffix}"` : ''}>Adres (https)</label>
+    <input data-name="link_url"${nameAttr('link_url')} type="url" maxlength="500" placeholder="https://" value="${escapeHtml(entry?.url ?? '')}">
+  </div>
+  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
+</div>`;
+}
+
+function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
+  const suffix = entry ? `_${index}` : '';
+  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
+  return `<div class="repeat-row" data-repeat-row>
+  <div class="field">
+    <label data-label-for="cred_title"${entry ? ` for="cred_title${suffix}"` : ''}>Nazwa</label>
+    <input data-name="cred_title"${nameAttr('cred_title')} maxlength="120" value="${escapeHtml(entry?.title ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="cred_issuer"${entry ? ` for="cred_issuer${suffix}"` : ''}>Wydający</label>
+    <input data-name="cred_issuer"${nameAttr('cred_issuer')} maxlength="120" value="${escapeHtml(entry?.issuer ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="cred_year"${entry ? ` for="cred_year${suffix}"` : ''}>Rok</label>
+    <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${escapeHtml(entry?.year ?? '')}">
+  </div>
+  ${
+    isAdmin
+      ? `<div class="checkbox">
+    <input type="checkbox" value="1" data-name="cred_verified"${nameAttr('cred_verified')}${entry?.verified ? ' checked' : ''}>
+    <label data-label-for="cred_verified"${entry ? ` for="cred_verified${suffix}"` : ''}>zweryfikowane</label>
+  </div>`
+      : `<p class="hint">${entry?.verified ? 'zweryfikowane przez zespół' : 'deklarowane'}</p>`
+  }
+  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
+</div>`;
+}
+
+/**
+ * Reads the repeatable credential rows. Rows are named `cred_*_<index>`; the
+ * scan tolerates gaps so a row removed in the browser needs no renumbering.
+ *
+ * `verified` is a trust signal shown on the public profile. A therapist must
+ * not be able to award it to themselves, so only an administrator may set it,
+ * and a therapist's own save preserves whatever the administrator decided.
+ */
+function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: CredentialInput[]): string {
+  const alreadyVerified = new Set(
+    previous.filter((entry) => entry.verified).map((entry) => credentialKey(entry.title, entry.issuer)),
+  );
+  const out: Array<{ title: string; issuer: string; year: number | null; verified: boolean }> = [];
+
+  for (let index = 0; index < 50 && out.length < 20; index++) {
+    const title = sanitizeLine(body.get(`cred_title_${index}`) ?? '', 120);
+    if (!title) continue;
+    const issuer = sanitizeLine(body.get(`cred_issuer_${index}`) ?? '', 120);
+    const parsedYear = Number(body.get(`cred_year_${index}`) ?? '');
+    const year = Number.isInteger(parsedYear) && parsedYear >= 1950 && parsedYear <= 2100 ? parsedYear : null;
+    const verified = isAdmin
+      ? body.get(`cred_verified_${index}`) === '1'
+      : alreadyVerified.has(credentialKey(title, issuer));
+    out.push({ title, issuer, year, verified });
+  }
+  return JSON.stringify(out);
+}
+
+function collectLinks(body: URLSearchParams): string {
+  const out: LinkInput[] = [];
+  for (let index = 0; index < 20 && out.length < 8; index++) {
+    const label = sanitizeLine(body.get(`link_label_${index}`) ?? '', 40);
+    const url = safeUrl(sanitizeLine(body.get(`link_url_${index}`) ?? '', 500));
+    if (!label || !url) continue;
+    out.push({ label, url });
+  }
+  return JSON.stringify(out);
+}
+
+/** Matches a submitted credential against the ones already stored. */
+function credentialKey(title: string, issuer: string): string {
+  return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
+}
+
+function sectionField(field: Field, value: unknown, name: string): string {
   const label = `<label for="${name}">${escapeHtml(field.label)}</label>`;
   const hint = field.hint ? `<p class="hint">${escapeHtml(field.hint)}</p>` : '';
 
@@ -660,7 +731,7 @@ function sectionField(field: Field, value: unknown, name: string, isAdmin = true
     const rows = Array.from({ length: count }, (_, i) => {
       const item = existing[i] ?? {};
       const inner = (field.of ?? [])
-        .map((sub) => sectionField(sub, item[sub.name], `${name}_${i}_${sub.name}`, isAdmin))
+        .map((sub) => sectionField(sub, item[sub.name], `${name}_${i}_${sub.name}`))
         .join('');
       return `<li class="sec-subrow">${inner}</li>`;
     }).join('');
@@ -829,6 +900,7 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   const v = <K extends keyof TherapistRow>(key: K, fallback = ''): string =>
     escapeHtml(row ? String(row[key] ?? fallback) : fallback);
   const isAdmin = session.user.role === 'admin';
+  const credentials = context.credentials;
   const sessionTypes = jsonListToSet(row?.session_types, ['individual']);
   const ageGroups = jsonListToSet(row?.age_groups, ['adults']);
 
@@ -861,6 +933,27 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   <p class="hint">Wyczyszczenie miejscowości usuwa adres gabinetu z profilu publicznego.</p>
 
   <fieldset>
+    <legend>Pierwsze spotkanie</legend>
+    <p class="hint">To jest najczęstsze pytanie osoby, która zastanawia się, czy się odezwać.
+    Odpowiedz krótko i po swojemu — każde pole możesz zostawić puste, wtedy się nie pokaże.</p>
+    <div class="field">
+      <label for="first_meeting_course">Jak wygląda pierwsze spotkanie?</label>
+      <textarea id="first_meeting_course" name="first_meeting_course" rows="2" maxlength="400"
+        placeholder="np. Rozmawiamy o tym, z czym przychodzisz. Opowiadam, jak pracuję.">${escapeHtml(row?.first_meeting_course ?? '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="first_meeting_prep">Czy trzeba się przygotować?</label>
+      <textarea id="first_meeting_prep" name="first_meeting_prep" rows="2" maxlength="400"
+        placeholder="np. Nie. Nie musisz wiedzieć, czego potrzebujesz — to jest materiał na pierwsze spotkania.">${escapeHtml(row?.first_meeting_prep ?? '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="first_meeting_decision">Kiedy decydujecie o dalszej pracy?</label>
+      <textarea id="first_meeting_decision" name="first_meeting_decision" rows="2" maxlength="400"
+        placeholder="np. Po dwóch–trzech spotkaniach decydujemy oboje, czy zaczynamy regularną terapię.">${escapeHtml(row?.first_meeting_decision ?? '')}</textarea>
+    </div>
+  </fieldset>
+
+  <fieldset>
     <legend>Forma spotkań</legend>
     <div class="checkbox"><input id="offers_online" name="offers_online" type="checkbox" value="1"${row?.offers_online ? ' checked' : ''}>
       <label for="offers_online">online</label></div>
@@ -880,6 +973,33 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
     ${checkboxGrid('topics', context.specialties, context.chosenTopics)}</fieldset>
   <fieldset><legend>Nurty</legend>
     ${checkboxGrid('modalities', context.modalities, context.chosenModalities)}</fieldset>
+
+  <fieldset data-repeat>
+    <legend>Kwalifikacje</legend>
+    <!-- One spare row is always rendered, so adding a credential works without JavaScript. -->
+    <div data-repeat-body>${[...credentials, { title: '', issuer: '', year: '', verified: false }]
+      .map((entry, index) => credentialRow(entry, index, isAdmin))
+      .join('')}</div>
+    <template>${credentialRow(null, 0, isAdmin)}</template>
+    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
+    ${
+      isAdmin
+        ? '<p class="hint">„Zweryfikowane” oznacza, że zespół widział dokument. Terapeuta nie może ustawić tego sam.</p>'
+        : '<p class="hint">Oznaczenie „zweryfikowane” nadaje wyłącznie zespół po sprawdzeniu dokumentu.</p>'
+    }
+  </fieldset>
+
+  <fieldset data-repeat>
+    <legend>Linki i wizytówki</legend>
+    <div data-repeat-body>${[...context.links, { label: '', url: '' }]
+      .map((entry, index) => linkRow(entry, index))
+      .join('')}</div>
+    <template>${linkRow(null, 0)}</template>
+    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj link</button></p>
+    <p class="hint">Facebook, Instagram, wizytówka Google, własna strona. Tylko adresy https.
+      Wizytówkę Google skopiuj przyciskiem „Udostępnij” z panelu firmy — adres z paska wyszukiwarki
+      niesie parametry sesji i po czasie przestaje działać.</p>
+  </fieldset>
 
   <div class="field-row two">
     <div class="field"><label for="cancellation_policy">Zasady odwołania</label>
@@ -1076,18 +1196,23 @@ ${
 
 <section data-tab-panel data-tab-label="Układ strony" id="panel-strona">
 <h2>Układ strony</h2>
-<p class="panel-lead">Tu nic nie wpisujesz od nowa — układasz to, co już jest. Sekcje oznaczone
-jako Twoje dane biorą treść z pozostałych zakładek; sekcje własne to miejsce na Twój tekst,
-cytat albo zdjęcie obok tekstu.</p>
+<p class="panel-lead">Po lewej układasz, po prawej widzisz efekt. Podgląd odświeża się po
+każdym zapisie.</p>
+<div class="composer-split">
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
+  <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
   <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność, wybierz jej tło i dodawaj kolejne.
   Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
   najbliższy termin) jest u wszystkich taka sama, żeby dało się porównywać terapeutów między sobą.</p>
-  ${sectionsEditor(row, context, session.user.role === 'admin')}
-  <p><button class="btn" type="submit">Zapisz układ strony</button>
-  <a class="btn secondary" href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Zobacz stronę ↗</a></p>
+  ${sectionsEditor(row, context)}
+  <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
 </form>
+<aside class="composer-preview">
+  <p class="hint">Podgląd — <a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
+  <iframe src="/terapeuci/${escapeHtml(row.slug)}" title="Podgląd Twojej strony profilowej" loading="lazy"></iframe>
+</aside>
+</div>
 </section>
 
 </div>`;
@@ -1192,32 +1317,6 @@ function collectSections(body: URLSearchParams): string {
   return JSON.stringify(parseSections(sections));
 }
 
-/**
- * The content the therapist types inside a section lives in its own column, not
- * in `sections_json` - the MCP tools and the catalogue read those columns, and
- * a fact must not exist in two places. Each section says how to write itself.
- */
-function collectSectionData(
-  body: URLSearchParams,
-  row: TherapistRow | null,
-  isAdmin: boolean,
-): Partial<TherapistRow> {
-  const out: Partial<TherapistRow> = {};
-  for (const index of postedSections(body)) {
-    const type = body.get(`sec_${index}_type`);
-    if (!type || body.get(`sec_${index}_del`) === '1') continue;
-    const data = SECTIONS_DEF[type]?.data;
-    if (!data) continue;
-    const values: Values = {};
-    for (const field of data.fields) {
-      const value = readField(body, field, `dat_${index}_${field.name}`);
-      if (value !== undefined) values[field.name] = value;
-    }
-    Object.assign(out, data.write(values, row, isAdmin));
-  }
-  return out;
-}
-
 /** Which section indexes the form actually posted, in the order it posted them. */
 function postedSections(body: URLSearchParams): number[] {
   const seen = new Set<number>();
@@ -1303,6 +1402,11 @@ adminApp.post('/terapeuci/:id', async (c) => {
           ? (body.get('status') as string)
           : 'draft')
       : (existing?.status ?? 'draft'),
+    credentials: collectCredentials(body, isAdmin, parseStoredCredentials(existing?.credentials ?? null)),
+    links: collectLinks(body),
+    first_meeting_course: sanitizeLine(body.get('first_meeting_course') ?? '', 400),
+    first_meeting_prep: sanitizeLine(body.get('first_meeting_prep') ?? '', 400),
+    first_meeting_decision: sanitizeLine(body.get('first_meeting_decision') ?? '', 400),
   };
   const verifiedAt =
     values.verification_status === 'verified'
@@ -1313,10 +1417,11 @@ adminApp.post('/terapeuci/:id', async (c) => {
   if (isNew) {
     await c.env.DB.prepare(
       `INSERT INTO therapists (id, slug, display_name, headline, bio, photo_url, offers_online, offers_in_person,
-                               accepting_new_clients, age_groups, session_types, verification_status,
-                               verified_at, verification_notes, status, is_demo, timezone, cancellation_policy,
-                               cancellation_cutoff_h, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)`,
+                               accepting_new_clients, age_groups, session_types, credentials, links,
+                               first_meeting_course, first_meeting_prep, first_meeting_decision,
+                               verification_status, verified_at, verification_notes, status, is_demo, timezone,
+                               cancellation_policy, cancellation_cutoff_h, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)`,
     )
       .bind(
         therapistIdValue,
@@ -1330,6 +1435,11 @@ adminApp.post('/terapeuci/:id', async (c) => {
         values.accepting_new_clients,
         values.age_groups,
         values.session_types,
+        values.credentials,
+        values.links,
+        values.first_meeting_course,
+        values.first_meeting_prep,
+        values.first_meeting_decision,
         values.verification_status,
         verifiedAt,
         values.verification_notes,
@@ -1343,7 +1453,8 @@ adminApp.post('/terapeuci/:id', async (c) => {
   } else {
     await c.env.DB.prepare(
       `UPDATE therapists SET slug=?, display_name=?, headline=?, bio=?, photo_url=?, offers_online=?,
-              offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?,
+              offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?, credentials=?, links=?,
+              first_meeting_course=?, first_meeting_prep=?, first_meeting_decision=?,
               verification_status=?, verified_at=?, verification_notes=?, status=?, cancellation_policy=?,
               cancellation_cutoff_h=?, updated_at=? WHERE id=?`,
     )
@@ -1358,6 +1469,11 @@ adminApp.post('/terapeuci/:id', async (c) => {
         values.accepting_new_clients,
         values.age_groups,
         values.session_types,
+        values.credentials,
+        values.links,
+        values.first_meeting_course,
+        values.first_meeting_prep,
+        values.first_meeting_decision,
         values.verification_status,
         verifiedAt,
         values.verification_notes,
@@ -1480,16 +1596,8 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
   const sections = collectSections(body);
-  const row = await getTherapistRowForAdmin(c.env, id);
-  const owned = collectSectionData(body, row, g.session.user.role === 'admin');
-
-  // One statement: the arrangement and the content she typed inside it belong
-  // to the same save, so a failure cannot leave one without the other.
-  const columns = Object.keys(owned);
-  await c.env.DB.prepare(
-    `UPDATE therapists SET sections_json=?${columns.map((col) => `, ${col}=?`).join('')}, updated_at=? WHERE id=?`,
-  )
-    .bind(sections, ...columns.map((col) => owned[col as keyof TherapistRow]), nowIso(), id)
+  await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, updated_at=? WHERE id=?`)
+    .bind(sections, nowIso(), id)
     .run();
 
   await audit(c.env, {
