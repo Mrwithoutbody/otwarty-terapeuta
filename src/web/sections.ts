@@ -830,6 +830,71 @@ ${profileLinks(t)}`;
     render: (s) => plainBody(s),
   },
 
+  /**
+   * Three claims across, the shape every reference profile uses under its
+   * philosophy paragraphs. `kroki` is the same data in a vertical numbered
+   * list; this is the one that breaks a long page into columns.
+   */
+  filary: {
+    label: 'Filary', hint: 'Trzy krótkie tezy obok siebie', repeatable: true,
+    fields: [
+      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD, LEAD_FIELD,
+      {
+        kind: 'list', name: 'items', label: 'Filary', max: 4,
+        of: [T('title', 'Tytuł'), AREA('desc', 'Opis', { max: 400 })],
+      },
+    ],
+    render: (s) => {
+      const pillars = items(s).filter((it) => str(it.title) !== '');
+      if (pillars.length === 0) return '';
+      const title = str(s.heading);
+      const lead = str(s.lead);
+      return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
+        lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
+      }<ul class="pillars">${pillars
+        .map((it) => `<li><h3>${escapeHtml(str(it.title))}</h3>${
+          str(it.desc) === '' ? '' : `<p>${escapeHtml(str(it.desc))}</p>`
+        }</li>`)
+        .join('')}</ul>`;
+    },
+  },
+
+  /**
+   * What she has written elsewhere. Cards with a link out, not an article
+   * system: the catalogue has no business storing her blog, and a link to the
+   * piece she is proud of does the same work.
+   */
+  artykuly: {
+    label: 'Teksty i publikacje', hint: 'Karty z odnośnikami do Twoich tekstów',
+    repeatable: true, tone: 'alt',
+    fields: [
+      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD, LEAD_FIELD,
+      {
+        kind: 'list', name: 'items', label: 'Teksty', max: 4,
+        of: [
+          T('title', 'Tytuł'),
+          AREA('desc', 'Zajawka', { max: 300 }),
+          { kind: 'url', name: 'url', label: 'Adres (https)', max: 500 },
+          T('meta', 'Podpis', { max: 60, hint: 'np. Blog, 2026' }),
+        ],
+      },
+    ],
+    render: (s) => {
+      const entries = items(s).filter((it) => str(it.title) !== '' && str(it.url) !== '');
+      if (entries.length === 0) return '';
+      const title = str(s.heading);
+      const lead = str(s.lead);
+      return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
+        lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
+      }<ul class="plinks">${entries
+        .map((it) => `<li><a href="${escapeHtml(str(it.url))}" target="_blank" rel="noopener noreferrer nofollow">
+        <strong>${escapeHtml(str(it.title))}</strong>${
+          str(it.desc) === '' ? '' : `<span>${escapeHtml(str(it.desc))}</span>`
+        }<em>${escapeHtml(str(it.meta) || 'Czytaj')} <span aria-hidden="true">↗</span></em></a></li>`)
+        .join('')}</ul>`;
+    },
+  },
+
   kroki: {
     label: 'Kroki', hint: 'Numerowane etapy — np. jak wygląda współpraca', repeatable: true, tone: 'alt',
     fields: [
@@ -912,13 +977,28 @@ export const SECTION_GROUPS: Array<[boolean, string]> = [
  * broken because this column was hand-edited.
  */
 /**
- * The two ways a page can be presented, and the classes that carry them.
+ * How the page is presented. Five axes, each a closed list whose first entry is
+ * the default - which is also what an unset or hand-edited value falls back to.
  *
- * The heading follows the bands unless she says otherwise: a bordered card
- * sitting directly on top of a band that runs the full width of the viewport
- * butts into it, with no gap and no reason for the seam. She can still ask for
- * the card over bands, or drop it over panels.
+ * A theme is a palette and a typeface, applied as tokens on the profile element
+ * only (see `--dark`, `--band`, `--serif` in styles.ts). Presets rather than a
+ * colour picker: a free palette produces unreadable contrast, and a catalogue
+ * where every entry invents its own colours stops reading as one service.
  */
+export const LAYOUT_THEMES = [
+  ['', 'Serwisowy — szałwia i limonka'],
+  ['bursztyn', 'Bursztyn — ciepły piasek, akcent miodowy'],
+  ['glina', 'Glina — różowawy beż, akcent terakota'],
+  ['grafit', 'Grafit — chłodna szarość, akcent atramentowy'],
+  ['las', 'Las — głęboka zieleń, akcent szmaragdowy'],
+] as const;
+
+export const LAYOUT_RHYTHM = [
+  ['', 'Standardowy'],
+  ['zwarty', 'Zwarty — mniej powietrza, więcej treści na ekranie'],
+  ['dostojny', 'Przestronny — szerokie odstępy jak na stronie autorskiej'],
+] as const;
+
 export const LAYOUT_BANDS = [
   ['panele', 'Panele — sekcja barwna w kadrze, z powietrzem wokół'],
   ['pasy', 'Pasy — sekcja barwna przez całą szerokość ekranu'],
@@ -930,6 +1010,33 @@ export const LAYOUT_HERO = [
   ['goly', 'Nigdy w karcie'],
 ] as const;
 
+export const LAYOUT_NAV = [
+  ['', 'Bez paska'],
+  ['kotwice', 'Pasek z odnośnikami do sekcji strony'],
+] as const;
+
+export interface LayoutAxis {
+  name: string;
+  label: string;
+  hint?: string;
+  options: ReadonlyArray<readonly [string, string]>;
+}
+
+/** The panel builds its selects from this, and `parseLayout` validates by it. */
+export const LAYOUT_AXES: readonly LayoutAxis[] = [
+  { name: 'theme', label: 'Motyw', options: LAYOUT_THEMES },
+  { name: 'rhythm', label: 'Rytm strony', options: LAYOUT_RHYTHM },
+  { name: 'bands', label: 'Sekcje barwne', options: LAYOUT_BANDS },
+  {
+    name: 'hero', label: 'Nagłówek strony', options: LAYOUT_HERO,
+    hint: 'Karta nad pasem przez cały ekran styka się z nim bez szczeliny, dlatego przy pasach nagłówek domyślnie karty nie ma.',
+  },
+  {
+    name: 'nav', label: 'Pasek sekcji', options: LAYOUT_NAV,
+    hint: 'Odnośniki buduje sama strona z nagłówków sekcji, które faktycznie renderuje.',
+  },
+];
+
 /** The first option of a list is what an unset - or bogus - value falls back to. */
 function layoutOption(value: unknown, list: ReadonlyArray<readonly [string, string]>): string {
   const fallback = list[0]?.[0] ?? '';
@@ -938,10 +1045,10 @@ function layoutOption(value: unknown, list: ReadonlyArray<readonly [string, stri
 
 /**
  * The one reader of this column, whether it comes from the database as a
- * string, from the panel as two form values, or from a hand edit. Everything
- * that is not one of the options above becomes the default.
+ * string, from the panel as form values, or from a hand edit. Everything that
+ * is not one of the options above becomes the default.
  */
-export function parseLayout(raw: unknown): { bands: string; hero: string } {
+export function parseLayout(raw: unknown): Record<string, string> {
   let parsed: unknown = raw;
   if (typeof raw === 'string' || raw === null || raw === undefined) {
     try {
@@ -953,13 +1060,17 @@ export function parseLayout(raw: unknown): { bands: string; hero: string } {
   const values = (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
     ? parsed
     : {}) as Record<string, unknown>;
-  return { bands: layoutOption(values.bands, LAYOUT_BANDS), hero: layoutOption(values.hero, LAYOUT_HERO) };
+  const out: Record<string, string> = {};
+  for (const axis of LAYOUT_AXES) out[axis.name] = layoutOption(values[axis.name], axis.options);
+  return out;
 }
 
 /** What the layout means for the page element, once the automatic case is resolved. */
 export function layoutClasses(raw: unknown): string {
-  const { bands, hero } = parseLayout(raw);
+  const { theme, rhythm, bands, hero } = parseLayout(raw);
   const out: string[] = [];
+  if (theme !== '') out.push(`profile-page--theme-${theme}`);
+  if (rhythm !== '') out.push(`profile-page--rytm-${rhythm}`);
   if (bands === 'pasy') out.push('profile-page--pasy');
   if (hero === 'goly' || (hero === '' && bands === 'pasy')) out.push('profile-page--hero-goly');
   return out.length > 0 ? ` ${out.join(' ')}` : '';
@@ -1061,7 +1172,11 @@ const ANCHORS: Record<string, string> = {
  * no offer, no slots - is skipped entirely: a heading above nothing is the thing
  * that reads as broken.
  */
-export function renderSections(sections: Section[], baseCtx: SectionCtx): string {
+export function renderSections(
+  sections: Section[],
+  baseCtx: SectionCtx,
+  options: { nav?: boolean } = {},
+): string {
   const seenAnchor = new Set<string>();
   // Two blocks can carry the same anchor (the slot table and the two-card
   // summary both are "terminy"): the first one on the page takes the id, and
@@ -1070,29 +1185,64 @@ export function renderSections(sections: Section[], baseCtx: SectionCtx): string
     ...baseCtx,
     anchors: new Set(sections.map((s) => ANCHORS[s.type]).filter((a): a is string => a !== undefined)),
   };
-  return sections
-    .map((section) => {
-      const def = SECTIONS_DEF[section.type];
-      if (!def) return '';
-      let inner: string;
-      try {
-        inner = def.render(section, ctx);
-      } catch {
-        return '';
-      }
-      if (inner.trim() === '') return '';
+  // The anchor bar is built from what the page renders, not from a list she
+  // keeps in step by hand: a section that came out empty is not in it.
+  const bar: Array<[string, string]> = [];
+  let heroAt = -1;
 
-      // The heading block is the page's masthead, not one of the bands below
-      // it: it brings its own element and its own layout class.
-      if (def.family === 'hero') {
-        return `<header class="phero phero--${escapeHtml(section.type.replace(/^hero-?/, '') || 'klasyczny')}">${inner}</header>`;
-      }
-      const anchor = ANCHORS[section.type];
-      const id = anchor && !seenAnchor.has(anchor) && !!seenAnchor.add(anchor) ? ` id="${anchor}"` : '';
-      const tone = def.tone ?? '';
-      const cls = tone === '' ? 'pblock' : `pblock pblock--${tone}`;
-      return `<section class="${cls}"${id}>${inner}</section>`;
-    })
-    .join('');
+  const parts = sections.map((section, index) => {
+    const def = SECTIONS_DEF[section.type];
+    if (!def) return '';
+    let inner: string;
+    try {
+      inner = def.render(section, ctx);
+    } catch {
+      return '';
+    }
+    if (inner.trim() === '') return '';
+
+    // The heading block is the page's masthead, not one of the bands below
+    // it: it brings its own element and its own layout class.
+    if (def.family === 'hero') {
+      heroAt = index;
+      return `<header class="phero phero--${escapeHtml(section.type.replace(/^hero-?/, '') || 'klasyczny')}">${inner}</header>`;
+    }
+    const anchor = ANCHORS[section.type];
+    const claimed = anchor !== undefined && !seenAnchor.has(anchor) && !!seenAnchor.add(anchor);
+    const id = claimed ? anchor : options.nav === true ? `sekcja-${index}` : '';
+    const label = options.nav === true ? navLabel(inner) : '';
+    if (id !== '' && label !== '') bar.push([id, label]);
+    const tone = def.tone ?? '';
+    const cls = tone === '' ? 'pblock' : `pblock pblock--${tone}`;
+    return `<section class="${cls}"${id === '' ? '' : ` id="${escapeHtml(id)}"`}>${inner}</section>`;
+  });
+
+  // One link is not a bar, it is a stray word under the heading.
+  if (options.nav === true && bar.length > 1) {
+    const nav = `<nav class="pnav" aria-label="Sekcje profilu">${bar
+      .map(([id, label]) => `<a href="#${escapeHtml(id)}">${label}</a>`)
+      .join('')}</nav>`;
+    parts.splice(heroAt + 1, 0, nav);
+  }
+  return parts.join('');
+}
+
+/**
+ * The label the anchor bar uses. The eyebrow first, because that is already the
+ * two-word name of the block ("Jak pracuję", "W skrócie"); the heading is a
+ * whole sentence and a bar of those wraps onto three lines. The markup is ours
+ * and already escaped, so the tags come out and the text goes straight back in.
+ */
+function navLabel(inner: string): string {
+  const pick = (tag: string): string => {
+    const match = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag.slice(0, 2)}[^>]*>`).exec(inner);
+    return match ? match[1]!.replace(/<[^>]*>/g, '').trim() : '';
+  };
+  const eyebrowText = /<p class="eyebrow">([\s\S]*?)<\/p>/.exec(inner)?.[1]?.trim() ?? '';
+  const label = eyebrowText !== '' ? eyebrowText : pick('h2');
+  if (label.length <= 28) return label;
+  // Cut on a word, not mid-syllable: half a Polish word in small caps is noise.
+  const cut = label.slice(0, 28);
+  return `${cut.slice(0, cut.lastIndexOf(' ')) || cut}…`;
 }
 

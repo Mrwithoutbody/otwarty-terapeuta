@@ -191,9 +191,66 @@ describe('page layout', () => {
   });
 
   it('reads the column as stored, and survives a hand edit', () => {
-    expect(parseLayout('{"bands":"pasy","hero":"karta"}')).toEqual({ bands: 'pasy', hero: 'karta' });
-    expect(parseLayout('nie-json')).toEqual({ bands: 'panele', hero: '' });
-    expect(parseLayout('[]')).toEqual({ bands: 'panele', hero: '' });
+    const defaults = { theme: '', rhythm: '', bands: 'panele', hero: '', nav: '' };
+    expect(parseLayout('{"bands":"pasy","hero":"karta"}')).toEqual({ ...defaults, bands: 'pasy', hero: 'karta' });
+    expect(parseLayout('nie-json')).toEqual(defaults);
+    expect(parseLayout('[]')).toEqual(defaults);
     expect(layoutClasses('{"bands":"pasy"}')).toBe(' profile-page--pasy profile-page--hero-goly');
+  });
+
+  // A theme is a palette on the profile element, nothing more - and a palette
+  // nobody defined is not a class the stylesheet can be asked to have.
+  it('carries the theme and the rhythm as classes, and drops what it does not know', () => {
+    expect(layoutClasses({ theme: 'bursztyn', rhythm: 'zwarty' }))
+      .toBe(' profile-page--theme-bursztyn profile-page--rytm-zwarty');
+    expect(layoutClasses({ theme: '"><script>', rhythm: 'szybki' })).toBe('');
+    expect(parseLayout('{"nav":"kotwice"}').nav).toBe('kotwice');
+  });
+});
+
+describe('the anchor bar', () => {
+  const arranged = [{ type: 'hero' }, { type: 'intro' }, { type: 'topics' }, { type: 'faq' }];
+  const withFaq = {
+    ...CTX,
+    faq: [{ faq_id: 'f1', question: 'Ile trwa sesja?', answer: '50 minut.', updated_at: '2026-08-01T00:00:00.000Z' }],
+  } as SectionCtx;
+
+  it('is built from the headings the page actually rendered', () => {
+    const html = renderSections(arranged, withFaq, { nav: true });
+    // `topics` and `faq` render nothing for this therapist, so they are not in it.
+    expect(html).toContain('class="pnav"');
+    // The eyebrow, not the sentence-long heading: a bar of full headings wraps.
+    expect(html.match(/<nav class="pnav"[\s\S]*?<\/nav>/)?.[0]).toContain('>Jak pracuję<');
+    expect(html).not.toContain('Nie musisz wiedzieć, jak to nazwać');
+  });
+
+  it('stays off unless she asks for it, and needs more than one link', () => {
+    expect(renderSections(arranged, withFaq)).not.toContain('pnav');
+    // One rendered section with a heading is not a bar.
+    expect(renderSections([{ type: 'hero' }, { type: 'intro' }], CTX, { nav: true })).not.toContain('pnav');
+  });
+});
+
+describe('the new written blocks', () => {
+  it('renders three pillars and drops the ones with no title', () => {
+    const html = renderSections(
+      [{ type: 'filary', heading: 'W co wierzę', items: [{ title: 'Uważność', desc: 'Opis' }, { desc: 'sierota' }] }],
+      CTX,
+    );
+    expect(html).toContain('class="pillars"');
+    expect(html).toContain('Uważność');
+    expect(html).not.toContain('sierota');
+  });
+
+  it('needs a title and an https address before an article card exists', () => {
+    const items = [
+      { title: 'Tekst', desc: 'Zajawka', url: 'https://example.org/a', meta: 'Blog' },
+      { title: 'Bez adresu' },
+    ];
+    const [section] = parseSections(JSON.stringify([{ type: 'artykuly', items }]));
+    const html = renderSections([section!], CTX);
+    expect(html).toContain('href="https://example.org/a"');
+    expect(html).toContain('rel="noopener noreferrer nofollow"');
+    expect(html).not.toContain('Bez adresu');
   });
 });

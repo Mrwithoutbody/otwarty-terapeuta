@@ -31,10 +31,10 @@ import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { htmlResponse, renderPage } from './layout';
 import {
   defaultSections,
-  LAYOUT_BANDS,
-  LAYOUT_HERO,
+  LAYOUT_AXES,
   MAX_SECTIONS,
   parseLayout,
+  type LayoutAxis,
   parseSections,
   SECTION_GROUPS,
   SECTIONS_DEF,
@@ -555,33 +555,26 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  */
 function layoutChoice(row: TherapistRow): string {
   const layout = parseLayout(row.layout_json);
-  const options = (
-    list: ReadonlyArray<readonly [string, string]>,
-    current: string,
-  ): string =>
-    list
+  const field = (axis: LayoutAxis): string => `<div class="field">
+    <label for="layout_${escapeHtml(axis.name)}">${escapeHtml(axis.label)}</label>
+    <select id="layout_${escapeHtml(axis.name)}" name="layout_${escapeHtml(axis.name)}">${axis.options
       .map(([value, label]) =>
-        `<option value="${escapeHtml(value)}"${value === current ? ' selected' : ''}>${escapeHtml(label)}</option>`)
-      .join('');
+        `<option value="${escapeHtml(value)}"${value === layout[axis.name] ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+      .join('')}</select>
+    ${axis.hint ? `<p class="hint">${escapeHtml(axis.hint)}</p>` : ''}
+  </div>`;
 
   return `<fieldset class="sec-layout">
   <legend>Sposób podania</legend>
-  <div class="field">
-    <label for="layout_bands">Sekcje barwne</label>
-    <select id="layout_bands" name="layout_bands">${options(LAYOUT_BANDS, layout.bands)}</select>
-  </div>
-  <div class="field">
-    <label for="layout_hero">Nagłówek strony</label>
-    <select id="layout_hero" name="layout_hero">${options(LAYOUT_HERO, layout.hero)}</select>
-    <p class="hint">Karta nad pasem przez cały ekran styka się z nim bez szczeliny, dlatego
-    przy pasach nagłówek domyślnie karty nie ma.</p>
-  </div>
+  ${LAYOUT_AXES.map(field).join('')}
 </fieldset>`;
 }
 
-/** What the two selects posted, validated by the same reader the page uses. */
+/** What the selects posted, validated by the same reader the page uses. */
 function collectLayout(body: URLSearchParams): string {
-  return JSON.stringify(parseLayout({ bands: body.get('layout_bands'), hero: body.get('layout_hero') }));
+  const posted: Record<string, unknown> = {};
+  for (const axis of LAYOUT_AXES) posted[axis.name] = body.get(`layout_${axis.name}`);
+  return JSON.stringify(parseLayout(posted));
 }
 
 function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {

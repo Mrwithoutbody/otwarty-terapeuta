@@ -22,6 +22,22 @@ export const APP_CSS = `
   src: url("/fonts/lora-latin-variable.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
+@font-face {
+  font-family: "Playfair Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url("/fonts/playfair-latin-ext-variable.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Playfair Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url("/fonts/playfair-latin-variable.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
 
 :root {
   color-scheme: light;
@@ -46,6 +62,21 @@ export const APP_CSS = `
   --shadow: 0 16px 42px rgba(62, 76, 31, 0.075);
   --maxw: 76rem;
   --serif: "Lora Variable", Lora, Georgia, "Times New Roman", serif;
+  /* The profile page reads these; a theme redefines them on .profile-page and
+     nothing else in the service moves. Hard-coded hexes here were what made
+     "one palette for everyone" a fact rather than a default. */
+  --dark: #344125;
+  --dark-ink: #f0f3d6;
+  --dark-mute: #d5dcc2;
+  --dark-head: #fffefa;
+  --wash-a: #faf9eb;
+  --wash-b: #eef4e8;
+  --panel-tint: #f3f6ec;
+  --glow: rgba(238, 244, 145, 0.42);
+  --prose: #596250;
+  /* Air between the bands. The rhythm axis multiplies it - the same sections
+     read as a catalogue entry at 0.7 and as a practice's own site at 1.4. */
+  --rhythm: 1;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -57,7 +88,8 @@ export const APP_CSS = `
   --space-16: 4rem;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; overflow-x: clip; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; overflow-x: clip;
+  scroll-padding-top: 5.5rem; }
 body {
   min-height: 100vh;
   margin: 0;
@@ -428,7 +460,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 4rem);
   align-items: center; margin-top: var(--space-6); padding: clamp(1.8rem, 3.5vw, 3.2rem);
   border: 1px solid var(--border); border-radius: var(--radius-lg);
-  background: linear-gradient(140deg, #faf9eb, #eef4e8); }
+  background: linear-gradient(140deg, var(--wash-a), var(--wash-b)); }
 .phero > div { order: -1; }
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
@@ -441,8 +473,12 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: var(--space-6) 0 var(--space-6); }
 /* The same drawing the demo profiles are served, so an empty photo slot and a
    demo avatar cannot end up looking like two different ideas. */
+/* One drawing, every theme: the placeholder keeps its shape and takes the
+   page's hue from the band it sits on. Without the blend a sage avatar sat in
+   the middle of an amber profile. */
 .phero-photo.empty, .psplit-empty, .phero-card-empty {
-  background: #f1ece4 url("/avatar-placeholder.webp") center / cover no-repeat; }
+  background: var(--band) url("/avatar-placeholder.webp") center / cover no-repeat;
+  background-blend-mode: luminosity; }
 .phero-photo.empty { display: block; }
 
 /* --- heading blocks ------------------------------------------------------ */
@@ -471,23 +507,23 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* Dark, centred, portrait above the name - the shape a single-person site uses
    when the person is the whole offer. */
 .phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
-  text-align: center; background: #344125; color: #f0f3d6; border: 0; border-radius: var(--radius-lg);
+  text-align: center; background: var(--dark); color: var(--dark-ink); border: 0; border-radius: var(--radius-lg);
   padding: clamp(2rem, 5vw, 3.5rem); margin-top: var(--space-6); }
 .phero--spotlight > div { order: 0; }
-.phero--spotlight h1 { color: #fffefa; }
-.phero--spotlight .phero-headline { color: #d5dcc2; }
+.phero--spotlight h1 { color: var(--dark-head); }
+.phero--spotlight .phero-headline { color: var(--dark-mute); }
 .phero--spotlight .phero-photo { width: 11rem; aspect-ratio: 1; border-radius: 50%;
-  margin: 0 auto var(--space-6); border-color: rgba(240, 243, 214, 0.3); }
+  margin: 0 auto var(--space-6); border-color: color-mix(in srgb, var(--dark-ink) 30%, transparent); }
 .phero--spotlight .phero-facts { justify-content: center; }
 .phero-greeting { font-family: var(--serif); font-size: clamp(1.2rem, 1.05rem + 0.8vw, 1.7rem);
   line-height: 1.4; margin-bottom: var(--space-4); }
-.phero--spotlight .phero-facts li { background: rgba(240, 243, 214, 0.12); border-color: rgba(240, 243, 214, 0.3);
-  color: #f0f3d6; }
+.phero--spotlight .phero-facts li { background: color-mix(in srgb, var(--dark-ink) 12%, transparent); border-color: color-mix(in srgb, var(--dark-ink) 30%, transparent);
+  color: var(--dark-ink); }
 .phero--spotlight .badges { justify-content: center; }
-.phero--spotlight .badge { background: rgba(240, 243, 214, 0.12); border-color: rgba(240, 243, 214, 0.3);
-  color: #f0f3d6; }
+.phero--spotlight .badge { background: color-mix(in srgb, var(--dark-ink) 12%, transparent); border-color: color-mix(in srgb, var(--dark-ink) 30%, transparent);
+  color: var(--dark-ink); }
 .phero--spotlight .phero-actions { justify-content: center; }
-.phero--spotlight .btn.ghost { color: #f0f3d6; border-color: rgba(240, 243, 214, 0.45); }
+.phero--spotlight .btn.ghost { color: var(--dark-ink); border-color: color-mix(in srgb, var(--dark-ink) 45%, transparent); }
 
 /* Label and value, two pairs across - the layout the catalogue card has always
    used for exactly these facts. Two columns rather than three: at three the
@@ -531,7 +567,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    one fact pinned to it. A panoramic crop was the first attempt and it turned a
    portrait photograph into a forehead. */
 .phero--okladka { grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 4vw, 3.5rem);
-  background: var(--accent-soft); border: 1px solid #dfe6b4; border-radius: var(--radius-lg);
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--accent-soft)); border-radius: var(--radius-lg);
   padding: clamp(1.8rem, 3.5vw, 3.2rem); margin-top: var(--space-6); align-items: center; }
 .phero--okladka > div { order: -1; }
 .phero-frame { position: relative; margin: 0; max-width: 22rem; margin-inline: auto; }
@@ -546,14 +582,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero-headline { font-size: 1.15rem; line-height: 1.55; color: var(--text-muted); max-width: 52ch;
   margin-bottom: var(--space-6); }
 .phero-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
-.phero-facts li { margin: 0; background: var(--accent-soft); border: 1px solid #cdd89a;
+.phero-facts li { margin: 0; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--accent-soft));
   border-radius: 999px; padding: 0.34rem 0.85rem; font-size: 0.87rem; color: var(--accent-strong); }
 .phero-facts .lang { display: inline-flex; align-items: center; gap: 0.3rem; }
 .badges { display: flex; flex-wrap: wrap; gap: 0.45rem; list-style: none; margin: 0 0 var(--space-3); padding: 0; }
 .badges li { margin: 0; }
 .badge { display: inline-block; font-size: 0.78rem; padding: 0.36rem 0.75rem; border-radius: 999px;
   border: 1px solid var(--border); background: var(--surface-solid); }
-.badge.ok { background: var(--accent-soft); border-color: #cdd89a; color: var(--accent-strong); }
+.badge.ok { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, var(--accent-soft)); color: var(--accent-strong); }
 .badge.demo { background: var(--surface-alt); color: var(--text-muted); }
 
 .pfacts { margin-top: var(--space-6); background: var(--surface-solid); border: 1px solid var(--border);
@@ -567,7 +603,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* Not a landing page by default. Six rems of air between bands is right for a
    page selling something and wrong for a profile someone is comparing against
    three others. */
-.pblock { padding-block: clamp(2.6rem, 5.5vw, 6rem); border-top: 1px solid var(--border); }
+.pblock { padding-block: calc(clamp(2.6rem, 5.5vw, 6rem) * var(--rhythm)); border-top: 1px solid var(--border); }
 /* The first section sits right under the fact card, which already has its own
    outline - a hairline there separates nothing. A tinted section draws its own
    bottom border, so the one after it must not add a second. */
@@ -601,12 +637,12 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pblock--alt, .pblock--narrow {
   margin-block: var(--space-6); padding-inline: clamp(1.6rem, 3vw, 3rem); border: 1px solid var(--border);
   border-radius: var(--radius-lg); background:
-    radial-gradient(circle at 84% 10%, rgba(238, 244, 145, 0.42), transparent 20rem),
-    linear-gradient(140deg, #f3f6ec, var(--band)); }
+    radial-gradient(circle at 84% 10%, var(--glow), transparent 20rem),
+    linear-gradient(140deg, var(--panel-tint), var(--band)); }
 :is(.pblock--alt, .pblock--narrow):nth-child(even of :is(.pblock--alt, .pblock--narrow)) { background:
-    radial-gradient(circle at 14% 88%, rgba(238, 244, 145, 0.42), transparent 20rem),
-    linear-gradient(220deg, #f3f6ec, var(--band)); }
-.pblock--narrow { padding-block: clamp(1.2rem, 2vw, 1.6rem); }
+    radial-gradient(circle at 14% 88%, var(--glow), transparent 20rem),
+    linear-gradient(220deg, var(--panel-tint), var(--band)); }
+.pblock--narrow { padding-block: calc(clamp(1.2rem, 2vw, 1.6rem) * var(--rhythm)); }
 /* The other presentation: the same sections as bands running the full width of
    the viewport, flat, no frame. The heading loses its card by default in this
    layout (see layoutClasses) - a bordered card butting straight into a
@@ -626,11 +662,91 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
 
 /* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
    the dullest thing the profile had to say. */
-.pblock--dark { background: #344125; color: #f0f3d6; border-block: 0;
-  padding-block: clamp(3rem, 6vw, 4.5rem); }
-.pblock--dark h2 { color: #fffefa; }
-.pblock--dark .btn { background: #fffefa; color: #344125; border-color: #fffefa; }
-.pblock--dark .btn.ghost { background: transparent; color: #f0f3d6; border-color: rgba(240, 243, 214, 0.45); }
+.pblock--dark { background: var(--dark); color: var(--dark-ink); border-block: 0;
+  padding-block: calc(clamp(3rem, 6vw, 4.5rem) * var(--rhythm)); }
+.pblock--dark h2 { color: var(--dark-head); }
+.pblock--dark .btn { background: var(--dark-head); color: var(--dark); border-color: var(--dark-head); }
+.pblock--dark .btn.ghost { background: transparent; color: var(--dark-ink); border-color: color-mix(in srgb, var(--dark-ink) 45%, transparent); }
+
+/* --- themes: the same sections, her palette ------------------------------ */
+/* A theme is a set of tokens on the profile element - nothing here is a new
+   component, and nothing leaks past .profile-page into the service chrome.
+   Presets rather than a colour picker: a free palette produces unreadable
+   contrast and a catalogue that looks like nine different products. */
+/* Air, not colour: the same arrangement as a catalogue entry or as a practice's
+   own site. */
+.profile-page--rytm-zwarty { --rhythm: 0.72; }
+.profile-page--rytm-dostojny { --rhythm: 1.25; }
+
+.profile-page--theme-bursztyn {
+  --band: #f5ead3; --panel-tint: #fdf7ea; --glow: rgba(240, 200, 120, 0.34);
+  --wash-a: #fdf7ea; --wash-b: #f6e8cf;
+  --border: #e8ddc6; --border-strong: #d9c9a6;
+  --accent: #a9762a; --accent-strong: #7c5417; --accent-soft: #f7ecd7;
+  --dark: #3d3222; --dark-ink: #f3e6cd; --dark-mute: #d8c7a5; --dark-head: #fffdf6;
+  --prose: #5f5340;
+  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
+}
+.profile-page--theme-grafit {
+  --band: #eceef1; --panel-tint: #f7f8fa; --glow: rgba(150, 170, 200, 0.26);
+  --wash-a: #f8f9fb; --wash-b: #e9ecf1;
+  --border: #dde0e6; --border-strong: #c4c9d3;
+  --accent: #40566e; --accent-strong: #2c3e52; --accent-soft: #e8ecf2;
+  --dark: #232830; --dark-ink: #e4e8ee; --dark-mute: #b9c1cd; --dark-head: #ffffff;
+  --prose: #4d5560;
+  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
+}
+.profile-page--theme-glina {
+  --band: #f3e3da; --panel-tint: #fbf1ec; --glow: rgba(226, 160, 130, 0.3);
+  --wash-a: #fbf2ed; --wash-b: #f2e0d6;
+  --border: #e8d5cb; --border-strong: #d8bcae;
+  --accent: #a4553a; --accent-strong: #7c3c26; --accent-soft: #f7e6de;
+  --dark: #40302a; --dark-ink: #f2ded4; --dark-mute: #d5b8ab; --dark-head: #fffaf7;
+  --prose: #62504a;
+  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
+}
+.profile-page--theme-las {
+  --band: #e4ede4; --panel-tint: #f2f7f1; --glow: rgba(120, 190, 150, 0.26);
+  --wash-a: #f3f8f2; --wash-b: #e2ebe1;
+  --border: #d7e2d6; --border-strong: #bacfb9;
+  --accent: #2f6d4f; --accent-strong: #1f4d37; --accent-soft: #e3f0e6;
+  --dark: #1f3a2c; --dark-ink: #dcead9; --dark-mute: #b4c9b2; --dark-head: #fbfffa;
+  --prose: #4a5c4d;
+}
+
+/* --- the profile's own anchor bar ---------------------------------------- */
+/* Not sticky: the service header already is, and two stacked bars eat a phone
+   screen. It sits under the heading and lists what the page actually renders,
+   which is why it is built from the sections rather than hand-kept. */
+.pnav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; align-items: baseline;
+  padding: 0.9rem 0; border-bottom: 1px solid var(--border); margin-bottom: var(--space-4); }
+.pnav a { font: 600 0.78rem/1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); text-decoration: none; padding: 0.25rem 0; }
+.pnav a:hover { color: var(--accent-strong); }
+.profile-page--pasy .pnav { margin-bottom: 0; }
+
+/* Three claims across, the shape every reference profile uses under its
+   philosophy paragraphs. */
+.pillars { display: grid; gap: var(--space-6); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin-top: var(--space-6); }
+.pillars li { margin: 0; padding: var(--space-6); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); background: var(--surface-solid); }
+.pillars h3 { margin: 0 0 var(--space-3); font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
+.pillars p { margin: 0; color: var(--prose); font-size: 0.95rem; line-height: 1.65; }
+
+/* Her writing elsewhere: title, one line, link out. */
+.plinks { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  margin-top: var(--space-6); }
+.plinks li { margin: 0; }
+.plinks a { display: block; height: 100%; padding: var(--space-6); text-decoration: none;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-solid);
+  color: inherit; transition: border-color 0.15s ease; }
+.plinks a:hover { border-color: var(--border-strong); }
+.plinks strong { display: block; font-family: var(--serif); font-size: 1.05rem; font-weight: 600;
+  margin-bottom: var(--space-2); }
+.plinks span { display: block; color: var(--prose); font-size: 0.92rem; line-height: 1.6; }
+.plinks em { display: block; margin-top: var(--space-3); font-style: normal; font-size: 0.8rem;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-strong); }
 
 /* Two columns: her words beside her portrait. Without a section shaped like
    this every block was one full-width column, which is what went flat after the
@@ -658,10 +774,10 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
 .pfacts-strip li { margin: 0; font-size: 0.92rem; color: var(--text-muted); }
 .pfacts-strip strong { display: block; font-family: var(--serif); font-size: 1.02rem;
   font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
-.pblock > p:not(.eyebrow):not(.hint) { max-width: 62ch; color: #596250; }
+.pblock > p:not(.eyebrow):not(.hint) { max-width: 62ch; color: var(--prose); }
 /* Same specificity as the rule above, and after it - that is what carries the
    light text on the dark band, without reaching for !important. */
-.pblock--dark > p:not(.eyebrow):not(.hint), .pblock--dark > .block-lead { color: #d5dcc2; }
+.pblock--dark > p:not(.eyebrow):not(.hint), .pblock--dark > .block-lead { color: var(--dark-mute); }
 .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: var(--space-4) 0 0; padding: 0; }
 .chips li { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: 999px; padding: 0.55rem 1.1rem; font-size: 0.95rem; }
@@ -696,8 +812,8 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   border-bottom: 1px solid var(--border-strong); padding-bottom: 1px; }
 .phero-links a:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
 .phero--spotlight .phero-links { justify-content: center; }
-.phero--spotlight .phero-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
-.pblock--dark .phero-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
+.phero--spotlight .phero-links a { color: var(--dark-mute); border-color: color-mix(in srgb, var(--dark-ink) 40%, transparent); }
+.pblock--dark .phero-links a { color: var(--dark-mute); border-color: color-mix(in srgb, var(--dark-ink) 40%, transparent); }
 /* "Pierwsze spotkanie": her answers, in the order the person will live them. */
 .meeting-steps { counter-reset: s; list-style: none; display: grid; gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 0; padding: 0; }
@@ -745,7 +861,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
 }
 @media (max-width: 30rem) { .pfacts { grid-template-columns: 1fr; } }
 .signup-page { width: min(100%, 62rem); margin-inline: auto; }
-.signup-intro { margin-bottom: 2.5rem; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.4rem; background: linear-gradient(140deg, #eef4e8, #faf9eb); }
+.signup-intro { margin-bottom: 2.5rem; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.4rem; background: linear-gradient(140deg, var(--wash-b), var(--wash-a)); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(2.6rem, 5vw, 4.2rem); }
 .signup-intro p:last-child { max-width: 58ch; margin: 0; color: var(--text-muted); }
 .signup-page > form { max-width: none !important; margin-inline: 0; padding: clamp(1.5rem, 4vw, 2.7rem) !important; }

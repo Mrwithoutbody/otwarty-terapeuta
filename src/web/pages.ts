@@ -19,6 +19,7 @@ import { htmlResponse, renderPage } from './layout';
 import {
   languageList,
   layoutClasses,
+  parseLayout,
   pageSections,
   parseSections,
   pluginCta,
@@ -401,7 +402,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
 
   const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
   const sections = pageSections(parseSections(t.sections));
-  const body = renderSections(sections, ctx);
+  const body = renderSections(sections, ctx, { nav: parseLayout(t.layout).nav === 'kotwice' });
 
   return htmlResponse(
     c.env,

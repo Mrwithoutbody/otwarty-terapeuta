@@ -149,6 +149,39 @@ describe('therapist editor form state', () => {
   });
 });
 
+describe('the way the page is presented', () => {
+  let admin: Actor;
+
+  beforeAll(async () => {
+    admin = await actor('layout-admin@example.invalid', 'admin');
+  });
+
+  it('renders one select per layout axis', async () => {
+    const html = await editorHtml(admin);
+    for (const axis of ['theme', 'rhythm', 'bands', 'hero', 'nav']) {
+      expect(html).toContain(`name="layout_${axis}"`);
+    }
+  });
+
+  it('stores what the selects posted and drops a value it does not know', async () => {
+    const response = await saveSections(admin, [
+      ['layout_theme', 'bursztyn'],
+      ['layout_rhythm', 'zwarty'],
+      ['layout_bands', 'pasy'],
+      ['layout_nav', 'kotwice'],
+      ['layout_hero', 'onclick=1'],
+    ]);
+    expect(response.status).toBe(302);
+
+    const row = await env.DB.prepare(`SELECT layout_json FROM therapists WHERE id = ?`)
+      .bind(ANNA)
+      .first<{ layout_json: string }>();
+    expect(JSON.parse(row?.layout_json ?? '{}')).toEqual({
+      theme: 'bursztyn', rhythm: 'zwarty', bands: 'pasy', hero: '', nav: 'kotwice',
+    });
+  });
+});
+
 describe('credential verification is an administrator decision', () => {
   let admin: Actor;
   let therapist: Actor;
