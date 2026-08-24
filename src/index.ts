@@ -21,6 +21,7 @@ import { siteApp } from './web/pages';
 import { htmlResponse, renderPage, securityHeaders } from './web/layout';
 import { APP_CSS } from './web/styles';
 import { ADMIN_CSS, ADMIN_JS } from './web/admin-ui';
+import { topUpDemoSlots } from './db/demo';
 import { log } from './lib/log';
 import { drainOutbox } from './notify/outbox';
 import { nowIso } from './lib/time';
@@ -364,7 +365,8 @@ export default {
         try {
           const result = await drainOutbox(env, 50);
           await purgeExpiredAuthState(env);
-          log.info('scheduled.done', { count: result.sent, reason: nowIso() });
+          const demo = await topUpDemoSlots(env);
+          log.info('scheduled.done', { count: result.sent, demoSlots: demo.added, reason: nowIso() });
         } catch (error) {
           log.error('scheduled.failed', error);
         }

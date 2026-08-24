@@ -167,6 +167,12 @@ function profileLinks(t: PublicTherapist): string {
     .join('')}</ul>`;
 }
 
+/** Does she have first-meeting answers? The hero links to that block only then. */
+function hasFirstMeeting(t: PublicTherapist): boolean {
+  const { course, prep, decision } = t.first_meeting;
+  return `${course}${prep}${decision}`.trim() !== '';
+}
+
 /** Her words beside her portrait; `flip` puts the photograph on the left. */
 function splitBody(s: Section, ctx: SectionCtx, flip: boolean): string {
   const body = renderBodyText(str(s.body));
@@ -273,7 +279,7 @@ function heroBody(
     ${opts.lead ? `<p class="phero-lead">${escapeHtml(opts.lead)}</p>` : t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
     <div class="phero-actions">
       ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+      ${hasFirstMeeting(t) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
     ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
     ${profileLinks(t)}
@@ -1012,13 +1018,3 @@ export function renderSections(sections: Section[], ctx: SectionCtx): string {
     .join('');
 }
 
-/** Which auto sections would render something for this therapist right now. */
-export function sectionHasContent(type: string, ctx: SectionCtx): boolean {
-  const def = SECTIONS_DEF[type];
-  if (!def?.auto) return true;
-  try {
-    return def.render({ type }, ctx).trim() !== '';
-  } catch {
-    return false;
-  }
-}
