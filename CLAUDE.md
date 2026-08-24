@@ -103,3 +103,28 @@ Wnioski, które kosztowały najwięcej:
 - Zanim uznasz poprawkę za nieskuteczną, sprawdź `curl`-em, co serwer faktycznie
   zwraca w `tools/list` i `resources/read`. Trzy razy okazało się, że serwer był
   już dobry, a patrzyłem na cache klienta.
+
+## Kolorystyka: najpierw pomiar, potem teza
+
+Zanim postawisz jakiekolwiek twierdzenie o kolorach („ta strona jest zielona",
+„to pasuje do palety", „tu brakuje ciepła"), **zmierz**:
+
+- tokeny z `:root` w `src/web/styles.ts` przelicz na HSL — odcień, nasycenie,
+  jasność, nie same nazwy hex;
+- dominujące barwy zdjęć i ilustracji policz z pikseli (PIL: histogram
+  odcieni, udział barw ciepłych).
+
+Liczby podaj w odpowiedzi razem z wnioskiem.
+
+**Dlaczego:** wrażenie kolorystyczne strony budują obrazy i gradienty, nie
+lista tokenów. Ocena „na oko" ze zrzutu myli chromę z jasnością. 2026-08-24
+uznałem, że strona główna „też jest tylko zielona", i na tej podstawie
+pchnąłem profile jeszcze dalej w chłodny szałwiowy (`#e9efe0`, odcień 84°).
+Pomiar pokazał odwrotność: trzy ilustracje `public/illustrations/*.webp` są w
+95–100% ciepłe — odcień 45° (bursztyn, piasek) i 30° (glina), zieleni poniżej
+jednego procenta. Ciepło głównej niesie **treść**, nie CSS. Trzy rundy
+cofania.
+
+**Jak to stosować:** jedna przyczyna poparta pomiarem zamiast listy trzech
+domysłów. Przy zmianie odcienia sprawdź, czy nowa wartość leży na osi serwisu
+(wszystkie powierzchnie: odcień 56–95, większość 64–70), zanim ją wdrożysz.
