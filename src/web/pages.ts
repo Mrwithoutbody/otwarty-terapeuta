@@ -508,7 +508,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
     </ul>
     <h1>${escapeHtml(t.display_name)}</h1>
     ${t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
-    <ul class="phero-meta">
+    <ul class="phero-facts">
       ${t.locations.length > 0 ? `<li>${escapeHtml(t.locations.map((l) => l.city).join(', '))}</li>` : ''}
       ${formats.length > 0 ? `<li>${escapeHtml(formats.join(' i '))}</li>` : ''}
       <li>${languageList(t.languages)}</li>

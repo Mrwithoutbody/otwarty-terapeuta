@@ -93,15 +93,24 @@ describe('renderSections', () => {
 });
 
 describe('defaultSections', () => {
-  it('reproduces the old spine for a profile nobody has arranged', () => {
+  it('gives an unarranged profile the full spine, closing on the invitation', () => {
     const sections = defaultSections([]);
     expect(sections.map((s) => s.type)).toEqual([
       'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
+      'zaproszenie',
     ]);
     expect(sections[1]?.variant).toBe('alt');
   });
 
-  it('follows the saved block order', () => {
-    expect(defaultSections(['faq', 'intro']).map((s) => s.type)).toEqual(['faq', 'intro']);
+  // Alternating tints are assigned by position; the closing band must not lose
+  // its dark because it happened to land on an even one.
+  it('leaves a section that has a background of its own alone', () => {
+    const sections = defaultSections([]);
+    expect(sections.at(-1)).toEqual({ type: 'zaproszenie' });
+    expect(renderSections([{ type: 'zaproszenie' }], CTX)).toContain('pblock--dark');
+  });
+
+  it('follows the saved block order and still lands on the invitation', () => {
+    expect(defaultSections(['faq', 'intro']).map((s) => s.type)).toEqual(['faq', 'intro', 'zaproszenie']);
   });
 });

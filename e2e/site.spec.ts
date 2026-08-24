@@ -67,8 +67,8 @@ test('every profile is labelled as verified, declared or demo data', async ({ pa
 
 test('the profile page shows price, FAQ provenance and cancellation rules', async ({ page }) => {
   await page.goto('/terapeuci/anna-kowalczyk-demo');
-  await expect(page.getByRole('heading', { name: 'Ile to kosztuje' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Zasady odwołania' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Jedna cena, bez gwiazdek' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kiedy musisz odwołać' })).toBeVisible();
   // Provenance must stay visible without expanding anything: it is the whole
   // claim behind publishing a therapist's FAQ at all.
   await expect(page.getByText('Odpowiedzi pochodzą wprost od terapeuty.')).toBeVisible();

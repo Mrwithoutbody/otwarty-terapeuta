@@ -393,20 +393,24 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .profile-page .crumbs { margin: 0; }
 
 /* --- profile spine: never moves, so profiles stay comparable ------------- */
-.phero { display: grid; grid-template-columns: 1fr minmax(15rem, 20rem); gap: clamp(2rem, 5vw, 3.5rem);
+.phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 3.5rem);
   align-items: center; padding-block: clamp(1.5rem, 4vw, 3rem); }
 .phero > div { order: -1; }
-.phero h1 { font-size: clamp(2.3rem, 1.7rem + 2.6vw, 3.6rem); margin-bottom: var(--space-4); }
+/* The name used to be the loudest thing on the page at 3.6rem. Someone looking
+   for help is not looking for a surname - they are looking for whether this is
+   for them, which is what the line under it answers. */
+.phero h1 { font-size: clamp(2rem, 1.6rem + 1.5vw, 2.7rem); margin-bottom: var(--space-3); }
 .phero-photo { width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: var(--radius-lg);
   object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
   display: block; box-shadow: var(--shadow); }
-.phero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-8); }
+.phero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-6) 0 var(--space-6); }
 .phero-photo.empty { display: block; }
-.phero-headline { font-size: 1.2rem; color: var(--text-muted); max-width: 56ch; margin-bottom: var(--space-3); }
-.phero-meta { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none;
-  margin: 0; padding: 0; color: var(--text-muted); font-size: 0.92rem; }
-.phero-meta li { display: flex; align-items: center; gap: 0.35rem; margin: 0; }
-.phero-meta li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
+.phero-headline { font-size: 1.15rem; line-height: 1.55; color: var(--text-muted); max-width: 52ch;
+  margin-bottom: var(--space-6); }
+.phero-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+.phero-facts li { margin: 0; background: var(--accent-soft); border: 1px solid #cdd89a;
+  border-radius: 999px; padding: 0.34rem 0.85rem; font-size: 0.87rem; color: var(--accent-strong); }
+.phero-facts .lang { display: inline-flex; align-items: center; gap: 0.3rem; }
 .badges { display: flex; flex-wrap: wrap; gap: 0.45rem; list-style: none; margin: 0 0 var(--space-3); padding: 0; }
 .badges li { margin: 0; }
 .badge { display: inline-block; font-size: 0.78rem; padding: 0.36rem 0.75rem; border-radius: 999px;
@@ -541,7 +545,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 @media (max-width: 52rem) {
   .phero { grid-template-columns: 1fr; }
   .phero > div { order: 0; }
-  .phero-photo { max-width: 16rem; }
+  .phero-photo { max-width: 18rem; }
   .pfacts { grid-template-columns: 1fr 1fr; }
   .pfacts .pfact-cta { grid-column: 1 / -1; }
 }

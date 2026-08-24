@@ -240,7 +240,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: t }) => {
       if (t.bio.trim() === '') return '';
-      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml(heading(s, 'Jak pracuję'))}</h2>${lead(s)}
+      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml(heading(s, 'Tak wygląda praca ze mną'))}</h2>${lead(s)}
 ${introBody(t.bio)}
 ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => `<li>${escapeHtml(m.name)}</li>`).join('')}</ul>`}`;
     },
@@ -284,7 +284,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
     render: (s, { therapist: t }) =>
       t.offers.length === 0
         ? ''
-        : `${eyebrow('Oferta')}<h2>${escapeHtml(heading(s, 'Ile to kosztuje'))}</h2>${lead(s)}
+        : `${eyebrow('Oferta')}<h2>${escapeHtml(heading(s, 'Jedna cena, bez gwiazdek'))}</h2>${lead(s)}
 <div class="offer-grid">${t.offers
             .map(
               (o) => `<div class="offer-card">
@@ -334,7 +334,7 @@ ${faq
     render: (s, { therapist: t }) =>
       t.credentials.length === 0
         ? ''
-        : `${eyebrow('Kwalifikacje')}<h2>${escapeHtml(heading(s, 'Wykształcenie i certyfikaty'))}</h2>${lead(s)}
+        : `${eyebrow('Kwalifikacje')}<h2>${escapeHtml(heading(s, 'Skąd mam do tego przygotowanie'))}</h2>${lead(s)}
 ${t.credentials
             .map(
               (cr) => `<details><summary>${escapeHtml(cr.title)}</summary><div class="details-body">
@@ -350,7 +350,7 @@ ${t.credentials
     render: (s, { therapist: t }) =>
       t.links.length === 0
         ? ''
-        : `${eyebrow('Więcej o mnie')}<h2>${escapeHtml(heading(s, 'Więcej o mnie'))}</h2>${lead(s)}
+        : `${eyebrow('Więcej o mnie')}<h2>${escapeHtml(heading(s, 'Gdzie jeszcze mnie znajdziesz'))}</h2>${lead(s)}
 <ul class="linklist">${t.links
             .map(
               (l) => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)} ↗</a></li>`,
@@ -363,12 +363,37 @@ ${t.credentials
     label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', auto: true,
     fields: [HEADING_FIELD],
     render: (s, { therapist: t }) =>
-      `${eyebrow('Zasady odwołania')}<h2>${escapeHtml(heading(s, 'Zasady odwołania'))}</h2>
+      `${eyebrow('Zasady odwołania')}<h2>${escapeHtml(heading(s, 'Kiedy musisz odwołać'))}</h2>
 <div class="policy-box"><p>${
         t.cancellation_policy.trim() !== ''
           ? escapeHtml(t.cancellation_policy)
           : `Wizytę możesz odwołać bezpłatnie najpóźniej na <strong>${cutoffLabel(t.cancellation_cutoff_hours)}</strong> przed jej terminem. Jeśli odwołasz później albo nie przyjdziesz, sesja jest płatna.`
       }</p></div>`,
+  },
+
+  /**
+   * The close. Built from what the profile already knows, so every profile ends
+   * on an invitation rather than on its cancellation policy - and a therapist
+   * who never opens the builder still gets one.
+   */
+  zaproszenie: {
+    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', auto: true,
+    defaultVariant: 'dark', fields: [HEADING_FIELD, AREA('body', 'Treść', { max: 600 })],
+    render: (s, { therapist: t, env }) => {
+      const body = str(s.body);
+      const written = body === ''
+        ? `<p>${t.accepting_new_clients
+            ? 'Nie musisz wiedzieć, od czego zacząć ani jak nazwać to, z czym przychodzisz. Wystarczy pierwsze pytanie.'
+            : 'W tej chwili nie przyjmuję nowych osób, ale możesz sprawdzić terminy później albo poszukać kogoś innego w katalogu.'}</p>`
+        : renderBodyText(body);
+      return `<h2>${escapeHtml(heading(s, t.accepting_new_clients ? 'Nie wiesz, czy to dla Ciebie?' : 'Wróć, kiedy zwolnią się miejsca'))}</h2>
+${written}
+<p class="phero-actions">${
+        t.accepting_new_clients && t.next_available_slot_utc
+          ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
+          : '<a class="btn" href="/terapeuci">Wróć do katalogu</a>'
+      }${pluginCta(env)}</p>`;
+    },
   },
 
   // --- her own words: what stops two profiles reading as one template ------
@@ -541,8 +566,10 @@ function cleanSection(entry: unknown): Section | null {
   if (!def) return null;
 
   const out: Section = { type };
-  const variant = typeof raw.variant === 'string' ? raw.variant : '';
-  if (variant !== '' && VARIANTS.includes(variant)) out.variant = variant;
+  // An explicit '' is a choice ("light background"), not the absence of one:
+  // it is how she overrides a type that ships dark. Only a missing key falls
+  // back to the type's own default.
+  if (typeof raw.variant === 'string' && VARIANTS.includes(raw.variant)) out.variant = raw.variant;
   for (const field of def.fields ?? []) {
     const value = cleanField(field, raw[field.name]);
     if (value !== undefined) out[field.name] = value;
@@ -583,10 +610,15 @@ function cleanField(field: Field, value: unknown): unknown {
  */
 const DEFAULT_ORDER = [
   'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
+  'zaproszenie',
 ] as const;
 
 export function defaultSections(blocks: readonly string[], hasContent?: (type: string) => boolean): Section[] {
-  const order = blocks.length > 0 ? blocks : DEFAULT_ORDER;
+  // `profile_blocks` was written with a default of its own by an old migration,
+  // so it is almost never empty and the closing band would never appear. It is
+  // part of the spine, not a choice - a page has to land somewhere.
+  const stored = blocks.length > 0 ? blocks : DEFAULT_ORDER;
+  const order = stored.includes('zaproszenie') ? stored : [...stored, 'zaproszenie'];
   // Tinting follows what actually renders, not the position in the list: with
   // one empty section in between, counting positions puts two tinted sections
   // side by side. The builder keeps listing the empty ones - it just does not
@@ -595,6 +627,9 @@ export function defaultSections(blocks: readonly string[], hasContent?: (type: s
   return order
     .filter((id) => SECTIONS_DEF[id]?.auto === true)
     .map((id) => {
+      // A type with a background of its own keeps it - the closing band must not
+      // lose its dark just because it landed on an even position.
+      if (SECTIONS_DEF[id]?.defaultVariant) return { type: id };
       const visible = hasContent ? hasContent(id) : true;
       const variant = visible && shown++ % 2 === 1 ? 'alt' : '';
       return variant === '' ? { type: id } : { type: id, variant };
@@ -602,8 +637,8 @@ export function defaultSections(blocks: readonly string[], hasContent?: (type: s
 }
 
 export function variantOf(section: Section): Variant {
-  const declared = typeof section.variant === 'string' ? section.variant : '';
-  if (VARIANTS.includes(declared)) return declared as Variant;
+  const declared = section.variant;
+  if (typeof declared === 'string' && VARIANTS.includes(declared)) return declared as Variant;
   return SECTIONS_DEF[section.type]?.defaultVariant ?? '';
 }
 
