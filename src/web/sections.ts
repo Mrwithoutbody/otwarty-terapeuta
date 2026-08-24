@@ -23,6 +23,14 @@ export interface SectionCtx {
   therapist: PublicTherapist;
   faq: PublicFaqItem[];
   slots: PublicSlot[];
+  /**
+   * Anchors the arrangement actually renders. She can delete the slots block
+   * while keeping a calendar full of slots; a button jumping to an anchor that
+   * is not on the page is worse than no button. `renderSections` fills this in,
+   * and an absent set means "render every link", which is what a caller
+   * rendering one section on its own wants.
+   */
+  anchors?: ReadonlySet<string>;
 }
 
 export type Values = Record<string, unknown>;
@@ -167,6 +175,11 @@ function profileLinks(t: PublicTherapist): string {
     .join('')}</ul>`;
 }
 
+/** Is the block this anchor belongs to on the page at all? */
+function hasAnchor(ctx: SectionCtx, anchor: string): boolean {
+  return ctx.anchors === undefined || ctx.anchors.has(anchor);
+}
+
 /** Does she have first-meeting answers? The hero links to that block only then. */
 function hasFirstMeeting(t: PublicTherapist): boolean {
   const { course, prep, decision } = t.first_meeting;
@@ -278,8 +291,8 @@ function heroBody(
     ${opts.greeting ? `<p class="phero-greeting">${escapeHtml(opts.greeting)}</p>` : ''}
     ${opts.lead ? `<p class="phero-lead">${escapeHtml(opts.lead)}</p>` : t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
     <div class="phero-actions">
-      ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${hasFirstMeeting(t) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
     ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
     ${profileLinks(t)}
@@ -497,7 +510,8 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
   kluczowe: {
     label: 'Cena i najbliższy termin', hint: 'Wiersz faktów do porównywania profili',
     auto: true,
-    render: (_s, { therapist: t, slots }) => {
+    render: (_s, ctx) => {
+      const { therapist: t, slots } = ctx;
       const nextSlot = slots[0];
       const duration = t.offers[0]?.duration_minutes ?? null;
       return `<div class="pfacts">
@@ -512,7 +526,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     <strong>${nextSlot ? escapeHtml(compactDateTime(nextSlot.starts_at_utc, nextSlot.timezone)) : 'brak wolnych terminów'}</strong>
     <span>${nextSlot ? 'najbliższy wolny termin' : 'w najbliższych trzech tygodniach'}</span>
   </div>
-  <div class="pfact-cta">${nextSlot ? '<a class="btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
+  <div class="pfact-cta">${nextSlot && hasAnchor(ctx, 'terminy') ? '<a class="btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
 </div>`;
     },
   },
@@ -624,7 +638,7 @@ ${pluginCta(env)}`;
   ${
     soon.length === 0
       ? ''
-      : `<div class="pcard" id="terminy">
+      : `<div class="pcard">
     <h3>Najbliższe wolne terminy</h3>
     <ul class="slot-chips">${soon
         .map(
@@ -734,14 +748,15 @@ ${pluginCta(env)}`;
    */
   zaproszenie: {
     label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', auto: true,
-    render: (_s, { therapist: t, env }) => {
+    render: (_s, ctx) => {
+      const { therapist: t, env } = ctx;
       const written = `<p>${t.accepting_new_clients
             ? 'Nie musisz wiedzieć, od czego zacząć ani jak nazwać to, z czym przychodzisz. Wystarczy pierwsze pytanie.'
             : 'W tej chwili nie przyjmuję nowych osób, ale możesz sprawdzić terminy później albo poszukać kogoś innego w katalogu.'}</p>`;
       return `<h2>${escapeHtml(t.accepting_new_clients ? 'Nie wiesz, czy to dla Ciebie?' : 'Wróć, kiedy zwolnią się miejsca')}</h2>
 ${written}
 <p class="phero-actions">${
-        t.accepting_new_clients && t.next_available_slot_utc
+        t.accepting_new_clients && t.next_available_slot_utc && hasAnchor(ctx, 'terminy')
           ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
           : '<a class="btn" href="/terapeuci">Wróć do katalogu</a>'
       }${pluginCta(env)}</p>
@@ -1036,7 +1051,9 @@ export function defaultSections(): Section[] {
 
 
 /** Anchors kept from the old markup: the hero and the widget link to them. */
-const ANCHORS: Record<string, string> = { slots: 'terminy', faq: 'faq', first_meeting: 'pierwsze' };
+const ANCHORS: Record<string, string> = {
+  slots: 'terminy', zestawienie: 'terminy', faq: 'faq', first_meeting: 'pierwsze',
+};
 
 /**
  * One broken section must not take the profile down with it, so each renders
@@ -1044,8 +1061,15 @@ const ANCHORS: Record<string, string> = { slots: 'terminy', faq: 'faq', first_me
  * no offer, no slots - is skipped entirely: a heading above nothing is the thing
  * that reads as broken.
  */
-export function renderSections(sections: Section[], ctx: SectionCtx): string {
+export function renderSections(sections: Section[], baseCtx: SectionCtx): string {
   const seenAnchor = new Set<string>();
+  // Two blocks can carry the same anchor (the slot table and the two-card
+  // summary both are "terminy"): the first one on the page takes the id, and
+  // the links elsewhere know whether it is there at all.
+  const ctx: SectionCtx = {
+    ...baseCtx,
+    anchors: new Set(sections.map((s) => ANCHORS[s.type]).filter((a): a is string => a !== undefined)),
+  };
   return sections
     .map((section) => {
       const def = SECTIONS_DEF[section.type];

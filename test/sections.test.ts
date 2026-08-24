@@ -86,6 +86,27 @@ describe('renderSections', () => {
     expect(html.match(/id="/g)).toBeNull();
   });
 
+  // She can keep a full calendar and still delete the block that shows it.
+  it('links to an anchor only when the block carrying it is on the page', () => {
+    const slot = { starts_at_utc: '2026-09-01T09:00:00.000Z', timezone: 'Europe/Warsaw', mode: 'online', duration_minutes: 50 };
+    const ctx = { ...CTX, slots: [slot] } as SectionCtx;
+    expect(renderSections([{ type: 'hero' }, { type: 'slots' }], ctx)).toContain('href="#terminy"');
+    expect(renderSections([{ type: 'hero' }, { type: 'zestawienie' }], ctx)).toContain('href="#terminy"');
+    expect(renderSections([{ type: 'hero' }], ctx)).not.toContain('href="#terminy"');
+    expect(renderSections([{ type: 'kluczowe' }], ctx)).not.toContain('href="#terminy"');
+  });
+
+  // Both blocks show the free slots, so both claim the same anchor - and an id
+  // written twice is an id the browser stops trusting.
+  it('never writes the same id twice', () => {
+    const slot = { starts_at_utc: '2026-09-01T09:00:00.000Z', timezone: 'Europe/Warsaw', mode: 'online', duration_minutes: 50 };
+    const html = renderSections(
+      [{ type: 'zestawienie' }, { type: 'slots' }],
+      { ...CTX, slots: [slot] } as SectionCtx,
+    );
+    expect(html.match(/id="terminy"/g)).toHaveLength(1);
+  });
+
   it('lets one broken section fail alone', () => {
     const broken = { label: 'Zepsuta', hint: '', group: 'wlasne' as const, render: () => { throw new Error('boom'); } };
     SECTIONS_DEF['zepsuta'] = broken;

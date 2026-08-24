@@ -595,13 +595,15 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    the whole scroll read as one colour. The heading works because it is a framed
    panel with a wash inside it, so the tinted sections are built the same way,
    with the pool of light on the opposite side. Consecutive panels mirror, so
-   two in a row are not the same picture twice. */
+   two in a row are not the same picture twice - counted among the panels, not
+   among all sections: nth-of-type counts every section element, so two panels
+   with a plain block between them landed on the same gradient. */
 .pblock--alt, .pblock--narrow {
   margin-block: var(--space-6); padding-inline: clamp(1.6rem, 3vw, 3rem); border: 1px solid var(--border);
   border-radius: var(--radius-lg); background:
     radial-gradient(circle at 84% 10%, rgba(238, 244, 145, 0.42), transparent 20rem),
     linear-gradient(140deg, #f3f6ec, var(--band)); }
-.pblock--alt:nth-of-type(even), .pblock--narrow:nth-of-type(even) { background:
+:is(.pblock--alt, .pblock--narrow):nth-child(even of :is(.pblock--alt, .pblock--narrow)) { background:
     radial-gradient(circle at 14% 88%, rgba(238, 244, 145, 0.42), transparent 20rem),
     linear-gradient(220deg, #f3f6ec, var(--band)); }
 .pblock--narrow { padding-block: clamp(1.2rem, 2vw, 1.6rem); }
