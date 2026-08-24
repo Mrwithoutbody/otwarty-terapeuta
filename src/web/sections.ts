@@ -229,18 +229,17 @@ function plainBody(s: Section): string {
  */
 function heroBody(
   ctx: SectionCtx,
-  opts: { facts: boolean; actions: boolean; greeting?: string },
+  opts: { facts: boolean; actions: boolean; greeting?: string; badge?: string },
 ): string {
   const t = ctx.therapist;
   const formats = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null]
     .filter((x): x is string => x !== null);
-  return `${
-    t.photo_url
-      // The master, not the thumbnail: this renders small but must stay sharp on
-      // a high-DPI screen. The 160px rendition is for the catalogue cards.
-      ? `<img class="phero-photo" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
-      : '<span class="phero-photo empty" aria-hidden="true"></span>'
-  }
+  const photo = t.photo_url
+    // The master, not the thumbnail: this renders small but must stay sharp on
+    // a high-DPI screen. The 160px rendition is for the catalogue cards.
+    ? `<img class="phero-photo" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
+    : '<span class="phero-photo empty" aria-hidden="true"></span>';
+  return `${opts.badge ? `<figure class="phero-frame">${photo}${opts.badge}</figure>` : photo}
   <div>
     <ul class="badges">
       ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
@@ -408,6 +407,58 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
   },
 
+
+  /**
+   * The heading a one-person practice writes for itself: her sentence in the
+   * <h1>, a line she is quoted on, and the name on a card under the portrait.
+   * The other headings lead with the name, which is right for a catalogue entry
+   * and wrong for a page that has to say "this is for you" first.
+   */
+  'hero-obietnica': {
+    label: 'Nagłówek — obietnica', hint: 'Twoje zdanie w tytule, nazwisko na karcie pod portretem',
+    auto: true, family: 'hero',
+    fields: [
+      T('nadtytul', 'Nadtytuł', { max: 90, hint: 'np. Psychoterapia Gestalt · Warszawa i online' }),
+      T('tytul', 'Tytuł', { max: 120, hint: 'zdanie do osoby, nie Twoje nazwisko' }),
+      AREA('cytat', 'Cytat', { max: 240 }),
+      AREA('wstep', 'Akapit wprowadzający', { max: 600 }),
+      T('podpis', 'Podpis pod nazwiskiem', { max: 120, hint: 'puste = Twój nagłówek profilu' }),
+    ],
+    render: (s, ctx) => {
+      const t = ctx.therapist;
+      const duration = t.offers[0]?.duration_minutes ?? null;
+      const facts = [
+        t.price_min_minor === null
+          ? null
+          : `${formatPrice(t.price_min_minor, t.currency)}${duration === null ? '' : ` / ${duration} min`}`,
+        t.locations.map((l) => [l.city, l.address_line].filter(Boolean).join(', ')).find((x) => x !== '') ?? null,
+        t.offers_online ? 'lub online' : null,
+        t.session_types.length > 0 ? labelList(t.session_types, '') : null,
+      ].filter((x): x is string => x !== null && x !== '');
+
+      return `<div>
+    ${eyebrow(str(s.nadtytul))}
+    <h1>${escapeHtml(str(s.tytul) || t.display_name)}</h1>
+    ${str(s.cytat) === '' ? '' : `<p class="phero-quote">${escapeHtml(str(s.cytat))}</p>`}
+    ${str(s.wstep) === '' ? '' : `<p class="phero-lead">${escapeHtml(str(s.wstep))}</p>`}
+    <div class="phero-actions">
+      ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+    </div>
+    ${facts.length === 0 ? '' : `<ul class="phero-facts">${facts.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`}
+  </div>
+  <figure class="phero-card">
+    ${
+      t.photo_url
+        ? `<img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
+        : '<span class="phero-card-empty" aria-hidden="true"></span>'
+    }
+    <figcaption><strong>${escapeHtml(t.display_name)}</strong>
+      <span>${escapeHtml(str(s.podpis) || t.headline || '')}</span></figcaption>
+  </figure>`;
+    },
+  },
+
   /**
    * Dark, centred, the portrait round and above the name. No fact pills: this
    * one is for a therapist whose profile is the whole of her practice, and the
@@ -425,10 +476,24 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
    * A wide photograph with the details on a card riding over its lower edge.
    * Wants a landscape photo; a portrait one is cropped to its upper third.
    */
+  /**
+   * A coloured block carrying the whole heading: words on one side, the portrait
+   * on the other with one concrete fact pinned to it. The first attempt made
+   * this a 21:9 panorama, which turns a portrait photograph - or worse, a
+   * placeholder avatar - into a cropped forehead.
+   */
   'hero-okladka': {
-    label: 'Nagłówek — okładka', hint: 'Szerokie zdjęcie, dane na karcie pod nim',
-    auto: true, family: 'hero', fields: [],
-    render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
+    label: 'Nagłówek — na kolorze', hint: 'Całość na barwnym bloku, portret z plakietką',
+    auto: true, family: 'hero',
+    fields: [AREA('powitanie', 'Zdanie na powitanie', { max: 240 })],
+    render: (s, ctx) => {
+      const next = ctx.slots[0];
+      const badge = next
+        ? `<span class="phero-badge"><b>${escapeHtml(compactDateTime(next.starts_at_utc, next.timezone))}</b>
+           <span>najbliższy wolny termin</span></span>`
+        : '';
+      return heroBody(ctx, { facts: true, actions: true, greeting: str(s.powitanie), badge });
+    },
   },
 
 
@@ -489,7 +554,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
    * is - each answer she gave, in the order the person will live them.
    */
   first_meeting: {
-    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', auto: true, fields: [HEADING_FIELD, LEAD_FIELD],
+    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', tone: 'alt', auto: true, fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: t }) => {
       const candidates: Array<[string, string]> = [
         ['Jak wygląda pierwsze spotkanie', t.first_meeting.course],
@@ -506,7 +571,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
   },
 
   topics: {
-    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', tone: 'alt', auto: true,
+    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: t }) =>
       t.topics.length === 0
@@ -616,7 +681,7 @@ ${pluginCta(env)}`;
   },
 
   faq: {
-    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
+    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { faq }) =>
       faq.length === 0
@@ -635,7 +700,7 @@ ${faq
   },
 
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', auto: true,
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     data: {
       fields: [{
@@ -831,7 +896,7 @@ ${written}
   },
 
   kroki: {
-    label: 'Kroki', hint: 'Numerowane etapy — np. jak wygląda współpraca', repeatable: true,
+    label: 'Kroki', hint: 'Numerowane etapy — np. jak wygląda współpraca', repeatable: true, tone: 'alt',
     fields: [
       HEADING_FIELD, LEAD_FIELD,
       {

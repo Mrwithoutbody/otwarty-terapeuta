@@ -60,7 +60,7 @@ html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; overflow-x: clip
 body {
   min-height: 100vh;
   margin: 0;
-  background: #fbfcf7;
+  background: var(--bg);
   color: var(--text);
   font: 400 1rem/1.7 var(--sans);
   text-rendering: optimizeLegibility;
@@ -95,7 +95,7 @@ code { background: var(--surface-alt); border-radius: 6px; padding: 0.08em 0.32e
 }
 .skip-link:focus { top: 0; }
 
-.wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding-inline: clamp(1rem, 3vw, 2rem); }
+.wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 
 header.site {
   position: sticky; top: 0; z-index: 20;
@@ -422,22 +422,42 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .profile-page .crumbs { margin: 0; }
 
 /* --- profile spine: never moves, so profiles stay comparable ------------- */
-.phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 3.5rem);
-  align-items: center; padding-block: clamp(1.5rem, 4vw, 3rem); }
+.phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 4rem);
+  align-items: center; padding-block: clamp(1.5rem, 4vw, 5rem) clamp(2rem, 5vw, 6rem); }
 .phero > div { order: -1; }
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
    for them, which is what the line under it answers. */
-.phero h1 { font-size: clamp(2rem, 1.6rem + 1.5vw, 2.7rem); margin-bottom: var(--space-3); }
+.phero h1 { font-size: clamp(1.7rem, 1.5rem + 0.8vw, 2rem); line-height: 1.12; letter-spacing: -0.025em;
+  margin-bottom: var(--space-3); }
 .phero-photo { width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: var(--radius-lg);
   object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
   display: block; box-shadow: var(--shadow); }
-.phero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-6) 0 var(--space-6); }
+.phero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: var(--space-6) 0 var(--space-6); }
 .phero-photo.empty { display: block; }
 
 /* --- heading blocks ------------------------------------------------------ */
 /* Portrait first in the source, text second, so the classic block puts the text
    back on the left and the others build on that order. */
+
+/* The promise heading: her sentence carries the page, the name rides on a card
+   under the portrait. Measured off the reference - quote at 1.1rem italic serif
+   with an accent rule, portrait 4:5 in a bordered card. */
+.phero--obietnica { grid-template-columns: 1.15fr 0.85fr; align-items: center; }
+.phero--obietnica > div { order: 0; }
+.phero-quote { font-family: var(--serif); font-style: italic; color: var(--text-muted);
+  border-left: 3px solid var(--accent); padding-left: 1.1rem; margin: 0 0 1.8rem; max-width: 52ch;
+  font-size: 1rem; line-height: 1.7; }
+.phero-lead { font-size: 1.12rem; color: var(--text-muted); max-width: 56ch; margin: 0; }
+.phero--obietnica .phero-actions { margin: 2rem 0 1.4rem; }
+.phero-card { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; }
+.phero-card img, .phero-card-empty { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
+  object-fit: cover; background: linear-gradient(140deg, #e8ecd6, #f2f3e9 55%, #e2e5d8); }
+.phero-card figcaption { padding: 1.1rem 1.3rem; border-top: 1px solid var(--border); }
+.phero-card strong { display: block; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
+.phero-card span { display: block; color: var(--text-muted); font-size: 0.9rem; }
+@media (max-width: 56rem) { .phero--obietnica { grid-template-columns: 1fr; } }
 
 /* Dark, centred, portrait above the name - the shape a single-person site uses
    when the person is the whole offer. */
@@ -506,17 +526,22 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .offer-meta { color: var(--text-muted); font-size: 0.88rem; }
 .offer-price { margin-left: auto; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
 
-/* A wide photograph with the details on a card riding over its lower edge. */
-.phero--okladka { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.phero--okladka > div { order: 0; position: relative; z-index: 1; margin: -5rem auto 0;
-  width: min(100%, 54rem); background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: clamp(1.5rem, 4vw, 2.5rem); }
-.phero--okladka .phero-photo { width: 100%; aspect-ratio: 21 / 9; border-radius: var(--radius-lg);
-  object-position: center 30%; }
-@media (max-width: 52rem) {
-  .phero--okladka > div { margin-top: -3rem; }
-  .phero--okladka .phero-photo { aspect-ratio: 4 / 3; }
-}
+/* The whole heading on a colour block: words one side, portrait the other with
+   one fact pinned to it. A panoramic crop was the first attempt and it turned a
+   portrait photograph into a forehead. */
+.phero--okladka { grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 4vw, 3.5rem);
+  background: var(--accent-soft); border: 1px solid #dfe6b4; border-radius: var(--radius-lg);
+  padding: clamp(1.8rem, 3.5vw, 3.2rem); margin-top: var(--space-6); align-items: center; }
+.phero--okladka > div { order: -1; }
+.phero-frame { position: relative; margin: 0; max-width: 22rem; margin-inline: auto; }
+.phero--okladka .phero-photo { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
+.phero-badge { position: absolute; left: -0.9rem; bottom: 1.4rem; background: var(--surface-solid);
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 0.7rem 1rem; }
+.phero-badge b { display: block; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.phero-badge span { display: block; color: var(--text-muted); font-size: 0.76rem; }
+.phero--okladka .phero-facts li { background: var(--surface-solid); border-color: var(--border); }
+@media (max-width: 56rem) { .phero--okladka { grid-template-columns: 1fr; } }
 .phero-headline { font-size: 1.15rem; line-height: 1.55; color: var(--text-muted); max-width: 52ch;
   margin-bottom: var(--space-6); }
 .phero-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
@@ -530,7 +555,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .badge.ok { background: var(--accent-soft); border-color: #cdd89a; color: var(--accent-strong); }
 .badge.demo { background: var(--surface-alt); color: var(--text-muted); }
 
-.pfacts { margin-top: var(--space-8); background: var(--surface-solid); border: 1px solid var(--border);
+.pfacts { margin-top: var(--space-6); background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--space-6);
   display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-6); align-items: center; }
 .pfact strong { display: block; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
@@ -541,16 +566,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* Not a landing page by default. Six rems of air between bands is right for a
    page selling something and wrong for a profile someone is comparing against
    three others. */
-.pblock { padding-block: clamp(2.4rem, 4.5vw, 3.6rem); border-top: 1px solid var(--border); }
+.pblock { padding-block: clamp(2.6rem, 5.5vw, 6rem); border-top: 1px solid var(--border); }
 /* The first section sits right under the fact card, which already has its own
    outline - a hairline there separates nothing. A tinted section draws its own
    bottom border, so the one after it must not add a second. */
 .pblock:first-of-type { border-top: 0; }
 .pblock--alt + .pblock, .pblock--dark + .pblock, .pblock--narrow + .pblock { border-top: 0; }
-.pblock > h2 { margin: 0 0 var(--space-4); font-size: clamp(1.5rem, 1.3rem + 1vw, 2rem); }
+.pblock > h2 { margin: 0 0 var(--space-4); font-size: clamp(1.35rem, 1.2rem + 0.6vw, 1.5rem);
+  line-height: 1.12; letter-spacing: -0.025em; }
 .pblock > .block-lead { max-width: 56ch; color: var(--text-muted); font-size: 1.02rem;
   margin-bottom: var(--space-6); }
 .pblock > h2 + .chips, .pblock > h2 + .offer-grid, .pblock > h2 + .meeting-steps { margin-top: var(--space-6); }
+
 /* Background belongs to the section, not to its position. Tinting every second
    block gave seven identical bands; now she picks, and a page can have one
    tinted stretch, a narrow strip and a dark close.
@@ -564,7 +591,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
 .pblock--alt { background: var(--surface-alt); border-block: 1px solid var(--border); }
 .pblock--narrow { background: var(--surface-alt); border-block: 1px solid var(--border);
-  padding-block: clamp(1.4rem, 2.5vw, 2rem); }
+  padding-block: clamp(1.2rem, 2vw, 1.6rem); }
 /* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
    the dullest thing the profile had to say. */
 .pblock--dark { background: #344125; color: #f0f3d6; border-block: 0;
@@ -605,7 +632,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pblock--dark > p:not(.eyebrow):not(.hint), .pblock--dark > .block-lead { color: #d5dcc2; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: var(--space-4) 0 0; padding: 0; }
 .chips li { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: 999px; padding: 0.45rem 1rem; font-size: 0.93rem; }
+  border-radius: 999px; padding: 0.55rem 1.1rem; font-size: 0.95rem; }
 .offer-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
 .offer-card { background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: var(--space-8); box-shadow: var(--shadow-sm); }
@@ -648,8 +675,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .policy-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-6); }
 .policy-box p { margin: 0; color: var(--text-muted); }
 .pblock details { background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius); margin-bottom: 0.55rem; }
-.pblock summary { cursor: pointer; padding: 0.85rem 1.15rem; font-weight: 500; list-style: none;
+  border-radius: var(--radius); margin: 0.7rem 0 0; }
+.pblock summary { cursor: pointer; padding: 1rem 1.3rem; font-weight: 500; list-style: none;
   display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; }
 .pblock summary::-webkit-details-marker { display: none; }
 .pblock summary::after { content: "+"; color: var(--accent-strong); font-size: 1.25rem; line-height: 1; }
@@ -699,6 +726,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   letter-spacing: 0.08em; text-transform: uppercase;
 }
 .eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.7rem; margin-bottom: 1.25rem; border: 1px solid rgba(99,114,0,0.18); border-radius: 999px; background: rgba(255,255,250,0.62); }
+/* Inside a profile the eyebrow is a plain line of small caps, the way the
+   reference sets it - the pill belongs to the marketing pages. */
+.profile-page .eyebrow { display: block; padding: 0; border: 0; background: none;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.09em; margin-bottom: 0.7rem; }
 .eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(156,173,0,0.12); }
 .home-hero h1 { max-width: 16ch; margin: 0 auto 1.25rem; font-size: clamp(2.65rem, 5.1vw, 5.2rem); line-height: 0.98; letter-spacing: -0.055em; }
 .home-hero .lead { max-width: 48rem; margin: 0 auto 1.65rem; color: #66705d; font-size: clamp(1rem, 1.4vw, 1.13rem); line-height: 1.7; }
