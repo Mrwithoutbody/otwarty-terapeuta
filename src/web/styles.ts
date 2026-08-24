@@ -798,7 +798,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
 /* Three claims across, the shape every reference profile uses under its
    philosophy paragraphs. */
 .pillars { display: grid; gap: var(--space-6); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  margin-top: var(--space-6); }
+  margin-top: var(--space-6); padding: 0; list-style: none; }
 .pillars li { margin: 0; padding: var(--space-6); border: 1px solid var(--border);
   border-radius: var(--radius-lg); background: var(--surface-solid); }
 .pillars h3 { margin: 0 0 var(--space-3); font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
@@ -806,7 +806,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
 
 /* Her writing elsewhere: title, one line, link out. */
 .plinks { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  margin-top: var(--space-6); }
+  margin-top: var(--space-6); padding: 0; list-style: none; }
 .plinks li { margin: 0; }
 .plinks a { display: block; height: 100%; padding: var(--space-6); text-decoration: none;
   border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-solid);
