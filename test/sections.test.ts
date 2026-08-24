@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultSections,
+  pageSections,
   parseSections,
   renderSections,
   SECTIONS_DEF,
@@ -15,7 +16,7 @@ const THERAPIST = {
   age_groups: [], accepting_new_clients: true, credentials: [], links: [],
   verification_status: 'verified', verified_at: null, offers: [], price_min_minor: null,
   price_max_minor: null, currency: 'PLN', next_available_slot_utc: null, timezone: 'Europe/Warsaw',
-  cancellation_policy: '', cancellation_cutoff_hours: 24, profile_blocks: [], sections: [],
+  cancellation_policy: '', cancellation_cutoff_hours: 24, sections: [],
   first_meeting: { course: '', prep: '', decision: '' }, is_demo: false,
 } as unknown as PublicTherapist;
 
@@ -96,8 +97,14 @@ describe('renderSections', () => {
 });
 
 describe('defaultSections', () => {
+  // A page always renders one heading, whatever she arranged.
+  it('adds a heading to an arrangement that lacks one', () => {
+    expect(pageSections([{ type: 'faq' }]).map((s) => s.type)).toEqual(['hero', 'faq']);
+    expect(pageSections([{ type: 'hero-spotlight' }]).map((s) => s.type)).toEqual(['hero-spotlight']);
+  });
+
   it('gives an unarranged profile the full spine, closing on the invitation', () => {
-    const sections = defaultSections([]);
+    const sections = defaultSections();
     expect(sections.map((s) => s.type)).toEqual([
       'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
       'credentials', 'policy', 'zaproszenie',
@@ -106,22 +113,8 @@ describe('defaultSections', () => {
   });
 
   it('closes on the invitation, which carries its own dark band', () => {
-    expect(defaultSections([]).at(-1)).toEqual({ type: 'zaproszenie' });
+    expect(defaultSections().at(-1)).toEqual({ type: 'zaproszenie' });
     expect(renderSections([{ type: 'zaproszenie' }], CTX)).toContain('pblock--dark');
-  });
-
-  // An old `profile_blocks` value predates both the heading and the fact row,
-  // so a page built from one still has to get them.
-  it('adds the masthead and the close to an order that predates them', () => {
-    expect(defaultSections(['faq', 'intro']).map((s) => s.type)).toEqual([
-      'hero', 'kluczowe', 'dane', 'faq', 'intro', 'zaproszenie',
-    ]);
-  });
-
-  it('leaves the heading she chose alone', () => {
-    expect(defaultSections(['hero-spotlight', 'faq']).map((s) => s.type)).toEqual([
-      'hero-spotlight', 'faq', 'zaproszenie',
-    ]);
   });
 });
 

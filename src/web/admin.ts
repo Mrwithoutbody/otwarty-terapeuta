@@ -548,10 +548,10 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  */
 function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmin: boolean): string {
   const stored = parseSections(row?.sections_json ?? null);
-  const filled = autoContentFlags(row, context);
+  const autoFilled = autoContentFlags(row, context);
   const sections = stored.length > 0
     ? stored
-    : defaultSections(parseStoredBlocks(row?.profile_blocks ?? null));
+    : defaultSections();
 
   const rows = sections
     .map((section, index) => {
@@ -559,7 +559,9 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmi
       if (!def) return '';
       // A section with nothing in it is listed but marked: she can see what
       // filling it in would add, rather than wondering why it never appears.
-      const empty = def.auto === true ? filled[section.type] === false : filledFields(def, section, true) === 0;
+      const empty = def.auto === true
+        ? autoFilled[section.type] === false
+        : filled(def.fields ?? [], section, true) === 0;
       return `<li class="sec-item" data-section draggable="true">
   <div class="sec-head">
     <span class="grip" aria-hidden="true">⠿</span>
@@ -596,23 +598,15 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext, isAdmi
 </div>`;
 }
 
-/** How many of a section's own data fields carry something. */
-function countOwn(def: SecDef, stored: Values): number {
-  return (def.data?.fields ?? []).filter((field) => {
-    const value = stored[field.name];
-    return Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== '';
-  }).length;
-}
-
 /**
- * How many of a section's fields she has filled in. `skipTitles` ignores the
+ * How many of a section's fields carry something. `skipTitles` ignores the
  * heading and the lead, which every section has and neither of which counts as
  * content of its own.
  */
-function filledFields(def: SecDef, section: Section, skipTitles = false): number {
-  return (def.fields ?? []).filter((field) => {
+function filled(fields: Field[], values: Values, skipTitles = false): number {
+  return fields.filter((field) => {
     if (skipTitles && (field.name === 'heading' || field.name === 'lead')) return false;
-    const value = section[field.name];
+    const value = values[field.name];
     return Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== '';
   }).length;
 }
@@ -640,12 +634,12 @@ function sectionFields(
     .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`, isAdmin))
     .join('');
   if (fields === '') return '';
-  const filled = filledFields(def, section) + countOwn(def, stored);
+  const count = filled(def.fields ?? [], section) + filled(def.data?.fields ?? [], stored);
   const editable = def.data !== undefined;
-  const summary = filled > 0
-    ? `Treść i nagłówek (${filled} ${filled === 1 ? 'pole' : 'pola'})`
-    : editable ? 'Wpisz treść' : def.auto === true ? 'Zmień nagłówek' : 'Wpisz treść';
-  return `<details class="sec-fields"${def.auto === true && !editable ? '' : filled > 0 ? '' : ' open'}>
+  const summary = count > 0
+    ? `Treść i nagłówek (${count} ${count === 1 ? 'pole' : 'pola'})`
+    : editable || def.auto !== true ? 'Wpisz treść' : 'Zmień nagłówek';
+  return `<details class="sec-fields"${def.auto === true && !editable ? '' : count > 0 ? '' : ' open'}>
   <summary>${escapeHtml(summary)}</summary>
   <div class="sec-fields-body">${fields}</div>
 </details>`;
@@ -705,15 +699,6 @@ function autoContentFlags(row: TherapistRow | null, context: EditorContext): Rec
   };
 }
 
-function parseStoredBlocks(value: string | null): string[] {
-  try {
-    const parsed: unknown = JSON.parse(value ?? '[]');
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((b): b is string => typeof b === 'string');
-  } catch {
-    return [];
-  }
-}
 
 function checkboxGrid(name: string, options: RefTag[], chosen: Set<string>): string {
   return `<div class="choice-grid">${options
@@ -1144,10 +1129,9 @@ function checkedValues(body: URLSearchParams, name: string, allowed: string[] | 
 function collectSections(body: URLSearchParams): string {
   const found: Array<{ pos: number; index: number; section: Section }> = [];
 
-  for (let index = 0; index < MAX_SECTIONS * 2; index++) {
+  for (const index of postedSections(body)) {
     const type = body.get(`sec_${index}_type`);
-    if (!type) continue;
-    if (body.get(`sec_${index}_del`) === '1') continue;
+    if (!type || body.get(`sec_${index}_del`) === '1') continue;
     const def = SECTIONS_DEF[type];
     if (!def) continue;
 
@@ -1187,7 +1171,7 @@ function collectSectionData(
   isAdmin: boolean,
 ): Partial<TherapistRow> {
   const out: Partial<TherapistRow> = {};
-  for (let index = 0; index < MAX_SECTIONS * 2; index++) {
+  for (const index of postedSections(body)) {
     const type = body.get(`sec_${index}_type`);
     if (!type || body.get(`sec_${index}_del`) === '1') continue;
     const data = SECTIONS_DEF[type]?.data;
@@ -1200,6 +1184,16 @@ function collectSectionData(
     Object.assign(out, data.write(values, row, isAdmin));
   }
   return out;
+}
+
+/** Which section indexes the form actually posted, in the order it posted them. */
+function postedSections(body: URLSearchParams): number[] {
+  const seen = new Set<number>();
+  for (const key of body.keys()) {
+    const match = /^sec_(\d+)_type$/.exec(key);
+    if (match) seen.add(Number(match[1]));
+  }
+  return [...seen];
 }
 
 function readField(body: URLSearchParams, field: Field, name: string): unknown {

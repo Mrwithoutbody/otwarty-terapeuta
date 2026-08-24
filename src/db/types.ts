@@ -69,8 +69,6 @@ export interface PublicTherapist {
   timezone: string;
   cancellation_policy: string;
   cancellation_cutoff_hours: number;
-  /** Which blocks this profile shows, in the therapist's own order. */
-  profile_blocks: ProfileBlock[];
   /** Sections she arranged herself. Empty = the default spine above. */
   sections: unknown[];
   /** What happens at the first meeting. Any field may be empty. */
@@ -119,9 +117,6 @@ export interface CrisisResource {
 }
 
 /** Raw `therapists` row as stored. Includes fields that must never be published. */
-/** Blocks a therapist can place on her public profile, in her own order. */
-export const PROFILE_BLOCKS = ['intro','first_meeting','topics','offers','slots','faq','credentials','links','policy'] as const;
-export type ProfileBlock = (typeof PROFILE_BLOCKS)[number];
 
 export interface TherapistRow {
   id: string;
@@ -144,7 +139,6 @@ export interface TherapistRow {
   status: 'draft' | 'published' | 'unpublished';
   is_demo: number;
   timezone: string;
-  profile_blocks: string;
   sections_json: string;
   first_meeting_course: string;
   first_meeting_prep: string;

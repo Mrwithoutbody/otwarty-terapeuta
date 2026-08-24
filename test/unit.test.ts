@@ -177,7 +177,6 @@ function therapist(overrides: Partial<PublicTherapist>): PublicTherapist {
     next_available_slot_utc: null,
     timezone: 'Europe/Warsaw',
     cancellation_policy: '',
-    profile_blocks: [],
     sections: [],
     first_meeting: { course: '', prep: '', decision: '' },
     cancellation_cutoff_hours: 24,

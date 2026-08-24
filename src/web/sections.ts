@@ -205,9 +205,9 @@ function ctaButton(section: Section, ghost = false): string {
  * to Instagram the same weight as her offer; it belongs next to her name and in
  * the closing band, where someone is already deciding whether to write.
  */
-function profileLinks(t: PublicTherapist, className = 'phero-links'): string {
+function profileLinks(t: PublicTherapist): string {
   if (t.links.length === 0) return '';
-  return `<ul class="${className}">${t.links
+  return `<ul class="phero-links">${t.links
     .map(
       (l) => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)} <span aria-hidden="true">↗</span></a></li>`,
     )
@@ -228,6 +228,17 @@ function splitBody(s: Section, ctx: SectionCtx, flip: boolean): string {
 </div>`;
 }
 
+/** The offer as rows, used by the list block and by the two-card block. */
+function offerRows(t: PublicTherapist): string {
+  return `<ul class="offer-rows">${t.offers
+    .map(
+      (o) => `<li><span class="offer-name">${escapeHtml(o.title)}</span>
+      <span class="offer-meta">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
+      <span class="offer-price">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span></li>`,
+    )
+    .join('')}</ul>`;
+}
+
 /** A heading, a paragraph and an optional button - the plain text blocks. */
 function plainBody(s: Section): string {
   const body = renderBodyText(str(s.body));
@@ -243,44 +254,72 @@ function plainBody(s: Section): string {
  */
 function heroBody(
   ctx: SectionCtx,
-  opts: { facts: boolean; actions: boolean; greeting?: string; badge?: string },
+  opts: {
+    facts: boolean;
+    greeting?: string;
+    badge?: string;
+    /** Her sentence in the <h1>; the name then moves onto the portrait card. */
+    eyebrow?: string;
+    title?: string;
+    quote?: string;
+    lead?: string;
+    caption?: string;
+  },
 ): string {
   const t = ctx.therapist;
+  const card = opts.caption !== undefined;
   const formats = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null]
     .filter((x): x is string => x !== null);
+
   const photo = t.photo_url
     // The master, not the thumbnail: this renders small but must stay sharp on
     // a high-DPI screen. The 160px rendition is for the catalogue cards.
-    ? `<img class="phero-photo" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
-    : '<span class="phero-photo empty" aria-hidden="true"></span>';
-  return `${opts.badge ? `<figure class="phero-frame">${photo}${opts.badge}</figure>` : photo}
+    ? `<img class="${card ? '' : 'phero-photo'}" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
+    : `<span class="${card ? 'phero-card-empty' : 'phero-photo empty'}" aria-hidden="true"></span>`;
+
+  const frame = card
+    ? `<figure class="phero-card">${photo}
+    <figcaption><strong>${escapeHtml(t.display_name)}</strong>
+      <span>${escapeHtml(opts.caption ?? '')}</span></figcaption>
+  </figure>`
+    : opts.badge
+      ? `<figure class="phero-frame">${photo}${opts.badge}</figure>`
+      : photo;
+
+  const facts = card
+    ? [
+        t.price_min_minor === null
+          ? null
+          : `${formatPrice(t.price_min_minor, t.currency)}${t.offers[0] ? ` / ${t.offers[0].duration_minutes} min` : ''}`,
+        t.locations.map((l) => [l.city, l.address_line].filter(Boolean).join(', ')).find((x) => x !== '') ?? null,
+        t.offers_online ? 'lub online' : null,
+        t.session_types.length > 0 ? labelList(t.session_types, '') : null,
+      ]
+    : [
+        t.locations.map((l) => l.city).join(', ') || null,
+        formats.join(' i ') || null,
+        languageList(t.languages),
+        t.session_types.length > 0 ? labelList(t.session_types, '') : null,
+      ];
+  const shown = facts.filter((x): x is string => x !== null && x !== '');
+
+  return `${frame}
   <div>
     <ul class="badges">
       ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
       ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
       ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
     </ul>
-    <h1>${escapeHtml(t.display_name)}</h1>
+    ${eyebrow(opts.eyebrow ?? '')}
+    <h1>${escapeHtml(opts.title || t.display_name)}</h1>
+    ${opts.quote ? `<p class="phero-quote">${escapeHtml(opts.quote)}</p>` : ''}
     ${opts.greeting ? `<p class="phero-greeting">${escapeHtml(opts.greeting)}</p>` : ''}
-    ${t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
-    ${
-      opts.facts
-        ? `<ul class="phero-facts">
-      ${t.locations.length > 0 ? `<li>${escapeHtml(t.locations.map((l) => l.city).join(', '))}</li>` : ''}
-      ${formats.length > 0 ? `<li>${escapeHtml(formats.join(' i '))}</li>` : ''}
-      <li>${languageList(t.languages)}</li>
-      ${t.session_types.length > 0 ? `<li>${escapeHtml(labelList(t.session_types, ''))}</li>` : ''}
-    </ul>`
-        : ''
-    }
-    ${
-      opts.actions
-        ? `<div class="phero-actions">
+    ${opts.lead ? `<p class="phero-lead">${escapeHtml(opts.lead)}</p>` : t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
+    <div class="phero-actions">
       ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
       ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
-    </div>`
-        : ''
-    }
+    </div>
+    ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>` : ''}
     ${profileLinks(t)}
   </div>`;
 }
@@ -419,7 +458,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
   hero: {
     label: 'Nagłówek — klasyczny', hint: 'Portret obok imienia, fakty i przycisk',
     auto: true, family: 'hero', fields: [],
-    render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
+    render: (_s, ctx) => heroBody(ctx, { facts: true }),
   },
 
 
@@ -439,46 +478,16 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       AREA('wstep', 'Akapit wprowadzający', { max: 600 }),
       T('podpis', 'Podpis pod nazwiskiem', { max: 120, hint: 'puste = Twój nagłówek profilu' }),
     ],
-    render: (s, ctx) => {
-      const t = ctx.therapist;
-      const duration = t.offers[0]?.duration_minutes ?? null;
-      const facts = [
-        t.price_min_minor === null
-          ? null
-          : `${formatPrice(t.price_min_minor, t.currency)}${duration === null ? '' : ` / ${duration} min`}`,
-        t.locations.map((l) => [l.city, l.address_line].filter(Boolean).join(', ')).find((x) => x !== '') ?? null,
-        t.offers_online ? 'lub online' : null,
-        t.session_types.length > 0 ? labelList(t.session_types, '') : null,
-      ].filter((x): x is string => x !== null && x !== '');
-
-      return `<div>
-    <ul class="badges">
-      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
-      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
-      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
-    </ul>
-    ${eyebrow(str(s.nadtytul))}
-    <h1>${escapeHtml(str(s.tytul) || t.display_name)}</h1>
-    ${str(s.cytat) === '' ? '' : `<p class="phero-quote">${escapeHtml(str(s.cytat))}</p>`}
-    ${str(s.wstep) === '' ? '' : `<p class="phero-lead">${escapeHtml(str(s.wstep))}</p>`}
-    <div class="phero-actions">
-      ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
-    </div>
-    ${facts.length === 0 ? '' : `<ul class="phero-facts">${facts.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`}
-    ${profileLinks(t)}
-  </div>
-  <figure class="phero-card">
-    ${
-      t.photo_url
-        ? `<img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
-        : '<span class="phero-card-empty" aria-hidden="true"></span>'
-    }
-    <figcaption><strong>${escapeHtml(t.display_name)}</strong>
-      <span>${escapeHtml(str(s.podpis) || t.headline || '')}</span></figcaption>
-  </figure>`;
-    },
+    render: (s, ctx) => heroBody(ctx, {
+      facts: true,
+      eyebrow: str(s.nadtytul),
+      title: str(s.tytul),
+      quote: str(s.cytat),
+      lead: str(s.wstep),
+      caption: str(s.podpis) || ctx.therapist.headline || '',
+    }),
   },
+
 
   /**
    * Dark, centred, the portrait round and above the name. No fact pills: this
@@ -490,7 +499,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     auto: true, family: 'hero',
     fields: [AREA('powitanie', 'Zdanie na powitanie', { max: 240,
       hint: 'np. Nie musisz wiedzieć, od czego zacząć.' })],
-    render: (s, ctx) => heroBody(ctx, { facts: false, actions: true, greeting: str(s.powitanie) }),
+    render: (s, ctx) => heroBody(ctx, { facts: false, greeting: str(s.powitanie) }),
   },
 
   /**
@@ -513,7 +522,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
         ? `<span class="phero-badge"><b>${escapeHtml(compactDateTime(next.starts_at_utc, next.timezone))}</b>
            <span>najbliższy wolny termin</span></span>`
         : '';
-      return heroBody(ctx, { facts: true, actions: true, greeting: str(s.powitanie), badge });
+      return heroBody(ctx, { facts: true, greeting: str(s.powitanie), badge });
     },
   },
 
@@ -620,13 +629,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
       t.offers.length === 0
         ? ''
         : `${eyebrow('Oferta')}<h2>${escapeHtml(heading(s, 'Jedna cena, bez gwiazdek'))}</h2>${lead(s)}
-<ul class="offer-rows">${t.offers
-            .map(
-              (o) => `<li><span class="offer-name">${escapeHtml(o.title)}</span>
-        <span class="offer-meta">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
-        <span class="offer-price">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span></li>`,
-            )
-            .join('')}</ul>`,
+${offerRows(t)}`,
   },
 
   slots: {
@@ -662,13 +665,7 @@ ${pluginCta(env)}`;
       ? ''
       : `<div class="pcard">
     <h3>Oferta</h3>
-    <ul class="offer-rows">${t.offers
-        .map(
-          (o) => `<li><span class="offer-name">${escapeHtml(o.title)}</span>
-      <span class="offer-meta">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
-      <span class="offer-price">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span></li>`,
-        )
-        .join('')}</ul>
+    ${offerRows(t)}
   </div>`
   }
   ${
@@ -847,7 +844,7 @@ ${written}
           ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
           : '<a class="btn" href="/terapeuci">Wróć do katalogu</a>'
       }${pluginCta(env)}</p>
-${profileLinks(t, 'phero-links invite-links')}`;
+${profileLinks(t)}`;
     },
   },
 
@@ -1068,31 +1065,18 @@ const DEFAULT_ORDER = [
   'zaproszenie',
 ] as const;
 
-/**
- * What the page actually renders: her arrangement if she made one, the default
- * spine otherwise - and in both cases exactly one heading block. A page without
- * one has no `<h1>` and no photograph, which is broken rather than minimal, so
- * it is not something the builder can leave out by accident.
- */
-export function pageSections(arranged: Section[], blocks: readonly string[]): Section[] {
-  if (arranged.length === 0) return defaultSections(blocks);
+/** Her arrangement if she made one, the default spine otherwise. */
+export function pageSections(arranged: Section[]): Section[] {
+  if (arranged.length === 0) return defaultSections();
+  // A page always renders exactly one heading: without it there is no <h1> and
+  // no photograph, which is broken rather than minimal.
   return arranged.some((section) => SECTIONS_DEF[section.type]?.family === 'hero')
     ? arranged
     : [{ type: 'hero' }, ...arranged];
 }
 
-export function defaultSections(blocks: readonly string[]): Section[] {
-  // `profile_blocks` was written with a default of its own by an old migration,
-  // so it is almost never empty and the closing band would never appear. It is
-  // part of the spine, not a choice - a page has to land somewhere.
-  const stored = blocks.length > 0 ? blocks : DEFAULT_ORDER;
-  const withClose = stored.includes('zaproszenie') ? stored : [...stored, 'zaproszenie'];
-  // `profile_blocks` predates both of these, so an old value carries neither.
-  const hasHead = withClose.some((id) => SECTIONS_DEF[id]?.family === 'hero');
-  const order = hasHead ? withClose : ['hero', 'kluczowe', 'dane', ...withClose];
-  return order
-    .filter((id) => SECTIONS_DEF[id]?.auto === true)
-    .map((id) => ({ type: id }));
+export function defaultSections(): Section[] {
+  return DEFAULT_ORDER.map((id) => ({ type: id }));
 }
 
 

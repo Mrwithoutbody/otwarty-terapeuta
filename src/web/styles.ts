@@ -448,7 +448,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    under the portrait. Measured off the reference - quote at 1.1rem italic serif
    with an accent rule, portrait 4:5 in a bordered card. */
 .phero--obietnica { grid-template-columns: 1.15fr 0.85fr; align-items: center; }
-.phero--obietnica > div { order: 0; }
+.phero--obietnica > div { order: -1; }
 .phero-quote { font-family: var(--serif); font-style: italic; color: var(--text-muted);
   border-left: 3px solid var(--accent); padding-left: 1.1rem; margin: 0 0 1.8rem; max-width: 52ch;
   font-size: 1rem; line-height: 1.7; }
@@ -661,7 +661,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero-links a:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
 .phero--spotlight .phero-links { justify-content: center; }
 .phero--spotlight .phero-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
-.pblock--dark .invite-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
+.pblock--dark .phero-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
 /* "Pierwsze spotkanie": her answers, in the order the person will live them. */
 .meeting-steps { counter-reset: s; list-style: none; display: grid; gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 0; padding: 0; }
