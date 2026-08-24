@@ -133,6 +133,37 @@ przeniesienie punktacji do SQL — nie zmiana reguł.
 `match_reasons` powstają wyłącznie z pól obecnych w tej samej odpowiedzi, więc
 model może je zacytować, a użytkownik zweryfikować.
 
+### 4.1. Profil: sekcje i sposób podania
+
+Terapeutka układa swój profil sama, z sekcji. `src/web/sections.ts` jest jedynym
+źródłem: `SECTIONS_DEF` opisuje każdy typ bloku raz, a z tego opisu powstaje
+formularz w panelu, walidacja przy zapisie i renderowanie strony. Nowy typ bloku
+albo nowe pole dodaje się tam i nigdzie indziej.
+
+Dwa rodzaje bloków. **Automatyczny** renderuje dane, które i tak są w panelu —
+ofertę, kalendarz, FAQ, kwalifikacje — więc ten sam fakt nigdy nie jest wpisywany
+dwa razy, a narzędzia MCP serwują go niezależnie od tego, co pokazuje strona.
+**Pisany** niesie własny tekst i to on sprawia, że dwa profile złożone z tych
+samych bloków nie czytają się jak jedna strona.
+
+Aranżacja siedzi w `therapists.sections_json`, sposób podania w `layout_json`.
+Oba są czytane defensywnie (`parseSections`, `parseLayout`): nieznany typ, nieznane
+pole i za długi tekst wypadają przy odczycie, więc ręczna edycja kolumny nie
+potrafi zepsuć profilu. Pusta aranżacja oznacza domyślny kręgosłup strony
+(`DEFAULT_ORDER`), nie pustą stronę.
+
+`layout_json` to sześć zamkniętych osi (`LAYOUT_AXES`): motyw, rytm, skala
+nagłówków, sekcje barwne, nagłówek strony, pasek sekcji. Każda oś to lista
+opcji, której pierwszy wpis jest wartością domyślną — i tym, na co spada wartość
+nieznana. Motyw jest zestawem tokenów CSS nałożonych na `.profile-page`
+(`--band`, `--accent`, `--dark`, `--serif`), nie osobnym arkuszem: żaden motyw
+nie dodaje komponentu i nic z niego nie wycieka na resztę serwisu.
+
+Presety zamiast pipety do kolorów — wolna paleta produkuje nieczytelny kontrast
+i katalog, który przestaje wyglądać jak jeden serwis. Z tego samego powodu karta
+w katalogu bierze z motywu tylko włos akcentu i barwę odnośnika, nigdy całej
+palety.
+
 ## 5. Rezerwacja: współbieżność i odporność na błędy
 
 | Sytuacja | Zachowanie |
@@ -324,7 +355,6 @@ Dług, który **nie** blokuje wydania. Co blokuje — wyłącznie `DPIA_CHECKLIS
 | Miejsce | Ograniczenie | Kiedy naprawić |
 | --- | --- | --- |
 | `src/matching/rank.ts` | punktacja na maks. 200 kandydatach z SQL | gdy katalog przekroczy kilkaset profili na zapytanie |
-| `src/web/admin.ts` — pola JSON | `session_types`, `age_groups`, `credentials` edytowane jako surowy JSON | gdy z panelu zaczną korzystać terapeuci, a nie tylko zespół |
 | `src/web/admin-ui.ts` | skrypt panelu w idiomach ES5 (`var`, `function ()`) | przy najbliższej realnej zmianie w tym pliku |
 | `seed/seed.sql` | pojedyncze `;` na końcu linii są kontraktem dla `test/setup.ts` | przy przejściu na parser SQL zamiast dzielenia po `;\n` |
 | `seed/seed.sql` — godziny slotów | SQLite nie ma bazy IANA, więc dane demonstracyjne są liczone w UTC i przesuwają się o godzinę po zmianie czasu | tylko jeśli seed miałby kiedykolwiek trafić poza demo |

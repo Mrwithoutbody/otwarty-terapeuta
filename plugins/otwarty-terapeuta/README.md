@@ -9,7 +9,7 @@ przez narzędzia rezerwacji, które wymagają zakresu `booking:read` albo
 `booking:write`.
 
 Pakiet używa `.app.json`, który wskazuje zarejestrowane w ChatGPT połączenie
-Developer Mode `plugin_asdk_app_6a8715a992e08191b266bbdd873011f5`. Polityka
+Developer Mode — identyfikator jest w tym pliku i nigdzie indziej. Polityka
 marketplace musi mieć `authentication: "ON_USE"`, aby instalacja pluginu nie
 uruchamiała logowania. Sam serwer rozdziela dostęp per narzędzie: katalog ma
 `noauth`, a operacje rezerwacyjne `oauth2`.

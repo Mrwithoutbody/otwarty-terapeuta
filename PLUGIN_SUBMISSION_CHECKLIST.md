@@ -262,9 +262,9 @@ portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
    → rola **Apps Management** musi być ustawiona na **Write**. Bez tego portal
    zgłoszeń nie wyświetli formularza.
 3. Otwórz portal zgłoszeń: **<https://platform.openai.com/plugins>** i wejdź w
-   zgłoszenie **Otwarty Terapeuta** (aplikacja jest już założona:
-   `plugin_asdk_app_6a8715a992e08191b266bbdd873011f5`; jeśli jej tam nie widać —
-   **Create plugin**).
+   zgłoszenie **Otwarty Terapeuta** (aplikacja jest już założona — jej
+   identyfikator trzyma `plugins/otwarty-terapeuta/.app.json`; jeśli w portalu
+   jej nie widać — **Create plugin**).
 4. W kroku weryfikacji domeny **skopiuj wygenerowany token**. Portal pokaże
    pełny adres, pod którym go szuka:
    `https://<challenge-base-host>/.well-known/openai-apps-challenge`.
