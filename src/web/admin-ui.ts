@@ -721,6 +721,14 @@ export const ADMIN_CSS = String.raw`
 .sec-subrow { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   padding: 0.5rem 0; border-bottom: 1px dashed var(--border, #e3e6d8); }
 .sec-subrow:last-child { border-bottom: 0; }
+/* How the page is presented, above what is on it. */
+.sec-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.9rem 1.4rem; margin: 1rem 0 0; padding: 1rem 1.2rem 1.2rem;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); }
+.sec-layout legend { padding-inline: 0.4rem; font-weight: 600; font-size: 0.9rem; }
+.sec-layout .field { margin: 0; }
+.sec-layout .hint { margin: 0.4rem 0 0; }
+
 .sec-add { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
 .sec-add select { min-width: 18rem; }
 .sec-list { list-style: none; margin: 1rem 0 0; padding: 0; }

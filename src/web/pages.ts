@@ -18,6 +18,7 @@ import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { htmlResponse, renderPage } from './layout';
 import {
   languageList,
+  layoutClasses,
   pageSections,
   parseSections,
   pluginCta,
@@ -409,7 +410,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       description: t.headline ?? 'Profil psychoterapeuty',
       path: '/terapeuci',
       body: `
-<article class="profile-page">
+<article class="profile-page${layoutClasses(t.layout)}">
 <nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
 
 ${body}

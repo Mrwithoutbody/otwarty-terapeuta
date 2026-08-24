@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultSections,
+  layoutClasses,
   pageSections,
   parseSections,
   renderSections,
@@ -145,5 +146,25 @@ describe('hero facts', () => {
     const html = renderSections([{ type: 'hero' }], { ...CTX, therapist: nasty as PublicTherapist });
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>x');
+  });
+});
+
+describe('page layout', () => {
+  it('says nothing when nothing was chosen', () => {
+    expect(layoutClasses(undefined)).toBe('');
+    expect(layoutClasses({})).toBe('');
+  });
+
+  it('drops the heading card with the full-width bands', () => {
+    expect(layoutClasses({ bands: 'pasy' })).toBe(' profile-page--pasy profile-page--hero-goly');
+  });
+
+  it('lets her keep the card over bands, and drop it over panels', () => {
+    expect(layoutClasses({ bands: 'pasy', hero: 'karta' })).toBe(' profile-page--pasy');
+    expect(layoutClasses({ bands: 'panele', hero: 'goly' })).toBe(' profile-page--hero-goly');
+  });
+
+  it('ignores a value it does not know', () => {
+    expect(layoutClasses({ bands: 'onclick=x', hero: 'onclick=x' })).toBe('');
   });
 });

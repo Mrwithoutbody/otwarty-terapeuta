@@ -31,6 +31,8 @@ import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { htmlResponse, renderPage } from './layout';
 import {
   defaultSections,
+  LAYOUT_BANDS,
+  LAYOUT_HERO,
   MAX_SECTIONS,
   parseSections,
   SECTION_GROUPS,
@@ -546,6 +548,61 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * carried by numeric position inputs; the drag-and-drop in `admin.js` only
  * rewrites those numbers, so both paths post the same thing.
  */
+/**
+ * How the page is presented, above the list of what is on it. Two selects, not
+ * ten: the sections carry the content, this carries the shape.
+ */
+function layoutChoice(row: TherapistRow | null): string {
+  const layout = parseLayoutValues(row?.layout_json ?? null);
+  const options = (
+    list: ReadonlyArray<readonly [string, string]>,
+    current: string,
+  ): string =>
+    list
+      .map(([value, label]) =>
+        `<option value="${escapeHtml(value)}"${value === current ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+      .join('');
+
+  return `<fieldset class="sec-layout">
+  <legend>Sposób podania</legend>
+  <div class="field">
+    <label for="layout_bands">Sekcje barwne</label>
+    <select id="layout_bands" name="layout_bands">${options(LAYOUT_BANDS, layout.bands)}</select>
+  </div>
+  <div class="field">
+    <label for="layout_hero">Nagłówek strony</label>
+    <select id="layout_hero" name="layout_hero">${options(LAYOUT_HERO, layout.hero)}</select>
+    <p class="hint">Karta nad pasem przez cały ekran styka się z nim bez szczeliny, dlatego
+    przy pasach nagłówek domyślnie karty nie ma.</p>
+  </div>
+</fieldset>`;
+}
+
+/** The first option of a list is what an unset - or bogus - value falls back to. */
+function pickOption(value: unknown, list: ReadonlyArray<readonly [string, string]>): string {
+  const fallback = list[0]?.[0] ?? '';
+  return typeof value === 'string' && list.some(([v]) => v === value) ? value : fallback;
+}
+
+function parseLayoutValues(raw: string | null): { bands: string; hero: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw || '{}');
+  } catch {
+    parsed = null;
+  }
+  const values = (typeof parsed === 'object' && parsed !== null ? parsed : {}) as Record<string, unknown>;
+  return { bands: pickOption(values.bands, LAYOUT_BANDS), hero: pickOption(values.hero, LAYOUT_HERO) };
+}
+
+/** What the two selects posted, ready for the column. */
+function collectLayout(body: URLSearchParams): string {
+  return JSON.stringify({
+    bands: pickOption(body.get('layout_bands'), LAYOUT_BANDS),
+    hero: pickOption(body.get('layout_hero'), LAYOUT_HERO),
+  });
+}
+
 function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {
   const stored = parseSections(row?.sections_json ?? null);
   const summary = autoSummary(row, context);
@@ -1207,7 +1264,8 @@ każdym zapisie.</p>
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
   <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
-  <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność, wybierz jej tło i dodawaj kolejne.
+  ${layoutChoice(row)}
+  <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność i dodawaj kolejne.
   Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
   najbliższy termin) jest u wszystkich taka sama, żeby dało się porównywać terapeutów między sobą.</p>
   ${sectionsEditor(row, context)}
@@ -1601,8 +1659,8 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
   const sections = collectSections(body);
-  await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, updated_at=? WHERE id=?`)
-    .bind(sections, nowIso(), id)
+  await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
+    .bind(sections, collectLayout(body), nowIso(), id)
     .run();
 
   await audit(c.env, {

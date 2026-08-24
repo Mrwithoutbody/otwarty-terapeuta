@@ -896,6 +896,35 @@ export const SECTION_GROUPS: Array<[boolean, string]> = [
  * string is cut to the length its field declares. A profile must never come out
  * broken because this column was hand-edited.
  */
+/**
+ * The two ways a page can be presented, and the classes that carry them.
+ *
+ * The heading follows the bands unless she says otherwise: a bordered card
+ * sitting directly on top of a band that runs the full width of the viewport
+ * butts into it, with no gap and no reason for the seam. She can still ask for
+ * the card over bands, or drop it over panels.
+ */
+export const LAYOUT_BANDS = [
+  ['panele', 'Panele — sekcja barwna w kadrze, z powietrzem wokół'],
+  ['pasy', 'Pasy — sekcja barwna przez całą szerokość ekranu'],
+] as const;
+
+export const LAYOUT_HERO = [
+  ['', 'Automatycznie — karta przy panelach, bez karty przy pasach'],
+  ['karta', 'Zawsze w karcie'],
+  ['goly', 'Nigdy w karcie'],
+] as const;
+
+export function layoutClasses(layout: { bands?: string; hero?: string } | undefined): string {
+  const bands = layout?.bands === 'pasy' ? 'pasy' : 'panele';
+  const asked = layout?.hero === 'karta' || layout?.hero === 'goly' ? layout.hero : '';
+  const hero = asked || (bands === 'pasy' ? 'goly' : 'karta');
+  const out = [];
+  if (bands === 'pasy') out.push('profile-page--pasy');
+  if (hero === 'goly') out.push('profile-page--hero-goly');
+  return out.length > 0 ? ` ${out.join(' ')}` : '';
+}
+
 export function parseSections(raw: unknown): Section[] {
   let parsed: unknown = raw;
   if (typeof raw === 'string' || raw === null || raw === undefined) {

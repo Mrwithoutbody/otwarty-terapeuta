@@ -54,6 +54,17 @@ function parseSectionsShallow(raw: string): unknown[] {
   }
 }
 
+function parseLayoutShallow(raw: string): { bands?: string; hero?: string } {
+  try {
+    const parsed: unknown = JSON.parse(raw || '{}');
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as { bands?: string; hero?: string })
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function parseLinks(raw: string): PublicLink[] {
   try {
     const value: unknown = JSON.parse(raw);
@@ -240,6 +251,7 @@ function toPublicTherapist(row: TherapistRow, related: Related, baseUrl: string)
     cancellation_policy: row.cancellation_policy,
     cancellation_cutoff_hours: row.cancellation_cutoff_h,
     sections: parseSectionsShallow(row.sections_json),
+    layout: parseLayoutShallow(row.layout_json),
     first_meeting: {
       course: row.first_meeting_course,
       prep: row.first_meeting_prep,
