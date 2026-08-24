@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:test';
+import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import {
   findCandidates,
@@ -183,5 +183,25 @@ describe('links', () => {
 
     const t = await getTherapist(env, { therapist_id: ANNA });
     expect(t?.links).toEqual([{ label: 'Facebook', url: 'https://www.facebook.com/p/Gabinet-100063470173359/' }]);
+  });
+});
+
+/**
+ * The catalogue stays one list: a card takes a hairline of the therapist's
+ * theme, never her whole palette, and a profile that never chose one looks
+ * exactly as it did.
+ */
+describe('the card echoes the profile theme', () => {
+  it('carries the theme class only for a therapist who chose one', async () => {
+    await env.DB.prepare(`UPDATE therapists SET layout_json = ? WHERE id = ?`)
+      .bind('{"theme":"glina"}', ANNA)
+      .run();
+
+    const html = await SELF.fetch('https://localhost/terapeuci').then((r) => r.text());
+    expect(html).toContain('therapist-card therapist-card--theme-glina');
+    // Eight published profiles, one of them themed.
+    expect(html.match(/therapist-card--theme-/g)).toHaveLength(1);
+
+    await env.DB.prepare(`UPDATE therapists SET layout_json = '{}' WHERE id = ?`).bind(ANNA).run();
   });
 });

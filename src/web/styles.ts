@@ -79,6 +79,16 @@ export const APP_CSS = `
   --rhythm: 1;
   /* Multiplier on the profile's own headings; 1 is the catalogue voice. */
   --display: 1;
+  /* The accent of each theme, named once. The theme reads it, and so does the
+     catalogue card of a therapist who chose that theme - a card must not take
+     the whole palette (a list of six palettes is a rainbow, not a catalogue),
+     but one hairline of her colour carries across. */
+  --acc-serwisowy: #9cad00;
+  --acc-bursztyn: #a9762a;
+  --acc-glina: #a4553a;
+  --acc-grafit: #40566e;
+  --acc-las: #2f6d4f;
+  --acc-papier: #2b2b2a;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -284,6 +294,17 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 /* Przygaszone: flaga ma być znacznikiem, nie najjaśniejszym punktem strony. */
 .lang svg { width: 1.15em; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; filter: saturate(0.62); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); flex: none; }
 .therapist-card .card-actions { margin-top: auto; padding-top: var(--space-2); }
+/* Her colour on the card, as a hairline and a link - not as a repainted card.
+   The list has to stay comparable: six differently coloured cards side by side
+   is a rainbow, and the eye stops reading the facts. */
+.therapist-card { --card-accent: var(--acc-serwisowy); box-shadow: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent); }
+.therapist-card--theme-bursztyn { --card-accent: var(--acc-bursztyn); }
+.therapist-card--theme-glina { --card-accent: var(--acc-glina); }
+.therapist-card--theme-grafit { --card-accent: var(--acc-grafit); }
+.therapist-card--theme-las { --card-accent: var(--acc-las); }
+.therapist-card--theme-papier { --card-accent: var(--acc-papier); }
+.therapist-card .card-actions a { color: var(--card-accent); }
+.therapist-card h3 a:hover { color: var(--card-accent); }
 
 .avatar {
   width: 72px; height: 72px; border-radius: 22px; object-fit: cover; flex: none;
@@ -703,7 +724,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --band: #f5ead3; --panel-tint: #fdf7ea; --glow: rgba(240, 200, 120, 0.34);
   --wash-a: #fdf7ea; --wash-b: #f6e8cf;
   --border: #e8ddc6; --border-strong: #d9c9a6;
-  --accent: #a9762a; --accent-strong: #7c5417; --accent-soft: #f7ecd7;
+  --accent: var(--acc-bursztyn); --accent-strong: #7c5417; --accent-soft: #f7ecd7;
   --dark: #3d3222; --dark-ink: #f3e6cd; --dark-mute: #d8c7a5; --dark-head: #fffdf6;
   --prose: #5f5340;
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
@@ -713,7 +734,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --band: #eceef1; --panel-tint: #f7f8fa; --glow: rgba(150, 170, 200, 0.26);
   --wash-a: #f8f9fb; --wash-b: #e9ecf1;
   --border: #dde0e6; --border-strong: #c4c9d3;
-  --accent: #40566e; --accent-strong: #2c3e52; --accent-soft: #e8ecf2;
+  --accent: var(--acc-grafit); --accent-strong: #2c3e52; --accent-soft: #e8ecf2;
   --dark: #232830; --dark-ink: #e4e8ee; --dark-mute: #b9c1cd; --dark-head: #ffffff;
   --prose: #4d5560;
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
@@ -723,7 +744,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --band: #f3e3da; --panel-tint: #fbf1ec; --glow: rgba(226, 160, 130, 0.3);
   --wash-a: #fbf2ed; --wash-b: #f2e0d6;
   --border: #e8d5cb; --border-strong: #d8bcae;
-  --accent: #a4553a; --accent-strong: #7c3c26; --accent-soft: #f7e6de;
+  --accent: var(--acc-glina); --accent-strong: #7c3c26; --accent-soft: #f7e6de;
   --dark: #40302a; --dark-ink: #f2ded4; --dark-mute: #d5b8ab; --dark-head: #fffaf7;
   --prose: #62504a;
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
@@ -736,7 +757,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --band: #f2f2f1; --panel-tint: #fafafa; --glow: rgba(0, 0, 0, 0.035);
   --wash-a: #fbfbfa; --wash-b: #f0f0ef;
   --border: #e3e3e2; --border-strong: #c8c8c6;
-  --accent: #2b2b2a; --accent-strong: #171716; --accent-soft: #f0f0ee;
+  --accent: var(--acc-papier); --accent-strong: #171716; --accent-soft: #f0f0ee;
   --dark: #171716; --dark-ink: #ededec; --dark-mute: #b8b8b6; --dark-head: #ffffff;
   --prose: #56564f;
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
@@ -746,7 +767,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --band: #e4ede4; --panel-tint: #f2f7f1; --glow: rgba(120, 190, 150, 0.26);
   --wash-a: #f3f8f2; --wash-b: #e2ebe1;
   --border: #d7e2d6; --border-strong: #bacfb9;
-  --accent: #2f6d4f; --accent-strong: #1f4d37; --accent-soft: #e3f0e6;
+  --accent: var(--acc-las); --accent-strong: #1f4d37; --accent-soft: #e3f0e6;
   --dark: #1f3a2c; --dark-ink: #dcead9; --dark-mute: #b4c9b2; --dark-head: #fbfffa;
   --prose: #4a5c4d;
 }

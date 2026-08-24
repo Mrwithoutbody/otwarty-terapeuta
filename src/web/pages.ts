@@ -61,7 +61,10 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
     .filter(Boolean)
     .join(', ');
 
-  return `<li class="card therapist-card">
+  // Her page's theme, as one hairline on the card. The catalogue stays one
+  // list; the colour is a signature, not a second design.
+  const theme = parseLayout(t.layout).theme;
+  return `<li class="card therapist-card${theme === '' ? '' : ` therapist-card--theme-${escapeHtml(theme)}`}">
   <div style="display:flex;gap:0.9rem;align-items:flex-start">
     ${
       t.photo_url
