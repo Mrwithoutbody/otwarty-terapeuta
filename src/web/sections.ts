@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
+import type { PublicFaqItem, PublicSlot, PublicTherapist, TherapistRow } from '../db/types';
 import { escapeHtml, renderBodyText, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
@@ -44,6 +44,23 @@ export const VARIANT_LABELS = [
 export type Variant = (typeof VARIANT_LABELS)[number][0];
 export const VARIANTS: readonly string[] = VARIANT_LABELS.map(([value]) => value);
 
+/**
+ * Layouts for the top of the profile. The facts and their order are the same in
+ * all four - someone comparing profiles must find the price and the next slot
+ * in the same place - only the shape changes.
+ */
+export const HERO_VARIANTS: Array<[string, string]> = [
+  ['', 'klasyczny — tekst obok portretu'],
+  ['odwrocony', 'odwrócony — portret po lewej'],
+  ['spotlight', 'spotlight — ciemne tło'],
+  ['okladka', 'okładka — zdjęcie na całą szerokość'],
+];
+
+/** Falls back to the classic layout for anything the code does not know. */
+export function heroVariant(stored: string): string {
+  return HERO_VARIANTS.some(([value]) => value === stored) && stored !== '' ? stored : 'klasyczny';
+}
+
 type FieldKind = 'text' | 'textarea' | 'url' | 'select' | 'list';
 
 export interface Field {
@@ -51,6 +68,8 @@ export interface Field {
   name: string;
   label: string;
   hint?: string;
+  /** Only an administrator may set it; the therapist never sees the input. */
+  adminOnly?: boolean;
   /** Character budget for text fields, item budget for lists. */
   max?: number;
   options?: Array<[string, string]>;
@@ -61,6 +80,18 @@ export interface Field {
 export interface SecDef {
   label: string;
   hint: string;
+  /**
+   * An auto section whose content the therapist edits right here, in the
+   * builder, rather than in a separate fixed form. The values live in their own
+   * columns - the MCP tools and the catalogue read them - so the section says
+   * how to read them out of a row and how to write them back, and they never
+   * enter `sections_json`.
+   */
+  data?: {
+    fields: Field[];
+    read(row: TherapistRow): Values;
+    write(values: Values, row: TherapistRow | null, isAdmin: boolean): Partial<TherapistRow>;
+  };
   /** True when the content comes from the database rather than from these fields. */
   auto?: boolean;
   fields?: Field[];
@@ -68,6 +99,11 @@ export interface SecDef {
   defaultVariant?: Variant;
   /** May this type appear more than once on one profile? */
   repeatable?: boolean;
+  /**
+   * Only one section from a family may sit on a page. The heading blocks are a
+   * family: each renders the `<h1>`, and a page has exactly one of those.
+   */
+  family?: string;
   /** Returns the inside of the section. Empty string means "do not render". */
   render(section: Section, ctx: SectionCtx): string;
 }
@@ -78,6 +114,76 @@ const AREA = (name: string, label: string, extra: Partial<Field> = {}): Field =>
   ({ kind: 'textarea', name, label, max: 2000, ...extra });
 
 export const MAX_SECTIONS = 24;
+
+/** Rows the therapist edits inside a section, cleaned the way the column wants. */
+function textRows(values: Values): Values[] {
+  return Array.isArray(values.items) ? (values.items as Values[]) : [];
+}
+
+/** A JSON column holding a list of objects, read defensively. */
+function parseJsonRows(raw: string | null): Values[] {
+  try {
+    const parsed: unknown = JSON.parse(raw ?? '[]');
+    return Array.isArray(parsed) ? (parsed.filter((x) => typeof x === 'object' && x !== null) as Values[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Same credential twice under one title+issuer is the same credential. */
+function credentialKey(title: string, issuer: string): string {
+  return `${title.toLowerCase()}|${issuer.toLowerCase()}`;
+}
+
+const PUBLIC_LABELS: Record<string, string> = {
+  individual: 'indywidualne',
+  couples: 'dla par',
+  family: 'rodzinne',
+  adults: 'dorośli',
+  teens: 'młodzież',
+  children: 'dzieci',
+  seniors: 'seniorzy',
+  pl: 'polski',
+  en: 'angielski',
+  uk: 'ukraiński',
+  ru: 'rosyjski',
+  de: 'niemiecki',
+  fr: 'francuski',
+  es: 'hiszpański',
+  be: 'białoruski',
+};
+
+export function labelList(values: string[], empty: string): string {
+  return values.map((value) => PUBLIC_LABELS[value] ?? value).join(', ') || empty;
+}
+
+/**
+ * Flagi rysowane inline: żadnej zewnętrznej biblioteki ani pliku, bo strona ma
+ * ścisły CSP i nie wolno jej nic dociągać. Kształty są uproszczone — przy 1em
+ * i tak widać tylko układ barw. Flaga oznacza język, nie kraj; to skrót
+ * wizualny, więc nazwa języka zostaje obok jako właściwa informacja.
+ */
+const LANGUAGE_FLAGS: Record<string, string> = {
+  pl: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect y="1" width="3" height="1" fill="#d4213d"/></svg>',
+  en: '<svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#012169"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#fff" stroke-width="8"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#c8102e" stroke-width="4"/><path d="M30,0 V40 M0,20 H60" stroke="#fff" stroke-width="12"/><path d="M30,0 V40 M0,20 H60" stroke="#c8102e" stroke-width="6"/></svg>',
+  uk: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#ffd500"/><rect width="3" height="1" fill="#005bbb"/></svg>',
+  ru: '<svg viewBox="0 0 3 3"><rect width="3" height="3" fill="#d52b1e"/><rect width="3" height="2" fill="#0039a6"/><rect width="3" height="1" fill="#fff"/></svg>',
+  de: '<svg viewBox="0 0 3 3"><rect width="3" height="3" fill="#ffce00"/><rect width="3" height="2" fill="#dd0000"/><rect width="3" height="1" fill="#000"/></svg>',
+  fr: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#ce1126"/><rect width="2" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/></svg>',
+  es: '<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#aa151b"/><rect y="2" width="12" height="4" fill="#f1bf00"/></svg>',
+  be: '<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#007c30"/><rect width="12" height="5" fill="#cf0921"/><rect width="2" height="8" fill="#fff"/></svg>',
+};
+
+export function languageList(codes: string[]): string {
+  if (codes.length === 0) return 'brak danych';
+  return codes
+    .map((code) => {
+      const name = escapeHtml(PUBLIC_LABELS[code] ?? code);
+      const flag = LANGUAGE_FLAGS[code];
+      return flag ? `<span class="lang">${flag}${name}</span>` : name;
+    })
+    .join(', ');
+}
 
 // --------------------------------------------------------------- helpers ---
 
@@ -114,6 +220,62 @@ function ctaButton(section: Section, ghost = false): string {
   const href = safeUrl(str(section.cta_href));
   if (label === '' || href === null) return '';
   return `<a class="btn${ghost ? ' ghost' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+}
+
+/**
+ * What every heading block puts on the page. The parts it shows differ; the
+ * order never does, so a screen reader hears the same profile whichever shape
+ * she picked.
+ */
+function heroBody(
+  ctx: SectionCtx,
+  opts: { facts: boolean; actions: boolean; greeting?: string },
+): string {
+  const t = ctx.therapist;
+  const formats = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null]
+    .filter((x): x is string => x !== null);
+  return `${
+    t.photo_url
+      // The master, not the thumbnail: this renders small but must stay sharp on
+      // a high-DPI screen. The 160px rendition is for the catalogue cards.
+      ? `<img class="phero-photo" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
+      : '<span class="phero-photo empty" aria-hidden="true"></span>'
+  }
+  <div>
+    <ul class="badges">
+      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
+      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
+      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
+    </ul>
+    <h1>${escapeHtml(t.display_name)}</h1>
+    ${opts.greeting ? `<p class="phero-greeting">${escapeHtml(opts.greeting)}</p>` : ''}
+    ${t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
+    ${
+      opts.facts
+        ? `<ul class="phero-facts">
+      ${t.locations.length > 0 ? `<li>${escapeHtml(t.locations.map((l) => l.city).join(', '))}</li>` : ''}
+      ${formats.length > 0 ? `<li>${escapeHtml(formats.join(' i '))}</li>` : ''}
+      <li>${languageList(t.languages)}</li>
+      ${t.session_types.length > 0 ? `<li>${escapeHtml(labelList(t.session_types, ''))}</li>` : ''}
+    </ul>`
+        : ''
+    }
+    ${
+      opts.actions
+        ? `<div class="phero-actions">
+      ${ctx.slots[0] ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+    </div>`
+        : ''
+    }
+  </div>`;
+}
+
+/** The compact "wt., 25 sie, 11:00" the fact row uses. */
+function compactDateTime(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('pl-PL', {
+    timeZone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(iso));
 }
 
 // ------------------------------------------------------- auto: the spine ---
@@ -234,6 +396,69 @@ const LEAD_FIELD = T('lead', 'Zdanie pod nagłówkiem', { max: 200, hint: 'opcjo
 // ------------------------------------------------------------ definitions ---
 
 export const SECTIONS_DEF: Record<string, SecDef> = {
+  // --- heading blocks: one per page, three shapes, different content -------
+
+  /**
+   * The plain heading: portrait beside the name, the facts someone comparing
+   * profiles needs, and the way in.
+   */
+  hero: {
+    label: 'Nagłówek — klasyczny', hint: 'Portret obok imienia, fakty i przycisk',
+    auto: true, family: 'hero', fields: [],
+    render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
+  },
+
+  /**
+   * Dark, centred, the portrait round and above the name. No fact pills: this
+   * one is for a therapist whose profile is the whole of her practice, and the
+   * facts live in the block below it.
+   */
+  'hero-spotlight': {
+    label: 'Nagłówek — spotlight', hint: 'Ciemny, wyśrodkowany, okrągły portret',
+    auto: true, family: 'hero',
+    fields: [AREA('powitanie', 'Zdanie na powitanie', { max: 240,
+      hint: 'np. Nie musisz wiedzieć, od czego zacząć.' })],
+    render: (s, ctx) => heroBody(ctx, { facts: false, actions: true, greeting: str(s.powitanie) }),
+  },
+
+  /**
+   * A wide photograph with the details on a card riding over its lower edge.
+   * Wants a landscape photo; a portrait one is cropped to its upper third.
+   */
+  'hero-okladka': {
+    label: 'Nagłówek — okładka', hint: 'Szerokie zdjęcie, dane na karcie pod nim',
+    auto: true, family: 'hero', fields: [],
+    render: (_s, ctx) => heroBody(ctx, { facts: true, actions: true }),
+  },
+
+  /**
+   * Price, length and the next free slot in one line. Separate from the heading
+   * because it is the row people compare between profiles, and it has to sit in
+   * the same place whichever heading she picked.
+   */
+  kluczowe: {
+    label: 'Cena i najbliższy termin', hint: 'Wiersz faktów do porównywania profili',
+    auto: true, fields: [],
+    render: (_s, { therapist: t, slots }) => {
+      const nextSlot = slots[0];
+      const duration = t.offers[0]?.duration_minutes ?? null;
+      return `<div class="pfacts">
+  <div class="pfact${t.price_min_minor === null ? ' empty' : ''}">
+    <strong>${t.price_min_minor === null ? 'cena do ustalenia' : escapeHtml(formatPrice(t.price_min_minor, t.currency))}</strong>
+    <span>${t.price_min_minor === null ? 'zapytaj przy kontakcie' : 'za sesję'}</span>
+  </div>
+  <div class="pfact${duration === null ? ' empty' : ''}">
+    <strong>${duration === null ? 'nie podano' : `${duration} min`}</strong><span>długość sesji</span>
+  </div>
+  <div class="pfact${nextSlot ? '' : ' empty'}">
+    <strong>${nextSlot ? escapeHtml(compactDateTime(nextSlot.starts_at_utc, nextSlot.timezone)) : 'brak wolnych terminów'}</strong>
+    <span>${nextSlot ? 'najbliższy wolny termin' : 'w najbliższych trzech tygodniach'}</span>
+  </div>
+  <div class="pfact-cta">${nextSlot ? '<a class="btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
+</div>`;
+    },
+  },
+
   // --- auto: her data, already in the panel --------------------------------
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis i nurt pracy', auto: true,
@@ -331,6 +556,49 @@ ${faq
   credentials: {
     label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
+    data: {
+      fields: [{
+        kind: 'list', name: 'items', label: 'Kwalifikacje', max: 20,
+        of: [
+          T('title', 'Nazwa'), T('issuer', 'Wydający'),
+          { kind: 'text', name: 'year', label: 'Rok', max: 4 },
+          { kind: 'select', name: 'verified', label: 'Zweryfikowane', adminOnly: true,
+            options: [['', 'deklarowane'], ['1', 'zweryfikowane']] },
+        ],
+      }],
+      read: (row) => ({
+        items: parseJsonRows(row.credentials).map((c) => ({
+          title: str(c.title), issuer: str(c.issuer),
+          year: c.year === null || c.year === undefined ? '' : String(c.year),
+          verified: c.verified === true ? '1' : '',
+        })),
+      }),
+      write: (values, row, isAdmin) => {
+        // A therapist may edit her own entries but never mark one verified; an
+        // entry keeps the flag an administrator already gave it, keyed by what
+        // it says, so renaming it drops the claim rather than carrying it over.
+        const alreadyVerified = new Set(
+          parseJsonRows(row?.credentials ?? null)
+            .filter((c) => c.verified === true)
+            .map((c) => credentialKey(str(c.title), str(c.issuer))),
+        );
+        const out = textRows(values)
+          .map((item) => {
+            const title = sanitizeLine(str(item.title), 120);
+            const issuer = sanitizeLine(str(item.issuer), 120);
+            const parsed = Number(str(item.year));
+            return {
+              title, issuer,
+              year: Number.isInteger(parsed) && parsed >= 1950 && parsed <= 2100 ? parsed : null,
+              verified: isAdmin
+                ? str(item.verified) === '1'
+                : alreadyVerified.has(credentialKey(title, issuer)),
+            };
+          })
+          .filter((c) => c.title !== '');
+        return { credentials: JSON.stringify(out) };
+      },
+    },
     render: (s, { therapist: t }) =>
       t.credentials.length === 0
         ? ''
@@ -347,6 +615,25 @@ ${t.credentials
   links: {
     label: 'Więcej o mnie', hint: 'Linki do Twoich stron', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
+    data: {
+      fields: [{
+        kind: 'list', name: 'items', label: 'Linki', max: 8,
+        of: [T('label', 'Nazwa', { max: 40 }), { kind: 'url', name: 'url', label: 'Adres (https)', max: 500 }],
+      }],
+      read: (row) => ({
+        items: parseJsonRows(row.links).map((l) => ({ label: str(l.label), url: str(l.url) })),
+      }),
+      write: (values) => ({
+        links: JSON.stringify(
+          textRows(values)
+            .map((item) => ({
+              label: sanitizeLine(str(item.label), 40),
+              url: safeUrl(sanitizeLine(str(item.url), 500)),
+            }))
+            .filter((l): l is { label: string; url: string } => l.label !== '' && l.url !== null),
+        ),
+      }),
+    },
     render: (s, { therapist: t }) =>
       t.links.length === 0
         ? ''
@@ -609,16 +896,36 @@ function cleanField(field: Field, value: unknown): unknown {
  * untouched profile keeps rendering exactly as it did.
  */
 const DEFAULT_ORDER = [
-  'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
+  'hero', 'kluczowe', 'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
   'zaproszenie',
 ] as const;
+
+/**
+ * What the page actually renders: her arrangement if she made one, the default
+ * spine otherwise - and in both cases exactly one heading block. A page without
+ * one has no `<h1>` and no photograph, which is broken rather than minimal, so
+ * it is not something the builder can leave out by accident.
+ */
+export function pageSections(
+  arranged: Section[],
+  blocks: readonly string[],
+  hasContent?: (type: string) => boolean,
+): Section[] {
+  if (arranged.length === 0) return defaultSections(blocks, hasContent);
+  return arranged.some((section) => SECTIONS_DEF[section.type]?.family === 'hero')
+    ? arranged
+    : [{ type: 'hero' }, ...arranged];
+}
 
 export function defaultSections(blocks: readonly string[], hasContent?: (type: string) => boolean): Section[] {
   // `profile_blocks` was written with a default of its own by an old migration,
   // so it is almost never empty and the closing band would never appear. It is
   // part of the spine, not a choice - a page has to land somewhere.
   const stored = blocks.length > 0 ? blocks : DEFAULT_ORDER;
-  const order = stored.includes('zaproszenie') ? stored : [...stored, 'zaproszenie'];
+  const withClose = stored.includes('zaproszenie') ? stored : [...stored, 'zaproszenie'];
+  // `profile_blocks` predates both of these, so an old value carries neither.
+  const hasHead = withClose.some((id) => SECTIONS_DEF[id]?.family === 'hero');
+  const order = hasHead ? withClose : ['hero', 'kluczowe', ...withClose];
   // Tinting follows what actually renders, not the position in the list: with
   // one empty section in between, counting positions puts two tinted sections
   // side by side. The builder keeps listing the empty ones - it just does not
@@ -627,6 +934,8 @@ export function defaultSections(blocks: readonly string[], hasContent?: (type: s
   return order
     .filter((id) => SECTIONS_DEF[id]?.auto === true)
     .map((id) => {
+      // The masthead and the fact row are not bands and take no tint.
+      if (SECTIONS_DEF[id]?.family === 'hero' || id === 'kluczowe') return { type: id };
       // A type with a background of its own keeps it - the closing band must not
       // lose its dark just because it landed on an even position.
       if (SECTIONS_DEF[id]?.defaultVariant) return { type: id };
@@ -665,6 +974,11 @@ export function renderSections(sections: Section[], ctx: SectionCtx): string {
       }
       if (inner.trim() === '') return '';
 
+      // The heading block is the page's masthead, not one of the bands below
+      // it: it brings its own element and its own layout class.
+      if (def.family === 'hero') {
+        return `<header class="phero phero--${escapeHtml(section.type.replace(/^hero-?/, '') || 'klasyczny')}">${inner}</header>`;
+      }
       const variant = variantOf(section);
       const anchor = ANCHORS[section.type];
       const id = anchor && !seenAnchor.has(anchor) && !!seenAnchor.add(anchor) ? ` id="${anchor}"` : '';

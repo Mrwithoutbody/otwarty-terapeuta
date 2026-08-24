@@ -96,10 +96,10 @@ describe('defaultSections', () => {
   it('gives an unarranged profile the full spine, closing on the invitation', () => {
     const sections = defaultSections([]);
     expect(sections.map((s) => s.type)).toEqual([
-      'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
-      'zaproszenie',
+      'hero', 'kluczowe', 'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
+      'credentials', 'links', 'policy', 'zaproszenie',
     ]);
-    expect(sections[1]?.variant).toBe('alt');
+    expect(sections[3]?.variant).toBe('alt');
   });
 
   // Alternating tints are assigned by position; the closing band must not lose
@@ -110,7 +110,17 @@ describe('defaultSections', () => {
     expect(renderSections([{ type: 'zaproszenie' }], CTX)).toContain('pblock--dark');
   });
 
-  it('follows the saved block order and still lands on the invitation', () => {
-    expect(defaultSections(['faq', 'intro']).map((s) => s.type)).toEqual(['faq', 'intro', 'zaproszenie']);
+  // An old `profile_blocks` value predates both the heading and the fact row,
+  // so a page built from one still has to get them.
+  it('adds the masthead and the close to an order that predates them', () => {
+    expect(defaultSections(['faq', 'intro']).map((s) => s.type)).toEqual([
+      'hero', 'kluczowe', 'faq', 'intro', 'zaproszenie',
+    ]);
+  });
+
+  it('leaves the heading she chose alone', () => {
+    expect(defaultSections(['hero-spotlight', 'faq']).map((s) => s.type)).toEqual([
+      'hero-spotlight', 'faq', 'zaproszenie',
+    ]);
   });
 });

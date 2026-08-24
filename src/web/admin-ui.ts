@@ -725,6 +725,10 @@ export const ADMIN_CSS = String.raw`
 .sec-add { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
 .sec-add select { min-width: 18rem; }
 .sec-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+.sec-hero { display: grid; gap: 0.5rem; margin-top: 1rem; padding: 0.9rem;
+  border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fbfcf7; }
+.sec-hero span { display: block; color: var(--text-muted, #6a7360); font-size: 0.86rem; }
+.sec-hero select { max-width: 32rem; }
 .sec-item.dragging { opacity: 0.45; }
 .sec-item.over { border-color: var(--accent-strong, #637200); }
 /* With drag available the numbers are redundant, so JS hides them. */

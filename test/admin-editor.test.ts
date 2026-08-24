@@ -158,13 +158,22 @@ describe('credential verification is an administrator decision', () => {
     therapist = await actor('cred-therapist@example.invalid', 'therapist', ANNA);
   });
 
+  /** Credentials are edited inside their own section, in the layout tab. */
+  function credentialPairs(
+    rows: Array<[string, string, string, string?]>,
+  ): Array<[string, string]> {
+    const pairs: Array<[string, string]> = [['sec_0_type', 'credentials'], ['sec_0_pos', '1']];
+    rows.forEach(([title, issuer, year, verified], i) => {
+      pairs.push([`dat_0_items_${i}_title`, title]);
+      pairs.push([`dat_0_items_${i}_issuer`, issuer]);
+      pairs.push([`dat_0_items_${i}_year`, year]);
+      if (verified !== undefined) pairs.push([`dat_0_items_${i}_verified`, verified]);
+    });
+    return pairs;
+  }
+
   it('lets an administrator mark a credential verified', async () => {
-    await saveProfile(admin, [
-      ['cred_title_0', 'Certyfikat psychoterapeuty'],
-      ['cred_issuer_0', 'PTP'],
-      ['cred_year_0', '2019'],
-      ['cred_verified_0', '1'],
-    ]);
+    await saveSections(admin, credentialPairs([['Certyfikat psychoterapeuty', 'PTP', '2019', '1']]));
 
     expect(await storedCredentials()).toEqual([
       { title: 'Certyfikat psychoterapeuty', issuer: 'PTP', year: 2019, verified: true },
@@ -172,12 +181,7 @@ describe('credential verification is an administrator decision', () => {
   });
 
   it('refuses to let a therapist award the badge to themselves', async () => {
-    await saveProfile(therapist, [
-      ['cred_title_0', 'Dyplom wymyślony'],
-      ['cred_issuer_0', 'Nikt'],
-      ['cred_year_0', '2024'],
-      ['cred_verified_0', '1'],
-    ]);
+    await saveSections(therapist, credentialPairs([['Dyplom wymyślony', 'Nikt', '2024', '1']]));
 
     expect(await storedCredentials()).toEqual([
       { title: 'Dyplom wymyślony', issuer: 'Nikt', year: 2024, verified: false },
@@ -185,34 +189,30 @@ describe('credential verification is an administrator decision', () => {
   });
 
   it("preserves the administrator's decision across a therapist's own save", async () => {
-    await saveProfile(admin, [
-      ['cred_title_0', 'Certyfikat psychoterapeuty'],
-      ['cred_issuer_0', 'PTP'],
-      ['cred_year_0', '2019'],
-      ['cred_verified_0', '1'],
-    ]);
-
-    // The therapist edits an unrelated field; the checkbox is not even rendered for them.
-    await saveProfile(therapist, [
-      ['cred_title_0', 'Certyfikat psychoterapeuty'],
-      ['cred_issuer_0', 'PTP'],
-      ['cred_year_0', '2019'],
-      ['headline', 'Nowy nagłówek'],
-    ]);
+    await saveSections(admin, credentialPairs([['Certyfikat psychoterapeuty', 'PTP', '2019', '1']]));
+    // The therapist saves the same entry; the flag is not even rendered for her.
+    await saveSections(therapist, credentialPairs([['Certyfikat psychoterapeuty', 'PTP', '2019']]));
 
     expect(await storedCredentials()).toEqual([
       { title: 'Certyfikat psychoterapeuty', issuer: 'PTP', year: 2019, verified: true },
     ]);
   });
 
-  it('drops rows with an empty title and rejects an out-of-range year', async () => {
-    await saveProfile(admin, [
-      ['cred_title_0', ''],
-      ['cred_issuer_0', 'Pusty'],
-      ['cred_title_1', 'Szkolenie'],
-      ['cred_issuer_1', 'Instytut'],
-      ['cred_year_1', '1200'],
+  // Renaming an entry drops the badge rather than carrying it to a new claim.
+  it('does not carry a verified badge onto a renamed credential', async () => {
+    await saveSections(admin, credentialPairs([['Certyfikat psychoterapeuty', 'PTP', '2019', '1']]));
+    await saveSections(therapist, credentialPairs([['Certyfikat superterapeuty', 'PTP', '2019']]));
+
+    expect(await storedCredentials()).toEqual([
+      { title: 'Certyfikat superterapeuty', issuer: 'PTP', year: 2019, verified: false },
     ]);
+  });
+
+  it('drops rows with an empty title and rejects an out-of-range year', async () => {
+    await saveSections(admin, credentialPairs([
+      ['', 'Pusty', '2019'],
+      ['Szkolenie', 'Instytut', '1200'],
+    ]));
 
     expect(await storedCredentials()).toEqual([
       { title: 'Szkolenie', issuer: 'Instytut', year: null, verified: false },
@@ -233,6 +233,8 @@ describe('bio formatting', () => {
       ['status', 'published'],
       ['verification_status', 'verified'],
     ]);
+    // The bio renders through the intro section, so the page has to carry one.
+    await saveSections(admin, [['sec_0_type', 'intro'], ['sec_0_pos', '1']]);
 
     const html = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
     expect(html).toContain('<p>Pierwszy <strong>akapit</strong>.</p>');

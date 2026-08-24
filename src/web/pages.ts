@@ -17,7 +17,8 @@ import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { htmlResponse, renderPage } from './layout';
 import {
-  defaultSections,
+  languageList,
+  pageSections,
   parseSections,
   pluginCta,
   renderSections,
@@ -39,56 +40,6 @@ export const siteApp = new Hono<{ Bindings: Env }>();
  * nim — więc tłumaczymy dopiero przy renderowaniu, z zapasem na wartość spoza
  * listy.
  */
-const PUBLIC_LABELS: Record<string, string> = {
-  individual: 'indywidualne',
-  couples: 'dla par',
-  family: 'rodzinne',
-  adults: 'dorośli',
-  teens: 'młodzież',
-  children: 'dzieci',
-  seniors: 'seniorzy',
-  pl: 'polski',
-  en: 'angielski',
-  uk: 'ukraiński',
-  ru: 'rosyjski',
-  de: 'niemiecki',
-  fr: 'francuski',
-  es: 'hiszpański',
-  be: 'białoruski',
-};
-
-function labelList(values: string[], empty: string): string {
-  return values.map((value) => PUBLIC_LABELS[value] ?? value).join(', ') || empty;
-}
-
-/**
- * Flagi rysowane inline: żadnej zewnętrznej biblioteki ani pliku, bo strona ma
- * ścisły CSP i nie wolno jej nic dociągać. Kształty są uproszczone — przy 1em
- * i tak widać tylko układ barw. Flaga oznacza język, nie kraj; to skrót
- * wizualny, więc nazwa języka zostaje obok jako właściwa informacja.
- */
-const LANGUAGE_FLAGS: Record<string, string> = {
-  pl: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect y="1" width="3" height="1" fill="#d4213d"/></svg>',
-  en: '<svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#012169"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#fff" stroke-width="8"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#c8102e" stroke-width="4"/><path d="M30,0 V40 M0,20 H60" stroke="#fff" stroke-width="12"/><path d="M30,0 V40 M0,20 H60" stroke="#c8102e" stroke-width="6"/></svg>',
-  uk: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#ffd500"/><rect width="3" height="1" fill="#005bbb"/></svg>',
-  ru: '<svg viewBox="0 0 3 3"><rect width="3" height="3" fill="#d52b1e"/><rect width="3" height="2" fill="#0039a6"/><rect width="3" height="1" fill="#fff"/></svg>',
-  de: '<svg viewBox="0 0 3 3"><rect width="3" height="3" fill="#ffce00"/><rect width="3" height="2" fill="#dd0000"/><rect width="3" height="1" fill="#000"/></svg>',
-  fr: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#ce1126"/><rect width="2" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/></svg>',
-  es: '<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#aa151b"/><rect y="2" width="12" height="4" fill="#f1bf00"/></svg>',
-  be: '<svg viewBox="0 0 12 8"><rect width="12" height="8" fill="#007c30"/><rect width="12" height="5" fill="#cf0921"/><rect width="2" height="8" fill="#fff"/></svg>',
-};
-
-function languageList(codes: string[]): string {
-  if (codes.length === 0) return 'brak danych';
-  return codes
-    .map((code) => {
-      const name = escapeHtml(PUBLIC_LABELS[code] ?? code);
-      const flag = LANGUAGE_FLAGS[code];
-      return flag ? `<span class="lang">${flag}${name}</span>` : name;
-    })
-    .join(', ');
-}
-
 function crisisBanner(): string {
   return `<div class="notice warn">
     <h2>Potrzebujesz pomocy natychmiast?</h2>
@@ -432,16 +383,6 @@ ${
   );
 });
 
-function compactDateTime(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('pl-PL', {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
 
 siteApp.get('/terapeuci/:slug', async (c) => {
   const slug = c.req.param('slug');
@@ -474,13 +415,10 @@ siteApp.get('/terapeuci/:slug', async (c) => {
   ]);
 
   const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
-  const arranged = parseSections(t.sections);
-  const sections = arranged.length > 0 ? arranged : defaultSections(t.profile_blocks, (type) => sectionHasContent(type, ctx));
+  const sections = pageSections(parseSections(t.sections), t.profile_blocks, (type) =>
+    sectionHasContent(type, ctx),
+  );
   const body = renderSections(sections, ctx);
-
-  const nextSlot = slots[0];
-  const duration = t.offers[0]?.duration_minutes ?? null;
-  const formats = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null].filter(Boolean);
 
   return htmlResponse(
     c.env,
@@ -491,50 +429,6 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       body: `
 <article class="profile-page">
 <nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
-
-<header class="phero">
-  ${
-    t.photo_url
-      // The master, not the thumbnail: this renders at 148px but must stay sharp
-      // on a high-DPI screen. The 160px rendition is for the catalogue cards.
-      ? `<img class="phero-photo" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
-      : '<span class="phero-photo empty" aria-hidden="true"></span>'
-  }
-  <div>
-    <ul class="badges">
-      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
-      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
-      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
-    </ul>
-    <h1>${escapeHtml(t.display_name)}</h1>
-    ${t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
-    <ul class="phero-facts">
-      ${t.locations.length > 0 ? `<li>${escapeHtml(t.locations.map((l) => l.city).join(', '))}</li>` : ''}
-      ${formats.length > 0 ? `<li>${escapeHtml(formats.join(' i '))}</li>` : ''}
-      <li>${languageList(t.languages)}</li>
-      ${t.session_types.length > 0 ? `<li>${escapeHtml(labelList(t.session_types, ''))}</li>` : ''}
-    </ul>
-    <div class="phero-actions">
-      ${nextSlot ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
-    </div>
-  </div>
-</header>
-
-<div class="pfacts">
-  <div class="pfact${t.price_min_minor === null ? ' empty' : ''}">
-    <strong>${t.price_min_minor === null ? 'cena do ustalenia' : escapeHtml(formatPrice(t.price_min_minor, t.currency))}</strong>
-    <span>${t.price_min_minor === null ? 'zapytaj przy kontakcie' : 'za sesję'}</span>
-  </div>
-  <div class="pfact${duration === null ? ' empty' : ''}">
-    <strong>${duration === null ? 'nie podano' : `${duration} min`}</strong><span>długość sesji</span>
-  </div>
-  <div class="pfact${nextSlot ? '' : ' empty'}">
-    <strong>${nextSlot ? escapeHtml(compactDateTime(nextSlot.starts_at_utc, nextSlot.timezone)) : 'brak wolnych terminów'}</strong>
-    <span>${nextSlot ? 'najbliższy wolny termin' : 'w najbliższych trzech tygodniach'}</span>
-  </div>
-  <div class="pfact-cta">${nextSlot ? '<a class="btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
-</div>
 
 ${body}
 ${crisisBanner()}

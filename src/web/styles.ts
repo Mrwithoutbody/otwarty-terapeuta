@@ -405,6 +405,43 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   display: block; box-shadow: var(--shadow); }
 .phero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-6) 0 var(--space-6); }
 .phero-photo.empty { display: block; }
+
+/* --- heading blocks ------------------------------------------------------ */
+/* Portrait first in the source, text second, so the classic block puts the text
+   back on the left and the others build on that order. */
+
+/* Dark, centred, portrait above the name - the shape a single-person site uses
+   when the person is the whole offer. */
+.phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
+  text-align: center; background: #344125; color: #f0f3d6; border-radius: var(--radius-lg);
+  padding: clamp(2rem, 5vw, 3.5rem); margin-top: var(--space-6); }
+.phero--spotlight > div { order: 0; }
+.phero--spotlight h1 { color: #fffefa; }
+.phero--spotlight .phero-headline { color: #d5dcc2; }
+.phero--spotlight .phero-photo { width: 11rem; aspect-ratio: 1; border-radius: 50%;
+  margin: 0 auto var(--space-6); border-color: rgba(240, 243, 214, 0.3); }
+.phero--spotlight .phero-facts { justify-content: center; }
+.phero-greeting { font-family: var(--serif); font-size: clamp(1.2rem, 1.05rem + 0.8vw, 1.7rem);
+  line-height: 1.4; margin-bottom: var(--space-4); }
+.phero--spotlight .phero-facts li { background: rgba(240, 243, 214, 0.12); border-color: rgba(240, 243, 214, 0.3);
+  color: #f0f3d6; }
+.phero--spotlight .badges { justify-content: center; }
+.phero--spotlight .badge { background: rgba(240, 243, 214, 0.12); border-color: rgba(240, 243, 214, 0.3);
+  color: #f0f3d6; }
+.phero--spotlight .phero-actions { justify-content: center; }
+.phero--spotlight .btn.ghost { color: #f0f3d6; border-color: rgba(240, 243, 214, 0.45); }
+
+/* A wide photograph with the details on a card riding over its lower edge. */
+.phero--okladka { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.phero--okladka > div { order: 0; position: relative; z-index: 1; margin: -5rem auto 0;
+  width: min(100%, 54rem); background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: clamp(1.5rem, 4vw, 2.5rem); }
+.phero--okladka .phero-photo { width: 100%; aspect-ratio: 21 / 9; border-radius: var(--radius-lg);
+  object-position: center 30%; }
+@media (max-width: 52rem) {
+  .phero--okladka > div { margin-top: -3rem; }
+  .phero--okladka .phero-photo { aspect-ratio: 4 / 3; }
+}
 .phero-headline { font-size: 1.15rem; line-height: 1.55; color: var(--text-muted); max-width: 52ch;
   margin-bottom: var(--space-6); }
 .phero-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
