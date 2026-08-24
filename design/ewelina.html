@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ewelina Mastalerz — profil w nowym układzie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f7f8f1;--surface-solid:#fffefa;--surface-alt:#f2f3e9;
+  --border:#e2e5d8;--border-strong:#d1d8c1;
+  --text:#344125;--text-muted:#707765;
+  --accent:#9cad00;--accent-strong:#637200;--accent-soft:#f0f3d6;--focus:#8b6415;
+  --radius-sm:10px;--radius:14px;--radius-lg:22px;
+  --shadow-sm:0 5px 18px rgba(62,76,31,.045);--shadow:0 16px 42px rgba(62,76,31,.075);
+  --serif:"Lora",Georgia,serif;--sans:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 1rem/1.7 var(--sans)}
+h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.14;letter-spacing:-.025em;margin:0 0 .8rem;text-wrap:balance}
+h1{font-size:clamp(1.9rem,1.5rem+1.6vw,2.7rem)}
+h3{font-size:1.02rem}
+p{margin:0 0 .9rem;max-width:64ch}
+a{color:var(--accent-strong);text-underline-offset:.22em}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:5px}
+.wrap{max-width:64rem;margin-inline:auto;padding-inline:clamp(1rem,4vw,2rem)}
+.eyebrow{font:600 .74rem/1.4 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--accent-strong);margin:0 0 .7rem}
+.mock{background:#344125;color:#e8ecd6;padding:.6rem 1rem;text-align:center;font:500 .82rem/1.5 var(--sans)}
+.mock strong{color:#fff}
+
+.phero{padding:clamp(2rem,4vw,3rem) 0 0}
+.phero-top{display:grid;grid-template-columns:auto 1fr;gap:1.6rem;align-items:start}
+@media (max-width:640px){.phero-top{grid-template-columns:1fr}}
+.avatar{width:148px;height:148px;border-radius:var(--radius-lg);overflow:hidden;flex:none;border:1px solid var(--border);background:var(--surface-alt)}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.badges{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .7rem;padding:0;list-style:none}
+.badge{font:500 .78rem/1 var(--sans);padding:.36rem .75rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-solid)}
+.badge.ok{background:var(--accent-soft);border-color:#cdd89a;color:var(--accent-strong)}
+.headline{font-size:1.08rem;color:var(--text-muted);margin:0 0 .8rem;max-width:56ch}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem .9rem;list-style:none;margin:0;padding:0;color:var(--text-muted);font-size:.92rem}
+.meta li{display:flex;align-items:center;gap:.35rem}
+.meta li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);flex:none}
+
+.facts{margin-top:1.8rem;background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-sm);padding:1.2rem 1.4rem;display:grid;grid-template-columns:repeat(3,1fr) auto;gap:1.2rem;align-items:center}
+@media (max-width:820px){.facts{grid-template-columns:1fr 1fr}.facts .cta-cell{grid-column:1/-1}}
+@media (max-width:460px){.facts{grid-template-columns:1fr}}
+.fact strong{display:block;font-family:var(--serif);font-size:1.28rem;font-weight:600;letter-spacing:-.02em}
+.fact span{display:block;color:var(--text-muted);font-size:.82rem}
+.btn{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent-strong);color:#fffefa;
+  border:1px solid var(--accent-strong);border-radius:999px;padding:.75rem 1.4rem;font:500 .95rem/1 var(--sans);text-decoration:none;white-space:nowrap}
+
+.block{padding-block:clamp(1.8rem,3.5vw,2.6rem);border-top:1px solid var(--border)}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;margin:0;padding:0}
+.chips li{background:var(--surface-solid);border:1px solid var(--border);border-radius:999px;padding:.45rem 1rem;font-size:.93rem}
+.slots{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.2rem}
+.slot{background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:.6rem 1rem;font-size:.92rem;text-align:left;cursor:pointer}
+.slot b{display:block;font-weight:600;font-size:.95rem}
+.slot span{color:var(--text-muted);font-size:.82rem}
+.more-slots{align-self:center;color:var(--accent-strong);font-size:.9rem}
+.offer{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem;max-width:20rem}
+.offer .amount{font-family:var(--serif);font-size:1.7rem;font-weight:600;letter-spacing:-.02em;display:block}
+.offer .per{color:var(--text-muted);font-size:.86rem}
+details{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.55rem}
+summary{cursor:pointer;padding:.85rem 1.15rem;font-weight:500;list-style:none;display:flex;justify-content:space-between;gap:1rem;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--accent-strong);font-size:1.25rem;line-height:1}
+details[open] summary::after{content:"–"}
+details .body{padding:0 1.15rem 1rem;color:var(--text-muted);font-size:.95rem}
+details .body p:last-child{margin-bottom:0}
+.approved{font-size:.78rem;color:var(--text-muted);margin-top:.55rem}
+.policy{background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.3rem}
+.policy p{margin:0;color:var(--text-muted);font-size:.95rem}
+.derived{font-size:.78rem;color:var(--accent-strong);margin-top:.5rem}
+#bio-rest{display:none}
+#bio-rest.open{display:block}
+.linkbtn{background:none;border:0;color:var(--accent-strong);font:500 .95rem/1 var(--sans);cursor:pointer;padding:.4rem 0;text-decoration:underline;text-underline-offset:.22em}
+footer{padding-block:2rem;border-top:1px solid var(--border);color:var(--text-muted);font-size:.86rem}
+</style>
+</head>
+<body>
+
+<div class="mock"><strong>Makieta</strong> — profil Eweliny Mastalerz w nowym układzie. Wszystkie dane pobrane z produkcji przez publiczne narzędzia MCP, nic nie zmyślone.</div>
+
+<main class="wrap">
+
+<section class="phero">
+  <div class="phero-top">
+    <div class="avatar">
+      <img src="https://otwartyterapeuta.pl/media/therapists/th_bebffb8a5406508d8d40b23f/img_5904250c1645f3d5985a4fe0.webp" alt="Ewelina Mastalerz">
+    </div>
+    <div>
+      <ul class="badges">
+        <li class="badge ok">✓ profil zweryfikowany</li>
+        <li class="badge">przyjmuje nowe osoby</li>
+      </ul>
+      <h1>Ewelina Mastalerz</h1>
+      <p class="headline">Psychoterapeutka w trakcie certyfikacji, psycholog, trener umiejętności wychowawczych</p>
+      <ul class="meta">
+        <li>Warszawa</li>
+        <li>rezerwacja online</li>
+        <li>polski</li>
+        <li>indywidualna i par</li>
+        <li>osoby dorosłe</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="facts">
+    <div class="fact"><strong>260 zł</strong><span>za sesję 50 min</span></div>
+    <div class="fact"><strong>50 min</strong><span>długość sesji</span></div>
+    <div class="fact"><strong>jutro, 12:00</strong><span>najbliższy wolny termin</span></div>
+    <div class="cta-cell"><a class="btn" href="#terminy">Zobacz wolne terminy</a></div>
+  </div>
+</section>
+
+<section class="block">
+  <p class="eyebrow">Z czym pracuję</p>
+  <ul class="chips">
+    <li>doświadczenia traumatyczne</li><li>kryzys w związku</li><li>lęk i niepokój</li>
+    <li>obniżony nastrój</li><li>poczucie własnej wartości</li><li>rodzicielstwo</li>
+    <li>seksualność i intymność</li><li>stres zawodowy i wypalenie</li><li>trudności w relacjach</li>
+    <li>trudności ze snem</li><li>zmiana życiowa</li><li>żałoba i strata</li>
+  </ul>
+</section>
+
+<section class="block">
+  <p class="eyebrow">Jak pracuję</p>
+  <div id="bio-head">
+    <p>Prowadzę psychoterapię indywidualną i grupową osób dorosłych w nurcie integracyjnym, terapie par i warsztaty umiejętności wychowawczych, konsultacje.</p>
+    <p>Pracuję z osobami pragnącymi lepiej poznać siebie, borykającymi się z trudnościami w kontakcie z innymi, doświadczającymi trudności w związkach, rodzinie, pracy. Zmagającymi się ze śladami traum, PTSD, DDA/DDD, zaburzeniami osobowości.</p>
+  </div>
+  <div id="bio-rest">
+    <p>Przeżywającymi stratę, zawód miłosny, cierpiącymi z powodu przygnębienia, przeciążenia, stresu czy lęku oraz tymi osobami które są zainteresowane rozwojem i zwiększeniem satysfakcji w relacjach ze sobą i innymi ludźmi.</p>
+    <p>Mój zawód to nie tylko źródło dochodu ale przede wszystkim ogromna pasja. Spotkania z drugim człowiekiem to nie tylko rozmowa, ale przede wszystkim relacyjne doświadczenie.</p>
+    <p>Zależy mi na tym, by osoba która się ze mną spotyka mogła z tego doświadczenia czerpać różne ważne dla siebie wnioski. Dużą uwagę przykładam do tego by moja praca była w pełni profesjonalna. Dlatego dbam o własny rozwój.</p>
+    <p>Najwięcej uczę się od moich klientów. Te wyjątkowe w swoim znaczeniu spotkania pokazują mi nowe drogi, sposoby rozumienia, doświadczania różnych ludzkich problemów, znając je łatwiej jest mi towarzyszyć im w zmianie.</p>
+    <p>Mam w swoim doświadczeniu również przebytą terapię własną, która pozwoliła mi poczuć na własnej skórze moc psychoterapii. W pracy kieruję się również kodeksem etyczno-zawodowym psychologa.</p>
+    <p>Zapraszam do spotkania.</p>
+  </div>
+  <button class="linkbtn" id="bio-toggle">Czytaj dalej (6 akapitów)</button>
+  <ul class="chips" style="margin-top:1rem"><li>podejście integracyjne</li><li>terapia Gestalt</li></ul>
+</section>
+
+<section class="block">
+  <p class="eyebrow">Oferta</p>
+  <div class="offer">
+    <h3 style="margin-top:0">Psychoterapia indywidualna</h3>
+    <span class="amount">260 zł</span>
+    <span class="per">50 min · online</span>
+  </div>
+</section>
+
+<section class="block">
+  <p class="eyebrow" id="terminy">Najbliższe wolne terminy</p>
+  <div class="slots">
+    <button class="slot"><b>pon. 24 sie, 12:00</b><span>online · 50 min</span></button>
+    <button class="slot"><b>pon. 24 sie, 16:00</b><span>online · 50 min</span></button>
+    <button class="slot"><b>pon. 24 sie, 18:00</b><span>online · 50 min</span></button>
+    <button class="slot"><b>wt. 25 sie, 10:00</b><span>online · 50 min</span></button>
+    <button class="slot"><b>wt. 25 sie, 12:00</b><span>online · 50 min</span></button>
+    <span class="more-slots">+ 15 kolejnych terminów →</span>
+  </div>
+</section>
+
+<section class="block">
+  <p class="eyebrow">Pytania i odpowiedzi</p>
+  <details><summary>Jakie masz wykształcenie i czy superwizujesz swoją pracę?</summary><div class="body">
+    <p>Ukończyłam 4-letnią Profesjonalną Szkołę Psychoterapii Instytutu Psychologii Zdrowia Polskiego Towarzystwa Psychologicznego pod okiem mentora — profesora Jerzego Mellibrudy. Swoje doświadczenie zdobywałam między innymi w Klinice Nerwic Instytutu Psychiatrii i Neurologii oraz w Zakładzie Seksuologii Medycznej i Psychoterapii CMKP pod kierownictwem profesora Zbigniewa Lwa-Starowicza.</p>
+    <p>Swoją pracę regularnie superwizuję u certyfikowanych superwizorek.</p>
+    <p class="approved">Odpowiedź napisana przez terapeutkę, zatwierdzona przed publikacją.</p></div></details>
+  <details><summary>W jakim nurcie prowadzisz psychoterapię?</summary><div class="body">
+    <p>Prowadzę psychoterapię indywidualną osób dorosłych w nurcie integracyjnym, terapie par i warsztaty umiejętności wychowawczych, konsultacje.</p>
+    <p class="approved">Odpowiedź napisana przez terapeutkę, zatwierdzona przed publikacją.</p></div></details>
+  <details><summary>Z jakimi trudnościami pracujesz?</summary><div class="body">
+    <p>Pracuję z osobami pragnącymi lepiej poznać siebie, borykającymi się z trudnościami w kontakcie z innymi, doświadczającymi trudności w związkach, rodzinie, pracy. Zmagającymi się ze śladami traum, PTSD, DDA/DDD, zaburzeniami osobowości.</p>
+    <p class="approved">Odpowiedź napisana przez terapeutkę, zatwierdzona przed publikacją.</p></div></details>
+  <details><summary>Czy prowadzisz sesje online?</summary><div class="body">
+    <p>Tak. Prowadzę konsultacje i psychoterapię online, a także spotkania stacjonarne w gabinecie w Warszawie.</p>
+    <p class="approved">Odpowiedź napisana przez terapeutkę, zatwierdzona przed publikacją.</p></div></details>
+</section>
+
+<section class="block">
+  <p class="eyebrow">Zasady odwołania</p>
+  <div class="policy">
+    <p>Bezpłatne odwołanie do <strong>48 godzin</strong> przed sesją.</p>
+    <p class="derived">↑ Wyliczone z <code>cancellation_cutoff_hours = 48</code>, bo pole opisowe <code>cancellation_policy</code> jest puste.</p>
+  </div>
+</section>
+
+</main>
+
+<footer><div class="wrap">
+  <p style="margin:0">Makieta poglądowa. Serwis nie zastępuje pomocy w nagłym zagrożeniu życia — <strong>112</strong>, wsparcie emocjonalne <strong>116 123</strong>.</p>
+</div></footer>
+
+<script>
+const t=document.getElementById('bio-toggle'), r=document.getElementById('bio-rest');
+t.onclick=()=>{const o=r.classList.toggle('open');t.textContent=o?'Zwiń':'Czytaj dalej (6 akapitów)';};
+</script>
+</body>
+</html>

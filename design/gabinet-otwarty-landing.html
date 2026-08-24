@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gabinet Otwarty — propozycja landing page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f7f8f1; --surface:rgba(255,255,252,.94); --surface-solid:#fffefa; --surface-alt:#f2f3e9;
+  --border:#e2e5d8; --border-strong:#d1d8c1;
+  --text:#344125; --text-muted:#707765;
+  --accent:#9cad00; --accent-strong:#637200; --accent-soft:#f0f3d6; --focus:#8b6415;
+  --radius-sm:10px; --radius:14px; --radius-lg:22px;
+  --shadow-sm:0 5px 18px rgba(62,76,31,.045); --shadow:0 16px 42px rgba(62,76,31,.075);
+  --maxw:76rem;
+  --serif:"Lora",Georgia,"Times New Roman",serif;
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:400 1rem/1.7 var(--sans);text-rendering:optimizeLegibility}
+h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.12;letter-spacing:-.025em;margin:0 0 1rem;text-wrap:balance}
+h1{font-size:clamp(2.4rem,1.7rem+2.9vw,4rem)}
+h2{font-size:clamp(1.8rem,1.5rem+1.3vw,2.4rem)}
+h3{font-size:clamp(1.15rem,1.05rem+.5vw,1.4rem)}
+p{margin:0 0 1rem;max-width:68ch}
+a{color:var(--accent-strong);text-underline-offset:.22em}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:5px}
+img{max-width:100%;height:auto}
+.wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:clamp(1rem,4vw,2.5rem)}
+section{padding-block:clamp(3.5rem,7vw,6rem)}
+.eyebrow{font:600 .78rem/1.4 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--accent-strong);margin:0 0 1rem}
+
+/* --- mockup chrome ------------------------------------------------------ */
+.mockbar{background:#344125;color:#f0f3d6;font:500 .82rem/1.5 var(--sans);padding:.6rem 1rem;text-align:center}
+.mockbar strong{color:#fff}
+
+/* --- header ------------------------------------------------------------- */
+.site{position:sticky;top:0;z-index:20;background:rgba(247,248,241,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.site .wrap{display:flex;align-items:center;gap:1.5rem;min-height:68px}
+.brand{font-family:var(--serif);font-size:1.16rem;font-weight:600;color:var(--text);text-decoration:none;letter-spacing:-.02em;margin-right:auto}
+.brand span{color:var(--accent-strong)}
+.site nav ul{display:flex;gap:1.4rem;list-style:none;margin:0;padding:0}
+.site nav a{color:var(--text-muted);text-decoration:none;font-size:.93rem}
+.site nav a:hover{color:var(--accent-strong)}
+@media (max-width:860px){.site nav{display:none}}
+
+/* --- buttons ------------------------------------------------------------ */
+.btn{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent-strong);color:#fffefa;border:1px solid var(--accent-strong);
+  border-radius:999px;padding:.78rem 1.5rem;font:500 .97rem/1 var(--sans);text-decoration:none;transition:transform .12s ease,box-shadow .12s ease}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.btn.ghost{background:transparent;color:var(--accent-strong);border-color:var(--border-strong)}
+.btn.ghost:hover{border-color:var(--accent-strong)}
+
+/* --- hero --------------------------------------------------------------- */
+.hero{padding-top:clamp(3rem,6vw,5rem)}
+.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(2rem,5vw,4rem);align-items:center}
+@media (max-width:900px){.hero .wrap{grid-template-columns:1fr}}
+.quote{font-family:var(--serif);font-size:clamp(1.05rem,.98rem+.4vw,1.22rem);font-style:italic;color:var(--text-muted);
+  border-left:3px solid var(--accent);padding-left:1.1rem;margin:0 0 1.8rem;max-width:52ch}
+.lead{font-size:1.12rem;color:var(--text-muted);max-width:56ch}
+.hero-actions{display:flex;flex-wrap:wrap;gap:.8rem;margin:2rem 0 1.4rem}
+.facts{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;margin:0;padding:0}
+.facts li{background:var(--accent-soft);border:1px solid var(--border);border-radius:999px;padding:.34rem .85rem;font-size:.87rem;color:var(--accent-strong)}
+.portrait{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden}
+.portrait-img{aspect-ratio:4/5;display:grid;place-items:center;background:
+  linear-gradient(140deg,#e8ecd6,#f2f3e9 55%,#e2e5d8);color:var(--text-muted);font-size:.85rem;text-align:center;padding:1.5rem;gap:.4rem}
+.portrait-img span{display:block}
+.portrait-img .ph{font-family:var(--serif);font-size:2.6rem;color:var(--border-strong)}
+.portrait-meta{padding:1.1rem 1.3rem;border-top:1px solid var(--border)}
+.portrait-meta strong{display:block;font-family:var(--serif);font-size:1.1rem;font-weight:600}
+.portrait-meta span{color:var(--text-muted);font-size:.9rem}
+
+/* --- trust strip -------------------------------------------------------- */
+.trust{background:var(--surface-alt);border-block:1px solid var(--border);padding-block:1.6rem}
+.trust .wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1.2rem}
+.trust p{margin:0;font-size:.92rem;color:var(--text-muted)}
+.trust strong{display:block;color:var(--text);font-family:var(--serif);font-size:1.02rem;font-weight:600;margin-bottom:.15rem}
+
+/* --- cards -------------------------------------------------------------- */
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));margin-top:2.2rem}
+.card{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem 1.5rem;box-shadow:var(--shadow-sm)}
+.card h3{margin-top:0}
+.card p{margin-bottom:0;color:var(--text-muted);font-size:.95rem}
+
+/* --- topic chips -------------------------------------------------------- */
+.topics{display:flex;flex-wrap:wrap;gap:.6rem;list-style:none;margin:2rem 0 0;padding:0;max-width:60rem}
+.topics li{background:var(--surface-solid);border:1px solid var(--border);border-radius:999px;padding:.55rem 1.1rem;font-size:.95rem;box-shadow:var(--shadow-sm)}
+
+/* --- steps -------------------------------------------------------------- */
+.steps{counter-reset:s;display:grid;gap:1.1rem;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:2.2rem}
+.step{position:relative;background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);padding:1.6rem 1.5rem 1.4rem}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:-.85rem;left:1.4rem;width:1.9rem;height:1.9rem;
+  display:grid;place-items:center;background:var(--accent-strong);color:#fffefa;border-radius:50%;font:600 .92rem/1 var(--sans)}
+.step h3{margin:.4rem 0 .5rem}
+.step p{margin:0;color:var(--text-muted);font-size:.95rem}
+
+/* --- price -------------------------------------------------------------- */
+.price-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:2.2rem}
+@media (max-width:760px){.price-wrap{grid-template-columns:1fr}}
+.price{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.8rem;box-shadow:var(--shadow-sm)}
+.price.featured{border-color:var(--accent);box-shadow:var(--shadow)}
+.price .amount{font-family:var(--serif);font-size:2.6rem;font-weight:600;line-height:1;letter-spacing:-.03em}
+.price .per{color:var(--text-muted);font-size:.95rem}
+.price ul{list-style:none;margin:1.2rem 0 0;padding:0}
+.price li{position:relative;padding-left:1.5rem;margin-bottom:.5rem;color:var(--text-muted);font-size:.95rem}
+.price li::before{content:"";position:absolute;left:0;top:.62em;width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
+
+/* --- about -------------------------------------------------------------- */
+.about .wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(2rem,5vw,3.5rem);align-items:start}
+@media (max-width:900px){.about .wrap{grid-template-columns:1fr}}
+details{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);margin-top:.7rem}
+summary{cursor:pointer;padding:1rem 1.3rem;font-weight:500;list-style:none;display:flex;justify-content:space-between;gap:1rem;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--accent-strong);font-size:1.3rem;line-height:1}
+details[open] summary::after{content:"–"}
+details .body{padding:0 1.3rem 1.2rem;color:var(--text-muted);font-size:.95rem}
+details .body p:last-child{margin-bottom:0}
+details .body ul{margin:0;padding-left:1.2rem}
+details .body li{margin-bottom:.35rem}
+
+/* --- cta band ----------------------------------------------------------- */
+.cta{background:#344125;color:#f0f3d6}
+.cta h2{color:#fffefa}
+.cta p{color:#d5dcc2}
+.cta .btn{background:#fffefa;color:#344125;border-color:#fffefa}
+.cta .btn.ghost{background:transparent;color:#f0f3d6;border-color:rgba(240,243,214,.45)}
+.cta-inner{display:grid;grid-template-columns:1.2fr .8fr;gap:clamp(1.5rem,4vw,3rem);align-items:center}
+@media (max-width:820px){.cta-inner{grid-template-columns:1fr}}
+.contact-list{list-style:none;margin:0;padding:0;font-size:.98rem}
+.contact-list li{margin-bottom:.6rem}
+.contact-list a{color:#fffefa}
+.contact-list strong{display:block;color:#a9b98a;font:600 .74rem/1.4 var(--sans);letter-spacing:.09em;text-transform:uppercase;margin-bottom:.1rem}
+
+footer{padding-block:2.5rem;border-top:1px solid var(--border);color:var(--text-muted);font-size:.88rem}
+</style>
+</head>
+<body>
+
+<div class="mockbar"><strong>Makieta</strong> — propozycja układu landing page dla gabinetotwarty.com. Treść pochodzi z obecnej strony; zdjęcie to placeholder.</div>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="#">Gabinet <span>Otwarty</span></a>
+    <nav aria-label="Nawigacja główna">
+      <ul>
+        <li><a href="#dla-kogo">Z czym przychodzą</a></li>
+        <li><a href="#jak">Jak zaczynamy</a></li>
+        <li><a href="#oferta">Oferta</a></li>
+        <li><a href="#o-mnie">O mnie</a></li>
+        <li><a href="#faq">Pytania</a></li>
+      </ul>
+    </nav>
+    <a class="btn" href="#kontakt">Umów konsultację</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">Psychoterapia Gestalt · Warszawa i online</p>
+      <h1>Przyszłość jest wciąż przed Tobą — otwarta.</h1>
+      <p class="quote">„Nie mam wpływu na to, co się już zdarzyło, ale przyszłość jest wciąż przede mną – otwarta”</p>
+      <p class="lead">Pracuję z osobami dorosłymi i starszymi nastolatkami — niezależnie od tożsamości płciowej i orientacji. Zaczynamy od konsultacji, na których wspólnie sprawdzamy, czy chcesz pracować właśnie ze mną.</p>
+      <div class="hero-actions">
+        <a class="btn" href="#kontakt">Umów konsultację <span aria-hidden="true">→</span></a>
+        <a class="btn ghost" href="#jak">Jak wygląda pierwsze spotkanie</a>
+      </div>
+      <ul class="facts">
+        <li>250 zł / 50 min</li>
+        <li>Warszawa, Marszałkowska 85</li>
+        <li>lub online przez Google Meet</li>
+        <li>LGBTQ+ friendly</li>
+      </ul>
+    </div>
+
+    <div class="portrait">
+      <div class="portrait-img">
+        <span class="ph" aria-hidden="true">MK</span>
+        <span>miejsce na zdjęcie<br>portretowe</span>
+      </div>
+      <div class="portrait-meta">
+        <strong>Maria Krawczyk</strong>
+        <span>psychoterapeutka Gestalt · certyfikat EAGT i PTPG</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="trust">
+  <div class="wrap">
+    <p><strong>Certyfikat EAGT i PTPG</strong><span>4-letnie szkolenie Gestalt</span></p>
+    <p><strong>Jasna cena</strong><span>250 zł za 50 minut, bez dopłat</span></p>
+    <p><strong>Bez zobowiązania</strong><span>konsultacje 1–5 spotkań</span></p>
+    <p><strong>Każda tożsamość</strong><span>i każda orientacja</span></p>
+  </div>
+</div>
+
+<section id="dla-kogo">
+  <div class="wrap">
+    <p class="eyebrow">Z czym przychodzą ludzie</p>
+    <h2>Nie musisz wiedzieć, jak to nazwać.</h2>
+    <p>Wystarczy, że coś nie działa tak, jak chcesz. Oto obszary, w których pracuję najczęściej — jeśli Twojego tu nie ma, i tak możesz napisać.</p>
+    <ul class="topics">
+      <li>trudności w relacjach</li>
+      <li>depresja i cierpienie psychiczne</li>
+      <li>pytania egzystencjalne</li>
+      <li>żałoba, strata, zdrada</li>
+      <li>lęk i stres</li>
+      <li>tożsamość płciowa</li>
+      <li>orientacja seksualna</li>
+      <li>trauma z dzieciństwa</li>
+      <li>dysocjacja</li>
+      <li>spektrum autyzmu</li>
+      <li>ADHD i ADD</li>
+      <li>poczucie spełnienia</li>
+    </ul>
+  </div>
+</section>
+
+<section id="jak" style="background:var(--surface-alt);border-block:1px solid var(--border)">
+  <div class="wrap">
+    <p class="eyebrow">Jak zaczynamy</p>
+    <h2>Trzy kroki, zanim cokolwiek zdecydujesz.</h2>
+    <div class="steps">
+      <div class="step">
+        <h3>Piszesz albo dzwonisz</h3>
+        <p>Krótka wiadomość wystarczy. Nie musisz opisywać całej historii ani wiedzieć, czego potrzebujesz. Ustalamy termin pierwszego spotkania.</p>
+      </div>
+      <div class="step">
+        <h3>Konsultacje: 1–5 spotkań</h3>
+        <p>Poznajemy się. Opowiadasz, z czym przychodzisz, ja mówię, jak pracuję. To czas na sprawdzenie, czy jest między nami kontakt.</p>
+      </div>
+      <div class="step">
+        <h3>Wspólna decyzja</h3>
+        <p>Dopiero wtedy decydujemy — oboje — czy zaczynamy regularną terapię co tydzień. Jeśli nie, pomogę znaleźć kogoś odpowiedniejszego.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="oferta">
+  <div class="wrap">
+    <p class="eyebrow">Oferta</p>
+    <h2>Jedna cena, bez gwiazdek.</h2>
+    <div class="price-wrap">
+      <div class="price featured">
+        <h3 style="margin-top:0">Konsultacja</h3>
+        <p class="amount">250 zł</p>
+        <p class="per">za 50 minut · od 1 do 5 spotkań</p>
+        <ul>
+          <li>rozmowa o tym, z czym przychodzisz</li>
+          <li>poznanie mojego sposobu pracy</li>
+          <li>bez zobowiązania do dalszej terapii</li>
+        </ul>
+      </div>
+      <div class="price">
+        <h3 style="margin-top:0">Psychoterapia</h3>
+        <p class="amount">250 zł</p>
+        <p class="per">za 50 minut · zwykle raz w tygodniu</p>
+        <ul>
+          <li>stała pora i stały rytm spotkań</li>
+          <li>stacjonarnie lub online</li>
+          <li>gotówka, przelew, BLIK, karta — paragon lub faktura</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about" id="o-mnie">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">O mnie</p>
+      <h2>Maria Krawczyk</h2>
+      <p>Jestem psychoterapeutką Gestalt. Ukończyłam Uniwersytet Warszawski i Collegium Civitas oraz czteroletnie szkolenie psychoterapeutyczne. Należę do EAGT, PTPG i PSHD.</p>
+      <p>W pracy korzystam z terapii egzystencjalnej i logoterapii, podejść somatycznych i teorii przywiązania. Kiedy jest to pomocne, sięgam po redukcję stresu opartą na uważności i narzędzia poznawczo-behawioralne.</p>
+      <a class="btn ghost" href="#kontakt">Napisz do mnie</a>
+    </div>
+    <div>
+      <details open>
+        <summary>Wykształcenie i certyfikaty</summary>
+        <div class="body">
+          <ul>
+            <li>Uniwersytet Warszawski, Collegium Civitas</li>
+            <li>czteroletnie szkolenie psychoterapii Gestalt</li>
+            <li>certyfikat EAGT (European Association for Gestalt Therapy)</li>
+            <li>certyfikat PTPG (Polskie Towarzystwo Psychoterapii Gestalt)</li>
+            <li>członkostwo w PSHD</li>
+          </ul>
+          <p style="margin-top:.8rem">Pełna lista staży, warsztatów, szkoleń i publikacji — w rozwinięciu poniżej.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Staże, warsztaty i publikacje</summary>
+        <div class="body"><p>Tu wchodzi obecna, długa lista ze strony. W układzie landing page jest zwinięta: nie znika, ale nie zasłania tego, po co ktoś tu przyszedł.</p></div>
+      </details>
+      <details>
+        <summary>Jak pracuję z osobami niepełnoletnimi</summary>
+        <div class="body"><p>Pierwsze spotkanie odbywa się z udziałem nastolatka i obojga rodziców.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="background:var(--surface-alt);border-block:1px solid var(--border)">
+  <div class="wrap" style="max-width:52rem">
+    <p class="eyebrow">Pytania i odpowiedzi</p>
+    <h2>Zanim napiszesz.</h2>
+    <details><summary>Kiedy warto zgłosić się na terapię?</summary><div class="body"><p>Wtedy, kiedy coś w Twoim życiu nie działa tak, jak chcesz — i trwa to na tyle długo albo boli na tyle mocno, że sam(a) już tego nie unosisz. Nie trzeba mieć diagnozy ani „wystarczająco poważnego” powodu.</p></div></details>
+    <details><summary>Z kim pracujesz?</summary><div class="body"><p>Z osobami dorosłymi i starszymi nastolatkami, każdej tożsamości płciowej i każdej orientacji seksualnej.</p></div></details>
+    <details><summary>Czy gabinet jest przyjazny osobom LGBT+?</summary><div class="body"><p>Tak. Tożsamość płciowa i orientacja seksualna są obszarami, w których pracuję — nie tematami, które trzeba mi tłumaczyć albo obok których trzeba przechodzić.</p></div></details>
+    <details><summary>Jak wygląda odwoływanie spotkań?</summary><div class="body"><p>Zasady odwołania ustalamy na początku i obowiązują obie strony. Szczegóły omawiamy na konsultacji.</p></div></details>
+    <details><summary>Stacjonarnie czy online?</summary><div class="body"><p>Obie formy. Gabinet: ul. Marszałkowska 85 lok. 7 w Warszawie. Online: Google Meet.</p></div></details>
+  </div>
+</section>
+
+<section class="cta" id="kontakt">
+  <div class="wrap cta-inner">
+    <div>
+      <h2>Pierwszy krok to jedna wiadomość.</h2>
+      <p>Nie musisz w niej niczego wyjaśniać. Odpiszę i zaproponuję termin konsultacji.</p>
+      <div class="hero-actions" style="margin-bottom:0">
+        <a class="btn" href="mailto:kontakt@GabinetOtwarty.com">Napisz e-mail</a>
+        <a class="btn ghost" href="tel:+48600274366">Zadzwoń</a>
+      </div>
+    </div>
+    <ul class="contact-list">
+      <li><strong>E-mail</strong><a href="mailto:kontakt@GabinetOtwarty.com">kontakt@GabinetOtwarty.com</a></li>
+      <li><strong>Telefon</strong><a href="tel:+48600274366">+48 600 274 366</a></li>
+      <li><strong>Gabinet</strong>ul. Marszałkowska 85 lok. 7, Warszawa</li>
+      <li><strong>Rezerwacja online</strong>TwójPsycholog.pl</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p style="margin:0">Makieta poglądowa. Psychoterapia nie zastępuje pomocy w nagłym zagrożeniu życia — w takiej sytuacji zadzwoń pod <strong>112</strong>, a po wsparcie emocjonalne pod <strong>116 123</strong>.</p>
+  </div>
+</footer>
+
+</body>
+</html>

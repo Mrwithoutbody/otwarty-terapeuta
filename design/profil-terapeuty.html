@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profil terapeuty — wspólny szkielet, zmienna treść</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f7f8f1;--surface-solid:#fffefa;--surface-alt:#f2f3e9;
+  --border:#e2e5d8;--border-strong:#d1d8c1;
+  --text:#344125;--text-muted:#707765;
+  --accent:#9cad00;--accent-strong:#637200;--accent-soft:#f0f3d6;--focus:#8b6415;
+  --radius-sm:10px;--radius:14px;--radius-lg:22px;
+  --shadow-sm:0 5px 18px rgba(62,76,31,.045);--shadow:0 16px 42px rgba(62,76,31,.075);
+  --serif:"Lora",Georgia,serif;--sans:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 1rem/1.7 var(--sans)}
+h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.14;letter-spacing:-.025em;margin:0 0 .8rem;text-wrap:balance}
+h1{font-size:clamp(1.9rem,1.5rem+1.6vw,2.7rem)}
+h2{font-size:clamp(1.35rem,1.2rem+.7vw,1.7rem)}
+h3{font-size:1.05rem}
+p{margin:0 0 .9rem;max-width:64ch}
+a{color:var(--accent-strong);text-underline-offset:.22em}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:5px}
+.wrap{max-width:64rem;margin-inline:auto;padding-inline:clamp(1rem,4vw,2rem)}
+.eyebrow{font:600 .74rem/1.4 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--accent-strong);margin:0 0 .6rem}
+
+/* ---- panel sterowania makietą ---- */
+.mock{position:sticky;top:0;z-index:50;background:#344125;color:#e8ecd6;padding:.55rem 1rem;
+  display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:center;font:500 .82rem/1.4 var(--sans)}
+.mock button{background:rgba(255,255,255,.12);color:#f0f3d6;border:1px solid rgba(240,243,214,.3);
+  border-radius:999px;padding:.32rem .9rem;font:500 .82rem/1 var(--sans);cursor:pointer}
+.mock button[aria-pressed="true"]{background:#f0f3d6;color:#344125;border-color:#f0f3d6}
+.mock .sep{opacity:.45}
+
+/* ---- SZKIELET: hero ---- */
+.phero{padding:clamp(2rem,4vw,3rem) 0 0}
+.phero-top{display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start}
+@media (max-width:640px){.phero-top{grid-template-columns:1fr}}
+.avatar{width:132px;height:132px;border-radius:var(--radius-lg);overflow:hidden;flex:none;
+  background:linear-gradient(140deg,#e8ecd6,#f2f3e9 55%,#e2e5d8);display:grid;place-items:center;
+  border:1px solid var(--border);font-family:var(--serif);font-size:2.6rem;color:var(--border-strong)}
+.badges{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .7rem;padding:0;list-style:none}
+.badge{font:500 .78rem/1 var(--sans);padding:.36rem .75rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-solid)}
+.badge.ok{background:var(--accent-soft);border-color:#cdd89a;color:var(--accent-strong)}
+.badge.warn{background:#fdf6e3;border-color:#e8d9a8;color:#7a5c12}
+.badge.demo{background:#f2f3e9;color:var(--text-muted)}
+.headline{font-size:1.1rem;color:var(--text-muted);margin:0 0 .8rem;max-width:56ch}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem .9rem;list-style:none;margin:0;padding:0;color:var(--text-muted);font-size:.92rem}
+.meta li{display:flex;align-items:center;gap:.35rem}
+.meta li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+/* ---- SZKIELET: pasek faktów ---- */
+.facts{margin-top:1.8rem;background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-sm);padding:1.2rem 1.4rem;display:grid;grid-template-columns:repeat(3,1fr) auto;gap:1.2rem;align-items:center}
+@media (max-width:820px){.facts{grid-template-columns:1fr 1fr;}.facts .cta-cell{grid-column:1/-1}}
+@media (max-width:460px){.facts{grid-template-columns:1fr}}
+.fact strong{display:block;font-family:var(--serif);font-size:1.28rem;font-weight:600;letter-spacing:-.02em}
+.fact span{display:block;color:var(--text-muted);font-size:.82rem}
+.fact.empty strong{color:var(--text-muted);font-size:1rem;font-family:var(--sans);font-weight:500}
+.btn{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent-strong);color:#fffefa;
+  border:1px solid var(--accent-strong);border-radius:999px;padding:.75rem 1.4rem;font:500 .95rem/1 var(--sans);
+  text-decoration:none;white-space:nowrap;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent-strong);border-color:var(--border-strong)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+
+/* ---- bloki treści ---- */
+.block{padding-block:clamp(1.8rem,3.5vw,2.6rem);border-top:1px solid var(--border)}
+.block:first-of-type{border-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;margin:0;padding:0}
+.chips li{background:var(--surface-solid);border:1px solid var(--border);border-radius:999px;padding:.45rem 1rem;font-size:.93rem}
+.slots{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.4rem}
+.slot{background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  padding:.6rem 1rem;font-size:.92rem;text-align:left}
+.slot b{display:block;font-weight:600;font-size:.95rem}
+.slot span{color:var(--text-muted);font-size:.82rem}
+.offers{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.offer{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem}
+.offer .amount{font-family:var(--serif);font-size:1.7rem;font-weight:600;letter-spacing:-.02em;display:block}
+.offer .per{color:var(--text-muted);font-size:.86rem}
+details{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.55rem}
+summary{cursor:pointer;padding:.85rem 1.15rem;font-weight:500;list-style:none;display:flex;justify-content:space-between;gap:1rem;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--accent-strong);font-size:1.25rem;line-height:1}
+details[open] summary::after{content:"–"}
+details .body{padding:0 1.15rem 1rem;color:var(--text-muted);font-size:.95rem}
+details .body p:last-child{margin-bottom:0}
+.approved{font-size:.78rem;color:var(--text-muted);margin-top:.5rem}
+.policy{background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.3rem}
+.policy p{margin:0;color:var(--text-muted);font-size:.95rem}
+.linklist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.5rem}
+.linklist a{display:inline-block;background:var(--surface-solid);border:1px solid var(--border);
+  border-radius:999px;padding:.45rem 1rem;font-size:.9rem;text-decoration:none}
+.thin-note{background:#fdf6e3;border:1px solid #e8d9a8;border-radius:var(--radius);padding:1rem 1.2rem;color:#7a5c12;font-size:.93rem}
+.thin-note p{margin:0;max-width:none}
+
+/* ---- tryb: mapowanie na pola ---- */
+body.spec .block,body.spec .facts,body.spec .phero-top{position:relative;outline:1px dashed rgba(99,114,0,.45);outline-offset:6px}
+body.spec [data-field]::after{content:attr(data-field);position:absolute;top:-.65rem;right:0;
+  background:#637200;color:#fffefa;font:500 .68rem/1 var(--sans);padding:.25rem .5rem;border-radius:4px;letter-spacing:.02em}
+body.spec [data-field]{position:relative}
+.spine-tag{display:none}
+body.spec .spine-tag{display:inline-block;background:#344125;color:#f0f3d6;font:600 .62rem/1 var(--sans);
+  padding:.25rem .45rem;border-radius:3px;letter-spacing:.05em;margin-left:.5rem;vertical-align:middle}
+
+footer{padding-block:2rem;border-top:1px solid var(--border);color:var(--text-muted);font-size:.86rem}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="mock">
+  <span>Profil:</span>
+  <button id="b-rich" aria-pressed="true">Bogaty (dużo treści)</button>
+  <button id="b-thin" aria-pressed="false">Świeży (minimum)</button>
+  <span class="sep">|</span>
+  <button id="b-spec" aria-pressed="false">Pokaż mapowanie na pola</button>
+</div>
+
+<main class="wrap">
+
+<!-- ========== SZKIELET (zawsze taki sam) ========== -->
+<section class="phero">
+  <div class="phero-top" data-field="display_name · headline · photo_url · verification_status">
+    <div class="avatar" id="avatar">AK</div>
+    <div>
+      <ul class="badges" id="badges"></ul>
+      <h1 id="name">Anna Kowalczyk</h1>
+      <p class="headline" id="headline">Psychoterapeutka poznawczo-behawioralna. Pracuję z lękiem i wypaleniem.</p>
+      <ul class="meta" id="meta"></ul>
+    </div>
+  </div>
+
+  <div class="facts" data-field="price_* · offers · next_available_slot_utc · accepting_new_clients">
+    <div class="fact" id="f-price"></div>
+    <div class="fact" id="f-len"></div>
+    <div class="fact" id="f-next"></div>
+    <div class="cta-cell"><a class="btn" id="f-cta" href="#terminy">Zobacz wolne terminy</a></div>
+  </div>
+</section>
+
+<!-- ========== BLOKI ZMIENNE (renderowane tylko gdy są dane) ========== -->
+
+<section class="block" id="blk-note" hidden>
+  <div class="thin-note"><p><strong>Ten profil dopiero powstaje.</strong> Terapeutka uzupełnia opis i terminy. Możesz już napisać wiadomość — odpowie, gdy tylko włączy kalendarz.</p></div>
+</section>
+
+<section class="block" id="blk-topics" data-field="topics[]">
+  <p class="eyebrow">Z czym pracuję <span class="spine-tag">SZKIELET</span></p>
+  <ul class="chips" id="topics"></ul>
+</section>
+
+<section class="block" id="blk-about" data-field="bio · modalities[]">
+  <p class="eyebrow">Jak pracuję</p>
+  <div id="bio"></div>
+  <ul class="chips" id="modalities" style="margin-top:.8rem"></ul>
+</section>
+
+<section class="block" id="blk-offers" data-field="offers[]">
+  <p class="eyebrow">Oferta</p>
+  <div class="offers" id="offers"></div>
+</section>
+
+<section class="block" id="blk-slots" data-field="list_available_slots()">
+  <p class="eyebrow" id="terminy">Najbliższe wolne terminy <span class="spine-tag">SZKIELET</span></p>
+  <div class="slots" id="slots"></div>
+</section>
+
+<section class="block" id="blk-creds" data-field="credentials[]">
+  <p class="eyebrow">Kwalifikacje</p>
+  <div id="creds"></div>
+</section>
+
+<section class="block" id="blk-faq" data-field="get_therapist_faq()">
+  <p class="eyebrow">Pytania i odpowiedzi</p>
+  <div id="faq"></div>
+</section>
+
+<section class="block" id="blk-policy" data-field="cancellation_policy · cutoff_hours">
+  <p class="eyebrow">Zasady odwołania <span class="spine-tag">SZKIELET</span></p>
+  <div class="policy"><p id="policy"></p></div>
+</section>
+
+<section class="block" id="blk-links" data-field="links[]">
+  <p class="eyebrow">Więcej o mnie</p>
+  <ul class="linklist" id="links"></ul>
+</section>
+
+</main>
+
+<footer><div class="wrap">
+  <p style="margin:0">Makieta. Profile demonstracyjne są fikcyjne i oznaczone jako <code>is_demo</code>. Serwis nie zastępuje pomocy w nagłym zagrożeniu życia — <strong>112</strong>, wsparcie emocjonalne <strong>116 123</strong>.</p>
+</div></footer>
+
+<script>
+const RICH = {
+  initials:'AK', name:'Anna Kowalczyk', verified:true, demo:true, accepting:true,
+  headline:'Psychoterapeutka poznawczo-behawioralna. Pracuję z lękiem, wypaleniem i trudnościami w relacjach.',
+  meta:['Warszawa, Mokotów','także online','polski, angielski','dorośli i młodzież'],
+  price:'od 200 zł', len:'50 min', next:'jutro, 10:30',
+  topics:['lęk i niepokój','depresja','stres zawodowy','relacje','wypalenie','trauma'],
+  bio:`<p>Pracuję w nurcie poznawczo-behawioralnym, korzystając także z terapii schematu. Zaczynamy od dwóch–trzech spotkań konsultacyjnych: sprawdzamy, z czym przychodzisz i czy mój sposób pracy Ci odpowiada.</p>
+       <p>Nie zakładam, że wiesz, czego potrzebujesz. To jest właśnie materiał na pierwsze spotkania.</p>`,
+  modalities:['poznawczo-behawioralna','terapia schematu'],
+  offers:[['Konsultacja','200 zł','50 min · 1–3 spotkania'],['Terapia indywidualna','220 zł','50 min · co tydzień'],['Sesja online','200 zł','50 min · Google Meet']],
+  slots:[['Jutro 10:30','online · 50 min'],['Czw. 9:00','Mokotów · 50 min'],['Czw. 17:00','online · 50 min'],['Pt. 12:00','Mokotów · 50 min']],
+  creds:[['Certyfikat PTTPB','Polskie Towarzystwo Terapii Poznawczej i Behawioralnej · 2019'],
+         ['Szkolenie w terapii schematu','ISST · 2022'],
+         ['Superwizja','regularna, u superwizora certyfikowanego PTTPB']],
+  faq:[['Ile trwa terapia?','To zależy od tego, z czym przychodzisz. Przy konkretnym problemie zwykle 12–20 spotkań. Przy pracy nad wzorcami relacyjnymi — dłużej. Ustalamy to wspólnie po konsultacjach.'],
+       ['Czy prowadzisz terapię par?','Nie. Pracuję wyłącznie indywidualnie.'],
+       ['Co, jeśli nie będzie mi pasowało?','Powiedz. Konsultacje są właśnie po to. Jeśli nie jestem odpowiednią osobą, pomogę poszukać kogoś innego.']],
+  policy:'Bezpłatne odwołanie do 24 godzin przed sesją. Później sesja jest płatna — to zasada, która działa w obie strony i jest wpisana w kontrakt.',
+  links:[['Strona gabinetu','#'],['Profil w rejestrze PTTPB','#']]
+};
+
+const THIN = {
+  initials:'JN', name:'Julia Nowak', verified:false, demo:true, accepting:true,
+  headline:'Psychoterapeutka w trakcie certyfikacji.',
+  meta:['Kraków','także online','polski'],
+  price:null, len:null, next:null,
+  topics:['relacje'],
+  bio:`<p>Jestem w trakcie czteroletniego szkolenia psychoterapeutycznego. Pracuję pod superwizją.</p>`,
+  modalities:[], offers:[], slots:[], creds:[], faq:[],
+  policy:'Zasady odwołania ustalamy na pierwszym spotkaniu.',
+  links:[]
+};
+
+const $ = id => document.getElementById(id);
+const show = (id, on) => $(id).hidden = !on;
+
+function render(d, thin){
+  $('avatar').textContent = d.initials;
+  $('name').textContent = d.name;
+  $('headline').textContent = d.headline;
+
+  $('badges').innerHTML =
+    (d.verified ? '<li class="badge ok">✓ profil zweryfikowany</li>'
+                : '<li class="badge warn">dane deklarowane, niezweryfikowane</li>') +
+    (d.accepting ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">nie przyjmuje teraz</li>') +
+    (d.demo ? '<li class="badge demo">dane demonstracyjne</li>' : '');
+
+  $('meta').innerHTML = d.meta.map(m => `<li>${m}</li>`).join('');
+
+  $('f-price').className = 'fact' + (d.price ? '' : ' empty');
+  $('f-price').innerHTML = d.price ? `<strong>${d.price}</strong><span>za sesję</span>`
+                                   : `<strong>cena do ustalenia</strong><span>zapytaj przy kontakcie</span>`;
+  $('f-len').className = 'fact' + (d.len ? '' : ' empty');
+  $('f-len').innerHTML = d.len ? `<strong>${d.len}</strong><span>długość sesji</span>`
+                               : `<strong>nie podano</strong><span>długość sesji</span>`;
+  $('f-next').className = 'fact' + (d.next ? '' : ' empty');
+  $('f-next').innerHTML = d.next ? `<strong>${d.next}</strong><span>najbliższy wolny termin</span>`
+                                 : `<strong>brak terminów online</strong><span>kalendarz jeszcze nieaktywny</span>`;
+
+  const cta = $('f-cta');
+  if (d.next){ cta.textContent='Zobacz wolne terminy'; cta.removeAttribute('disabled'); cta.href='#terminy'; }
+  else { cta.textContent='Napisz wiadomość'; cta.removeAttribute('disabled'); cta.href='#'; }
+
+  show('blk-note', thin);
+  $('topics').innerHTML = d.topics.map(t=>`<li>${t}</li>`).join('');
+  show('blk-topics', d.topics.length>0);
+
+  $('bio').innerHTML = d.bio;
+  $('modalities').innerHTML = d.modalities.map(m=>`<li>${m}</li>`).join('');
+  show('blk-about', !!d.bio);
+
+  $('offers').innerHTML = d.offers.map(([t,a,p])=>`<div class="offer"><h3>${t}</h3><span class="amount">${a}</span><span class="per">${p}</span></div>`).join('');
+  show('blk-offers', d.offers.length>0);
+
+  $('slots').innerHTML = d.slots.map(([t,s])=>`<button class="slot"><b>${t}</b><span>${s}</span></button>`).join('');
+  show('blk-slots', d.slots.length>0);
+
+  $('creds').innerHTML = d.creds.map(([t,b])=>`<details><summary>${t}</summary><div class="body"><p>${b}</p></div></details>`).join('');
+  show('blk-creds', d.creds.length>0);
+
+  $('faq').innerHTML = d.faq.map(([q,a])=>`<details><summary>${q}</summary><div class="body"><p>${a}</p><p class="approved">Odpowiedź napisana przez terapeutkę, zatwierdzona przed publikacją.</p></div></details>`).join('');
+  show('blk-faq', d.faq.length>0);
+
+  $('policy').textContent = d.policy;
+
+  $('links').innerHTML = d.links.map(([t,h])=>`<li><a href="${h}">${t} ↗</a></li>`).join('');
+  show('blk-links', d.links.length>0);
+}
+
+$('b-rich').onclick = () => { render(RICH,false); $('b-rich').ariaPressed='true'; $('b-thin').ariaPressed='false'; scrollTo(0,0); };
+$('b-thin').onclick = () => { render(THIN,true);  $('b-rich').ariaPressed='false'; $('b-thin').ariaPressed='true'; scrollTo(0,0); };
+$('b-spec').onclick = () => { const on=document.body.classList.toggle('spec'); $('b-spec').ariaPressed=String(on); };
+
+render(RICH,false);
+</script>
+</body>
+</html>
