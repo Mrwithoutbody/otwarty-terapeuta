@@ -281,9 +281,14 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   display: flex; flex-direction: column; gap: var(--space-3);
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface-solid);
-  box-shadow: var(--shadow-sm); transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  /* The hairline a themed card carries rides along with both shadows; hover
+     used to replace the whole box-shadow and wiped it off exactly when the
+     card was supposed to be louder. */
+  box-shadow: var(--card-edge, 0 0 #0000), var(--shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.card:hover { border-color: var(--border-strong); box-shadow: 0 9px 26px rgba(62, 76, 31, 0.065); }
+.card:hover { border-color: var(--border-strong);
+  box-shadow: var(--card-edge, 0 0 #0000), 0 9px 26px rgba(62, 76, 31, 0.065); }
 .card h3 { margin: 0; font-size: 1.375rem; }
 .card .meta { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
 .card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: 0; font-size: 0.875rem; }
@@ -295,15 +300,26 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .therapist-card .card-actions { margin-top: auto; padding-top: var(--space-2); }
 /* Her colour on the card, as a hairline and a link - not as a repainted card.
    The list has to stay comparable: six differently coloured cards side by side
-   is a rainbow, and the eye stops reading the facts. */
-.therapist-card { --card-accent: var(--accent); box-shadow: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent); }
+   is a rainbow, and the eye stops reading the facts.
+   --card-ink is the accent taken 30% towards black, because the accent itself
+   is a decoration colour: the service green reads 2.5:1 on the card surface,
+   and a link has to clear 4.5:1. Mixed, the quietest theme lands at 4.75:1. */
+.therapist-card {
+  --card-accent: var(--accent);
+  --card-edge: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent);
+  --card-ink: color-mix(in srgb, var(--card-accent) 70%, #000);
+}
+/* Hover strengthens: the hairline goes to full accent instead of vanishing. */
+.therapist-card:hover { --card-edge: inset 0 3px 0 var(--card-accent); }
 .therapist-card--theme-bursztyn { --card-accent: var(--acc-bursztyn); }
 .therapist-card--theme-glina { --card-accent: var(--acc-glina); }
 .therapist-card--theme-grafit { --card-accent: var(--acc-grafit); }
 .therapist-card--theme-las { --card-accent: var(--acc-las); }
 .therapist-card--theme-papier { --card-accent: var(--acc-papier); }
-.therapist-card .card-actions a { color: var(--card-accent); }
-.therapist-card h3 a:hover { color: var(--card-accent); }
+.therapist-card .card-actions a { color: var(--card-ink); }
+/* The name keeps its colour and gains her underline - swapping the colour on
+   hover made the strongest link on the card go paler the moment it was aimed at. */
+.therapist-card h3 a:hover { text-decoration-color: var(--card-accent); }
 
 .avatar {
   width: 72px; height: 72px; border-radius: 22px; object-fit: cover; flex: none;
