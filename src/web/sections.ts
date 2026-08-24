@@ -915,8 +915,6 @@ export const LAYOUT_HERO = [
   ['goly', 'Nigdy w karcie'],
 ] as const;
 
-export interface PageLayout { bands: string; hero: string }
-
 /** The first option of a list is what an unset - or bogus - value falls back to. */
 function layoutOption(value: unknown, list: ReadonlyArray<readonly [string, string]>): string {
   const fallback = list[0]?.[0] ?? '';
@@ -928,7 +926,7 @@ function layoutOption(value: unknown, list: ReadonlyArray<readonly [string, stri
  * string, from the panel as two form values, or from a hand edit. Everything
  * that is not one of the options above becomes the default.
  */
-export function parseLayout(raw: unknown): PageLayout {
+export function parseLayout(raw: unknown): { bands: string; hero: string } {
   let parsed: unknown = raw;
   if (typeof raw === 'string' || raw === null || raw === undefined) {
     try {

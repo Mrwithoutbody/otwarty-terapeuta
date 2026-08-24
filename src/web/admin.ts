@@ -553,8 +553,8 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * How the page is presented, above the list of what is on it. Two selects, not
  * ten: the sections carry the content, this carries the shape.
  */
-function layoutChoice(row: TherapistRow | null): string {
-  const layout = parseLayout(row?.layout_json ?? null);
+function layoutChoice(row: TherapistRow): string {
+  const layout = parseLayout(row.layout_json);
   const options = (
     list: ReadonlyArray<readonly [string, string]>,
     current: string,

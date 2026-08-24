@@ -71,8 +71,8 @@ export interface PublicTherapist {
   cancellation_cutoff_hours: number;
   /** Sections she arranged herself. Empty = the default spine above. */
   sections: unknown[];
-  /** How the page is presented. Validated by the renderer, not here. */
-  layout?: { bands?: string; hero?: string };
+  /** How the page is presented, as stored. Read it with `parseLayout`. */
+  layout?: string;
   /** What happens at the first meeting. Any field may be empty. */
   first_meeting: { course: string; prep: string; decision: string };
   /** True for the fictional profiles shipped with the seed. Always surfaced in the UI. */

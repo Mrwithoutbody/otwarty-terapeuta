@@ -597,7 +597,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    with the pool of light on the opposite side. Consecutive panels mirror, so
    two in a row are not the same picture twice. */
 .pblock--alt, .pblock--narrow {
-  padding-inline: clamp(1.6rem, 3vw, 3rem); border: 1px solid var(--border);
+  margin-block: var(--space-6); padding-inline: clamp(1.6rem, 3vw, 3rem); border: 1px solid var(--border);
   border-radius: var(--radius-lg); background:
     radial-gradient(circle at 84% 10%, rgba(238, 244, 145, 0.42), transparent 20rem),
     linear-gradient(140deg, #f3f6ec, var(--band)); }
@@ -615,20 +615,13 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%);
   margin-block: 0; border: 0; border-block: 1px solid var(--border-strong);
   border-radius: 0; background: var(--band); }
-.profile-page--pasy .pblock--alt + .pblock, .profile-page--pasy .pblock--narrow + .pblock {
-  padding-top: clamp(2.6rem, 5.5vw, 6rem); }
-.profile-page--pasy .pblock--narrow { padding-block: clamp(1.2rem, 2vw, 1.6rem); }
-main:has(.profile-page--pasy > .pblock--alt:last-child),
-main:has(.profile-page--pasy > .pblock--narrow:last-child) { padding-bottom: 0; }
+main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { padding-bottom: 0; }
 /* Only the two headings that take their background from here lose it; the dark
    one and the coloured one are cards by definition. */
 .profile-page--hero-goly :is(.phero--klasyczny, .phero--obietnica) {
   margin-top: 0; padding: 0; border: 0; border-radius: 0; background: none;
   padding-block: clamp(1.5rem, 4vw, 5rem) clamp(2rem, 5vw, 6rem); }
 
-/* Panels need air around them; a stripe did not. */
-.pblock--alt, .pblock--narrow { margin-block: var(--space-6); }
-.pblock--alt + .pblock, .pblock--narrow + .pblock { padding-top: clamp(1.6rem, 3vw, 3rem); }
 /* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
    the dullest thing the profile had to say. */
 .pblock--dark { background: #344125; color: #f0f3d6; border-block: 0;
