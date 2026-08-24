@@ -100,7 +100,7 @@ describe('defaultSections', () => {
     const sections = defaultSections([]);
     expect(sections.map((s) => s.type)).toEqual([
       'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
-      'credentials', 'links', 'policy', 'zaproszenie',
+      'credentials', 'policy', 'zaproszenie',
     ]);
     expect(sections.every((section) => section.variant === undefined)).toBe(true);
   });

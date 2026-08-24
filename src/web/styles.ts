@@ -652,10 +652,16 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .slot-table tbody tr:hover td { background: none; }
 .slot-table td, .slot-table th { border: 0; }
 
-.linklist { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
-.linklist li { margin: 0; }
-.linklist a { display: inline-block; background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: 999px; padding: 0.45rem 1rem; font-size: 0.9rem; text-decoration: none; }
+/* Where else to find her: quiet text links under the name, not a band. */
+.phero-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none;
+  margin: var(--space-4) 0 0; padding: 0; }
+.phero-links li { margin: 0; }
+.phero-links a { color: var(--text-muted); font-size: 0.86rem; text-decoration: none;
+  border-bottom: 1px solid var(--border-strong); padding-bottom: 1px; }
+.phero-links a:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
+.phero--spotlight .phero-links { justify-content: center; }
+.phero--spotlight .phero-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
+.pblock--dark .invite-links a { color: #d5dcc2; border-color: rgba(240, 243, 214, 0.4); }
 /* "Pierwsze spotkanie": her answers, in the order the person will live them. */
 .meeting-steps { counter-reset: s; list-style: none; display: grid; gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 0; padding: 0; }

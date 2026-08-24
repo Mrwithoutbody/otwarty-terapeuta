@@ -200,6 +200,20 @@ function ctaButton(section: Section, ghost = false): string {
   return `<a class="btn${ghost ? ' ghost' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
 }
 
+/**
+ * Where else to find her. This used to be a band of its own, which gave a link
+ * to Instagram the same weight as her offer; it belongs next to her name and in
+ * the closing band, where someone is already deciding whether to write.
+ */
+function profileLinks(t: PublicTherapist, className = 'phero-links'): string {
+  if (t.links.length === 0) return '';
+  return `<ul class="${className}">${t.links
+    .map(
+      (l) => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)} <span aria-hidden="true">↗</span></a></li>`,
+    )
+    .join('')}</ul>`;
+}
+
 /** Her words beside her portrait; `flip` puts the photograph on the left. */
 function splitBody(s: Section, ctx: SectionCtx, flip: boolean): string {
   const body = renderBodyText(str(s.body));
@@ -267,6 +281,7 @@ function heroBody(
     </div>`
         : ''
     }
+    ${profileLinks(t)}
   </div>`;
 }
 
@@ -451,6 +466,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
     ${facts.length === 0 ? '' : `<ul class="phero-facts">${facts.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`}
+    ${profileLinks(t)}
   </div>
   <figure class="phero-card">
     ${
@@ -565,7 +581,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
   },
 
   topics: {
-    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', auto: true,
+    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { therapist: t }) =>
       t.topics.length === 0
@@ -681,7 +697,7 @@ ${pluginCta(env)}`;
    * someone holding four profiles side by side; this is the part they compare.
    */
   dane: {
-    label: 'Podstawowe informacje', hint: 'Wszystkie fakty w dwóch kolumnach', auto: true,
+    label: 'Podstawowe informacje', hint: 'Wszystkie fakty w dwóch kolumnach', tone: 'alt', auto: true,
     fields: [HEADING_FIELD],
     render: (s, { therapist: t, slots }) => {
       const duration = t.offers[0]?.duration_minutes ?? null;
@@ -719,7 +735,7 @@ ${pluginCta(env)}`;
   },
 
   faq: {
-    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt', auto: true,
+    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     render: (s, { faq }) =>
       faq.length === 0
@@ -738,7 +754,7 @@ ${faq
   },
 
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', auto: true,
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
     data: {
       fields: [{
@@ -796,39 +812,6 @@ ${t.credentials
             .join('')}`,
   },
 
-  links: {
-    label: 'Więcej o mnie', hint: 'Linki do Twoich stron', auto: true,
-    fields: [HEADING_FIELD, LEAD_FIELD],
-    data: {
-      fields: [{
-        kind: 'list', name: 'items', label: 'Linki', max: 8,
-        of: [T('label', 'Nazwa', { max: 40 }), { kind: 'url', name: 'url', label: 'Adres (https)', max: 500 }],
-      }],
-      read: (row) => ({
-        items: parseJsonRows(row.links).map((l) => ({ label: str(l.label), url: str(l.url) })),
-      }),
-      write: (values) => ({
-        links: JSON.stringify(
-          textRows(values)
-            .map((item) => ({
-              label: sanitizeLine(str(item.label), 40),
-              url: safeUrl(sanitizeLine(str(item.url), 500)),
-            }))
-            .filter((l): l is { label: string; url: string } => l.label !== '' && l.url !== null),
-        ),
-      }),
-    },
-    render: (s, { therapist: t }) =>
-      t.links.length === 0
-        ? ''
-        : `${eyebrow('Więcej o mnie')}<h2>${escapeHtml(heading(s, 'Gdzie jeszcze mnie znajdziesz'))}</h2>${lead(s)}
-<ul class="linklist">${t.links
-            .map(
-              (l) => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)} ↗</a></li>`,
-            )
-            .join('')}</ul>`,
-  },
-
   // The free-text policy is often empty, so the cutoff carries the meaning.
   policy: {
     label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'alt', auto: true,
@@ -848,8 +831,8 @@ ${t.credentials
    * who never opens the builder still gets one.
    */
   zaproszenie: {
-    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', auto: true,
-    tone: 'dark', fields: [HEADING_FIELD, AREA('body', 'Treść', { max: 600 })],
+    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', auto: true,
+    fields: [HEADING_FIELD, AREA('body', 'Treść', { max: 600 })],
     render: (s, { therapist: t, env }) => {
       const body = str(s.body);
       const written = body === ''
@@ -863,7 +846,8 @@ ${written}
         t.accepting_new_clients && t.next_available_slot_utc
           ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
           : '<a class="btn" href="/terapeuci">Wróć do katalogu</a>'
-      }${pluginCta(env)}</p>`;
+      }${pluginCta(env)}</p>
+${profileLinks(t, 'phero-links invite-links')}`;
     },
   },
 
@@ -1080,7 +1064,7 @@ function cleanField(field: Field, value: unknown): unknown {
  * untouched profile keeps rendering exactly as it did.
  */
 const DEFAULT_ORDER = [
-  'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
+  'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'policy',
   'zaproszenie',
 ] as const;
 
