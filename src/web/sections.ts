@@ -211,12 +211,24 @@ function offerRows(t: PublicTherapist): string {
     .join('')}</ul>`;
 }
 
+/**
+ * What opens a written block: her small label, her heading, her sentence under
+ * it. Each part is skipped when empty, which is why every block that has these
+ * fields starts the same way.
+ */
+function blockHead(s: Section): string {
+  const title = str(s.heading);
+  const lead = str(s.lead);
+  return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
+    lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
+  }`;
+}
+
 /** A heading, a paragraph and an optional button - the plain text blocks. */
 function plainBody(s: Section): string {
   const body = renderBodyText(str(s.body));
   if (body === '') return '';
-  const title = str(s.heading);
-  return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s)}`;
+  return `${blockHead(s)}${body}${ctaButton(s)}`;
 }
 
 /**
@@ -847,11 +859,7 @@ ${profileLinks(t)}`;
     render: (s) => {
       const pillars = items(s).filter((it) => str(it.title) !== '');
       if (pillars.length === 0) return '';
-      const title = str(s.heading);
-      const lead = str(s.lead);
-      return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
-        lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
-      }<ul class="pillars">${pillars
+      return `${blockHead(s)}<ul class="pillars">${pillars
         .map((it) => `<li><h3>${escapeHtml(str(it.title))}</h3>${
           str(it.desc) === '' ? '' : `<p>${escapeHtml(str(it.desc))}</p>`
         }</li>`)
@@ -882,11 +890,7 @@ ${profileLinks(t)}`;
     render: (s) => {
       const entries = items(s).filter((it) => str(it.title) !== '' && str(it.url) !== '');
       if (entries.length === 0) return '';
-      const title = str(s.heading);
-      const lead = str(s.lead);
-      return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
-        lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
-      }<ul class="plinks">${entries
+      return `${blockHead(s)}<ul class="plinks">${entries
         .map((it) => `<li><a href="${escapeHtml(str(it.url))}" target="_blank" rel="noopener noreferrer nofollow">
         <strong>${escapeHtml(str(it.title))}</strong>${
           str(it.desc) === '' ? '' : `<span>${escapeHtml(str(it.desc))}</span>`
@@ -977,79 +981,74 @@ export const SECTION_GROUPS: Array<[boolean, string]> = [
  * broken because this column was hand-edited.
  */
 /**
- * How the page is presented. Five axes, each a closed list whose first entry is
- * the default - which is also what an unset or hand-edited value falls back to.
+ * How the page is presented.
  *
  * A theme is a palette and a typeface, applied as tokens on the profile element
  * only (see `--dark`, `--band`, `--serif` in styles.ts). Presets rather than a
  * colour picker: a free palette produces unreadable contrast, and a catalogue
  * where every entry invents its own colours stops reading as one service.
  */
-export const LAYOUT_THEMES = [
-  ['', 'Serwisowy — szałwia i limonka'],
-  ['bursztyn', 'Bursztyn — ciepły piasek, akcent miodowy'],
-  ['glina', 'Glina — różowawy beż, akcent terakota'],
-  ['grafit', 'Grafit — chłodna szarość, akcent atramentowy'],
-  ['las', 'Las — głęboka zieleń, akcent szmaragdowy'],
-  ['papier', 'Papier — achromatyczny, czerń na bieli'],
-] as const;
-
 /**
- * How loud the page speaks. The reference profiles carry themselves on type
- * scale, not on colour: a heading at 96px and a section label in the margin is
- * the whole difference between a catalogue entry and a practice's own site.
+ * The panel builds its selects from this, `parseLayout` validates by it, and a
+ * new axis is one entry here. The first option of every list is the default.
  */
-export const LAYOUT_DISPLAY = [
-  ['', 'Katalogowa — nagłówki jak w reszcie serwisu'],
-  ['duza', 'Duża — nagłówki wyraźnie większe'],
-  ['plakat', 'Plakatowa — nagłówek na całą szerokość, nadtytuł na marginesie'],
-] as const;
-
-export const LAYOUT_RHYTHM = [
-  ['', 'Standardowy'],
-  ['zwarty', 'Zwarty — mniej powietrza, więcej treści na ekranie'],
-  ['dostojny', 'Przestronny — szerokie odstępy jak na stronie autorskiej'],
-] as const;
-
-export const LAYOUT_BANDS = [
-  ['panele', 'Panele — sekcja barwna w kadrze, z powietrzem wokół'],
-  ['pasy', 'Pasy — sekcja barwna przez całą szerokość ekranu'],
-] as const;
-
-export const LAYOUT_HERO = [
-  ['', 'Automatycznie — karta przy panelach, bez karty przy pasach'],
-  ['karta', 'Zawsze w karcie'],
-  ['goly', 'Nigdy w karcie'],
-] as const;
-
-export const LAYOUT_NAV = [
-  ['', 'Bez paska'],
-  ['kotwice', 'Pasek z odnośnikami do sekcji strony'],
-] as const;
-
-export interface LayoutAxis {
+export const LAYOUT_AXES: ReadonlyArray<{
   name: string;
   label: string;
   hint?: string;
   options: ReadonlyArray<readonly [string, string]>;
-}
-
-/** The panel builds its selects from this, and `parseLayout` validates by it. */
-export const LAYOUT_AXES: readonly LayoutAxis[] = [
-  { name: 'theme', label: 'Motyw', options: LAYOUT_THEMES },
-  { name: 'rhythm', label: 'Rytm strony', options: LAYOUT_RHYTHM },
+}> = [
   {
-    name: 'display', label: 'Skala nagłówków', options: LAYOUT_DISPLAY,
+    name: 'theme', label: 'Motyw',
+    options: [
+      ['', 'Serwisowy — szałwia i limonka'],
+      ['bursztyn', 'Bursztyn — ciepły piasek, akcent miodowy'],
+      ['glina', 'Glina — różowawy beż, akcent terakota'],
+      ['grafit', 'Grafit — chłodna szarość, akcent atramentowy'],
+      ['las', 'Las — głęboka zieleń, akcent szmaragdowy'],
+      ['papier', 'Papier — achromatyczny, czerń na bieli'],
+    ],
+  },
+  {
+    name: 'rhythm', label: 'Rytm strony',
+    options: [
+      ['', 'Standardowy'],
+      ['zwarty', 'Zwarty — mniej powietrza, więcej treści na ekranie'],
+      ['dostojny', 'Przestronny — szerokie odstępy jak na stronie autorskiej'],
+    ],
+  },
+  {
+    name: 'display', label: 'Skala nagłówków',
     hint: 'Przy skali plakatowej nadtytuł sekcji przechodzi do lewej kolumny, obok treści.',
+    options: [
+      ['', 'Katalogowa — nagłówki jak w reszcie serwisu'],
+      ['duza', 'Duża — nagłówki wyraźnie większe'],
+      ['plakat', 'Plakatowa — nagłówek na całą szerokość, nadtytuł na marginesie'],
+    ],
   },
-  { name: 'bands', label: 'Sekcje barwne', options: LAYOUT_BANDS },
   {
-    name: 'hero', label: 'Nagłówek strony', options: LAYOUT_HERO,
+    name: 'bands', label: 'Sekcje barwne',
+    options: [
+      ['panele', 'Panele — sekcja barwna w kadrze, z powietrzem wokół'],
+      ['pasy', 'Pasy — sekcja barwna przez całą szerokość ekranu'],
+    ],
+  },
+  {
+    name: 'hero', label: 'Nagłówek strony',
     hint: 'Karta nad pasem przez cały ekran styka się z nim bez szczeliny, dlatego przy pasach nagłówek domyślnie karty nie ma.',
+    options: [
+      ['', 'Automatycznie — karta przy panelach, bez karty przy pasach'],
+      ['karta', 'Zawsze w karcie'],
+      ['goly', 'Nigdy w karcie'],
+    ],
   },
   {
-    name: 'nav', label: 'Pasek sekcji', options: LAYOUT_NAV,
+    name: 'nav', label: 'Pasek sekcji',
     hint: 'Odnośniki buduje sama strona z nagłówków sekcji, które faktycznie renderuje.',
+    options: [
+      ['', 'Bez paska'],
+      ['kotwice', 'Pasek z odnośnikami do sekcji strony'],
+    ],
   },
 ];
 
@@ -1251,12 +1250,8 @@ export function renderSections(
  * and already escaped, so the tags come out and the text goes straight back in.
  */
 function navLabel(inner: string): string {
-  const pick = (tag: string): string => {
-    const match = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag.slice(0, 2)}[^>]*>`).exec(inner);
-    return match ? match[1]!.replace(/<[^>]*>/g, '').trim() : '';
-  };
-  const eyebrowText = /<p class="eyebrow">([\s\S]*?)<\/p>/.exec(inner)?.[1]?.trim() ?? '';
-  const label = eyebrowText !== '' ? eyebrowText : pick('h2');
+  const heading = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(inner)?.[1]?.replace(/<[^>]*>/g, '') ?? '';
+  const label = (/<p class="eyebrow">([\s\S]*?)<\/p>/.exec(inner)?.[1] ?? heading).trim();
   if (label.length <= 28) return label;
   // Cut on a word, not mid-syllable: half a Polish word in small caps is noise.
   const cut = label.slice(0, 28);

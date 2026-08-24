@@ -83,7 +83,6 @@ export const APP_CSS = `
      catalogue card of a therapist who chose that theme - a card must not take
      the whole palette (a list of six palettes is a rainbow, not a catalogue),
      but one hairline of her colour carries across. */
-  --acc-serwisowy: #9cad00;
   --acc-bursztyn: #a9762a;
   --acc-glina: #a4553a;
   --acc-grafit: #40566e;
@@ -297,7 +296,7 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 /* Her colour on the card, as a hairline and a link - not as a repainted card.
    The list has to stay comparable: six differently coloured cards side by side
    is a rainbow, and the eye stops reading the facts. */
-.therapist-card { --card-accent: var(--acc-serwisowy); box-shadow: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent); }
+.therapist-card { --card-accent: var(--accent); box-shadow: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent); }
 .therapist-card--theme-bursztyn { --card-accent: var(--acc-bursztyn); }
 .therapist-card--theme-glina { --card-accent: var(--acc-glina); }
 .therapist-card--theme-grafit { --card-accent: var(--acc-grafit); }
@@ -703,8 +702,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
    element - the same margin trick the bands use collapses the column here,
    because the padding percentage resolves against the width it just changed. */
 .profile-page { position: relative; }
-:is(.profile-page--theme-bursztyn, .profile-page--theme-glina, .profile-page--theme-grafit,
-     .profile-page--theme-las, .profile-page--theme-papier)::before {
+.profile-page[class*="--theme-"]::before {
   content: ""; position: absolute; z-index: -1; inset-block: calc(var(--space-16) * -1) 0;
   left: 50%; width: 100vw; translate: -50% 0; background: var(--wash-a); }
 
@@ -719,6 +717,11 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
 .profile-page--rytm-zwarty { --rhythm: 0.72; }
 .profile-page--rytm-dostojny { --rhythm: 1.25; }
 
+/* The themes that speak in a display serif; las keeps the service face. */
+:is(.profile-page--theme-bursztyn, .profile-page--theme-glina, .profile-page--theme-grafit,
+    .profile-page--theme-papier) {
+  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
+}
 .profile-page--theme-bursztyn {
   --text: #3b3020; --text-muted: #6f6350;
   --band: #f5ead3; --panel-tint: #fdf7ea; --glow: rgba(240, 200, 120, 0.34);
@@ -727,7 +730,6 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --accent: var(--acc-bursztyn); --accent-strong: #7c5417; --accent-soft: #f7ecd7;
   --dark: #3d3222; --dark-ink: #f3e6cd; --dark-mute: #d8c7a5; --dark-head: #fffdf6;
   --prose: #5f5340;
-  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 .profile-page--theme-grafit {
   --text: #232830; --text-muted: #5c6472;
@@ -737,7 +739,6 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --accent: var(--acc-grafit); --accent-strong: #2c3e52; --accent-soft: #e8ecf2;
   --dark: #232830; --dark-ink: #e4e8ee; --dark-mute: #b9c1cd; --dark-head: #ffffff;
   --prose: #4d5560;
-  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 .profile-page--theme-glina {
   --text: #3e2f28; --text-muted: #6f5d55;
@@ -747,7 +748,6 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --accent: var(--acc-glina); --accent-strong: #7c3c26; --accent-soft: #f7e6de;
   --dark: #40302a; --dark-ink: #f2ded4; --dark-mute: #d5b8ab; --dark-head: #fffaf7;
   --prose: #62504a;
-  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 /* Achromatic on purpose: every surface at S<=4%, the accent carried by the
    near-black rather than by a hue. The reference profile that reads as the most
@@ -760,7 +760,6 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --accent: var(--acc-papier); --accent-strong: #171716; --accent-soft: #f0f0ee;
   --dark: #171716; --dark-ink: #ededec; --dark-mute: #b8b8b6; --dark-head: #ffffff;
   --prose: #56564f;
-  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 .profile-page--theme-las {
   --text: #1f3a2c; --text-muted: #55665a;

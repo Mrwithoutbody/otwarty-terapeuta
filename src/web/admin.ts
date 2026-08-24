@@ -34,7 +34,6 @@ import {
   LAYOUT_AXES,
   MAX_SECTIONS,
   parseLayout,
-  type LayoutAxis,
   parseSections,
   SECTION_GROUPS,
   SECTIONS_DEF,
@@ -555,7 +554,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  */
 function layoutChoice(row: TherapistRow): string {
   const layout = parseLayout(row.layout_json);
-  const field = (axis: LayoutAxis): string => `<div class="field">
+  const field = (axis: (typeof LAYOUT_AXES)[number]): string => `<div class="field">
     <label for="layout_${escapeHtml(axis.name)}">${escapeHtml(axis.label)}</label>
     <select id="layout_${escapeHtml(axis.name)}" name="layout_${escapeHtml(axis.name)}">${axis.options
       .map(([value, label]) =>
