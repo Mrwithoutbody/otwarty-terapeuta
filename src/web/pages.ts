@@ -12,10 +12,18 @@ import {
 } from '../db/catalog';
 import type { PublicTherapist } from '../db/types';
 import { rankTherapists } from '../matching/rank';
-import { escapeHtml, renderBodyText } from '../lib/sanitize';
+import { escapeHtml } from '../lib/sanitize';
 import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { htmlResponse, renderPage } from './layout';
+import {
+  defaultSections,
+  parseSections,
+  pluginCta,
+  renderSections,
+  sectionHasContent,
+  type SectionCtx,
+} from './sections';
 
 /**
  * The public website. Everything is server rendered with escaped text and no
@@ -79,14 +87,6 @@ function languageList(codes: string[]): string {
       return flag ? `<span class="lang">${flag}${name}</span>` : name;
     })
     .join(', ');
-}
-
-function pluginCta(env: Env): string {
-  const url = env.PUBLIC_PLUGIN_URL?.trim();
-  if (!url) {
-    return `<a class="btn secondary" href="#w-chatgpt">Zobacz, jak działa w ChatGPT <span aria-hidden="true">↓</span></a>`;
-  }
-  return `<a class="btn secondary" href="${escapeHtml(url)}" rel="noopener">Znajdź terapeutę z pomocą ChatGPT <span aria-hidden="true">↗</span></a>`;
 }
 
 function crisisBanner(): string {
@@ -432,6 +432,17 @@ ${
   );
 });
 
+function compactDateTime(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('pl-PL', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
 siteApp.get('/terapeuci/:slug', async (c) => {
   const slug = c.req.param('slug');
   const t = await getTherapist(c.env, { slug });
@@ -454,9 +465,22 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       therapist_id: t.therapist_id,
       from_utc: nowIso(),
       to_utc: new Date(Date.now() + 21 * 86_400_000).toISOString(),
-      limit: 12,
+      // The grid shows days, so the query has to fetch enough slots to fill them:
+      // twelve rows covered barely two days for a therapist with eight hours a day.
+      // ponytail: one generous query instead of "distinct days, then their slots";
+      // revisit if anyone opens more than ~80 slots inside the window.
+      limit: 80,
     }),
   ]);
+
+  const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
+  const arranged = parseSections(t.sections);
+  const sections = arranged.length > 0 ? arranged : defaultSections(t.profile_blocks, (type) => sectionHasContent(type, ctx));
+  const body = renderSections(sections, ctx);
+
+  const nextSlot = slots[0];
+  const duration = t.offers[0]?.duration_minutes ?? null;
+  const formats = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null].filter(Boolean);
 
   return htmlResponse(
     c.env,
@@ -466,123 +490,53 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       path: '/terapeuci',
       body: `
 <article class="profile-page">
-<nav aria-label="Ścieżka"><p><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
-<div class="profile-head">
+<nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
+
+<header class="phero">
   ${
     t.photo_url
-      ? `<img class="profile-avatar" src="${escapeHtml(t.photo_url)}" alt="" width="160" height="160" decoding="async">`
-      : '<span class="profile-avatar" aria-hidden="true"></span>'
+      // The master, not the thumbnail: this renders at 148px but must stay sharp
+      // on a high-DPI screen. The 160px rendition is for the catalogue cards.
+      ? `<img class="phero-photo" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
+      : '<span class="phero-photo empty" aria-hidden="true"></span>'
   }
   <div>
+    <ul class="badges">
+      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
+      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
+      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
+    </ul>
     <h1>${escapeHtml(t.display_name)}</h1>
-    <p class="meta">${escapeHtml(t.headline ?? '')}</p>
+    ${t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
+    <ul class="phero-meta">
+      ${t.locations.length > 0 ? `<li>${escapeHtml(t.locations.map((l) => l.city).join(', '))}</li>` : ''}
+      ${formats.length > 0 ? `<li>${escapeHtml(formats.join(' i '))}</li>` : ''}
+      <li>${languageList(t.languages)}</li>
+      ${t.session_types.length > 0 ? `<li>${escapeHtml(labelList(t.session_types, ''))}</li>` : ''}
+    </ul>
+    <div class="phero-actions">
+      ${nextSlot ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${sectionHasContent('first_meeting', ctx) ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+    </div>
   </div>
-</div>
-<ul class="tags">
-  ${t.verification_status === 'verified' ? `<li class="tag verified">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="tag">dane deklarowane przez terapeutę</li>'}
-  ${t.is_demo ? '<li class="tag demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
-  ${t.accepting_new_clients ? '<li class="tag">przyjmuje nowe osoby</li>' : '<li class="tag">brak wolnych miejsc</li>'}
-</ul>
+</header>
 
-<h2>O mojej pracy</h2>
-${renderBodyText(t.bio)}
-
-<div class="grid cols-2">
-  <div class="card">
-    <h3>Podstawowe informacje</h3>
-    <dl>
-      <dt>Forma</dt><dd>${escapeHtml([t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null].filter(Boolean).join(', ') || 'brak danych')}</dd>
-      <dt>Miejscowość</dt><dd>${escapeHtml(t.locations.map((l) => `${l.city}${l.address_line ? `, ${l.address_line}` : ''}`).join('; ') || 'tylko online')}</dd>
-      <dt>Języki</dt><dd>${languageList(t.languages)}</dd>
-      <dt>Typ spotkań</dt><dd>${escapeHtml(labelList(t.session_types, 'brak danych'))}</dd>
-      <dt>Grupy wiekowe</dt><dd>${escapeHtml(labelList(t.age_groups, 'brak danych'))}</dd>
-      <dt>Strefa czasowa</dt><dd>${escapeHtml(t.timezone)}</dd>
-      ${
-        t.links.length === 0
-          ? ''
-          : `<dt>W sieci</dt><dd>${t.links
-              .map(
-                (l) =>
-                  `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)}</a>`,
-              )
-              .join(', ')}</dd>`
-      }
-    </dl>
+<div class="pfacts">
+  <div class="pfact${t.price_min_minor === null ? ' empty' : ''}">
+    <strong>${t.price_min_minor === null ? 'cena do ustalenia' : escapeHtml(formatPrice(t.price_min_minor, t.currency))}</strong>
+    <span>${t.price_min_minor === null ? 'zapytaj przy kontakcie' : 'za sesję'}</span>
   </div>
-  <div class="card">
-    <h3>Nurt i obszary pracy</h3>
-    <ul class="tags">${t.modalities.map((m) => `<li class="tag">${escapeHtml(m.name)}</li>`).join('')}</ul>
-    <ul class="tags">${t.topics.map((x) => `<li class="tag">${escapeHtml(x.name)}</li>`).join('')}</ul>
+  <div class="pfact${duration === null ? ' empty' : ''}">
+    <strong>${duration === null ? 'nie podano' : `${duration} min`}</strong><span>długość sesji</span>
   </div>
+  <div class="pfact${nextSlot ? '' : ' empty'}">
+    <strong>${nextSlot ? escapeHtml(compactDateTime(nextSlot.starts_at_utc, nextSlot.timezone)) : 'brak wolnych terminów'}</strong>
+    <span>${nextSlot ? 'najbliższy wolny termin' : 'w najbliższych trzech tygodniach'}</span>
+  </div>
+  <div class="pfact-cta">${nextSlot ? '<a class="btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
 </div>
 
-<h2>Oferta i ceny</h2>
-<div class="table-scroll">
-<table>
-  <caption class="visually-hidden">Oferta sesji, ceny i czas trwania</caption>
-  <thead><tr><th scope="col">Rodzaj</th><th scope="col">Forma</th><th scope="col">Czas</th><th scope="col">Cena</th></tr></thead>
-  <tbody>
-    ${t.offers
-      .map(
-        (o) =>
-          `<tr><td>${escapeHtml(o.title)}</td><td>${o.mode === 'online' ? 'online' : 'stacjonarnie'}</td>
-           <td>${o.duration_minutes} min</td><td>${escapeHtml(formatPrice(o.price_minor, o.currency))}</td></tr>`,
-      )
-      .join('')}
-  </tbody>
-</table>
-</div>
-
-<h2>Kwalifikacje</h2>
-<ul>
-  ${
-    t.credentials.length === 0
-      ? '<li>Terapeuta nie podał jeszcze kwalifikacji.</li>'
-      : t.credentials
-          .map(
-            (cr) =>
-              `<li>${escapeHtml(cr.title)}${cr.issuer ? `, ${escapeHtml(cr.issuer)}` : ''}${cr.year ? ` (${cr.year})` : ''} —
-               ${cr.verified ? '<strong>zweryfikowane</strong>' : 'deklarowane przez terapeutę'}</li>`,
-          )
-          .join('')
-  }
-</ul>
-
-<h2 id="faq">Zanim przyjdziesz — pytania i odpowiedzi</h2>
-${
-  faq.length === 0
-    ? '<p>Ten terapeuta nie opublikował jeszcze odpowiedzi. Skontaktuj się bezpośrednio.</p>'
-    : `<dl>${faq
-        .map(
-          (item) =>
-            `<div id="faq-${escapeHtml(item.faq_id)}">
-               <dt><strong>${escapeHtml(item.question)}</strong></dt>
-               <dd><p>${escapeHtml(item.answer).replace(/\n/g, '<br>')}</p>
-               <p class="hint">Odpowiedź terapeuty, zaktualizowana ${escapeHtml(item.updated_at.slice(0, 10))}.</p></dd>
-             </div>`,
-        )
-        .join('')}</dl>`
-}
-<p class="hint">Odpowiedzi pochodzą wprost od terapeuty. Nie zastępują konsultacji ani porady klinicznej.</p>
-
-<h2>Najbliższe wolne terminy</h2>
-${
-  slots.length === 0
-    ? '<p>Brak wolnych terminów w najbliższych trzech tygodniach.</p>'
-    : `<ul class="slot-list">${slots
-        .map(
-          (s) =>
-            `<li>${escapeHtml(formatDateTime(s.starts_at_utc, s.timezone))} — ${s.duration_minutes} min,
-             ${s.mode === 'online' ? 'online' : 'stacjonarnie'}, ${escapeHtml(formatPrice(s.price_minor, s.currency))}</li>`,
-        )
-        .join('')}</ul>`
-}
-<p>Rezerwacja terminu odbywa się przez asystenta ChatGPT.</p>
-${pluginCta(c.env)}
-
-<h2>Zasady odwołania</h2>
-<p>${escapeHtml(t.cancellation_policy || `Bezpłatne odwołanie do ${t.cancellation_cutoff_hours} godzin przed sesją.`)}</p>
-
+${body}
 ${crisisBanner()}
 </article>`,
     }),

@@ -14,6 +14,55 @@
 export const ADMIN_JS = String.raw`(function () {
   'use strict';
 
+
+  // ------------------------------------------------------- profile composer ---
+  // Reordering by dragging. The position inputs stay the source of truth and are
+  // renumbered after every drop, so the form posts the same thing either way and
+  // the no-JS path keeps working untouched.
+  function initComposer(root) {
+    var list = root.querySelector('.sec-list');
+    if (!list) return;
+    document.documentElement.classList.add('js-drag');
+
+    var dragged = null;
+
+    function renumber() {
+      var rows = list.querySelectorAll('.sec-item');
+      for (var i = 0; i < rows.length; i++) {
+        var input = rows[i].querySelector('[data-section-pos]');
+        if (input) input.value = String(i + 1);
+      }
+    }
+
+    list.addEventListener('dragstart', function (e) {
+      var item = e.target.closest ? e.target.closest('.sec-item') : null;
+      // Dragging inside a textarea must not pick the whole section up.
+      if (!item || (e.target.closest && e.target.closest('.sec-fields'))) return;
+      dragged = item;
+      item.classList.add('dragging');
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    });
+
+    list.addEventListener('dragend', function () {
+      if (dragged) dragged.classList.remove('dragging');
+      var over = list.querySelector('.over');
+      if (over) over.classList.remove('over');
+      dragged = null;
+      renumber();
+    });
+
+    list.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      var target = e.target.closest ? e.target.closest('.sec-item') : null;
+      if (!target || !dragged || target === dragged) return;
+      var box = target.getBoundingClientRect();
+      var before = e.clientY < box.top + box.height / 2;
+      list.insertBefore(dragged, before ? target : target.nextSibling);
+    });
+
+    list.addEventListener('drop', function (e) { e.preventDefault(); });
+  }
+
   // ------------------------------------------------------------------ tabs ---
 
   function initTabs(root) {
@@ -513,6 +562,7 @@ export const ADMIN_JS = String.raw`(function () {
     document.querySelectorAll('[data-editor]').forEach(initEditor);
     document.querySelectorAll('[data-repeat]').forEach(initRepeat);
     document.querySelectorAll('[data-crop]').forEach(initCrop);
+    document.querySelectorAll('[data-composer]').forEach(initComposer);
   }
 
   if (document.readyState === 'loading') {
@@ -527,6 +577,8 @@ export const ADMIN_CSS = String.raw`
 /* Admin panel only. Loaded on top of app.css, never on public pages. */
 
 .tabs { max-width: 56rem; }
+.tabs-lead { max-width: 68ch; margin: 0 0 1.1rem; color: var(--text-muted, #6a7360); font-size: 0.95rem; }
+.panel-lead { max-width: 64ch; margin: 0 0 1.4rem; color: var(--text-muted, #6a7360); font-size: 0.95rem; }
 .tablist {
   display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.5rem;
   border-bottom: 1px solid var(--border-strong); padding-bottom: 0.6rem;
@@ -648,4 +700,33 @@ export const ADMIN_CSS = String.raw`
 .crop-canvas:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
 .crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
+
+/* --- profile composer ---------------------------------------------------- */
+.composer .hint { max-width: 62ch; }
+.sec-item { border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fff;
+  margin-bottom: 0.7rem; overflow: hidden; }
+.sec-head { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 0.9rem; align-items: center;
+  padding: 0.75rem 0.9rem; }
+.sec-item .grip { cursor: grab; color: var(--border-strong, #d1d8c1); font-size: 1.15rem; line-height: 1; }
+.sec-copy strong { display: block; font-size: 0.98rem; }
+.sec-copy span { color: var(--text-muted, #6a7360); font-size: 0.85rem; }
+.sec-pos input { width: 3.2rem; }
+.sec-variant select { font-size: 0.85rem; }
+.sec-del { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--text-muted, #6a7360); }
+.sec-fields { border-top: 1px solid var(--border, #e3e6d8); background: #fbfcf7; }
+.sec-fields > summary { cursor: pointer; padding: 0.55rem 0.9rem; font-size: 0.86rem;
+  color: var(--text-muted, #6a7360); }
+.sec-fields-body { padding: 0 0.9rem 0.9rem; }
+.sec-list-field { margin: 0 0 0.6rem; }
+.sec-list-field ol { list-style: none; margin: 0; padding: 0; }
+.sec-subrow { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  padding: 0.5rem 0; border-bottom: 1px dashed var(--border, #e3e6d8); }
+.sec-subrow:last-child { border-bottom: 0; }
+.sec-add { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
+.sec-add select { min-width: 18rem; }
+.sec-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+.sec-item.dragging { opacity: 0.45; }
+.sec-item.over { border-color: var(--accent-strong, #637200); }
+/* With drag available the numbers are redundant, so JS hides them. */
+.js-drag .sec-pos { display: none; }
 `;

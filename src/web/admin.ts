@@ -29,6 +29,20 @@ import {
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { htmlResponse, renderPage } from './layout';
+import {
+  defaultSections,
+  MAX_SECTIONS,
+  parseSections,
+  SECTION_GROUPS,
+  SECTIONS_DEF,
+  variantOf,
+  VARIANT_LABELS,
+  VARIANTS,
+  type Field,
+  type SecDef,
+  type Section,
+  type Values,
+} from './sections';
 
 /**
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
@@ -521,6 +535,164 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
   return context;
 }
 
+/**
+ * The section builder.
+ *
+ * The therapist arranges her profile out of sections: some render data she
+ * keeps elsewhere in the panel (her offer, her calendar, her FAQ), some carry
+ * text she writes here. Every form field on this screen is generated from
+ * `SECTIONS_DEF`, so a new section type or field is added there and shows up
+ * here without touching this file.
+ *
+ * It works with JavaScript switched off. Adding a section is a submit button:
+ * the profile saves and comes back with the new section appended. Order is
+ * carried by numeric position inputs; the drag-and-drop in `admin.js` only
+ * rewrites those numbers, so both paths post the same thing.
+ */
+function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {
+  const stored = parseSections(row?.sections_json ?? null);
+  const filled = autoContentFlags(row, context);
+  const sections = stored.length > 0
+    ? stored
+    : defaultSections(parseStoredBlocks(row?.profile_blocks ?? null), (type) => filled[type] !== false);
+
+  const rows = sections
+    .map((section, index) => {
+      const def = SECTIONS_DEF[section.type];
+      if (!def) return '';
+      // A section with nothing in it is listed but marked: she can see what
+      // filling it in would add, rather than wondering why it never appears.
+      const empty = def.auto === true ? filled[section.type] === false : filledFields(def, section, true) === 0;
+      return `<li class="sec-item" data-section draggable="true">
+  <div class="sec-head">
+    <span class="grip" aria-hidden="true">⠿</span>
+    <span class="sec-copy"><strong>${escapeHtml(def.label)}</strong>
+      <span>${escapeHtml(def.hint)}${empty ? ' — jeszcze puste, sekcja się nie pokaże' : ''}</span></span>
+    <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
+    <label class="sec-pos"><span class="visually-hidden">Pozycja sekcji ${escapeHtml(def.label)}</span>
+      <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_SECTIONS}" data-section-pos></label>
+    <label class="sec-variant"><span class="visually-hidden">Tło sekcji ${escapeHtml(def.label)}</span>
+      <select name="sec_${index}_variant">${VARIANT_LABELS.map(
+        ([value, label]) =>
+          `<option value="${escapeHtml(value)}"${variantOf(section) === value ? ' selected' : ''}>${escapeHtml(label)}</option>`,
+      ).join('')}</select></label>
+    <label class="sec-del"><input type="checkbox" name="sec_${index}_del" value="1"><span>usuń</span></label>
+  </div>
+  ${sectionFields(def, section, index)}
+</li>`;
+    })
+    .join('');
+
+  const palette = SECTION_GROUPS.map(([auto, label]) => {
+    const options = Object.entries(SECTIONS_DEF)
+      .filter(([type, def]) => (def.auto === true) === auto && (def.repeatable === true || !sections.some((s) => s.type === type)))
+      .map(([type, def]) => `<option value="${escapeHtml(type)}">${escapeHtml(def.label)} — ${escapeHtml(def.hint)}</option>`)
+      .join('');
+    return options === '' ? '' : `<optgroup label="${escapeHtml(label)}">${options}</optgroup>`;
+  }).join('');
+
+  return `<ol class="sec-list">${rows}</ol>
+<div class="sec-add">
+  <label for="add_section"><span class="visually-hidden">Rodzaj sekcji</span>
+    <select id="add_section" name="add_section"><option value="">— wybierz sekcję do dodania —</option>${palette}</select></label>
+  <button class="btn secondary" type="submit" name="action" value="add_section">Dodaj sekcję</button>
+</div>`;
+}
+
+/**
+ * How many of a section's fields she has filled in. `skipTitles` ignores the
+ * heading and the lead, which every section has and neither of which counts as
+ * content of its own.
+ */
+function filledFields(def: SecDef, section: Section, skipTitles = false): number {
+  return (def.fields ?? []).filter((field) => {
+    if (skipTitles && (field.name === 'heading' || field.name === 'lead')) return false;
+    const value = section[field.name];
+    return Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== '';
+  }).length;
+}
+
+/**
+ * Fields for one section, generated from its definition and folded away.
+ * Eight sections with their fields all open is a wall of empty inputs; the
+ * summary says whether there is anything inside worth opening.
+ */
+function sectionFields(def: SecDef, section: Section, index: number): string {
+  const fields = (def.fields ?? [])
+    .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`))
+    .join('');
+  if (fields === '') return '';
+  const filled = filledFields(def, section);
+  const summary = def.auto === true
+    ? (filled > 0 ? 'Nagłówek zmieniony' : 'Zmień nagłówek')
+    : (filled > 0 ? `Treść (${filled} ${filled === 1 ? 'pole' : 'pola'})` : 'Wpisz treść');
+  return `<details class="sec-fields"${def.auto === true || filled > 0 ? '' : ' open'}>
+  <summary>${escapeHtml(summary)}</summary>
+  <div class="sec-fields-body">${fields}</div>
+</details>`;
+}
+
+function sectionField(field: Field, value: unknown, name: string): string {
+  const label = `<label for="${name}">${escapeHtml(field.label)}</label>`;
+  const hint = field.hint ? `<p class="hint">${escapeHtml(field.hint)}</p>` : '';
+
+  if (field.kind === 'list') {
+    const existing = Array.isArray(value) ? (value as Values[]) : [];
+    // One spare row so something can always be added without JavaScript.
+    const count = Math.min((field.max ?? 6), existing.length + 1);
+    const rows = Array.from({ length: count }, (_, i) => {
+      const item = existing[i] ?? {};
+      const inner = (field.of ?? []).map((sub) => sectionField(sub, item[sub.name], `${name}_${i}_${sub.name}`)).join('');
+      return `<li class="sec-subrow">${inner}</li>`;
+    }).join('');
+    return `<fieldset class="sec-list-field"><legend>${escapeHtml(field.label)}</legend>${hint}<ol>${rows}</ol></fieldset>`;
+  }
+
+  const text = typeof value === 'string' ? value : '';
+  if (field.kind === 'textarea') {
+    return `<div class="field">${label}<textarea id="${name}" name="${escapeHtml(name)}" rows="4"
+      maxlength="${field.max ?? 2000}">${escapeHtml(text)}</textarea>${hint}</div>`;
+  }
+  if (field.kind === 'select') {
+    return `<div class="field">${label}<select id="${name}" name="${escapeHtml(name)}">${(field.options ?? [])
+      .map(([v, l]) => `<option value="${escapeHtml(v)}"${text === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
+      .join('')}</select>${hint}</div>`;
+  }
+  return `<div class="field">${label}<input id="${name}" name="${escapeHtml(name)}" type="${field.kind === 'url' ? 'url' : 'text'}"
+    maxlength="${field.max ?? 120}" value="${escapeHtml(text)}">${hint}</div>`;
+}
+
+
+/**
+ * Which auto sections would show anything today. A section that would render
+ * nothing is still listed - she can see what filling it in would add, rather
+ * than wondering why it never appears.
+ */
+function autoContentFlags(row: TherapistRow | null, context: EditorContext): Record<string, boolean> {
+  return {
+    intro: (row?.bio ?? '').trim() !== '',
+    first_meeting:
+      `${row?.first_meeting_course ?? ''}${row?.first_meeting_prep ?? ''}${row?.first_meeting_decision ?? ''}`.trim() !== '',
+    topics: context.chosenTopics.size > 0,
+    offers: context.offers.length > 0,
+    slots: true,
+    faq: context.faq.length > 0,
+    credentials: parseStoredCredentials(row?.credentials ?? null).length > 0,
+    links: parseStoredLinks(row?.links ?? null).length > 0,
+    policy: true,
+  };
+}
+
+function parseStoredBlocks(value: string | null): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((b): b is string => typeof b === 'string');
+  } catch {
+    return [];
+  }
+}
+
 function checkboxGrid(name: string, options: RefTag[], chosen: Set<string>): string {
   return `<div class="choice-grid">${options
     .map((option) => {
@@ -693,6 +865,27 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   <p class="hint">Wyczyszczenie miejscowości usuwa adres gabinetu z profilu publicznego.</p>
 
   <fieldset>
+    <legend>Pierwsze spotkanie</legend>
+    <p class="hint">To jest najczęstsze pytanie osoby, która zastanawia się, czy się odezwać.
+    Odpowiedz krótko i po swojemu — każde pole możesz zostawić puste, wtedy się nie pokaże.</p>
+    <div class="field">
+      <label for="first_meeting_course">Jak wygląda pierwsze spotkanie?</label>
+      <textarea id="first_meeting_course" name="first_meeting_course" rows="2" maxlength="400"
+        placeholder="np. Rozmawiamy o tym, z czym przychodzisz. Opowiadam, jak pracuję.">${escapeHtml(row?.first_meeting_course ?? '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="first_meeting_prep">Czy trzeba się przygotować?</label>
+      <textarea id="first_meeting_prep" name="first_meeting_prep" rows="2" maxlength="400"
+        placeholder="np. Nie. Nie musisz wiedzieć, czego potrzebujesz — to jest materiał na pierwsze spotkania.">${escapeHtml(row?.first_meeting_prep ?? '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="first_meeting_decision">Kiedy decydujecie o dalszej pracy?</label>
+      <textarea id="first_meeting_decision" name="first_meeting_decision" rows="2" maxlength="400"
+        placeholder="np. Po dwóch–trzech spotkaniach decydujemy oboje, czy zaczynamy regularną terapię.">${escapeHtml(row?.first_meeting_decision ?? '')}</textarea>
+    </div>
+  </fieldset>
+
+  <fieldset>
     <legend>Forma spotkań</legend>
     <div class="checkbox"><input id="offers_online" name="offers_online" type="checkbox" value="1"${row?.offers_online ? ' checked' : ''}>
       <label for="offers_online">online</label></div>
@@ -785,15 +978,110 @@ function therapistTabs(session: AdminSession, row: TherapistRow, context: Editor
   const id = escapeHtml(row.id);
 
   return `
-<div class="tabs" data-tabs="terapeuta-v2">
+<p class="tabs-lead">W zakładkach <strong>O mnie</strong>, <strong>Oferta</strong>,
+<strong>Dostępność</strong> i <strong>FAQ</strong> wpisujesz treść — każdą rzecz raz.
+W zakładce <strong>Układ strony</strong> decydujesz, co z tego i w jakiej kolejności
+zobaczy osoba, która trafi na Twój profil.</p>
 
-<section data-tab-panel data-tab-label="Profil" id="panel-profil">
-<h2 class="visually-hidden">Profil</h2>
+<div class="tabs" data-tabs="terapeuta-v3">
+
+<section data-tab-panel data-tab-label="O mnie" id="panel-profil">
+<h2 class="visually-hidden">O mnie</h2>
+<p class="panel-lead">Kim jesteś i jak pracujesz: opis, zdjęcie, gabinet, obszary, nurty,
+kwalifikacje. Po tych danych wyszukiwarka dobiera Cię do osoby, która szuka pomocy.</p>
 ${therapistForm(session, row, context)}
+</section>
+
+<section data-tab-panel data-tab-label="Oferta" id="panel-oferta">
+<h2>Oferta</h2>
+<p class="panel-lead">Rodzaje sesji, czas trwania i ceny. Z tego bierze się cena widoczna
+u góry profilu i w wynikach wyszukiwania.</p>
+<form method="post" action="/admin/terapeuci/${id}/oferta">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="o_title">Nazwa</label><input id="o_title" name="title" required maxlength="120"></div>
+    <div class="field"><label for="o_type">Typ</label>
+      <select id="o_type" name="session_type">
+        <option value="individual">indywidualna</option><option value="couples">para</option><option value="family">rodzina</option>
+      </select></div>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label for="o_mode">Forma</label>
+      <select id="o_mode" name="mode"><option value="online">online</option><option value="in_person">stacjonarnie</option></select></div>
+    <div class="field"><label for="o_dur">Czas (min)</label><input id="o_dur" name="duration_minutes" type="number" min="15" max="240" value="50"></div>
+  </div>
+  <div class="field"><label for="o_price">Cena (zł)</label><input id="o_price" name="price" type="number" min="0" max="5000" step="10" value="200"></div>
+  <p><button class="btn" type="submit">Dodaj ofertę</button></p>
+</form>
+
+<h3>Istniejące oferty</h3>
+${
+  context.offers.length === 0
+    ? '<p class="hint">Ten profil nie ma jeszcze żadnej oferty.</p>'
+    : `<div class="table-scroll"><table>
+<thead><tr><th scope="col">Nazwa</th><th scope="col">Forma</th><th scope="col">Czas</th>
+<th scope="col">Cena</th><th scope="col">Aktywna</th></tr></thead>
+<tbody>${context.offers
+        .map(
+          (offer) =>
+            `<tr><td>${escapeHtml(offer.title)}</td>
+             <td>${escapeHtml(offer.mode)} / ${escapeHtml(offer.session_type)}</td>
+             <td>${offer.duration_minutes} min</td>
+             <td>${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</td>
+             <td>${offer.active ? 'tak' : 'nie'}</td></tr>`,
+        )
+        .join('')}</tbody></table></div>`
+}
+</section>
+
+<section data-tab-panel data-tab-label="Dostępność" id="panel-terminy">
+<h2>Dostępność</h2>
+<p class="panel-lead">Wolne terminy do rezerwacji. Każdy termin należy do konkretnej oferty,
+więc najpierw dodaj ofertę.</p>
+${
+  activeOffers.length === 0
+    ? `<div class="notice warn"><p>Terminy powstają dla konkretnej oferty. Dodaj najpierw ofertę
+       w zakładce „Oferta”.</p></div>`
+    : `<form method="post" action="/admin/terapeuci/${id}/terminy">
+  ${csrfField(session)}
+  <div class="field"><label for="t_offer">Oferta</label>
+    <select id="t_offer" name="offer_id" required>
+      ${activeOffers
+        .map(
+          (offer) =>
+            `<option value="${escapeHtml(offer.id)}">${escapeHtml(offer.title)} — ${escapeHtml(offer.mode)}, ${offer.duration_minutes} min, ${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</option>`,
+        )
+        .join('')}
+    </select></div>
+  <div class="field"><label for="t_days">Liczba dni do wygenerowania</label>
+    <input id="t_days" name="days" type="number" min="1" max="60" value="14"></div>
+  <fieldset>
+    <legend>Godziny rozpoczęcia</legend>
+    ${hourGrid(DEFAULT_SLOT_HOURS)}
+    <p class="hint">Terminy powstają w dni robocze, o każdej zaznaczonej godzinie.</p>
+  </fieldset>
+  <div class="field"><label for="t_tz">Strefa czasowa terapeuty</label>
+    <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone ?? 'Europe/Warsaw')}" maxlength="64">
+    <p class="hint">Godziny powyżej są godzinami lokalnymi w tej strefie. Zmiana czasu jest uwzględniana automatycznie.</p></div>
+  <p><button class="btn" type="submit">Wygeneruj wolne terminy</button></p>
+</form>`
+}
+
+<h3>Blokowanie terminu</h3>
+<form method="post" action="/admin/terapeuci/${id}/blokuj">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="b_slot">Identyfikator terminu (slot_id)</label><input id="b_slot" name="slot_id" required maxlength="64"></div>
+    <div class="field"><label for="b_reason">Powód</label><input id="b_reason" name="reason" maxlength="120"></div>
+  </div>
+  <p><button class="btn secondary" type="submit">Zablokuj termin</button></p>
+</form>
 </section>
 
 <section data-tab-panel data-tab-label="FAQ" id="panel-faq">
 <h2>FAQ</h2>
+<p class="panel-lead">Pytania, które słyszysz najczęściej, i Twoje odpowiedzi. Trafiają na stronę
+i do asystenta ChatGPT — dosłownie tak, jak je napiszesz.</p>
 <form method="post" action="/admin/terapeuci/${id}/faq">
   ${csrfField(session)}
   <div class="field"><label for="q">Pytanie</label><input id="q" name="question" required maxlength="200"></div>
@@ -838,85 +1126,19 @@ ${
 }
 </section>
 
-<section data-tab-panel data-tab-label="Oferta" id="panel-oferta">
-<h2>Oferta</h2>
-<form method="post" action="/admin/terapeuci/${id}/oferta">
+<section data-tab-panel data-tab-label="Układ strony" id="panel-strona">
+<h2>Układ strony</h2>
+<p class="panel-lead">Tu nic nie wpisujesz od nowa — układasz to, co już jest. Sekcje oznaczone
+jako Twoje dane biorą treść z pozostałych zakładek; sekcje własne to miejsce na Twój tekst,
+cytat albo zdjęcie obok tekstu.</p>
+<form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
-  <div class="field-row two">
-    <div class="field"><label for="o_title">Nazwa</label><input id="o_title" name="title" required maxlength="120"></div>
-    <div class="field"><label for="o_type">Typ</label>
-      <select id="o_type" name="session_type">
-        <option value="individual">indywidualna</option><option value="couples">para</option><option value="family">rodzina</option>
-      </select></div>
-  </div>
-  <div class="field-row two">
-    <div class="field"><label for="o_mode">Forma</label>
-      <select id="o_mode" name="mode"><option value="online">online</option><option value="in_person">stacjonarnie</option></select></div>
-    <div class="field"><label for="o_dur">Czas (min)</label><input id="o_dur" name="duration_minutes" type="number" min="15" max="240" value="50"></div>
-  </div>
-  <div class="field"><label for="o_price">Cena (zł)</label><input id="o_price" name="price" type="number" min="0" max="5000" step="10" value="200"></div>
-  <p><button class="btn" type="submit">Dodaj ofertę</button></p>
-</form>
-
-<h3>Istniejące oferty</h3>
-${
-  context.offers.length === 0
-    ? '<p class="hint">Ten profil nie ma jeszcze żadnej oferty.</p>'
-    : `<div class="table-scroll"><table>
-<thead><tr><th scope="col">Nazwa</th><th scope="col">Forma</th><th scope="col">Czas</th>
-<th scope="col">Cena</th><th scope="col">Aktywna</th></tr></thead>
-<tbody>${context.offers
-        .map(
-          (offer) =>
-            `<tr><td>${escapeHtml(offer.title)}</td>
-             <td>${escapeHtml(offer.mode)} / ${escapeHtml(offer.session_type)}</td>
-             <td>${offer.duration_minutes} min</td>
-             <td>${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</td>
-             <td>${offer.active ? 'tak' : 'nie'}</td></tr>`,
-        )
-        .join('')}</tbody></table></div>`
-}
-</section>
-
-<section data-tab-panel data-tab-label="Dostępność" id="panel-terminy">
-<h2>Dostępność</h2>
-${
-  activeOffers.length === 0
-    ? `<div class="notice warn"><p>Terminy powstają dla konkretnej oferty. Dodaj najpierw ofertę
-       w zakładce „Oferta”.</p></div>`
-    : `<form method="post" action="/admin/terapeuci/${id}/terminy">
-  ${csrfField(session)}
-  <div class="field"><label for="t_offer">Oferta</label>
-    <select id="t_offer" name="offer_id" required>
-      ${activeOffers
-        .map(
-          (offer) =>
-            `<option value="${escapeHtml(offer.id)}">${escapeHtml(offer.title)} — ${escapeHtml(offer.mode)}, ${offer.duration_minutes} min, ${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</option>`,
-        )
-        .join('')}
-    </select></div>
-  <div class="field"><label for="t_days">Liczba dni do wygenerowania</label>
-    <input id="t_days" name="days" type="number" min="1" max="60" value="14"></div>
-  <fieldset>
-    <legend>Godziny rozpoczęcia</legend>
-    ${hourGrid(DEFAULT_SLOT_HOURS)}
-    <p class="hint">Terminy powstają w dni robocze, o każdej zaznaczonej godzinie.</p>
-  </fieldset>
-  <div class="field"><label for="t_tz">Strefa czasowa terapeuty</label>
-    <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone ?? 'Europe/Warsaw')}" maxlength="64">
-    <p class="hint">Godziny powyżej są godzinami lokalnymi w tej strefie. Zmiana czasu jest uwzględniana automatycznie.</p></div>
-  <p><button class="btn" type="submit">Wygeneruj wolne terminy</button></p>
-</form>`
-}
-
-<h3>Blokowanie terminu</h3>
-<form method="post" action="/admin/terapeuci/${id}/blokuj">
-  ${csrfField(session)}
-  <div class="field-row two">
-    <div class="field"><label for="b_slot">Identyfikator terminu (slot_id)</label><input id="b_slot" name="slot_id" required maxlength="64"></div>
-    <div class="field"><label for="b_reason">Powód</label><input id="b_reason" name="reason" maxlength="120"></div>
-  </div>
-  <p><button class="btn secondary" type="submit">Zablokuj termin</button></p>
+  <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność, wybierz jej tło i dodawaj kolejne.
+  Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
+  najbliższy termin) jest u wszystkich taka sama, żeby dało się porównywać terapeutów między sobą.</p>
+  ${sectionsEditor(row, context)}
+  <p><button class="btn" type="submit">Zapisz układ strony</button>
+  <a class="btn secondary" href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Zobacz stronę ↗</a></p>
 </form>
 </section>
 
@@ -1013,6 +1235,66 @@ function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: C
  * Linki do wizytówek w innych serwisach. `safeUrl` przepuszcza wyłącznie https,
  * więc `javascript:` albo `//evil` odpada zanim trafi do bazy i na profil.
  */
+/**
+ * Every section posts its type, its position and its own fields. Positions
+ * survive without JavaScript; the drag-and-drop only rewrites them. The result
+ * goes through the engine's own parser before it is stored, so an unknown type,
+ * an unknown field or an over-long string never reaches the database.
+ */
+function collectSections(body: URLSearchParams): string {
+  const found: Array<{ pos: number; index: number; section: Section }> = [];
+
+  for (let index = 0; index < MAX_SECTIONS * 2; index++) {
+    const type = body.get(`sec_${index}_type`);
+    if (!type) continue;
+    if (body.get(`sec_${index}_del`) === '1') continue;
+    const def = SECTIONS_DEF[type];
+    if (!def) continue;
+
+    const section: Section = { type };
+    const variant = body.get(`sec_${index}_variant`) ?? '';
+    if (variant !== '' && (VARIANTS as readonly string[]).includes(variant)) section.variant = variant;
+    for (const field of def.fields ?? []) {
+      const value = readField(body, field, `sec_${index}_${field.name}`);
+      if (value !== undefined) section[field.name] = value;
+    }
+    found.push({ pos: Number(body.get(`sec_${index}_pos`) ?? index + 1) || index + 1, index, section });
+  }
+
+  found.sort((a, b) => a.pos - b.pos || a.index - b.index);
+  const sections = found.map((entry) => entry.section);
+
+  // "Add section" is a submit button, so the profile saves and comes back with
+  // the new section appended - one round trip, no JavaScript required.
+  const added = body.get('action') === 'add_section' ? (body.get('add_section') ?? '') : '';
+  if (added !== '' && SECTIONS_DEF[added] && sections.length < MAX_SECTIONS) {
+    const def = SECTIONS_DEF[added];
+    const repeated = sections.some((s) => s.type === added);
+    if (def.repeatable === true || !repeated) sections.push({ type: added });
+  }
+
+  return JSON.stringify(parseSections(sections));
+}
+
+function readField(body: URLSearchParams, field: Field, name: string): unknown {
+  if (field.kind === 'list') {
+    const rows: Values[] = [];
+    for (let i = 0; i < (field.max ?? 6); i++) {
+      const item: Values = {};
+      for (const sub of field.of ?? []) {
+        const value = readField(body, sub, `${name}_${i}_${sub.name}`);
+        if (value !== undefined) item[sub.name] = value;
+      }
+      if (Object.keys(item).length > 0) rows.push(item);
+    }
+    return rows.length > 0 ? rows : undefined;
+  }
+  const raw = body.get(name);
+  if (raw === null) return undefined;
+  const value = raw.trim();
+  return value === '' ? undefined : value;
+}
+
 function collectLinks(body: URLSearchParams): string {
   const out: LinkInput[] = [];
   for (let index = 0; index < 20 && out.length < 8; index++) {
@@ -1065,6 +1347,9 @@ adminApp.post('/terapeuci/:id', async (c) => {
     ),
     credentials: collectCredentials(body, isAdmin, parseStoredCredentials(existing?.credentials ?? null)),
     links: collectLinks(body),
+    first_meeting_course: sanitizeLine(body.get('first_meeting_course') ?? '', 400),
+    first_meeting_prep: sanitizeLine(body.get('first_meeting_prep') ?? '', 400),
+    first_meeting_decision: sanitizeLine(body.get('first_meeting_decision') ?? '', 400),
     cancellation_policy: sanitizeLine(body.get('cancellation_policy') ?? '', 500),
     cancellation_cutoff_h: Math.min(Math.max(Number(body.get('cancellation_cutoff_h') ?? 24) || 24, 0), 168),
     // Verification and publication remain admin-only, whatever the form posts.
@@ -1125,7 +1410,8 @@ adminApp.post('/terapeuci/:id', async (c) => {
       `UPDATE therapists SET slug=?, display_name=?, headline=?, bio=?, photo_url=?, offers_online=?,
               offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?, credentials=?, links=?,
               verification_status=?, verified_at=?, verification_notes=?, status=?, cancellation_policy=?,
-              cancellation_cutoff_h=?, updated_at=? WHERE id=?`,
+              cancellation_cutoff_h=?, first_meeting_course=?,
+              first_meeting_prep=?, first_meeting_decision=?, updated_at=? WHERE id=?`,
     )
       .bind(
         values.slug,
@@ -1146,6 +1432,9 @@ adminApp.post('/terapeuci/:id', async (c) => {
         values.status,
         values.cancellation_policy,
         values.cancellation_cutoff_h,
+        values.first_meeting_course,
+        values.first_meeting_prep,
+        values.first_meeting_decision,
         at,
         therapistIdValue,
       )
@@ -1248,6 +1537,34 @@ function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } 
 const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 /** Thumbnail side, and the suffix that pairs it with its master key. */
 const PHOTO_THUMB_SUFFIX = '160';
+
+/**
+ * The page layout saves on its own, separately from the profile form. Adding a
+ * section used to submit the whole profile - relations included, which are
+ * replaced wholesale - just to append one empty section.
+ */
+adminApp.post('/terapeuci/:id/sekcje', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const sections = collectSections(body);
+  await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, updated_at=? WHERE id=?`)
+    .bind(sections, nowIso(), id)
+    .run();
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'therapist.sections_updated',
+    subjectType: 'therapist',
+    subjectId: id,
+    meta: { count: JSON.parse(sections).length },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}#panel-strona` } });
+});
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
   const fail = (message: string, status: number): Response =>

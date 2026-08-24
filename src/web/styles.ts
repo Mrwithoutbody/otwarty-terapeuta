@@ -56,7 +56,7 @@ export const APP_CSS = `
   --space-16: 4rem;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; overflow-x: clip; }
 body {
   min-height: 100vh;
   margin: 0;
@@ -230,20 +230,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   box-shadow: inset 0 0 0 5px rgba(255,255,255,0.2);
 }
 
-.profile-head { display: flex; gap: clamp(1rem, 3vw, 1.75rem); align-items: center; margin-bottom: var(--space-3); }
-.profile-head h1 { margin: 0; }
-.profile-head > div { min-width: 0; }
-.profile-avatar {
-  width: 160px; height: 160px; border-radius: 28px; object-fit: cover; flex: none;
-  border: 1px solid var(--border); background:
-    radial-gradient(circle at 35% 25%, rgba(255,255,255,0.75), transparent 34%), var(--accent-soft);
-  box-shadow: inset 0 0 0 6px rgba(255,255,255,0.2);
-}
-@media (max-width: 640px) {
-  .profile-head { gap: 1rem; }
-  .profile-avatar { width: 104px; height: 104px; border-radius: 20px; }
-}
-
 .tags { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; }
 .tags li + li { margin-top: 0; }
 .tag {
@@ -296,12 +282,6 @@ th, td { text-align: left; padding: var(--space-3) var(--space-4); border-bottom
 th { background: var(--surface-alt); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 700; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, transparent); }
-
-.slot-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.55rem; }
-.slot-list li {
-  border: 1px solid var(--border-strong); border-radius: 999px; padding: 0.45rem 0.78rem;
-  background: var(--surface); box-shadow: var(--shadow-sm); font-size: 0.88rem;
-}
 
 .error {
   color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--surface-solid));
@@ -408,12 +388,164 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .directory-page .filters { margin: 0; padding: clamp(1.5rem, 4vw, 2.7rem); border-radius: 1.2rem; }
 .directory-results-heading { margin-bottom: 2rem; }
 .directory-results-heading h2 { margin: 0; font-size: clamp(2.2rem, 4vw, 3.5rem); }
-.profile-page { width: min(100%, 68rem); margin-inline: auto; }
+.profile-page { width: min(100%, 76rem); margin-inline: auto; }
 .profile-page > nav { margin-bottom: 2.5rem; color: var(--text-muted); font-size: 0.78rem; }
-.profile-page > h1 { max-width: 16ch; font-size: clamp(2.8rem, 5vw, 4.8rem); letter-spacing: -0.055em; }
-.profile-page > h2 { margin-top: clamp(4rem, 8vw, 6rem); }
-.profile-page > p:not(.meta):not(.hint) { max-width: 62ch; color: #596250; }
-.profile-page > .grid, .profile-page > .table-scroll { margin-top: 1.5rem; }
+.profile-page .crumbs { margin: 0; }
+
+/* --- profile spine: never moves, so profiles stay comparable ------------- */
+.phero { display: grid; grid-template-columns: 1fr minmax(15rem, 20rem); gap: clamp(2rem, 5vw, 3.5rem);
+  align-items: center; padding-block: clamp(1.5rem, 4vw, 3rem); }
+.phero > div { order: -1; }
+.phero h1 { font-size: clamp(2.3rem, 1.7rem + 2.6vw, 3.6rem); margin-bottom: var(--space-4); }
+.phero-photo { width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: var(--radius-lg);
+  object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
+  display: block; box-shadow: var(--shadow); }
+.phero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-8); }
+.phero-photo.empty { display: block; }
+.phero-headline { font-size: 1.2rem; color: var(--text-muted); max-width: 56ch; margin-bottom: var(--space-3); }
+.phero-meta { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none;
+  margin: 0; padding: 0; color: var(--text-muted); font-size: 0.92rem; }
+.phero-meta li { display: flex; align-items: center; gap: 0.35rem; margin: 0; }
+.phero-meta li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
+.badges { display: flex; flex-wrap: wrap; gap: 0.45rem; list-style: none; margin: 0 0 var(--space-3); padding: 0; }
+.badges li { margin: 0; }
+.badge { display: inline-block; font-size: 0.78rem; padding: 0.36rem 0.75rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-solid); }
+.badge.ok { background: var(--accent-soft); border-color: #cdd89a; color: var(--accent-strong); }
+.badge.demo { background: var(--surface-alt); color: var(--text-muted); }
+
+.pfacts { margin-top: var(--space-8); background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--space-6);
+  display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-6); align-items: center; }
+.pfact strong { display: block; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
+.pfact span { display: block; color: var(--text-muted); font-size: 0.82rem; }
+.pfact.empty strong { font-family: var(--sans); font-size: 1rem; font-weight: 500; color: var(--text-muted); }
+
+/* --- sections: the therapist's own arrangement --------------------------- */
+.pblock { padding-block: clamp(3.5rem, 7vw, 6rem); border-top: 1px solid var(--border); }
+/* The first section sits right under the fact card, which already has its own
+   outline - a hairline there separates nothing. A tinted section draws its own
+   bottom border, so the one after it must not add a second. */
+.pblock:first-of-type { border-top: 0; }
+.pblock--alt + .pblock, .pblock--dark + .pblock, .pblock--narrow + .pblock { border-top: 0; }
+.pblock > h2 { margin: 0 0 var(--space-4); font-size: clamp(1.7rem, 1.4rem + 1.3vw, 2.3rem); }
+.pblock > .block-lead { max-width: 56ch; color: var(--text-muted); font-size: 1.05rem;
+  margin-bottom: var(--space-8); }
+.pblock > h2 + .chips, .pblock > h2 + .offer-grid, .pblock > h2 + .meeting-steps { margin-top: var(--space-8); }
+/* Background belongs to the section, not to its position. Tinting every second
+   block gave seven identical bands; now she picks, and a page can have one
+   tinted stretch, a narrow strip and a dark close.
+   The sections live inside main > .wrap > .profile-page, so a tinted one is an
+   island unless it breaks out. This escapes to the full viewport and pads the
+   content straight back to the column, which is what the reference does with
+   full-width sections wrapping an inner container.
+   overflow-x: clip on the root is what keeps 100vw (which counts the
+   scrollbar) from adding a horizontal scrollbar. */
+.pblock--alt, .pblock--dark, .pblock--narrow {
+  margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
+.pblock--alt { background: var(--surface-alt); border-block: 1px solid var(--border); }
+.pblock--narrow { background: var(--surface-alt); border-block: 1px solid var(--border);
+  padding-block: clamp(1.4rem, 2.5vw, 2rem); }
+/* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
+   the dullest thing the profile had to say. */
+.pblock--dark { background: #344125; color: #f0f3d6; border-block: 0;
+  padding-block: clamp(3rem, 6vw, 4.5rem); }
+.pblock--dark h2 { color: #fffefa; }
+.pblock--dark .btn { background: #fffefa; color: #344125; border-color: #fffefa; }
+.pblock--dark .btn.ghost { background: transparent; color: #f0f3d6; border-color: rgba(240, 243, 214, 0.45); }
+
+/* Two columns: her words beside her portrait. Without a section shaped like
+   this every block was one full-width column, which is what went flat after the
+   third heading. */
+.psplit { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: clamp(2rem, 5vw, 4rem);
+  align-items: center; }
+.psplit--flip > div { order: 2; }
+.psplit-photo { margin: 0; }
+.psplit-photo img, .psplit-empty { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
+  object-fit: cover; border-radius: var(--radius-lg); border: 1px solid var(--border);
+  background: var(--surface-alt); box-shadow: var(--shadow); }
+@media (max-width: 860px) { .psplit { grid-template-columns: 1fr; } .psplit--flip > div { order: 0; } }
+
+.pquote { margin: 0; }
+.pquote blockquote { margin: 0; border-left: 3px solid var(--accent); padding-left: 1.2rem; }
+.pquote p { font-family: var(--serif); font-style: italic; max-width: 52ch;
+  font-size: clamp(1.15rem, 1.05rem + 0.6vw, 1.5rem); }
+.pquote figcaption { margin-top: var(--space-3); padding-left: 1.2rem; color: var(--text-muted);
+  font-size: 0.92rem; }
+
+/* A short band between two tall sections is what keeps a long page from reading
+   as one column. */
+.pfacts-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-4) var(--space-6); list-style: none; margin: 0; padding: 0; }
+.pfacts-strip li { margin: 0; font-size: 0.92rem; color: var(--text-muted); }
+.pfacts-strip strong { display: block; font-family: var(--serif); font-size: 1.02rem;
+  font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
+.pblock > p:not(.eyebrow):not(.hint) { max-width: 62ch; color: #596250; }
+/* Same specificity as the rule above, and after it - that is what carries the
+   light text on the dark band, without reaching for !important. */
+.pblock--dark > p:not(.eyebrow):not(.hint), .pblock--dark > .block-lead { color: #d5dcc2; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: var(--space-4) 0 0; padding: 0; }
+.chips li { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: 999px; padding: 0.45rem 1rem; font-size: 0.93rem; }
+.offer-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.offer-card { background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-8); box-shadow: var(--shadow-sm); }
+.offer-card h3 { margin: 0 0 var(--space-2); font-size: 1.02rem; }
+.offer-card .amount { display: block; font-family: var(--serif); font-size: 2.4rem; font-weight: 600; letter-spacing: -0.02em; }
+.offer-card .per { color: var(--text-muted); font-size: 0.86rem; }
+/* Days as columns, hours beneath - the ZnanyLekarz/Booksy pattern people
+   already know. A table because that is what this is: days across, times down. */
+.slot-table-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
+.slot-table { border-collapse: collapse; width: 100%; min-width: 30rem; }
+.slot-table th { padding: 0 var(--space-2) var(--space-3); text-align: center; font-weight: 400; }
+.slot-table th b { display: block; font-size: 0.9rem; font-weight: 600; text-transform: capitalize; }
+.slot-table th span { display: block; font-size: 0.78rem; color: var(--text-muted); }
+.slot-table td { padding: 0.45rem var(--space-2); text-align: center; vertical-align: top; }
+/* Plain text, no filled blocks: thirty-five tinted rectangles read as noise. */
+.slot-time { display: block; font-size: 0.98rem; font-variant-numeric: tabular-nums; }
+.slot-mode { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.slot-none { display: block; color: var(--border-strong); }
+/* The site's tables highlight rows on hover, which promises a click. These rows
+   are hours to read, not rows to act on. */
+.slot-table tbody tr:hover td { background: none; }
+.slot-table td, .slot-table th { border: 0; }
+
+.linklist { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+.linklist li { margin: 0; }
+.linklist a { display: inline-block; background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: 999px; padding: 0.45rem 1rem; font-size: 0.9rem; text-decoration: none; }
+/* "Pierwsze spotkanie": her answers, in the order the person will live them. */
+.meeting-steps { counter-reset: s; list-style: none; display: grid; gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 0; padding: 0; }
+.meeting-steps li { counter-increment: s; position: relative; margin: 0; background: var(--surface-solid);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  padding: 1.9rem 1.6rem 1.5rem; }
+.meeting-steps li::before { content: counter(s); position: absolute; top: -0.85rem; left: 1.3rem;
+  width: 1.9rem; height: 1.9rem; display: grid; place-items: center; background: var(--accent-strong);
+  color: var(--surface-solid); border-radius: 50%; font-size: 0.9rem; font-weight: 600; }
+.meeting-steps h3 { margin: 0.3rem 0 0.4rem; font-size: 1.02rem; }
+.meeting-steps p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+.read-more { margin-top: var(--space-4); }
+.policy-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-6); }
+.policy-box p { margin: 0; color: var(--text-muted); }
+.pblock details { background: var(--surface-solid); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 0.55rem; }
+.pblock summary { cursor: pointer; padding: 0.85rem 1.15rem; font-weight: 500; list-style: none;
+  display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; }
+.pblock summary::-webkit-details-marker { display: none; }
+.pblock summary::after { content: "+"; color: var(--accent-strong); font-size: 1.25rem; line-height: 1; }
+.pblock details[open] summary::after { content: "–"; }
+.details-body { padding: 0 1.15rem 1rem; color: var(--text-muted); font-size: 0.95rem; }
+.details-body p:last-child { margin-bottom: 0; }
+
+@media (max-width: 52rem) {
+  .phero { grid-template-columns: 1fr; }
+  .phero > div { order: 0; }
+  .phero-photo { max-width: 16rem; }
+  .pfacts { grid-template-columns: 1fr 1fr; }
+  .pfacts .pfact-cta { grid-column: 1 / -1; }
+}
+@media (max-width: 30rem) { .pfacts { grid-template-columns: 1fr; } }
 .signup-page { width: min(100%, 62rem); margin-inline: auto; }
 .signup-intro { margin-bottom: 2.5rem; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.4rem; background: linear-gradient(140deg, #eef4e8, #faf9eb); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(2.6rem, 5vw, 4.2rem); }

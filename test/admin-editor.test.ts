@@ -39,6 +39,26 @@ function saveProfile(who: Actor, pairs: Array<[string, string]>): Promise<Respon
   });
 }
 
+/** Posts the page-layout form, which saves on its own endpoint. */
+function saveSections(who: Actor, pairs: Array<[string, string]>): Promise<Response> {
+  const body = new URLSearchParams();
+  body.append('csrf', who.csrf);
+  for (const [key, value] of pairs) body.append(key, value);
+  return SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/sekcje`, {
+    method: 'POST',
+    headers: { cookie: who.cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+    redirect: 'manual',
+  });
+}
+
+async function storedSections(): Promise<Array<Record<string, unknown>>> {
+  const row = await env.DB.prepare(`SELECT sections_json FROM therapists WHERE id = ?`)
+    .bind(ANNA)
+    .first<{ sections_json: string }>();
+  return JSON.parse(row?.sections_json ?? '[]') as Array<Record<string, unknown>>;
+}
+
 function editorHtml(who: Actor): Promise<string> {
   return SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, {
     headers: { cookie: who.cookie },
@@ -321,7 +341,7 @@ describe('the public profile shows the photo', () => {
     ]);
 
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(profile).toContain('class="profile-avatar" src="/media/therapists/th_x/img_abc.webp"');
+    expect(profile).toContain('class="phero-photo" src="/media/therapists/th_x/img_abc.webp"');
 
     const list = await (await SELF.fetch('https://localhost/terapeuci')).text();
     expect(list).toContain('src="/media/therapists/th_x/img_abc-160.webp"');
@@ -419,5 +439,53 @@ describe('slot hours come from the hour chips', () => {
     const response = await generate([]);
     expect(response.status).toBe(400);
     expect(await localHours()).toEqual(before);
+  });
+
+});
+
+// The layout lives in its own tab and its own endpoint. It used to ride along
+// with the profile form, so appending one empty section rewrote the whole
+// profile - relations included, which are replaced wholesale.
+describe('page layout saves on its own', () => {
+  let admin: Actor;
+
+  beforeAll(async () => {
+    admin = await actor('layout-admin@example.invalid', 'admin');
+  });
+
+  it('stores the sections in the posted order, with their variants', async () => {
+    await saveSections(admin, [
+      ['sec_0_type', 'intro'], ['sec_0_pos', '2'], ['sec_0_variant', 'alt'],
+      ['sec_1_type', 'cytat'], ['sec_1_pos', '1'], ['sec_1_body', 'Jedno zdanie.'],
+    ]);
+
+    const sections = await storedSections();
+    expect(sections.map((section) => section.type)).toEqual(['cytat', 'intro']);
+    expect(sections[1]?.variant).toBe('alt');
+  });
+
+  it('keeps the layout when the profile form is saved', async () => {
+    await saveSections(admin, [['sec_0_type', 'cytat'], ['sec_0_pos', '1'], ['sec_0_body', 'Zostaje.']]);
+    await saveProfile(admin, [['bio', 'Nowy opis.']]);
+
+    const sections = await storedSections();
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.body).toBe('Zostaje.');
+  });
+
+  it('drops a section marked for removal and appends the one being added', async () => {
+    await saveSections(admin, [
+      ['sec_0_type', 'cytat'], ['sec_0_pos', '1'], ['sec_0_body', 'Do usunięcia.'], ['sec_0_del', '1'],
+      ['sec_1_type', 'intro'], ['sec_1_pos', '2'],
+      ['action', 'add_section'], ['add_section', 'wyroznienie'],
+    ]);
+
+    expect((await storedSections()).map((section) => section.type)).toEqual(['intro', 'wyroznienie']);
+  });
+
+  it('refuses a therapist reaching for someone else\'s layout', async () => {
+    const stranger = await actor('layout-stranger@example.invalid', 'therapist', 'th_1e07b8d3629af45c0d2e7a91');
+    const response = await saveSections(stranger, [['sec_0_type', 'intro'], ['sec_0_pos', '1']]);
+    expect(response.status).toBe(403);
   });
 });

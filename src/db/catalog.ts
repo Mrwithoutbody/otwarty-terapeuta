@@ -1,8 +1,10 @@
 import type { Env } from '../env';
 import { normalizeForSearch, safeUrl } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
+import { PROFILE_BLOCKS } from './types';
 import type {
   AgeGroup,
+  ProfileBlock,
   CrisisResource,
   NamedTag,
   PublicCredential,
@@ -40,6 +42,41 @@ const AGE_GROUPS = ['adults', 'teens', 'children', 'seniors'] as const;
 const SESSION_TYPES = ['individual', 'couples', 'family'] as const;
 
 /** Linki wpisuje człowiek w panelu, więc adres jest walidowany jeszcze raz przy odczycie. */
+/**
+ * A block id the code no longer knows is dropped rather than rendered, and a
+ * missing value falls back to the full set - a profile must never come out
+ * blank because this column was hand-edited.
+ */
+function parseBlocks(raw: string): ProfileBlock[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw || '[]');
+  } catch {
+    return [...PROFILE_BLOCKS];
+  }
+  if (!Array.isArray(parsed)) return [...PROFILE_BLOCKS];
+  const seen = new Set<string>();
+  const out = parsed.filter(
+    (b): b is ProfileBlock =>
+      typeof b === 'string' && (PROFILE_BLOCKS as readonly string[]).includes(b) && !seen.has(b) && !!seen.add(b),
+  );
+  return out;
+}
+
+/**
+ * Only the outer shape is checked here. Which section types exist and which
+ * fields they carry is the renderer's business (`src/web/sections.ts`), and the
+ * database layer has no reason to know it.
+ */
+function parseSectionsShallow(raw: string): unknown[] {
+  try {
+    const parsed: unknown = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed.slice(0, 24) : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseLinks(raw: string): PublicLink[] {
   try {
     const value: unknown = JSON.parse(raw);
@@ -225,6 +262,13 @@ function toPublicTherapist(row: TherapistRow, related: Related, baseUrl: string)
     timezone: row.timezone,
     cancellation_policy: row.cancellation_policy,
     cancellation_cutoff_hours: row.cancellation_cutoff_h,
+    profile_blocks: parseBlocks(row.profile_blocks),
+    sections: parseSectionsShallow(row.sections_json),
+    first_meeting: {
+      course: row.first_meeting_course,
+      prep: row.first_meeting_prep,
+      decision: row.first_meeting_decision,
+    },
     is_demo: row.is_demo === 1,
   };
 }
