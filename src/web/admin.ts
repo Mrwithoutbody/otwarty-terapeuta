@@ -559,15 +559,15 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext): strin
       if (!def) return '';
       // A section with nothing in it is listed but says so, and an auto one says
       // what it holds today - otherwise the screen is ten names and no content.
-      const holds = def.auto === true ? (summary[section.type] ?? def.hint) : '';
+      const holds = summary[section.type];
       const empty = def.auto === true
-        ? holds.startsWith('brak') || holds.startsWith('pusty') || holds.includes('bez odpowiedzi')
+        ? holds?.empty === true
         : filled(def.fields ?? [], section, true) === 0;
       return `<li class="sec-item" data-section draggable="true">
   <div class="sec-head">
     <span class="grip" aria-hidden="true">⠿</span>
     <span class="sec-copy"><strong>${escapeHtml(def.label)}</strong>
-      <span>${escapeHtml(def.auto === true ? holds : def.hint)}${
+      <span>${escapeHtml(def.auto === true ? (holds?.text ?? def.hint) : def.hint)}${
         empty ? ' · sekcja się nie pokaże' : ''
       }</span></span>
     <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
@@ -759,7 +759,10 @@ function sectionField(field: Field, value: unknown, name: string): string {
  * comes from, which is the thing that was missing - a builder listing ten
  * section names and no content reads as an empty screen.
  */
-function autoSummary(row: TherapistRow | null, context: EditorContext): Record<string, string> {
+function autoSummary(
+  row: TherapistRow | null,
+  context: EditorContext,
+): Record<string, { text: string; empty?: true }> {
   const count = (n: number, one: string, few: string, many: string): string =>
     `${n} ${n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many}`;
 
@@ -770,35 +773,37 @@ function autoSummary(row: TherapistRow | null, context: EditorContext): Record<s
   const links = parseStoredLinks(row?.links ?? null).length;
 
   return {
-    hero: `imię, zdjęcie i ${links > 0 ? count(links, 'link', 'linki', 'linków') : 'fakty'} — z zakładki O mnie`,
-    'hero-obietnica': 'Twoje zdanie w tytule, nazwisko na karcie',
-    'hero-spotlight': 'imię i zdanie na powitanie',
-    'hero-okladka': 'imię, zdjęcie i najbliższy termin',
-    kluczowe: 'cena, długość sesji i najbliższy termin',
-    dane: 'wszystkie fakty z zakładek O mnie, Oferta i Dostępność',
-    intro: bio === '' ? 'pusty opis — uzupełnij w zakładce O mnie' : `${count(bio.length, 'znak', 'znaki', 'znaków')} opisu`,
+    hero: { text: `imię, zdjęcie i ${links > 0 ? count(links, 'link', 'linki', 'linków') : 'fakty'} — z zakładki O mnie` },
+    'hero-obietnica': { text: 'Twoje zdanie w tytule, nazwisko na karcie' },
+    'hero-spotlight': { text: 'imię i zdanie na powitanie' },
+    'hero-okladka': { text: 'imię, zdjęcie i najbliższy termin' },
+    kluczowe: { text: 'cena, długość sesji i najbliższy termin' },
+    dane: { text: 'wszystkie fakty z zakładek O mnie, Oferta i Dostępność' },
+    intro: bio === ''
+      ? { text: 'pusty opis — uzupełnij w zakładce O mnie', empty: true }
+      : { text: `${count(bio.length, 'znak', 'znaki', 'znaków')} opisu` },
     first_meeting: firstMeeting === 0
-      ? 'trzy pytania bez odpowiedzi — wypełnij poniżej'
-      : count(firstMeeting, 'odpowiedź', 'odpowiedzi', 'odpowiedzi'),
+      ? { text: 'trzy pytania bez odpowiedzi — wypełnij w zakładce O mnie', empty: true }
+      : { text: count(firstMeeting, 'odpowiedź', 'odpowiedzi', 'odpowiedzi') },
     topics: context.chosenTopics.size === 0
-      ? 'brak obszarów — zaznacz w zakładce O mnie'
-      : count(context.chosenTopics.size, 'obszar', 'obszary', 'obszarów'),
+      ? { text: 'brak obszarów — zaznacz w zakładce O mnie', empty: true }
+      : { text: count(context.chosenTopics.size, 'obszar', 'obszary', 'obszarów') },
     offers: context.offers.length === 0
-      ? 'brak ofert — dodaj w zakładce Oferta'
-      : count(context.offers.length, 'oferta', 'oferty', 'ofert'),
+      ? { text: 'brak ofert — dodaj w zakładce Oferta', empty: true }
+      : { text: count(context.offers.length, 'oferta', 'oferty', 'ofert') },
     'oferta-lista': context.offers.length === 0
-      ? 'brak ofert — dodaj w zakładce Oferta'
-      : count(context.offers.length, 'oferta', 'oferty', 'ofert'),
-    zestawienie: 'oferta i najbliższe terminy obok siebie',
-    slots: 'wolne terminy z zakładki Dostępność',
+      ? { text: 'brak ofert — dodaj w zakładce Oferta', empty: true }
+      : { text: count(context.offers.length, 'oferta', 'oferty', 'ofert') },
+    zestawienie: { text: 'oferta i najbliższe terminy obok siebie' },
+    slots: { text: 'wolne terminy z zakładki Dostępność' },
     faq: context.faq.length === 0
-      ? 'brak pytań — dodaj w zakładce FAQ'
-      : count(context.faq.length, 'pytanie', 'pytania', 'pytań'),
+      ? { text: 'brak pytań — dodaj w zakładce FAQ', empty: true }
+      : { text: count(context.faq.length, 'pytanie', 'pytania', 'pytań') },
     credentials: credentials === 0
-      ? 'brak kwalifikacji — wypełnij poniżej'
-      : count(credentials, 'kwalifikacja', 'kwalifikacje', 'kwalifikacji'),
-    policy: 'wyliczone z Twojego wyprzedzenia',
-    zaproszenie: 'zaproszenie zbudowane z Twoich danych',
+      ? { text: 'brak kwalifikacji — wypełnij w zakładce O mnie', empty: true }
+      : { text: count(credentials, 'kwalifikacja', 'kwalifikacje', 'kwalifikacji') },
+    policy: { text: 'wyliczone z Twojego wyprzedzenia' },
+    zaproszenie: { text: 'zaproszenie zbudowane z Twoich danych' },
   };
 }
 
@@ -1210,7 +1215,7 @@ każdym zapisie.</p>
 </form>
 <aside class="composer-preview">
   <p class="hint">Podgląd — <a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
-  <iframe src="/terapeuci/${escapeHtml(row.slug)}" title="Podgląd Twojej strony profilowej" loading="lazy"></iframe>
+  <iframe src="/terapeuci/${escapeHtml(row.slug)}" title="Podgląd Twojej strony profilowej"></iframe>
 </aside>
 </div>
 </section>

@@ -26,9 +26,7 @@ export interface SectionCtx {
 }
 
 export type Values = Record<string, unknown>;
-export interface Section extends Values {
-  type: string;
-}
+export type Section = Values & { type: string };
 
 /**
  * How a block sits on the page. This is a property of the type, not something
@@ -412,7 +410,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
    */
   hero: {
     label: 'Nagłówek — klasyczny', hint: 'Portret obok imienia, fakty i przycisk',
-    auto: true, family: 'hero', fields: [],
+    auto: true, family: 'hero',
     render: (_s, ctx) => heroBody(ctx, { facts: true }),
   },
 
@@ -489,7 +487,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
    */
   kluczowe: {
     label: 'Cena i najbliższy termin', hint: 'Wiersz faktów do porównywania profili',
-    auto: true, fields: [],
+    auto: true,
     render: (_s, { therapist: t, slots }) => {
       const nextSlot = slots[0];
       const duration = t.offers[0]?.duration_minutes ?? null;
@@ -513,7 +511,6 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
   // --- auto: her data, already in the panel --------------------------------
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis i nurt pracy', auto: true,
-    fields: [],
     render: (s, { therapist: t }) => {
       if (t.bio.trim() === '') return '';
       return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>${introBody(t.bio)}
@@ -527,7 +524,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
    * is - each answer she gave, in the order the person will live them.
    */
   first_meeting: {
-    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', tone: 'alt', auto: true, fields: [],
+    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', tone: 'alt', auto: true,
     render: (s, { therapist: t }) => {
       const candidates: Array<[string, string]> = [
         ['Jak wygląda pierwsze spotkanie', t.first_meeting.course],
@@ -544,7 +541,6 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
 
   topics: {
     label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', tone: 'alt', auto: true,
-    fields: [],
     render: (s, { therapist: t }) =>
       t.topics.length === 0
         ? ''
@@ -553,7 +549,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
 
   offers: {
     label: 'Oferta — karty', hint: 'Każda sesja na osobnej karcie', auto: true,
-    family: 'oferta', fields: [],
+    family: 'oferta',
     render: (s, { therapist: t }) =>
       t.offers.length === 0
         ? ''
@@ -575,7 +571,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
    */
   'oferta-lista': {
     label: 'Oferta — lista', hint: 'Wiersze zamiast kart, dla zwięzłej strony',
-    auto: true, family: 'oferta', fields: [],
+    auto: true, family: 'oferta',
     render: (s, { therapist: t }) =>
       t.offers.length === 0
         ? ''
@@ -584,7 +580,6 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
 
   slots: {
     label: 'Wolne terminy', hint: 'Z Twojego kalendarza', tone: 'alt', auto: true,
-    fields: [],
     render: (s, { therapist: _t, slots, env }) => {
       const table = slotsByDay(slots);
       if (table === '') return '';
@@ -602,7 +597,7 @@ ${pluginCta(env)}`;
    */
   zestawienie: {
     label: 'Oferta i terminy obok siebie', hint: 'Dwie karty w jednym rzędzie — zwarty układ',
-    auto: true, fields: [],
+    auto: true,
     render: (s, { therapist: t, slots, env }) => {
       if (t.offers.length === 0 && slots.length === 0) return '';
       const soon = slots.slice(0, 6);
@@ -644,7 +639,6 @@ ${pluginCta(env)}`;
    */
   dane: {
     label: 'Podstawowe informacje', hint: 'Wszystkie fakty w dwóch kolumnach', tone: 'alt', auto: true,
-    fields: [],
     render: (s, { therapist: t, slots }) => {
       const duration = t.offers[0]?.duration_minutes ?? null;
       const price =
@@ -682,7 +676,6 @@ ${pluginCta(env)}`;
 
   faq: {
     label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
-    fields: [],
     render: (s, { faq }) =>
       faq.length === 0
         ? ''
@@ -700,7 +693,6 @@ ${pluginCta(env)}`;
 
   credentials: {
     label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', auto: true,
-    fields: [],
 
     render: (s, { therapist: t }) =>
       t.credentials.length === 0
@@ -717,7 +709,6 @@ ${pluginCta(env)}`;
   // The free-text policy is often empty, so the cutoff carries the meaning.
   policy: {
     label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'alt', auto: true,
-    fields: [],
     render: (s, { therapist: t }) =>
       `${eyebrow('Zasady odwołania')}<h2>${escapeHtml('Kiedy musisz odwołać')}</h2>
 <div class="policy-box"><p>${
@@ -734,7 +725,6 @@ ${pluginCta(env)}`;
    */
   zaproszenie: {
     label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', auto: true,
-    fields: [],
     render: (_s, { therapist: t, env }) => {
       const written = `<p>${t.accepting_new_clients
             ? 'Nie musisz wiedzieć, od czego zacząć ani jak nazwać to, z czym przychodzisz. Wystarczy pierwsze pytanie.'
