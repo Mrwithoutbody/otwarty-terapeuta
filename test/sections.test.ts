@@ -224,6 +224,19 @@ describe('the anchor bar', () => {
     expect(html).not.toContain('Nie musisz wiedzieć, jak to nazwać');
   });
 
+  it('stops at six links, because a seventh wraps the bar onto a second line', () => {
+    const many = [
+      { type: 'hero' }, { type: 'intro' }, { type: 'dane' }, { type: 'faq' },
+      { type: 'policy' }, { type: 'zaproszenie' },
+      { type: 'filary', eyebrow: 'Siodmy', items: [{ title: 'x', desc: 'y' }] },
+      { type: 'tekst', eyebrow: 'Osmy', body: 'z' },
+    ];
+    const html = renderSections(many, withFaq, { nav: true });
+    const bar = /<nav class="pnav"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? '';
+    expect(bar.match(/<a /g)).toHaveLength(6);
+    expect(bar).not.toContain('Osmy');
+  });
+
   it('stays off unless she asks for it, and needs more than one link', () => {
     expect(renderSections(arranged, withFaq)).not.toContain('pnav');
     // One rendered section with a heading is not a bar.

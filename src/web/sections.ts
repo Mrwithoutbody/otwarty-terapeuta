@@ -1177,6 +1177,9 @@ export function defaultSections(): Section[] {
 
 
 
+/** How many links the anchor bar shows before it would wrap onto a second line. */
+const NAV_MAX = 6;
+
 /** Anchors kept from the old markup: the hero and the widget link to them. */
 const ANCHORS: Record<string, string> = {
   slots: 'terminy', zestawienie: 'terminy', faq: 'faq', first_meeting: 'pierwsze',
@@ -1233,9 +1236,13 @@ export function renderSections(
     return `<section class="${cls}"${id === '' ? '' : ` id="${escapeHtml(id)}"`}>${inner}</section>`;
   });
 
-  // One link is not a bar, it is a stray word under the heading.
+  // One link is not a bar, it is a stray word under the heading. Ten of them
+  // is not a bar either - it wraps onto two lines and stops being scannable, so
+  // the bar carries the first six and the rest of the page is found by
+  // scrolling, which is what someone does with a profile anyway.
   if (options.nav === true && bar.length > 1) {
     const nav = `<nav class="pnav" aria-label="Sekcje profilu">${bar
+      .slice(0, NAV_MAX)
       .map(([id, label]) => `<a href="#${escapeHtml(id)}">${label}</a>`)
       .join('')}</nav>`;
     parts.splice(heroAt + 1, 0, nav);
