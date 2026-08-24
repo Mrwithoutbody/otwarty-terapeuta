@@ -437,6 +437,11 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       ].filter((x): x is string => x !== null && x !== '');
 
       return `<div>
+    <ul class="badges">
+      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
+      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
+      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
+    </ul>
     ${eyebrow(str(s.nadtytul))}
     <h1>${escapeHtml(str(s.tytul) || t.display_name)}</h1>
     ${str(s.cytat) === '' ? '' : `<p class="phero-quote">${escapeHtml(str(s.cytat))}</p>`}
