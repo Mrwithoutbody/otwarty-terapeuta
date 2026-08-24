@@ -599,10 +599,13 @@ Przeglądanie katalogu nie wymaga podania żadnych danych.</p></section>
 </ul></section>
 
 <section><h2>Odbiorcy danych</h2>
-<p>Terapeuta widzi w swoim panelu <strong>fakt rezerwacji</strong>: termin, formę spotkania,
-cenę i numer rezerwacji. Nie widzi Twojego imienia, adresu e-mail ani telefonu — dane
-kontaktowe podane przy rezerwacji służą wyłącznie do wysłania Ci potwierdzenia i informacji
-o odwołaniu.</p>
+<p>Terapeuta, u którego rezerwujesz, otrzymuje <strong>dane potrzebne do przeprowadzenia
+wizyty</strong>: termin, formę spotkania, cenę, numer rezerwacji oraz podane przez Ciebie imię,
+adres e-mail i telefon. Dostaje je w wiadomości o nowej rezerwacji i widzi w swoim panelu.
+Służą wyłącznie do kontaktu w sprawie tej wizyty. Terapeuta jest w tym zakresie odrębnym
+administratorem danych.</p>
+<p>Jeżeli odwołasz wizytę, terapeuta dostaje informację o odwołaniu — bez powodu, który
+ewentualnie podasz.</p>
 <p>Dostawca infrastruktury (Cloudflare) oraz dostawca poczty transakcyjnej przetwarzają dane
 wyłącznie na nasze zlecenie i w zakresie potrzebnym do świadczenia usługi.</p></section>
 

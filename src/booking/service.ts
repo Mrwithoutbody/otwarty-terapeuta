@@ -1,6 +1,12 @@
 import { CONFIRMATION_TOKEN_TTL_SECONDS, type Env } from '../env';
 import { getBookableSlot, getTherapist } from '../db/catalog';
-import { decryptUserEmail, getUser, recordConsent, type UserRow } from '../db/users';
+import {
+  decryptUserEmail,
+  getUser,
+  recordConsent,
+  therapistNotificationEmail,
+  type UserRow,
+} from '../db/users';
 import { audit } from '../lib/audit';
 import { encryptPii, hmacHex, randomId, randomPublicRef, randomSecret, sha256Hex } from '../lib/crypto';
 import { AppError, errors } from '../lib/errors';
@@ -290,6 +296,30 @@ export async function createBooking(
     });
   }
 
+  if (!result.replayed) {
+    // Terapeutka musi wiedzieć, kto przyjdzie i jak się z tą osobą skontaktować -
+    // bez tego rezerwacja jest dla niej wpisem w kalendarzu bez człowieka.
+    const therapistEmail = await therapistNotificationEmail(env, summary.therapist_id);
+    if (therapistEmail) {
+      await enqueueNotification(env, 'booking.confirmed_therapist', bookingId, {
+        to: therapistEmail,
+        subject: `Nowa rezerwacja ${result.publicRef} - ${summary.local_start}`,
+        text:
+          `Masz nową rezerwację.\n\n` +
+          `Termin: ${summary.local_start} (${summary.local_timezone_label})\n` +
+          `Forma: ${summary.session_type_label}, ${summary.mode_label}\n` +
+          `Czas trwania: ${summary.duration_minutes} min\n` +
+          `Cena: ${summary.price_display}\n` +
+          `Numer rezerwacji: ${result.publicRef}\n\n` +
+          `Osoba rezerwująca:\n` +
+          `  imię: ${contactName ?? 'nie podano'}\n` +
+          `  e-mail: ${contactEmail}\n` +
+          `  telefon: ${contactPhone ?? 'nie podano'}\n\n` +
+          `Te dane służą wyłącznie do kontaktu w sprawie tej wizyty.`,
+      });
+    }
+  }
+
   return {
     booking_id: bookingId,
     public_ref: result.publicRef,
@@ -493,6 +523,23 @@ export async function cancelBooking(
     subjectId: row.id,
     meta: { reason_code: input.reason_code ?? 'unspecified', status: free ? 'free' : 'late' },
   });
+
+  // Odwołanie działa w obie strony: terapeutka zwalnia godzinę w kalendarzu i
+  // musi o tym wiedzieć równie szybko co osoba, która odwołała.
+  const therapistEmail = await therapistNotificationEmail(env, row.therapist_id);
+  if (therapistEmail) {
+    await enqueueNotification(env, 'booking.cancelled_therapist', row.id, {
+      to: therapistEmail,
+      subject: `Odwołana rezerwacja ${row.public_ref}`,
+      text:
+        `Rezerwacja ${row.public_ref} została odwołana przez osobę rezerwującą.\n` +
+        `Termin: ${row.starts_at_utc} (${row.timezone})\n` +
+        (free
+          ? 'Odwołanie nastąpiło w bezpłatnym okresie.'
+          : 'Odwołanie nastąpiło po upływie bezpłatnego okresu.') +
+        `\n\nTermin wrócił do puli wolnych godzin.`,
+    });
+  }
 
   const owner = await getUser(env, row.user_id);
   if (owner) {

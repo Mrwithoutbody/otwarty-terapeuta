@@ -7,6 +7,7 @@ import { nowIso } from '../src/lib/time';
 import { signConfirmationToken } from '../src/lib/tokens';
 import { AppError } from '../src/lib/errors';
 import { purgeExpiredData } from '../src/db/retention';
+import { decryptPii, encryptPii } from '../src/lib/crypto';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const KEY = env.TOKEN_SIGNING_KEY!;
@@ -406,6 +407,43 @@ describe('my bookings', () => {
  * cron faktycznie je wykonywał - i żeby nie ruszał danych, które są jeszcze w
  * okresie przechowywania.
  */
+describe('powiadomienie dla terapeutki', () => {
+  it('wysyła jej dane kontaktowe osoby, która zarezerwowała', async () => {
+    const [klientka] = await pair();
+    await env.DB.prepare(`UPDATE therapists SET contact_email_enc = ? WHERE id = ?`)
+      .bind(await encryptPii(env.PII_ENC_KEY!, 'gabinet@example.invalid'), ANNA)
+      .run();
+
+    const preview = await previewBooking(env, klientka, { slot_id: await anyOpenSlot() });
+    const result = await createBooking(env, klientka, {
+      confirmation_token: preview.confirmation_token,
+      idempotency_key: `idem-therapist-mail-${seq}`,
+      contact_name: 'Klientka Testowa',
+      contact_email: 'klientka@example.invalid',
+      contact_phone: '+48 600 100 200',
+      ...acceptance(),
+    });
+
+    const mail = await env.DB.prepare(
+      `SELECT kind, payload_enc FROM notification_outbox
+        WHERE booking_id = ? AND kind = 'booking.confirmed_therapist'`,
+    )
+      .bind(result.booking_id)
+      .first<{ kind: string; payload_enc: string }>();
+    expect(mail).not.toBeNull();
+
+    // Treść jest zaszyfrowana w bazie; odszyfrowana musi nieść komplet kontaktu.
+    const payload = JSON.parse(await decryptPii(env.PII_ENC_KEY!, mail!.payload_enc)) as {
+      to: string;
+      text: string;
+    };
+    expect(payload.to).toBe('gabinet@example.invalid');
+    expect(payload.text).toContain('klientka@example.invalid');
+    expect(payload.text).toContain('Klientka Testowa');
+    expect(payload.text).toContain('+48 600 100 200');
+  });
+});
+
 describe('retencja', () => {
   it('czyści dane kontaktowe rezerwacji po 12 miesiącach, świeże zostawia', async () => {
     // Klucze obce są włączone, więc rezerwacja musi wisieć na realnych wierszach.

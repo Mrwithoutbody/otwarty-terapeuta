@@ -248,6 +248,7 @@ adminApp.get('/', async (c) => {
 
   const upcoming = await c.env.DB.prepare(
     `SELECT b.id, b.public_ref, b.status, b.starts_at_utc, b.timezone, b.price_minor, b.currency,
+            b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc,
             t.display_name
        FROM bookings b JOIN therapists t ON t.id = b.therapist_id
       ${user.role === 'therapist' ? 'WHERE b.therapist_id = ?' : ''}
@@ -262,8 +263,30 @@ adminApp.get('/', async (c) => {
       timezone: string;
       price_minor: number;
       currency: string;
+      contact_name_enc: string | null;
+      contact_email_enc: string | null;
+      contact_phone_enc: string | null;
       display_name: string;
     }>();
+
+  /**
+   * Dane kontaktowe osoby rezerwującej. Terapeutka musi wiedzieć, kto przyjdzie;
+   * odszyfrowujemy je dopiero tutaj, na potrzeby jednego widoku, i tylko dla
+   * rezerwacji, które ten widok i tak pokazuje. Po 12 miesiącach retencja zeruje
+   * te kolumny i wiersz sam przestaje mieć co pokazać.
+   */
+  const contacts = new Map<string, string>();
+  if (c.env.PII_ENC_KEY) {
+    for (const b of upcoming.results) {
+      const parts = await Promise.all(
+        [b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc].map((value) =>
+          value ? decryptPii(c.env.PII_ENC_KEY as string, value) : Promise.resolve(null),
+        ),
+      );
+      const shown = parts.filter((part): part is string => part !== null && part !== '');
+      if (shown.length > 0) contacts.set(b.id, shown.join(' · '));
+    }
+  }
 
   const pendingProfiles = therapists.results.filter(
     (t) => t.status === 'draft' && t.verification_status === 'unverified' && !t.is_demo,
@@ -310,7 +333,8 @@ ${user.role === 'admin' ? `<p><a class="btn" href="/admin/terapeuci/nowy">Dodaj 
 <div class="table-scroll">
 <table>
   <thead><tr><th scope="col">Numer</th><th scope="col">Terapeuta</th><th scope="col">Termin</th>
-  <th scope="col">Cena</th><th scope="col">Status</th><th scope="col">Akcje</th></tr></thead>
+  <th scope="col">Cena</th><th scope="col">Kontakt</th><th scope="col">Status</th>
+  <th scope="col">Akcje</th></tr></thead>
   <tbody>
   ${upcoming.results
     .map(
@@ -319,6 +343,7 @@ ${user.role === 'admin' ? `<p><a class="btn" href="/admin/terapeuci/nowy">Dodaj 
       <td>${escapeHtml(b.display_name)}</td>
       <td>${escapeHtml(formatDateTime(b.starts_at_utc, b.timezone))}</td>
       <td>${escapeHtml(formatPrice(b.price_minor, b.currency))}</td>
+      <td>${contacts.has(b.id) ? escapeHtml(contacts.get(b.id) ?? '') : '—'}</td>
       <td>${b.status === 'cancelled' ? 'odwołana' : 'potwierdzona'}</td>
       <td>${
         b.status === 'confirmed'
@@ -336,8 +361,8 @@ ${user.role === 'admin' ? `<p><a class="btn" href="/admin/terapeuci/nowy">Dodaj 
   </tbody>
 </table>
 </div>
-<p class="hint">Panel pokazuje wyłącznie minimalne dane rezerwacji. Dane kontaktowe klienta są
-zaszyfrowane i nie są wyświetlane.</p>
+<p class="hint">Dane kontaktowe służą wyłącznie do kontaktu w sprawie tej wizyty. W bazie są
+zaszyfrowane, a po 12 miesiącach od terminu usuwa je zadanie retencyjne.</p>
 
 ${
   user.role === 'admin'

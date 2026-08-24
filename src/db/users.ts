@@ -166,3 +166,30 @@ export async function eraseUserData(env: Env, userId: string): Promise<void> {
     ).bind(`erased:${userId}`, at, at, userId),
   ]);
 }
+
+/**
+ * Adres, pod który idą powiadomienia dla terapeutki. Najpierw adres kontaktowy
+ * z profilu, bo to ten, który sama podała do spraw zawodowych; jeżeli go nie ma,
+ * adres konta, którym się loguje. Brak obu oznacza, że nie ma dokąd wysłać —
+ * rezerwacja i tak się uda, powiadomienie po prostu nie powstanie.
+ */
+export async function therapistNotificationEmail(
+  env: Env,
+  therapistId: string,
+): Promise<string | null> {
+  if (!env.PII_ENC_KEY) return null;
+
+  const profile = await env.DB.prepare(
+    `SELECT contact_email_enc FROM therapists WHERE id = ? AND deleted_at IS NULL`,
+  )
+    .bind(therapistId)
+    .first<{ contact_email_enc: string | null }>();
+  if (profile?.contact_email_enc) return decryptPii(env.PII_ENC_KEY, profile.contact_email_enc);
+
+  const account = await env.DB.prepare(
+    `SELECT email_enc FROM users WHERE therapist_id = ? AND deleted_at IS NULL LIMIT 1`,
+  )
+    .bind(therapistId)
+    .first<{ email_enc: string }>();
+  return account?.email_enc ? decryptPii(env.PII_ENC_KEY, account.email_enc) : null;
+}

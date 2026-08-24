@@ -65,6 +65,17 @@ trwałego powiązania między osobą a powodem szukania pomocy.
 | `manage_token_hash` | HMAC | dostęp do strony zarządzania bez logowania |
 | `status`, `cancelled_at`, `cancelled_by`, `cancel_reason` | jawna | cykl życia rezerwacji |
 
+### 3.2.1. Komu trafiają dane kontaktowe rezerwacji
+
+Terapeucie, u którego rezerwacja powstała: w wiadomości „nowa rezerwacja"
+(`notification_outbox`, treść zaszyfrowana do momentu wysyłki) oraz w jego panelu,
+gdzie kolumny `contact_*_enc` są odszyfrowywane na potrzeby jednego widoku.
+Zakres: imię, e-mail, telefon — dokładnie to, co osoba rezerwująca podała.
+
+Terapeuta widzi wyłącznie rezerwacje własnego profilu (`WHERE b.therapist_id = ?`).
+Po 12 miesiącach od terminu wizyty retencja zeruje te kolumny, więc widok sam
+przestaje mieć co pokazać.
+
 ### 3.3. Zgody — `consent_records`
 `user_id`, `kind` (`terms`/`privacy`), `version`, `granted_at`, `source`.
 Bez treści, bez adresu IP, bez user-agenta.
