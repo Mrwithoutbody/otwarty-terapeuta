@@ -94,6 +94,10 @@ test('security headers are set on every HTML response', async ({ page }) => {
   expect(headers['content-security-policy']).toContain("default-src 'none'");
   expect(headers['content-security-policy']).not.toContain('unsafe-inline');
   expect(headers['x-content-type-options']).toBe('nosniff');
-  expect(headers['x-frame-options']).toBe('DENY');
+  // SAMEORIGIN, not DENY: the layout builder frames the profile being edited.
+  // Cross-origin framing - the kind clickjacking needs - stays blocked, by this
+  // header and by frame-ancestors 'self' in the CSP.
+  expect(headers['x-frame-options']).toBe('SAMEORIGIN');
+  expect(headers['content-security-policy']).toContain("frame-ancestors 'self'");
   expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
 });
