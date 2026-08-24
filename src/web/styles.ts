@@ -77,6 +77,8 @@ export const APP_CSS = `
   /* Air between the bands. The rhythm axis multiplies it - the same sections
      read as a catalogue entry at 0.7 and as a practice's own site at 1.4. */
   --rhythm: 1;
+  /* Multiplier on the profile's own headings; 1 is the catalogue voice. */
+  --display: 1;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -465,7 +467,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
    for them, which is what the line under it answers. */
-.phero h1 { font-size: clamp(1.7rem, 1.5rem + 0.8vw, 2rem); line-height: 1.12; letter-spacing: -0.025em;
+.phero h1 { font-size: calc(clamp(1.7rem, 1.5rem + 0.8vw, 2rem) * var(--display));
+  line-height: calc(1.12 - (var(--display) - 1) * 0.09); letter-spacing: -0.025em;
   margin-bottom: var(--space-3); }
 .phero-photo { width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: var(--radius-lg);
   object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
@@ -609,7 +612,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    bottom border, so the one after it must not add a second. */
 .pblock:first-of-type { border-top: 0; }
 .pblock--alt + .pblock, .pblock--dark + .pblock, .pblock--narrow + .pblock { border-top: 0; }
-.pblock > h2 { margin: 0 0 var(--space-4); font-size: clamp(1.35rem, 1.2rem + 0.6vw, 1.5rem);
+.pblock > h2 { margin: 0 0 var(--space-4);
+  font-size: calc(clamp(1.35rem, 1.2rem + 0.6vw, 1.5rem) * var(--display));
   line-height: 1.12; letter-spacing: -0.025em; }
 .pblock > .block-lead { max-width: 56ch; color: var(--text-muted); font-size: 1.02rem;
   margin-bottom: var(--space-6); }
@@ -673,12 +677,29 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
    component, and nothing leaks past .profile-page into the service chrome.
    Presets rather than a colour picker: a free palette produces unreadable
    contrast and a catalogue that looks like nine different products. */
+/* A theme owns the whole strip, not just the boxes inside it: the page ground
+   stayed service-sage around an amber profile. Painted by a bleeding pseudo
+   element - the same margin trick the bands use collapses the column here,
+   because the padding percentage resolves against the width it just changed. */
+.profile-page { position: relative; }
+:is(.profile-page--theme-bursztyn, .profile-page--theme-glina, .profile-page--theme-grafit,
+     .profile-page--theme-las, .profile-page--theme-papier)::before {
+  content: ""; position: absolute; z-index: -1; inset-block: calc(var(--space-16) * -1) 0;
+  left: 50%; width: 100vw; translate: -50% 0; background: var(--wash-a); }
+
 /* Air, not colour: the same arrangement as a catalogue entry or as a practice's
    own site. */
+/* Type scale, the axis the reference profiles actually carry themselves on.
+   The catalogue default stays where it was: a profile compared against three
+   others wants a 2rem name, not a 6rem one. */
+.profile-page--skala-duza { --display: 1.7; }
+.profile-page--skala-plakat { --display: 2.7; }
+
 .profile-page--rytm-zwarty { --rhythm: 0.72; }
 .profile-page--rytm-dostojny { --rhythm: 1.25; }
 
 .profile-page--theme-bursztyn {
+  --text: #3b3020; --text-muted: #6f6350;
   --band: #f5ead3; --panel-tint: #fdf7ea; --glow: rgba(240, 200, 120, 0.34);
   --wash-a: #fdf7ea; --wash-b: #f6e8cf;
   --border: #e8ddc6; --border-strong: #d9c9a6;
@@ -688,6 +709,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 .profile-page--theme-grafit {
+  --text: #232830; --text-muted: #5c6472;
   --band: #eceef1; --panel-tint: #f7f8fa; --glow: rgba(150, 170, 200, 0.26);
   --wash-a: #f8f9fb; --wash-b: #e9ecf1;
   --border: #dde0e6; --border-strong: #c4c9d3;
@@ -697,6 +719,7 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 .profile-page--theme-glina {
+  --text: #3e2f28; --text-muted: #6f5d55;
   --band: #f3e3da; --panel-tint: #fbf1ec; --glow: rgba(226, 160, 130, 0.3);
   --wash-a: #fbf2ed; --wash-b: #f2e0d6;
   --border: #e8d5cb; --border-strong: #d8bcae;
@@ -705,13 +728,40 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
   --prose: #62504a;
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
+/* Achromatic on purpose: every surface at S<=4%, the accent carried by the
+   near-black rather than by a hue. The reference profile that reads as the most
+   "designed" has no colour in it at all. */
+.profile-page--theme-papier {
+  --text: #171716; --text-muted: #6b6b66;
+  --band: #f2f2f1; --panel-tint: #fafafa; --glow: rgba(0, 0, 0, 0.035);
+  --wash-a: #fbfbfa; --wash-b: #f0f0ef;
+  --border: #e3e3e2; --border-strong: #c8c8c6;
+  --accent: #2b2b2a; --accent-strong: #171716; --accent-soft: #f0f0ee;
+  --dark: #171716; --dark-ink: #ededec; --dark-mute: #b8b8b6; --dark-head: #ffffff;
+  --prose: #56564f;
+  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
+}
 .profile-page--theme-las {
+  --text: #1f3a2c; --text-muted: #55665a;
   --band: #e4ede4; --panel-tint: #f2f7f1; --glow: rgba(120, 190, 150, 0.26);
   --wash-a: #f3f8f2; --wash-b: #e2ebe1;
   --border: #d7e2d6; --border-strong: #bacfb9;
   --accent: #2f6d4f; --accent-strong: #1f4d37; --accent-soft: #e3f0e6;
   --dark: #1f3a2c; --dark-ink: #dcead9; --dark-mute: #b4c9b2; --dark-head: #fbfffa;
   --prose: #4a5c4d;
+}
+
+/* The section label in the left column, not above the heading. This is what
+   makes the reference pages read as a grid rather than as a stack; it needs the
+   room only the poster scale has. */
+@media (min-width: 60rem) {
+  .profile-page--skala-plakat .pblock {
+    display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr); column-gap: var(--space-8);
+  }
+  .profile-page--skala-plakat .pblock > * { grid-column: 2; }
+  .profile-page--skala-plakat .pblock > .eyebrow {
+    grid-column: 1; grid-row: 1 / span 40; margin: 0.7rem 0 0; align-self: start;
+  }
 }
 
 /* --- the profile's own anchor bar ---------------------------------------- */

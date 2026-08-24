@@ -191,7 +191,7 @@ describe('page layout', () => {
   });
 
   it('reads the column as stored, and survives a hand edit', () => {
-    const defaults = { theme: '', rhythm: '', bands: 'panele', hero: '', nav: '' };
+    const defaults = { theme: '', rhythm: '', display: '', bands: 'panele', hero: '', nav: '' };
     expect(parseLayout('{"bands":"pasy","hero":"karta"}')).toEqual({ ...defaults, bands: 'pasy', hero: 'karta' });
     expect(parseLayout('nie-json')).toEqual(defaults);
     expect(parseLayout('[]')).toEqual(defaults);
@@ -201,8 +201,8 @@ describe('page layout', () => {
   // A theme is a palette on the profile element, nothing more - and a palette
   // nobody defined is not a class the stylesheet can be asked to have.
   it('carries the theme and the rhythm as classes, and drops what it does not know', () => {
-    expect(layoutClasses({ theme: 'bursztyn', rhythm: 'zwarty' }))
-      .toBe(' profile-page--theme-bursztyn profile-page--rytm-zwarty');
+    expect(layoutClasses({ theme: 'bursztyn', rhythm: 'zwarty', display: 'plakat' }))
+      .toBe(' profile-page--theme-bursztyn profile-page--rytm-zwarty profile-page--skala-plakat');
     expect(layoutClasses({ theme: '"><script>', rhythm: 'szybki' })).toBe('');
     expect(parseLayout('{"nav":"kotwice"}').nav).toBe('kotwice');
   });

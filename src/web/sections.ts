@@ -991,6 +991,18 @@ export const LAYOUT_THEMES = [
   ['glina', 'Glina — różowawy beż, akcent terakota'],
   ['grafit', 'Grafit — chłodna szarość, akcent atramentowy'],
   ['las', 'Las — głęboka zieleń, akcent szmaragdowy'],
+  ['papier', 'Papier — achromatyczny, czerń na bieli'],
+] as const;
+
+/**
+ * How loud the page speaks. The reference profiles carry themselves on type
+ * scale, not on colour: a heading at 96px and a section label in the margin is
+ * the whole difference between a catalogue entry and a practice's own site.
+ */
+export const LAYOUT_DISPLAY = [
+  ['', 'Katalogowa — nagłówki jak w reszcie serwisu'],
+  ['duza', 'Duża — nagłówki wyraźnie większe'],
+  ['plakat', 'Plakatowa — nagłówek na całą szerokość, nadtytuł na marginesie'],
 ] as const;
 
 export const LAYOUT_RHYTHM = [
@@ -1026,6 +1038,10 @@ export interface LayoutAxis {
 export const LAYOUT_AXES: readonly LayoutAxis[] = [
   { name: 'theme', label: 'Motyw', options: LAYOUT_THEMES },
   { name: 'rhythm', label: 'Rytm strony', options: LAYOUT_RHYTHM },
+  {
+    name: 'display', label: 'Skala nagłówków', options: LAYOUT_DISPLAY,
+    hint: 'Przy skali plakatowej nadtytuł sekcji przechodzi do lewej kolumny, obok treści.',
+  },
   { name: 'bands', label: 'Sekcje barwne', options: LAYOUT_BANDS },
   {
     name: 'hero', label: 'Nagłówek strony', options: LAYOUT_HERO,
@@ -1067,10 +1083,11 @@ export function parseLayout(raw: unknown): Record<string, string> {
 
 /** What the layout means for the page element, once the automatic case is resolved. */
 export function layoutClasses(raw: unknown): string {
-  const { theme, rhythm, bands, hero } = parseLayout(raw);
+  const { theme, rhythm, display, bands, hero } = parseLayout(raw);
   const out: string[] = [];
   if (theme !== '') out.push(`profile-page--theme-${theme}`);
   if (rhythm !== '') out.push(`profile-page--rytm-${rhythm}`);
+  if (display !== '') out.push(`profile-page--skala-${display}`);
   if (bands === 'pasy') out.push('profile-page--pasy');
   if (hero === 'goly' || (hero === '' && bands === 'pasy')) out.push('profile-page--hero-goly');
   return out.length > 0 ? ` ${out.join(' ')}` : '';

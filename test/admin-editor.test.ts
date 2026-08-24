@@ -158,7 +158,7 @@ describe('the way the page is presented', () => {
 
   it('renders one select per layout axis', async () => {
     const html = await editorHtml(admin);
-    for (const axis of ['theme', 'rhythm', 'bands', 'hero', 'nav']) {
+    for (const axis of ['theme', 'rhythm', 'display', 'bands', 'hero', 'nav']) {
       expect(html).toContain(`name="layout_${axis}"`);
     }
   });
@@ -177,7 +177,7 @@ describe('the way the page is presented', () => {
       .bind(ANNA)
       .first<{ layout_json: string }>();
     expect(JSON.parse(row?.layout_json ?? '{}')).toEqual({
-      theme: 'bursztyn', rhythm: 'zwarty', bands: 'pasy', hero: '', nav: 'kotwice',
+      theme: 'bursztyn', rhythm: 'zwarty', display: '', bands: 'pasy', hero: '', nav: 'kotwice',
     });
   });
 });
