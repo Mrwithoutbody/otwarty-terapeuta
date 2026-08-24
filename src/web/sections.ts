@@ -680,6 +680,50 @@ ${pluginCta(env)}`;
     },
   },
 
+
+  /**
+   * Every basic fact in one place, as label and value in two columns - the
+   * layout the catalogue card has always used. A page of prose is no help to
+   * someone holding four profiles side by side; this is the part they compare.
+   */
+  dane: {
+    label: 'Podstawowe informacje', hint: 'Wszystkie fakty w dwóch kolumnach', auto: true,
+    fields: [HEADING_FIELD],
+    render: (s, { therapist: t, slots }) => {
+      const duration = t.offers[0]?.duration_minutes ?? null;
+      const price =
+        t.price_min_minor === null
+          ? null
+          : t.price_min_minor === t.price_max_minor
+            ? formatPrice(t.price_min_minor, t.currency)
+            : `${formatPrice(t.price_min_minor, t.currency)} – ${formatPrice(t.price_max_minor ?? t.price_min_minor, t.currency)}`;
+      const modes = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null]
+        .filter((x): x is string => x !== null)
+        .join(', ');
+      const next = slots[0];
+
+      // Pairs, not a fixed table: a row nobody filled in is a row nobody reads.
+      const rows: Array<[string, string]> = [
+        ['Cena', price ?? ''],
+        ['Długość sesji', duration === null ? '' : `${duration} min`],
+        ['Forma', modes],
+        ['Miejscowość', t.locations.map((l) => l.city).join(', ') || (t.offers_online ? 'tylko online' : '')],
+        ['Języki', t.languages.length === 0 ? '' : languageList(t.languages)],
+        ['Rodzaje spotkań', labelList(t.session_types, '')],
+        ['Dla kogo', labelList(t.age_groups, '')],
+        ['Nurt', t.modalities.map((m) => m.name).join(', ')],
+        ['Najbliższy termin', next ? compactDateTime(next.starts_at_utc, next.timezone) : 'brak wolnych terminów'],
+        ['Bezpłatne odwołanie', `do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
+      ].filter((row): row is [string, string] => row[1] !== '');
+
+      if (rows.length === 0) return '';
+      return `${eyebrow('W skrócie')}<h2>${escapeHtml(heading(s, 'Podstawowe informacje'))}</h2>
+<dl class="pdata">${rows
+        .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${label === 'Języki' ? value : escapeHtml(value)}</dd></div>`)
+        .join('')}</dl>`;
+    },
+  },
+
   faq: {
     label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt', auto: true,
     fields: [HEADING_FIELD, LEAD_FIELD],
@@ -1042,7 +1086,7 @@ function cleanField(field: Field, value: unknown): unknown {
  * untouched profile keeps rendering exactly as it did.
  */
 const DEFAULT_ORDER = [
-  'hero', 'kluczowe', 'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
+  'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'links', 'policy',
   'zaproszenie',
 ] as const;
 
@@ -1067,7 +1111,7 @@ export function defaultSections(blocks: readonly string[]): Section[] {
   const withClose = stored.includes('zaproszenie') ? stored : [...stored, 'zaproszenie'];
   // `profile_blocks` predates both of these, so an old value carries neither.
   const hasHead = withClose.some((id) => SECTIONS_DEF[id]?.family === 'hero');
-  const order = hasHead ? withClose : ['hero', 'kluczowe', ...withClose];
+  const order = hasHead ? withClose : ['hero', 'kluczowe', 'dane', ...withClose];
   return order
     .filter((id) => SECTIONS_DEF[id]?.auto === true)
     .map((id) => ({ type: id }));

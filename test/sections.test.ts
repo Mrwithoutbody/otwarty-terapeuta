@@ -99,7 +99,7 @@ describe('defaultSections', () => {
   it('gives an unarranged profile the full spine, closing on the invitation', () => {
     const sections = defaultSections([]);
     expect(sections.map((s) => s.type)).toEqual([
-      'hero', 'kluczowe', 'intro', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
+      'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
       'credentials', 'links', 'policy', 'zaproszenie',
     ]);
     expect(sections.every((section) => section.variant === undefined)).toBe(true);
@@ -114,7 +114,7 @@ describe('defaultSections', () => {
   // so a page built from one still has to get them.
   it('adds the masthead and the close to an order that predates them', () => {
     expect(defaultSections(['faq', 'intro']).map((s) => s.type)).toEqual([
-      'hero', 'kluczowe', 'faq', 'intro', 'zaproszenie',
+      'hero', 'kluczowe', 'dane', 'faq', 'intro', 'zaproszenie',
     ]);
   });
 

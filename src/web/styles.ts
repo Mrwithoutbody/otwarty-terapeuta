@@ -499,6 +499,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--zwiezly .badges { margin-bottom: var(--space-2); }
 .phero--zwiezly .phero-actions { margin: var(--space-4) 0 0; }
 
+/* Label and value, two pairs across - the layout the catalogue card has always
+   used for exactly these facts. */
+/* Two columns of pairs, not three: at three the label and its value drift apart
+   and the eye stops pairing them. */
+.pdata { display: grid; grid-template-columns: repeat(auto-fit, minmax(26rem, 1fr));
+  gap: 0 var(--space-8); margin: 0; }
+.pdata > div { display: grid; grid-template-columns: minmax(8rem, auto) minmax(0, 1fr);
+  gap: var(--space-4); padding: 0.7rem 0; border-top: 1px solid var(--border); align-items: baseline; }
+.pdata dt { color: var(--text-muted); font-size: 0.92rem; }
+.pdata dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 46rem) { .pdata > div { grid-template-columns: minmax(7rem, auto) minmax(0, 1fr); } }
+
 /* Two cards in one row: the whole "what it costs and when" in a single glance,
    instead of two full-width bands one under the other. */
 .pcards { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
