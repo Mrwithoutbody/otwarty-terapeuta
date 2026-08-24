@@ -428,10 +428,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 4rem);
   align-items: center; margin-top: var(--space-6); padding: clamp(1.8rem, 3.5vw, 3.2rem);
   border: 1px solid var(--border); border-radius: var(--radius-lg);
-  background:
-    radial-gradient(circle at 16% 10%, rgba(238, 244, 145, 0.5), transparent 21rem),
-    radial-gradient(circle at 88% 88%, rgba(232, 214, 166, 0.55), transparent 24rem),
-    linear-gradient(140deg, #eef4e8, #f5eeda); }
+  background: linear-gradient(140deg, #faf9eb, #eef4e8); }
 .phero > div { order: -1; }
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
