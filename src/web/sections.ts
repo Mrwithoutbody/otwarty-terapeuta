@@ -408,41 +408,51 @@ function slotsByDay(slots: PublicSlot[]): string {
   const zone = first.timezone;
   const today = civilDateIn(zone, new Date());
 
-  // A row per day that actually has hours, the hours as chips beside the
-  // label. The seven-column grid before it was frames inside frames: a card
-  // per day, a pill per hour, a tall dashed box for every free Saturday.
-  const days = Array.from({ length: SLOT_DAYS_SHOWN }, (_, i) => {
+  // Seven consecutive calendar days, not seven days that happen to have slots.
+  // Skipping empty days silently makes Friday and Monday look adjacent; an empty
+  // column says "she does not work weekends", which is worth knowing.
+  const columns = Array.from({ length: SLOT_DAYS_SHOWN }, (_, i) => {
     const day = addCivilDays(today, i);
     const entries = slots.filter((s) => {
       const c = civilDateIn(s.timezone, new Date(s.starts_at_utc));
       return c.year === day.year && c.month === day.month && c.day === day.day;
     });
     return { day, items: entries };
-  }).filter((c) => c.items.length > 0);
+  });
 
-  if (days.length === 0) return '';
+  if (columns.every((c) => c.items.length === 0)) return '';
 
-  const mixed = new Set(slots.map((s) => s.mode)).size > 1;
+  const rows = Math.min(SLOT_ROWS_SHOWN, Math.max(...columns.map((c) => c.items.length)));
+  const hidden = columns.reduce((n, c) => n + Math.max(0, c.items.length - rows), 0);
 
-  const rows = days
-    .map(({ day, items: dayItems }) => {
+  const head = columns
+    .map(({ day }) => {
       const label = dayLabel(day, today);
-      const shown = dayItems.slice(0, 6);
-      const extra = dayItems.length - shown.length;
-      const chips = shown
-        .map((s) => `<li>${escapeHtml(formatTime(s.starts_at_utc, s.timezone))}${
-          mixed ? `<span>${s.mode === 'online' ? 'online' : 'gabinet'}</span>` : ''
-        }</li>`)
-        .join('');
-      return `<li class="cal-row">
-  <span class="cal-when"><b>${escapeHtml(label.name)}</b><span>${escapeHtml(label.date)}</span></span>
-  <ul class="cal-slots">${chips}${extra > 0 ? `<li class="cal-more">+${extra}</li>` : ''}</ul>
-</li>`;
+      return `<th scope="col"><b>${escapeHtml(label.name)}</b><span>${escapeHtml(label.date)}</span></th>`;
     })
     .join('');
 
-  return `<ol class="cal" aria-label="Wolne terminy w najbliższych siedmiu dniach">${rows}</ol>
-<p class="hint">${mixed ? '' : `Wszystkie terminy ${first.mode === 'online' ? 'online' : 'w gabinecie'}. `}Rezerwacja odbywa się przez asystenta ChatGPT.</p>`;
+  const body = Array.from({ length: rows }, (_, r) => {
+    const cells = columns
+      .map(({ items: dayItems }) => {
+        const s = dayItems[r];
+        if (!s) return '<td><span class="slot-none" aria-label="brak terminu">–</span></td>';
+        // No price per cell: it is already in the offer block above, and repeating
+        // it thirty-five times is what made the grid shout.
+        return `<td><span class="slot-time">${escapeHtml(formatTime(s.starts_at_utc, s.timezone))}</span>
+          <span class="slot-mode">${s.mode === 'online' ? 'online' : 'gabinet'}</span></td>`;
+      })
+      .join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  return `<div class="slot-table-scroll">
+  <table class="slot-table">
+    <caption class="visually-hidden">Wolne terminy w najbliższych siedmiu dniach</caption>
+    <thead><tr>${head}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</div>${hidden > 0 ? `<p class="hint">…i ${hidden} ${hidden === 1 ? 'kolejny termin' : 'kolejnych terminów'} w tych dniach.</p>` : ''}`;
 }
 
 /** Days read better than hours: nobody plans in units of 48. */
@@ -696,8 +706,11 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
         ? escapeHtml(t.cancellation_policy)
         : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
       return `${eyebrow('Najbliższe wolne terminy')}<h2>${escapeHtml('Kiedy możemy się spotkać')}</h2>${table}
-<p class="hint">${policy}</p>
-${pluginCta(env)}`;
+<div class="slot-foot">
+  <p>Rezerwacja odbywa się przez asystenta ChatGPT.</p>
+  <p>${policy}</p>
+  ${pluginCta(env)}
+</div>`;
     },
   },
 

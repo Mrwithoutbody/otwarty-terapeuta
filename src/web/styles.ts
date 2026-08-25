@@ -958,21 +958,27 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .offer-card .per { color: var(--text-muted); font-size: 0.86rem; }
 /* Days as columns, hours beneath - the ZnanyLekarz/Booksy pattern people
    already know. A table because that is what this is: days across, times down. */
-/* A row per working day, the hours as chips beside the label. No card around
-   a day, no dashed box for a free Saturday - the chip is the only frame. */
-.cal { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: flex; flex-direction: column; }
-.cal-row { margin: 0; padding: 0.7rem 0; display: flex; align-items: baseline; gap: 1.2rem;
-  border-top: 1px solid var(--border); flex-wrap: wrap; }
-.cal-row:first-child { border-top: 0; }
-.cal-when { flex: 0 0 7rem; }
-.cal-when b { font-size: 0.95rem; font-weight: 650; text-transform: capitalize; }
-.cal-when span { display: block; font-size: 0.76rem; color: var(--text-muted); }
-.cal-slots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.45rem; }
-.cal-slots li { margin: 0; padding: 0.4rem 0.85rem; border: 1px solid var(--border-strong);
-  border-radius: 999px; background: var(--bg); font-size: 0.9rem; font-weight: 600;
-  font-variant-numeric: tabular-nums; text-align: center; }
-.cal-slots li span { display: block; font-weight: 400; font-size: 0.7rem; color: var(--text-muted); }
-.cal-slots li.cal-more { border-style: dashed; background: transparent; color: var(--text-muted); font-weight: 500; }
+.slot-table-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
+.slot-table { border-collapse: collapse; width: 100%; min-width: 30rem; }
+.slot-table th { padding: 0 var(--space-2) var(--space-3); text-align: center; font-weight: 400; }
+.slot-table th b { display: block; font-size: 0.9rem; font-weight: 600; text-transform: capitalize; }
+.slot-table th span { display: block; font-size: 0.78rem; color: var(--text-muted); }
+.slot-table td { padding: 0.45rem var(--space-2); text-align: center; vertical-align: top; }
+/* Plain text, no filled blocks: thirty-five tinted rectangles read as noise. */
+.slot-time { display: block; font-size: 0.98rem; font-variant-numeric: tabular-nums; }
+.slot-mode { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.slot-none { display: block; color: var(--border-strong); }
+/* The site's tables highlight rows on hover, which promises a click. These rows
+   are hours to read, not rows to act on. */
+.slot-table tbody tr:hover td { background: none; }
+.slot-table td, .slot-table th { border: 0; }
+/* The lines under the calendar used to sit glued to the table and to each
+   other; now they are one footer with its own air, and the button gets a row
+   of its own. */
+.slot-foot { margin-top: var(--space-6); display: flex; flex-direction: column; gap: 0.45rem;
+  align-items: flex-start; }
+.slot-foot p { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
+.slot-foot .btn { margin-top: var(--space-3); }
 
 /* Where else to find her: quiet text links under the name, not a band. */
 .phero-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none;
