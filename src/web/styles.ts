@@ -711,7 +711,9 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 /* A light card keeps its own ink whatever block it sits in: with per-section
    backgrounds any section can go dark, and a white card must not inherit the
    dark band's light text. */
-.pblock--dark :is(.pfacts, .pcard, .offer-card, .phero-card) { color: var(--text); }
+.pblock--dark :is(.pfacts, .pcard, .offer-card, .phero-card, .chips li, details) { color: var(--text); }
+/* The small caps and the accents drown in the dark ground unless remapped. */
+.pblock--dark .eyebrow { color: var(--dark-mute); }
 
 /* --- themes: the same sections, her palette ------------------------------ */
 /* A theme is a set of tokens on the profile element - nothing here is a new
