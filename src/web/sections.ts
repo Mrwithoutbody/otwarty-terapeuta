@@ -422,37 +422,34 @@ function slotsByDay(slots: PublicSlot[]): string {
 
   if (columns.every((c) => c.items.length === 0)) return '';
 
-  const rows = Math.min(SLOT_ROWS_SHOWN, Math.max(...columns.map((c) => c.items.length)));
-  const hidden = columns.reduce((n, c) => n + Math.max(0, c.items.length - rows), 0);
+  // One therapist, one mode almost always: the per-cell "online" under every
+  // hour was what crammed the grid. The label appears per chip only when the
+  // week actually mixes both modes.
+  const mixed = new Set(slots.map((s) => s.mode)).size > 1;
 
-  const head = columns
-    .map(({ day }) => {
+  const days = columns
+    .map(({ day, items: dayItems }, i) => {
       const label = dayLabel(day, today);
-      return `<th scope="col"><b>${escapeHtml(label.name)}</b><span>${escapeHtml(label.date)}</span></th>`;
+      const shown = dayItems.slice(0, SLOT_ROWS_SHOWN);
+      const extra = dayItems.length - shown.length;
+      const chips = shown
+        .map((s) => `<li>${escapeHtml(formatTime(s.starts_at_utc, s.timezone))}${
+          mixed ? `<span>${s.mode === 'online' ? 'online' : 'gabinet'}</span>` : ''
+        }</li>`)
+        .join('');
+      const body = dayItems.length === 0
+        ? '<p class="cal-free" aria-label="brak terminów">–</p>'
+        : `<ul class="cal-slots">${chips}${extra > 0 ? `<li class="cal-more">+${extra}</li>` : ''}</ul>`;
+      return `<li class="cal-day${i === 0 ? ' is-today' : ''}${dayItems.length === 0 ? ' is-empty' : ''}">
+  <span class="cal-name">${escapeHtml(label.name)}</span><span class="cal-date">${escapeHtml(label.date)}</span>
+  ${body}
+</li>`;
     })
     .join('');
 
-  const body = Array.from({ length: rows }, (_, r) => {
-    const cells = columns
-      .map(({ items: dayItems }) => {
-        const s = dayItems[r];
-        if (!s) return '<td><span class="slot-none" aria-label="brak terminu">–</span></td>';
-        // No price per cell: it is already in the offer block above, and repeating
-        // it thirty-five times is what made the grid shout.
-        return `<td><span class="slot-time">${escapeHtml(formatTime(s.starts_at_utc, s.timezone))}</span>
-          <span class="slot-mode">${s.mode === 'online' ? 'online' : 'gabinet'}</span></td>`;
-      })
-      .join('');
-    return `<tr>${cells}</tr>`;
-  }).join('');
-
-  return `<div class="slot-table-scroll">
-  <table class="slot-table">
-    <caption class="visually-hidden">Wolne terminy w najbliższych siedmiu dniach</caption>
-    <thead><tr>${head}</tr></thead>
-    <tbody>${body}</tbody>
-  </table>
-</div>${hidden > 0 ? `<p class="hint">…i ${hidden} ${hidden === 1 ? 'kolejny termin' : 'kolejnych terminów'} w tych dniach.</p>` : ''}`;
+  return `<div class="cal-scroll" role="group" aria-label="Wolne terminy w najbliższych siedmiu dniach">
+  <ol class="cal">${days}</ol>
+</div>${mixed ? '' : `<p class="hint">Wszystkie terminy ${first.mode === 'online' ? 'online' : 'w gabinecie'}.</p>`}`;
 }
 
 /** Days read better than hours: nobody plans in units of 48. */
