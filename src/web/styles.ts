@@ -848,10 +848,10 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 /* Not sticky: the service header already is, and two stacked bars eat a phone
    screen. It sits under the heading and lists what the page actually renders,
    which is why it is built from the sections rather than hand-kept. */
-.pnav { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; align-items: baseline;
-  padding: 0.9rem 0; border-bottom: 1px solid var(--border); margin-bottom: var(--space-4); }
-.pnav a { font: 600 0.78rem/1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-muted); text-decoration: none; padding: 0.25rem 0; }
+.pnav { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; align-items: baseline;
+  padding: 1.1rem 0; border-bottom: 1px solid var(--border); margin-bottom: var(--space-4); }
+.pnav a { font: 600 0.8rem/1.4 var(--sans); letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-muted); text-decoration: none; padding: 0.3rem 0; }
 .pnav a:hover { color: var(--accent-strong); }
 .profile-page--pasy .pnav { margin-bottom: 0; }
 

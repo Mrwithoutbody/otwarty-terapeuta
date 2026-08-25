@@ -97,6 +97,7 @@ export const WYGLAD_FIELDS: Field[] = [
       ['zwykle', 'Zwykłe — na tle strony'],
       ['panel', 'Przygaszone — w kolorze motywu'],
       ['ciemne', 'Ciemne — jasny tekst na ciemnym tle'],
+      ['waskie', 'Wąska taśma — mało powietrza, na krótką treść'],
     ],
   },
   {
@@ -124,7 +125,7 @@ export function sectionAllFields(def: SecDef): Field[] {
 }
 
 /** What the `tlo` override means in tone terms. */
-const TLO_TONE: Record<string, Tone> = { zwykle: '', panel: 'alt', ciemne: 'dark' };
+const TLO_TONE: Record<string, Tone> = { zwykle: '', panel: 'alt', ciemne: 'dark', waskie: 'narrow' };
 
 
 
@@ -822,7 +823,7 @@ ${pluginCta(env)}`;
 
   // The free-text policy is often empty, so the cutoff carries the meaning.
   policy: {
-    label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'alt', auto: true,
+    label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'narrow', auto: true,
     render: (s, { therapist: t }) =>
       `${eyebrow('Zasady odwołania')}<h2>${escapeHtml('Kiedy musisz odwołać')}</h2>
 <div class="policy-box"><p>${
