@@ -683,17 +683,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
     radial-gradient(circle at 14% 88%, var(--glow), transparent 20rem),
     linear-gradient(220deg, var(--panel-tint), var(--band)); }
 .pblock--narrow { padding-block: calc(clamp(1.2rem, 2vw, 1.6rem) * var(--rhythm)); }
-/* The other presentation: the same sections as bands running the full width of
-   the viewport, flat, no frame. The heading loses its card by default in this
+/* The other presentation: the same section as a band running the full width of
+   the viewport, flat, no frame. The server resolves the page default and the
+   per-section choice into one class, so CSS sees only the verdict. The heading loses its card by default in this
    layout (see layoutClasses) - a bordered card butting straight into a
    full-width band is a seam with nothing on either side of it.
    overflow-x: clip on the root is what keeps 100vw, which counts the
    scrollbar, from adding a horizontal scrollbar. */
-.profile-page--pasy .pblock--alt, .profile-page--pasy .pblock--narrow {
+.pblock.pblock--pas {
   margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%);
   margin-block: 0; border: 0; border-block: 1px solid var(--border-strong);
   border-radius: 0; background: var(--band); }
-main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { padding-bottom: 0; }
+main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 /* Only the two headings that take their background from here lose it; the dark
    one and the coloured one are cards by definition. */
 .profile-page--hero-goly :is(.phero--klasyczny, .phero--obietnica) {
@@ -729,6 +730,9 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
    others wants a 2rem name, not a 6rem one. */
 .profile-page--skala-duza { --display: 1.7; }
 .profile-page--skala-plakat { --display: 2.7; }
+/* The same scale chosen for one section only. */
+.pblock--skala-duza { --display: 1.7; }
+.pblock--skala-plakat { --display: 2.7; }
 
 .profile-page--rytm-zwarty { --rhythm: 0.72; }
 .profile-page--rytm-dostojny { --rhythm: 1.25; }
@@ -791,11 +795,11 @@ main:has(.profile-page--pasy > :is(.pblock--alt, .pblock--narrow):last-child) { 
    makes the reference pages read as a grid rather than as a stack; it needs the
    room only the poster scale has. */
 @media (min-width: 60rem) {
-  .profile-page--skala-plakat .pblock {
+  .profile-page--skala-plakat .pblock, .pblock--skala-plakat {
     display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr); column-gap: var(--space-8);
   }
-  .profile-page--skala-plakat .pblock > * { grid-column: 2; }
-  .profile-page--skala-plakat .pblock > .eyebrow {
+  :is(.profile-page--skala-plakat .pblock, .pblock--skala-plakat) > * { grid-column: 2; }
+  :is(.profile-page--skala-plakat .pblock, .pblock--skala-plakat) > .eyebrow {
     grid-column: 1; grid-row: 1 / span 40; margin: 0.7rem 0 0; align-self: start;
   }
 }

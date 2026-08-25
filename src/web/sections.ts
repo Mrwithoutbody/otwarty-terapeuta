@@ -37,11 +37,9 @@ export type Values = Record<string, unknown>;
 export type Section = Values & { type: string };
 
 /**
- * How a block sits on the page. This is a property of the type, not something
- * to set per section: a settable background is a second axis on top of "which
- * block", and every block then needs thinking about twice. Where two tones are
- * genuinely wanted - a plain paragraph and a highlighted one - they are two
- * blocks.
+ * How a block sits on the page. The type carries the default; the therapist
+ * may override it per section with the `tlo` presentation field, so a plain
+ * paragraph can go dark and the dark close can go plain.
  */
 export type Tone = '' | 'alt' | 'dark' | 'narrow';
 
@@ -84,6 +82,49 @@ const AREA = (name: string, label: string, extra: Partial<Field> = {}): Field =>
   ({ kind: 'textarea', name, label, max: 2000, ...extra });
 
 export const MAX_SECTIONS = 24;
+
+/**
+ * Presentation of one block, chosen per section. Content fields differ per
+ * type; these three are the same on every block, so they live outside
+ * `fields`. An empty value means "as the type / the page decides", which is
+ * why a profile saved before this existed renders exactly as it did.
+ */
+export const WYGLAD_FIELDS: Field[] = [
+  {
+    kind: 'select', name: 'tlo', label: 'Tło sekcji',
+    options: [
+      ['', 'Wg rodzaju sekcji'],
+      ['zwykle', 'Zwykłe — na tle strony'],
+      ['panel', 'Przygaszone — w kolorze motywu'],
+      ['ciemne', 'Ciemne — jasny tekst na ciemnym tle'],
+    ],
+  },
+  {
+    kind: 'select', name: 'kadr', label: 'Kadr',
+    hint: 'Działa dla sekcji barwnych: karta w kadrze albo pas przez całą szerokość ekranu.',
+    options: [
+      ['', 'Wg ustawień strony'],
+      ['karta', 'Karta — w kadrze, z powietrzem wokół'],
+      ['pas', 'Pas — przez całą szerokość ekranu'],
+    ],
+  },
+  {
+    kind: 'select', name: 'skala', label: 'Skala nagłówka',
+    options: [
+      ['', 'Wg ustawień strony'],
+      ['duza', 'Duża — nagłówek wyraźnie większy'],
+      ['plakat', 'Plakatowa — nadtytuł na marginesie'],
+    ],
+  },
+];
+
+/** Content fields plus the presentation selects; the hero carries its own layout. */
+export function sectionAllFields(def: SecDef): Field[] {
+  return def.family === 'hero' ? def.fields ?? [] : [...(def.fields ?? []), ...WYGLAD_FIELDS];
+}
+
+/** What the `tlo` override means in tone terms. */
+const TLO_TONE: Record<string, Tone> = { zwykle: '', panel: 'alt', ciemne: 'dark' };
 
 
 
@@ -1118,7 +1159,7 @@ function cleanSection(entry: unknown): Section | null {
   if (!def) return null;
 
   const out: Section = { type };
-  for (const field of def.fields ?? []) {
+  for (const field of sectionAllFields(def)) {
     const value = cleanField(field, raw[field.name]);
     if (value !== undefined) out[field.name] = value;
   }
@@ -1194,7 +1235,7 @@ const ANCHORS: Record<string, string> = {
 export function renderSections(
   sections: Section[],
   baseCtx: SectionCtx,
-  options: { nav?: boolean } = {},
+  options: { nav?: boolean; bands?: string } = {},
 ): string {
   const seenAnchor = new Set<string>();
   // Two blocks can carry the same anchor (the slot table and the two-card
@@ -1231,9 +1272,18 @@ export function renderSections(
     const id = claimed ? anchor : options.nav === true ? `sekcja-${index}` : '';
     const label = options.nav === true ? navLabel(inner) : '';
     if (id !== '' && label !== '') bar.push([id, label]);
-    const tone = def.tone ?? '';
-    const cls = tone === '' ? 'pblock' : `pblock pblock--${tone}`;
-    return `<section class="${cls}"${id === '' ? '' : ` id="${escapeHtml(id)}"`}>${inner}</section>`;
+    // The block's own choices first, the type's and the page's defaults after.
+    const tlo = typeof section.tlo === 'string' ? section.tlo : '';
+    const tone = tlo in TLO_TONE ? TLO_TONE[tlo] : def.tone ?? '';
+    const kadr = typeof section.kadr === 'string' && section.kadr !== ''
+      ? section.kadr
+      : options.bands === 'pasy' ? 'pas' : '';
+    const skala = typeof section.skala === 'string' ? section.skala : '';
+    const cls = ['pblock'];
+    if (tone !== '') cls.push(`pblock--${tone}`);
+    if (kadr === 'pas' && (tone === 'alt' || tone === 'narrow')) cls.push('pblock--pas');
+    if (skala === 'duza' || skala === 'plakat') cls.push(`pblock--skala-${skala}`);
+    return `<section class="${cls.join(' ')}"${id === '' ? '' : ` id="${escapeHtml(id)}"`}>${inner}</section>`;
   });
 
   // One link is not a bar, it is a stray word under the heading. Ten of them

@@ -37,6 +37,7 @@ import {
   parseSections,
   SECTION_GROUPS,
   SECTIONS_DEF,
+  sectionAllFields,
   type Field,
   type SecDef,
   type Section,
@@ -701,13 +702,18 @@ function filled(fields: Field[], values: Values, skipTitles = false): number {
  * summary says whether there is anything inside worth opening.
  */
 function sectionFields(def: SecDef, section: Section, index: number): string {
-  const fields = (def.fields ?? [])
+  const fields = sectionAllFields(def)
     .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`))
     .join('');
   if (fields === '') return '';
-  const count = filled(def.fields ?? [], section);
-  const summary = count > 0 ? `Treść (${count} ${count === 1 ? 'pole' : 'pola'})` : 'Wpisz treść';
-  return `<details class="sec-fields"${count > 0 ? '' : ' open'}>
+  // The presentation selects are not content: they never count towards the
+  // summary and never force the section open.
+  const own = def.fields ?? [];
+  const count = filled(own, section);
+  const summary = own.length === 0
+    ? 'Wygląd sekcji'
+    : count > 0 ? `Treść (${count} ${count === 1 ? 'pole' : 'pola'})` : 'Wpisz treść';
+  return `<details class="sec-fields"${own.length > 0 && count === 0 ? ' open' : ''}>
   <summary>${escapeHtml(summary)}</summary>
   <div class="sec-fields-body">${fields}</div>
 </details>`;
@@ -1380,7 +1386,7 @@ function collectSections(body: URLSearchParams): string {
     if (!def) continue;
 
     const section: Section = { type };
-    for (const field of def.fields ?? []) {
+    for (const field of sectionAllFields(def)) {
       const value = readField(body, field, `sec_${index}_${field.name}`);
       if (value !== undefined) section[field.name] = value;
     }

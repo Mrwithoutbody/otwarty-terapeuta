@@ -410,7 +410,8 @@ siteApp.get('/terapeuci/:slug', async (c) => {
 
   const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
   const sections = pageSections(parseSections(t.sections));
-  const body = renderSections(sections, ctx, { nav: parseLayout(t.layout).nav === 'kotwice' });
+  const layout = parseLayout(t.layout);
+  const body = renderSections(sections, ctx, { nav: layout.nav === 'kotwice', bands: layout.bands });
 
   return htmlResponse(
     c.env,

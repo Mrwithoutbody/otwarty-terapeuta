@@ -43,10 +43,12 @@ describe('parseSections', () => {
     expect(String(parsed[0]?.body)).toHaveLength(400);
   });
 
-  // Background used to be a per-section field. It is a property of the type
-  // now, so a stored value from that design is dropped rather than honoured.
-  it('ignores a background stored by the old design', () => {
+  // `variant` was the first design's background field and `tlo` is the current
+  // one: the old name stays dropped, the new one is validated like any select.
+  it('ignores a background stored by the old design, keeps the current one', () => {
     expect(parseSections('[{"type":"tekst","body":"a","variant":"dark"}]')[0]?.variant).toBeUndefined();
+    expect(parseSections('[{"type":"tekst","body":"a","tlo":"ciemne"}]')[0]?.tlo).toBe('ciemne');
+    expect(parseSections('[{"type":"tekst","body":"a","tlo":"tęczowe"}]')[0]?.tlo).toBeUndefined();
   });
 
   it('survives broken input instead of throwing', () => {
@@ -74,11 +76,25 @@ describe('renderSections', () => {
     expect(html).toContain('Gestalt');
   });
 
-  it('takes the background from the type, not from the section', () => {
+  it('takes the background from the type until the section overrides it', () => {
     expect(renderSections([{ type: 'intro' }], CTX)).toContain('class="pblock"');
     expect(renderSections([{ type: 'zaproszenie' }], CTX)).toContain('class="pblock pblock--dark"');
-    // Asking for another tone changes nothing: there is no such knob.
-    expect(renderSections([{ type: 'intro', variant: 'dark' }], CTX)).toContain('class="pblock"');
+    expect(renderSections([{ type: 'intro', tlo: 'ciemne' }], CTX)).toContain('class="pblock pblock--dark"');
+    expect(renderSections([{ type: 'zaproszenie', tlo: 'zwykle' }], CTX)).toContain('class="pblock"');
+  });
+
+  it('resolves karta/pas per section, with the page as the default', () => {
+    const alt = { type: 'intro', tlo: 'panel' };
+    expect(renderSections([alt], CTX)).not.toContain('pblock--pas');
+    expect(renderSections([alt], CTX, { bands: 'pasy' })).toContain('pblock--pas');
+    expect(renderSections([{ ...alt, kadr: 'karta' }], CTX, { bands: 'pasy' })).not.toContain('pblock--pas');
+    expect(renderSections([{ ...alt, kadr: 'pas' }], CTX)).toContain('pblock--pas');
+    // A plain block has no band to stretch: kadr changes nothing there.
+    expect(renderSections([{ type: 'intro', kadr: 'pas' }], CTX)).not.toContain('pblock--pas');
+  });
+
+  it('scales one heading without touching the page axis', () => {
+    expect(renderSections([{ type: 'intro', skala: 'plakat' }], CTX)).toContain('pblock--skala-plakat');
   });
 
   it('gives one anchor to the first section that claims it', () => {
