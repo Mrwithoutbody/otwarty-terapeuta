@@ -708,6 +708,10 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .pblock--dark h2 { color: var(--dark-head); }
 .pblock--dark .btn { background: var(--dark-head); color: var(--dark); border-color: var(--dark-head); }
 .pblock--dark .btn.ghost { background: transparent; color: var(--dark-ink); border-color: color-mix(in srgb, var(--dark-ink) 45%, transparent); }
+/* A light card keeps its own ink whatever block it sits in: with per-section
+   backgrounds any section can go dark, and a white card must not inherit the
+   dark band's light text. */
+.pblock--dark :is(.pfacts, .pcard, .offer-card, .phero-card) { color: var(--text); }
 
 /* --- themes: the same sections, her palette ------------------------------ */
 /* A theme is a set of tokens on the profile element - nothing here is a new
