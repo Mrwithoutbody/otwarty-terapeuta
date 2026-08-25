@@ -643,8 +643,9 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
 ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => `<li>${escapeHtml(m.name)}</li>`).join('')}</ul>`}`;
       // The portrait lives here, beside her own words - not in the poster
       // heading, which is typography.
-      if (!t.photo_url) return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>${text}`;
-      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2><div class="psplit">
+      const head = `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>`;
+      if (!t.photo_url) return `${head}${text}`;
+      return `${head}<div class="psplit">
   <div>${text}</div>
   <figure class="psplit-photo"><img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" loading="lazy" decoding="async"></figure>
 </div>`;
@@ -918,13 +919,14 @@ ${profileLinks(t)}`;
         .map((r) => [str(r.etykieta), str(r.wartosc)] as const)
         .filter(([k, v]) => k !== '' && v !== '');
       const quote = str(s.cytat);
+      const autor = str(s.cytat_autor);
       if (body === '' && cechy.length === 0) return '';
       return `${blockHead(s)}<div class="pservice">
   <div>${body}${
         cechy.length === 0 ? '' : `<ul class="pservice-points">${cechy.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
       }${
         quote === '' ? '' : `<figure class="pquote pquote--inline"><blockquote><p>${escapeHtml(quote)}</p></blockquote>${
-          str(s.cytat_autor) === '' ? '' : `<figcaption>${escapeHtml(str(s.cytat_autor))}</figcaption>`}</figure>`
+          autor === '' ? '' : `<figcaption>${escapeHtml(autor)}</figcaption>`}</figure>`
       }</div>${
         szczegoly.length === 0 ? '' : `<dl class="pservice-facts">${szczegoly
           .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`
