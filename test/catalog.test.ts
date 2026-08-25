@@ -200,10 +200,13 @@ describe('the card echoes the profile theme', () => {
 
     const html = await SELF.fetch('https://localhost/terapeuci').then((r) => r.text());
     expect(html).toContain('therapist-card therapist-card--theme-glina');
-    // Eight published profiles, one of them themed.
-    expect(html.match(/therapist-card--theme-/g)).toHaveLength(1);
+    const withAnna = (html.match(/therapist-card--theme-glina/g) ?? []).length;
 
+    // Her choice cleared, exactly her card loses the class - whatever the rest
+    // of the seed is themed with.
     await env.DB.prepare(`UPDATE therapists SET layout_json = '{}' WHERE id = ?`).bind(ANNA).run();
+    const after = await SELF.fetch('https://localhost/terapeuci').then((r) => r.text());
+    expect((after.match(/therapist-card--theme-glina/g) ?? []).length).toBe(withAnna - 1);
   });
 });
 
