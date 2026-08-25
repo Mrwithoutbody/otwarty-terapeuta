@@ -89,6 +89,13 @@ export const APP_CSS = `
   --acc-las: #2f6d4f;
   --acc-atrament: #b98f33;
   --acc-papier: #2b2b2a;
+  /* The second channel of every theme: the complementary accent (~180deg from
+     the primary, measured in HSL, contrast >= 4.5 on the theme's ground).
+     A theme sets ONE --accent-2 and everything downstream inherits: the quote
+     rule, the step numbers, the labels of the practical grid. A template
+     system - later driven over MCP - changes the pair (--accent-strong,
+     --accent-2) and the whole page follows; nothing else needs touching. */
+  --accent-2: #5b4a80;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -779,7 +786,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --band: #f5ead3; --panel-tint: #fdf7ea; --glow: rgba(240, 200, 120, 0.34);
   --wash-a: #fdf7ea; --wash-b: #f6e8cf;
   --border: #e8ddc6; --border-strong: #d9c9a6;
-  --accent: var(--acc-bursztyn); --accent-strong: #7c5417; --accent-soft: #f7ecd7;
+  --accent: var(--acc-bursztyn); --accent-strong: #7c5417; --accent-soft: #f7ecd7; --accent-2: #3e5a78;
   --dark: #3d3222; --dark-ink: #f3e6cd; --dark-mute: #d8c7a5; --dark-head: #fffdf6;
   --prose: #5f5340;
 }
@@ -788,7 +795,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --band: #eceef1; --panel-tint: #f7f8fa; --glow: rgba(150, 170, 200, 0.26);
   --wash-a: #f8f9fb; --wash-b: #e9ecf1;
   --border: #dde0e6; --border-strong: #c4c9d3;
-  --accent: var(--acc-grafit); --accent-strong: #2c3e52; --accent-soft: #e8ecf2;
+  --accent: var(--acc-grafit); --accent-strong: #2c3e52; --accent-soft: #e8ecf2; --accent-2: #8a5f26;
   --dark: #232830; --dark-ink: #e4e8ee; --dark-mute: #b9c1cd; --dark-head: #ffffff;
   --prose: #4d5560;
 }
@@ -797,7 +804,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --band: #f3e3da; --panel-tint: #fbf1ec; --glow: rgba(226, 160, 130, 0.3);
   --wash-a: #fbf2ed; --wash-b: #f2e0d6;
   --border: #e8d5cb; --border-strong: #d8bcae;
-  --accent: var(--acc-glina); --accent-strong: #7c3c26; --accent-soft: #f7e6de;
+  --accent: var(--acc-glina); --accent-strong: #7c3c26; --accent-soft: #f7e6de; --accent-2: #28616e;
   --dark: #40302a; --dark-ink: #f2ded4; --dark-mute: #d5b8ab; --dark-head: #fffaf7;
   --prose: #62504a;
 }
@@ -809,7 +816,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --band: #f2f2f1; --panel-tint: #fafafa; --glow: rgba(0, 0, 0, 0.035);
   --wash-a: #fbfbfa; --wash-b: #f0f0ef;
   --border: #e3e3e2; --border-strong: #c8c8c6;
-  --accent: var(--acc-papier); --accent-strong: #171716; --accent-soft: #f0f0ee;
+  --accent: var(--acc-papier); --accent-strong: #171716; --accent-soft: #f0f0ee; --accent-2: #5c5346;
   --dark: #171716; --dark-ink: #ededec; --dark-mute: #b8b8b6; --dark-head: #ffffff;
   --prose: #56564f;
 }
@@ -818,7 +825,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --band: #e4ede4; --panel-tint: #f2f7f1; --glow: rgba(120, 190, 150, 0.26);
   --wash-a: #f3f8f2; --wash-b: #e2ebe1;
   --border: #d7e2d6; --border-strong: #bacfb9;
-  --accent: var(--acc-las); --accent-strong: #1f4d37; --accent-soft: #e3f0e6;
+  --accent: var(--acc-las); --accent-strong: #1f4d37; --accent-soft: #e3f0e6; --accent-2: #7a3a54;
   --dark: #1f3a2c; --dark-ink: #dcead9; --dark-mute: #b4c9b2; --dark-head: #fbfffa;
   --prose: #4a5c4d;
 }
@@ -831,7 +838,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --band: #21201d; --panel-tint: #292824; --glow: rgba(233, 196, 106, 0.07);
   --wash-a: #171614; --wash-b: #201f1c;
   --border: #33312b; --border-strong: #4b4840;
-  --accent: var(--acc-atrament); --accent-strong: #dcb765; --accent-soft: #2c2820;
+  --accent: var(--acc-atrament); --accent-strong: #dcb765; --accent-soft: #2c2820; --accent-2: #93aecb;
   --dark: #0e0e0d; --dark-ink: #e8e6e1; --dark-mute: #b3b0a8; --dark-head: #ffffff;
   --prose: #cfccc4;
   --surface-solid: #26241f; --surface: #26241f; --surface-alt: #2b2925; --bg: #1d1c19;
@@ -898,7 +905,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 @media (max-width: 860px) { .psplit { grid-template-columns: 1fr; } .psplit--flip > div { order: 0; } }
 
 .pquote { margin: 0; }
-.pquote blockquote { margin: 0; border-left: 3px solid var(--accent); padding-left: 1.2rem; }
+.pquote blockquote { margin: 0; border-left: 3px solid var(--accent-2); padding-left: 1.2rem; }
 .pquote p { font-family: var(--serif); font-style: italic; max-width: 52ch;
   font-size: clamp(1.15rem, 1.05rem + 0.6vw, 1.5rem); }
 .pquote figcaption { margin-top: var(--space-3); padding-left: 1.2rem; color: var(--text-muted);
@@ -924,7 +931,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
   display: grid; gap: var(--space-4); }
 .pservice-facts dt { font: 650 0.72rem/1.4 var(--sans); letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--text-muted); }
+  text-transform: uppercase; color: var(--accent-2); }
 .pservice-facts dd { margin: 0.1rem 0 0; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
 @media (max-width: 56rem) { .pservice { grid-template-columns: 1fr; } }
 /* Two service chapters in a row are the same slide twice; every second one
@@ -983,7 +990,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
   padding: 1.9rem 1.6rem 1.5rem; }
 .meeting-steps li::before { content: counter(s); position: absolute; top: -0.85rem; left: 1.3rem;
-  width: 1.9rem; height: 1.9rem; display: grid; place-items: center; background: var(--accent-strong);
+  width: 1.9rem; height: 1.9rem; display: grid; place-items: center; background: var(--accent-2);
   color: var(--surface-solid); border-radius: 50%; font-size: 0.9rem; font-weight: 600; }
 .meeting-steps h3 { margin: 0.3rem 0 0.4rem; font-size: 1.02rem; }
 .meeting-steps p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
