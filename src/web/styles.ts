@@ -559,6 +559,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    small caps under the actions. Height leaves the top of the next section
    showing - a fold with nothing peeking over it reads as the end of the page. */
 .phero--plakat { grid-template-columns: minmax(0, 1fr); min-height: min(72vh, 42rem); align-content: center;
+  align-items: center;
   margin-top: 0; padding: clamp(2rem, 5vw, 5rem) 0 clamp(2.5rem, 6vw, 6rem); border: 0; border-radius: 0;
   background: none; }
 .phero--plakat .badges { margin: 2.2rem 0 0; }
@@ -573,6 +574,12 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--plakat .phero-actions { margin-top: 2.2rem; }
 .phero-plakat-name { margin-top: 2.6rem; font: 650 0.78rem/1.4 var(--sans); letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--text-muted); }
+/* The portrait beside the slogan; without one the type takes the full width. */
+.phero--plakat:has(.phero-plakat-photo) { grid-template-columns: minmax(0, 1.25fr) minmax(13rem, 19rem); }
+.phero-plakat-photo { margin: 0; }
+.phero-plakat-photo img { width: 100%; height: auto; display: block; border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm); }
+@media (max-width: 56rem) { .phero--plakat:has(.phero-plakat-photo) { grid-template-columns: 1fr; } }
 
 .phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
   text-align: center; background: var(--dark); color: var(--dark-ink); border: 0; border-radius: var(--radius-lg);

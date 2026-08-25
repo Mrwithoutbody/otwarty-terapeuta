@@ -519,10 +519,11 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
 
 
   /**
-   * The landing-page opening: a screen of typography. Kicker, a slogan-sized
-   * <h1>, the lead and the two ways in - no portrait, the type is the picture.
-   * The name still renders (small, under the actions) whenever the slogan
-   * takes the <h1>, because a page must say whose it is.
+   * The landing-page opening: the slogan at display size with the portrait
+   * beside it. Kicker, a slogan-sized <h1>, the lead and the two ways in;
+   * the name still renders (small, under the actions) whenever the slogan
+   * takes the <h1>, because a page must say whose it is. A profile without
+   * a photograph gets the full-width typographic version.
    */
   'hero-plakat': {
     label: 'Nagłówek — plakatowy', hint: 'Cały ekran typografii: nadtytuł, hasło, przyciski',
@@ -538,6 +539,9 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       const lead = str(s.wstep) || t.headline || '';
       // The poster leads with the promise; the trust line and the badges are
       // its footer. A verification date above the headline reads as bureaucracy.
+      const photo = t.photo_url
+        ? `<figure class="phero-plakat-photo"><img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async"></figure>`
+        : '';
       return `<div>
     ${eyebrow(str(s.nadtytul))}
     <h1>${escapeHtml(title || t.display_name)}</h1>
@@ -553,7 +557,8 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
     </ul>
     ${profileLinks(t)}
-  </div>`;
+  </div>
+  ${photo}`;
     },
   },
 
