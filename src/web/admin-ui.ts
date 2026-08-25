@@ -567,6 +567,13 @@ export const ADMIN_JS = String.raw`(function () {
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
+    // Formularze z data-confirm pytają zanim wyślą — usuwanie grafik jest nieodwracalne.
+    document.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (form instanceof HTMLFormElement && form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+        event.preventDefault();
+      }
+    });
   } else {
     boot();
   }
@@ -680,6 +687,17 @@ export const ADMIN_CSS = String.raw`
 
 /* Photo picker + crop dialog */
 .photo-row { display: flex; gap: 1.1rem; align-items: flex-start; flex-wrap: wrap; }
+/* Grafiki profilu: miniatury z akcjami, portret oznaczony. */
+.media-gallery ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem; }
+.media-gallery li { margin: 0; display: flex; flex-direction: column; gap: 0.4rem; align-items: stretch;
+  width: 8.5rem; }
+.media-gallery img { width: 8.5rem; height: 8.5rem; object-fit: cover; border-radius: 10px;
+  border: 1px solid var(--border, #d9d4cc); }
+.media-gallery .is-portrait img { outline: 3px solid var(--accent-strong, #4d6100); outline-offset: 2px; }
+.media-gallery .media-tag { font-size: 0.75rem; font-weight: 650; text-transform: uppercase;
+  letter-spacing: 0.06em; text-align: center; }
+.media-gallery form { margin: 0; display: contents; }
+.media-gallery .btn { font-size: 0.75rem; padding: 0.3rem 0.5rem; min-height: 0; }
 .photo-preview {
   width: 7rem; height: 7rem; border-radius: 50%; object-fit: cover;
   border: 1px solid var(--border-strong); background: var(--surface-alt);

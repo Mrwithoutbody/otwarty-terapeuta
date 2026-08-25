@@ -16,6 +16,9 @@ DELETE FROM therapist_locations   WHERE therapist_id IN (SELECT id FROM therapis
 DROP TABLE IF EXISTS _seed_photos;
 CREATE TABLE _seed_photos AS
   SELECT id, photo_url FROM therapists WHERE is_demo = 1 AND photo_url LIKE '/media/%';
+DROP TABLE IF EXISTS _seed_media;
+CREATE TABLE _seed_media AS
+  SELECT m.* FROM therapist_media m JOIN therapists t ON t.id = m.therapist_id WHERE t.is_demo = 1;
 DELETE FROM therapists WHERE is_demo = 1;
 
 INSERT INTO therapists
@@ -230,6 +233,9 @@ UPDATE therapists SET photo_url = (
   SELECT p.photo_url FROM _seed_photos p WHERE p.id = therapists.id
 ) WHERE id IN (SELECT id FROM _seed_photos);
 DROP TABLE _seed_photos;
+INSERT INTO therapist_media SELECT m.* FROM _seed_media m
+  WHERE m.therapist_id IN (SELECT id FROM therapists);
+DROP TABLE _seed_media;
 
 -- Każdy profil demo pokazuje inny układ: motywy strony plus nadpisania
 -- per sekcja (tlo / kadr / skala) z budowniczego układu. Zasada: jeden
