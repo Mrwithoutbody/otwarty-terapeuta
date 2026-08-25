@@ -161,7 +161,7 @@ describe('defaultSections', () => {
     const sections = defaultSections();
     expect(sections.map((s) => s.type)).toEqual([
       'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq',
-      'credentials', 'policy', 'zaproszenie',
+      'credentials', 'zaproszenie',
     ]);
     expect(sections.every((section) => section.variant === undefined)).toBe(true);
   });
@@ -258,7 +258,7 @@ describe('the anchor bar', () => {
   it('stops at six links, because a seventh wraps the bar onto a second line', () => {
     const many = [
       { type: 'hero' }, { type: 'intro' }, { type: 'dane' }, { type: 'faq' },
-      { type: 'policy' }, { type: 'zaproszenie' },
+      { type: 'kroki', heading: 'Etapy', items: [{ title: 'a', desc: 'b' }] }, { type: 'zaproszenie' },
       { type: 'filary', eyebrow: 'Siodmy', items: [{ title: 'x', desc: 'y' }] },
       { type: 'tekst', eyebrow: 'Osmy', body: 'z' },
     ];

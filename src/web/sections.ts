@@ -536,12 +536,9 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       const t = ctx.therapist;
       const title = str(s.tytul);
       const lead = str(s.wstep) || t.headline || '';
+      // The poster leads with the promise; the trust line and the badges are
+      // its footer. A verification date above the headline reads as bureaucracy.
       return `<div>
-    <ul class="badges">
-      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
-      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
-      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
-    </ul>
     ${eyebrow(str(s.nadtytul))}
     <h1>${escapeHtml(title || t.display_name)}</h1>
     ${lead === '' ? '' : `<p class="phero-lead">${escapeHtml(lead)}</p>`}
@@ -550,6 +547,11 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
     ${title === '' ? '' : `<p class="phero-plakat-name">${escapeHtml(t.display_name)}</p>`}
+    <ul class="badges">
+      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
+      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
+      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
+    </ul>
     ${profileLinks(t)}
   </div>`;
     },
@@ -694,12 +696,17 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
   },
 
   slots: {
-    label: 'Wolne terminy', hint: 'Z Twojego kalendarza', tone: 'alt', auto: true,
-    render: (s, { therapist: _t, slots, env }) => {
+    label: 'Wolne terminy', hint: 'Z Twojego kalendarza, z zasadami odwołania', tone: 'alt', auto: true,
+    render: (s, { therapist: t, slots, env }) => {
       const table = slotsByDay(slots);
       if (table === '') return '';
+      // The cancellation rule is a footnote of the calendar, not a chapter of
+      // the page: it matters at the moment of picking an hour and nowhere else.
+      const policy = t.cancellation_policy.trim() !== ''
+        ? escapeHtml(t.cancellation_policy)
+        : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
       return `${eyebrow('Najbliższe wolne terminy')}<h2>${escapeHtml('Kiedy możemy się spotkać')}</h2>${table}
-<p class="hint">Rezerwacja odbywa się przez asystenta ChatGPT.</p>
+<p class="hint">Rezerwacja odbywa się przez asystenta ChatGPT. ${policy}</p>
 ${pluginCta(env)}`;
     },
   },
@@ -822,17 +829,6 @@ ${pluginCta(env)}`;
   },
 
   // The free-text policy is often empty, so the cutoff carries the meaning.
-  policy: {
-    label: 'Zasady odwołania', hint: 'Wyliczone z Twojego wyprzedzenia', tone: 'narrow', auto: true,
-    render: (s, { therapist: t }) =>
-      `${eyebrow('Zasady odwołania')}<h2>${escapeHtml('Kiedy musisz odwołać')}</h2>
-<div class="policy-box"><p>${
-        t.cancellation_policy.trim() !== ''
-          ? escapeHtml(t.cancellation_policy)
-          : `Wizytę możesz odwołać bezpłatnie najpóźniej na <strong>${cutoffLabel(t.cancellation_cutoff_hours)}</strong> przed jej terminem. Jeśli odwołasz później albo nie przyjdziesz, sesja jest płatna.`
-      }</p></div>`,
-  },
-
   /**
    * The close. Built from what the profile already knows, so every profile ends
    * on an invitation rather than on its cancellation policy - and a therapist
@@ -1287,7 +1283,7 @@ function cleanField(field: Field, value: unknown): unknown {
  * untouched profile keeps rendering exactly as it did.
  */
 const DEFAULT_ORDER = [
-  'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials', 'policy',
+  'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials',
   'zaproszenie',
 ] as const;
 

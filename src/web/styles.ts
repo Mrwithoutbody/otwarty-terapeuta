@@ -551,7 +551,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* A screen of typography: one column, the slogan at display size, the name in
    small caps under the actions. Height leaves the top of the next section
    showing - a fold with nothing peeking over it reads as the end of the page. */
-.phero--plakat { grid-template-columns: minmax(0, 1fr); min-height: min(72vh, 42rem); align-content: center; }
+.phero--plakat { grid-template-columns: minmax(0, 1fr); min-height: min(72vh, 42rem); align-content: center;
+  margin-top: 0; padding: clamp(2rem, 5vw, 5rem) 0 clamp(2.5rem, 6vw, 6rem); border: 0; border-radius: 0;
+  background: none; }
+.phero--plakat .badges { margin: 2.2rem 0 0; }
+.phero--plakat :is(.badge, .badge.ok, .badge.demo) { background: transparent; border-color: transparent;
+  padding-inline: 0; color: var(--text-muted); }
+.phero--plakat .badge.ok { color: var(--accent-strong); }
+.phero--plakat .badges li + li::before { content: "·"; margin-right: 0.6rem; color: var(--text-muted); }
 .phero--plakat h1 { font-size: clamp(2.6rem, 6.5vw, 5.6rem); line-height: 1.02; letter-spacing: -0.035em;
   max-width: 18ch; }
 .phero--plakat .phero-lead { font-size: clamp(1.15rem, 1rem + 0.9vw, 1.55rem); max-width: 36ch;
@@ -986,8 +993,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 /* Sits inside whichever band the therapist put it in. --surface-alt is a green
    grey and went muddy on the sand band; the card white the rest of the page
    uses reads on every background. */
-.policy-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: var(--space-6); }
-.policy-box p { margin: 0; color: var(--text-muted); }
 .pblock details { background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: var(--radius); margin: 0.7rem 0 0; }
 .pblock summary { cursor: pointer; padding: 1rem 1.3rem; font-weight: 500; list-style: none;
