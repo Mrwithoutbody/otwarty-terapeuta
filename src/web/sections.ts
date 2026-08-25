@@ -532,6 +532,10 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       T('nadtytul', 'Nadtytuł', { max: 90, hint: 'np. Psychoterapeutka · Warszawa · od 2009' }),
       AREA('tytul', 'Hasło w tytule', { max: 140, hint: 'puste = Twoje imię i nazwisko' }),
       AREA('wstep', 'Zdanie pod hasłem', { max: 300, hint: 'puste = nagłówek profilu' }),
+      {
+        kind: 'select', name: 'portret', label: 'Zdjęcie w nagłówku',
+        options: [['', 'Bez zdjęcia — portret pokazuje sekcja „Jak pracuję"'], ['pokaz', 'Ze zdjęciem obok hasła']],
+      },
     ],
     render: (s, ctx) => {
       const t = ctx.therapist;
@@ -539,7 +543,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
       const lead = str(s.wstep) || t.headline || '';
       // The poster leads with the promise; the trust line and the badges are
       // its footer. A verification date above the headline reads as bureaucracy.
-      const photo = t.photo_url
+      const photo = str(s.portret) === 'pokaz' && t.photo_url
         ? `<figure class="phero-plakat-photo"><img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async"></figure>`
         : '';
       return `<div>
@@ -632,11 +636,18 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
 
   // --- auto: her data, already in the panel --------------------------------
   intro: {
-    label: 'Jak pracuję', hint: 'Twój opis i nurt pracy', auto: true,
+    label: 'Jak pracuję', hint: 'Twój opis i nurt pracy, ze zdjęciem', auto: true,
     render: (s, { therapist: t }) => {
       if (t.bio.trim() === '') return '';
-      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>${introBody(t.bio)}
+      const text = `${introBody(t.bio)}
 ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => `<li>${escapeHtml(m.name)}</li>`).join('')}</ul>`}`;
+      // The portrait lives here, beside her own words - not in the poster
+      // heading, which is typography.
+      if (!t.photo_url) return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>${text}`;
+      return `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2><div class="psplit">
+  <div>${text}</div>
+  <figure class="psplit-photo"><img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" loading="lazy" decoding="async"></figure>
+</div>`;
     },
   },
 

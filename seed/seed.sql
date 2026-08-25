@@ -11,6 +11,11 @@ DELETE FROM therapist_languages   WHERE therapist_id IN (SELECT id FROM therapis
 DELETE FROM therapist_specialties WHERE therapist_id IN (SELECT id FROM therapists WHERE is_demo = 1);
 DELETE FROM therapist_modalities  WHERE therapist_id IN (SELECT id FROM therapists WHERE is_demo = 1);
 DELETE FROM therapist_locations   WHERE therapist_id IN (SELECT id FROM therapists WHERE is_demo = 1);
+-- A photo uploaded through the panel must survive a reseed: remember every
+-- demo row's uploaded photo before the delete, put it back after the insert.
+DROP TABLE IF EXISTS _seed_photos;
+CREATE TABLE _seed_photos AS
+  SELECT id, photo_url FROM therapists WHERE is_demo = 1 AND photo_url LIKE '/media/%';
 DELETE FROM therapists WHERE is_demo = 1;
 
 INSERT INTO therapists
@@ -220,6 +225,11 @@ FROM lanes l, days d, hours h
 WHERE CAST(strftime('%w', 'now', 'start of day', '+' || d.n || ' days') AS INTEGER) BETWEEN 1 AND 5
   -- leave realistic gaps in the demo calendar
   AND ((d.n * 7 + h.h + l.lane) % 5) <> 0;
+
+UPDATE therapists SET photo_url = (
+  SELECT p.photo_url FROM _seed_photos p WHERE p.id = therapists.id
+) WHERE id IN (SELECT id FROM _seed_photos);
+DROP TABLE _seed_photos;
 
 -- Każdy profil demo pokazuje inny układ: motywy strony plus nadpisania
 -- per sekcja (tlo / kadr / skala) z budowniczego układu. Zasada: jeden
