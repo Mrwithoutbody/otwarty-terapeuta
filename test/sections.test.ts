@@ -97,6 +97,21 @@ describe('renderSections', () => {
     expect(renderSections([{ type: 'intro', skala: 'plakat' }], CTX)).toContain('pblock--skala-plakat');
   });
 
+  it('renders the poster hero and the service chapter', () => {
+    const hero = renderSections([{ type: 'hero-plakat', tytul: 'Przestrzeń dla zmiany' }], CTX);
+    expect(hero).toContain('phero--plakat');
+    expect(hero).toContain('Przestrzeń dla zmiany');
+    expect(hero).toContain('phero-plakat-name'); // hasło w h1, więc nazwisko wraca pod spodem
+    const svc = renderSections([{
+      type: 'usluga', eyebrow: 'Terapia indywidualna', heading: 'Przestrzeń dla Ciebie',
+      body: 'Opis.', cechy: [{ tekst: 'Lęk' }], szczegoly: [{ etykieta: 'Czas', wartosc: '50 minut' }],
+    }], CTX);
+    expect(svc).toContain('pservice-facts');
+    expect(svc).toContain('50 minut');
+    // pusta usługa się nie renderuje
+    expect(renderSections([{ type: 'usluga', eyebrow: 'X' }], CTX)).toBe('');
+  });
+
   it('gives one anchor to the first section that claims it', () => {
     const html = renderSections([{ type: 'intro' }, { type: 'intro' }], CTX);
     expect(html.match(/id="/g)).toBeNull();

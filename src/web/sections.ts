@@ -518,6 +518,44 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
 
 
   /**
+   * The landing-page opening: a screen of typography. Kicker, a slogan-sized
+   * <h1>, the lead and the two ways in - no portrait, the type is the picture.
+   * The name still renders (small, under the actions) whenever the slogan
+   * takes the <h1>, because a page must say whose it is.
+   */
+  'hero-plakat': {
+    label: 'Nagłówek — plakatowy', hint: 'Cały ekran typografii: nadtytuł, hasło, przyciski',
+    auto: true, family: 'hero',
+    fields: [
+      T('nadtytul', 'Nadtytuł', { max: 90, hint: 'np. Psychoterapeutka · Warszawa · od 2009' }),
+      AREA('tytul', 'Hasło w tytule', { max: 140, hint: 'puste = Twoje imię i nazwisko' }),
+      AREA('wstep', 'Zdanie pod hasłem', { max: 300, hint: 'puste = nagłówek profilu' }),
+    ],
+    render: (s, ctx) => {
+      const t = ctx.therapist;
+      const title = str(s.tytul);
+      const lead = str(s.wstep) || t.headline || '';
+      return `<div>
+    <ul class="badges">
+      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
+      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
+      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
+    </ul>
+    ${eyebrow(str(s.nadtytul))}
+    <h1>${escapeHtml(title || t.display_name)}</h1>
+    ${lead === '' ? '' : `<p class="phero-lead">${escapeHtml(lead)}</p>`}
+    <div class="phero-actions">
+      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+    </div>
+    ${title === '' ? '' : `<p class="phero-plakat-name">${escapeHtml(t.display_name)}</p>`}
+    ${profileLinks(t)}
+  </div>`;
+    },
+  },
+
+
+  /**
    * Dark, centred, the portrait round and above the name. No fact pills: this
    * one is for a therapist whose profile is the whole of her practice, and the
    * facts live in the block below it.
@@ -830,6 +868,55 @@ ${profileLinks(t)}`;
     render: (s) => plainBody(s),
   },
 
+  /**
+   * The editorial service card the reference landings are built around: a
+   * category, a promise, what it covers, a quote and the practical grid. The
+   * `offers` block renders the price list from her data; this one is written,
+   * for the page that presents each service as a chapter.
+   */
+  usluga: {
+    label: 'Usługa', hint: 'Opis jednej usługi: zakres, cytat i praktyczne szczegóły',
+    repeatable: true, tone: 'alt',
+    fields: [
+      T('eyebrow', 'Kategoria', { max: 60, hint: 'np. Terapia indywidualna' }),
+      HEADING_FIELD,
+      LEAD_FIELD,
+      AREA('body', 'Opis', { max: 800 }),
+      {
+        kind: 'list', name: 'cechy', label: 'Z czym pomaga', max: 6,
+        of: [T('tekst', 'Punkt', { max: 60 })],
+      },
+      AREA('cytat', 'Cytat', { max: 240 }),
+      T('cytat_autor', 'Autor cytatu', { max: 80 }),
+      {
+        kind: 'list', name: 'szczegoly', label: 'Praktyczne szczegóły', max: 4,
+        hint: 'np. Czas trwania — 50 minut, Cena — 200 zł',
+        of: [T('etykieta', 'Etykieta', { max: 40 }), T('wartosc', 'Wartość', { max: 60 })],
+      },
+    ],
+    render: (s) => {
+      const body = renderBodyText(str(s.body));
+      const cechy = (Array.isArray(s.cechy) ? (s.cechy as Values[]) : [])
+        .map((r) => str(r.tekst)).filter((x) => x !== '');
+      const szczegoly = (Array.isArray(s.szczegoly) ? (s.szczegoly as Values[]) : [])
+        .map((r) => [str(r.etykieta), str(r.wartosc)] as const)
+        .filter(([k, v]) => k !== '' && v !== '');
+      const quote = str(s.cytat);
+      if (body === '' && cechy.length === 0) return '';
+      return `${blockHead(s)}<div class="pservice">
+  <div>${body}${
+        cechy.length === 0 ? '' : `<ul class="pservice-points">${cechy.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
+      }${
+        quote === '' ? '' : `<figure class="pquote pquote--inline"><blockquote><p>${escapeHtml(quote)}</p></blockquote>${
+          str(s.cytat_autor) === '' ? '' : `<figcaption>${escapeHtml(str(s.cytat_autor))}</figcaption>`}</figure>`
+      }</div>${
+        szczegoly.length === 0 ? '' : `<dl class="pservice-facts">${szczegoly
+          .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`
+      }
+</div>${ctaButton(s)}`;
+    },
+  },
+
   cytat: {
     label: 'Cytat', hint: 'Jedno zdanie, które ma wybrzmieć', repeatable: true,
     fields: [AREA('body', 'Cytat', { max: 400 }), T('author', 'Podpis', { max: 80 })],
@@ -1048,6 +1135,7 @@ export const LAYOUT_AXES: ReadonlyArray<{
       ['grafit', 'Grafit — chłodna szarość, akcent atramentowy'],
       ['las', 'Las — głęboka zieleń, akcent szmaragdowy'],
       ['papier', 'Papier — achromatyczny, czerń na bieli'],
+      ['atrament', 'Atrament — nocny, jasny tekst, miodowy akcent'],
     ],
   },
   {

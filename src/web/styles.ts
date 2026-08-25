@@ -87,6 +87,7 @@ export const APP_CSS = `
   --acc-glina: #a4553a;
   --acc-grafit: #40566e;
   --acc-las: #2f6d4f;
+  --acc-atrament: #b98f33;
   --acc-papier: #2b2b2a;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --space-1: 0.25rem;
@@ -248,12 +249,13 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   min-height: 2.75rem; padding: 0.625rem 1.25rem; border: 1px solid var(--accent-strong);
-  border-radius: 999px; background: var(--accent-strong); color: #fff;
+  border-radius: 999px; background: var(--accent-strong); color: var(--btn-ink, #fff);
   box-shadow: 0 6px 18px rgba(77, 97, 0, 0.12); cursor: pointer;
   font: 650 0.875rem/1.25 var(--sans); text-decoration: none;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
-.btn:hover { transform: translateY(-1px); background: #3f5000; box-shadow: 0 11px 28px rgba(77, 97, 0, 0.22); text-decoration: none; }
+.btn:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--accent-strong) 84%, #000);
+  box-shadow: 0 11px 28px rgba(0, 0, 0, 0.18); text-decoration: none; }
 .btn.secondary { background: var(--surface); color: var(--accent-strong); border-color: var(--border-strong); box-shadow: none; }
 .btn.secondary:hover { background: var(--accent-soft); border-color: var(--accent); }
 .btn[aria-disabled="true"], .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -315,6 +317,7 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .therapist-card--theme-glina { --card-accent: var(--acc-glina); }
 .therapist-card--theme-grafit { --card-accent: var(--acc-grafit); }
 .therapist-card--theme-las { --card-accent: var(--acc-las); }
+.therapist-card--theme-atrament { --card-accent: var(--acc-atrament); }
 .therapist-card--theme-papier { --card-accent: var(--acc-papier); }
 .therapist-card .card-actions a { color: var(--card-ink); }
 /* The name keeps its colour and gains her underline - swapping the colour on
@@ -545,6 +548,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 
 /* Dark, centred, portrait above the name - the shape a single-person site uses
    when the person is the whole offer. */
+/* A screen of typography: one column, the slogan at display size, the name in
+   small caps under the actions. Height leaves the top of the next section
+   showing - a fold with nothing peeking over it reads as the end of the page. */
+.phero--plakat { grid-template-columns: minmax(0, 1fr); min-height: min(72vh, 42rem); align-content: center; }
+.phero--plakat h1 { font-size: clamp(2.6rem, 6.5vw, 5.6rem); line-height: 1.02; letter-spacing: -0.035em;
+  max-width: 18ch; }
+.phero--plakat .phero-lead { font-size: clamp(1.15rem, 1rem + 0.9vw, 1.55rem); max-width: 36ch;
+  color: var(--text-muted); }
+.phero--plakat .phero-actions { margin-top: 2.2rem; }
+.phero-plakat-name { margin-top: 2.6rem; font: 650 0.78rem/1.4 var(--sans); letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-muted); }
+
 .phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
   text-align: center; background: var(--dark); color: var(--dark-ink); border: 0; border-radius: var(--radius-lg);
   padding: clamp(2rem, 5vw, 3.5rem); margin-top: var(--space-6); }
@@ -724,7 +739,11 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
    stayed service-sage around an amber profile. Painted by a bleeding pseudo
    element - the same margin trick the bands use collapses the column here,
    because the padding percentage resolves against the width it just changed. */
-.profile-page { position: relative; }
+/* Colour resolved inside the theme's scope: the body sets its colour where the
+   root tokens hold, and a night theme that redefines --text would otherwise
+   leave every element without its own colour rule inheriting the light-theme
+   ink. */
+.profile-page { position: relative; color: var(--text); }
 .profile-page[class*="--theme-"]::before {
   content: ""; position: absolute; z-index: -1; inset-block: calc(var(--space-16) * -1) 0;
   left: 50%; width: 100vw; translate: -50% 0; background: var(--wash-a); }
@@ -745,7 +764,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 
 /* The themes that speak in a display serif; las keeps the service face. */
 :is(.profile-page--theme-bursztyn, .profile-page--theme-glina, .profile-page--theme-grafit,
-    .profile-page--theme-papier) {
+    .profile-page--theme-papier, .profile-page--theme-atrament) {
   --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
 }
 .profile-page--theme-bursztyn {
@@ -795,6 +814,21 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   --accent: var(--acc-las); --accent-strong: #1f4d37; --accent-soft: #e3f0e6;
   --dark: #1f3a2c; --dark-ink: #dcead9; --dark-mute: #b4c9b2; --dark-head: #fbfffa;
   --prose: #4a5c4d;
+}
+/* The night theme. The whole page inverts, so the surface tokens the cards and
+   chips sit on come along - without them a light card would keep the light
+   text it inherits from the dark ground. The accent is honey on near-black,
+   the way the reference dark landing carries its warmth. */
+.profile-page--theme-atrament {
+  --text: #ecebe8; --text-muted: #a6a29a;
+  --band: #21201d; --panel-tint: #292824; --glow: rgba(233, 196, 106, 0.07);
+  --wash-a: #171614; --wash-b: #201f1c;
+  --border: #33312b; --border-strong: #4b4840;
+  --accent: var(--acc-atrament); --accent-strong: #dcb765; --accent-soft: #2c2820;
+  --dark: #0e0e0d; --dark-ink: #e8e6e1; --dark-mute: #b3b0a8; --dark-head: #ffffff;
+  --prose: #cfccc4;
+  --surface-solid: #26241f; --surface: #26241f; --surface-alt: #2b2925; --bg: #1d1c19;
+  --btn-ink: #1d1a12;
 }
 
 /* The section label in the left column, not above the heading. This is what
@@ -870,6 +904,22 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .pfacts-strip li { margin: 0; font-size: 0.92rem; color: var(--text-muted); }
 .pfacts-strip strong { display: block; font-family: var(--serif); font-size: 1.02rem;
   font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
+
+/* The service chapter: the written text and its points on the left, the
+   practical grid on a card to the right. One column under 56rem. */
+.pservice { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(13rem, 0.75fr);
+  gap: clamp(1.6rem, 4vw, 3.5rem); align-items: start; margin-top: var(--space-6); }
+.pservice-points { margin: var(--space-6) 0 0; padding: 0; list-style: none; max-width: 34rem; }
+.pservice-points li { padding: 0.65rem 0; border-top: 1px solid var(--border); }
+.pservice-points li:last-child { border-bottom: 1px solid var(--border); }
+.pquote--inline { margin: var(--space-6) 0 0; }
+.pservice-facts { margin: 0; padding: var(--space-6); background: var(--surface-solid);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  display: grid; gap: var(--space-4); }
+.pservice-facts dt { font: 650 0.72rem/1.4 var(--sans); letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted); }
+.pservice-facts dd { margin: 0.1rem 0 0; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
+@media (max-width: 56rem) { .pservice { grid-template-columns: 1fr; } }
 .pblock > p:not(.eyebrow):not(.hint) { max-width: 62ch; color: var(--prose); }
 /* Same specificity as the rule above, and after it - that is what carries the
    light text on the dark band, without reaching for !important. */
