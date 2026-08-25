@@ -565,15 +565,15 @@ export const ADMIN_JS = String.raw`(function () {
     document.querySelectorAll('[data-composer]').forEach(initComposer);
   }
 
+  // Formularze z data-confirm pytają zanim wyślą — usuwanie grafik jest nieodwracalne.
+  document.addEventListener('submit', function (event) {
+    var form = event.target;
+    if (form instanceof HTMLFormElement && form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+      event.preventDefault();
+    }
+  });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
-    // Formularze z data-confirm pytają zanim wyślą — usuwanie grafik jest nieodwracalne.
-    document.addEventListener('submit', function (event) {
-      var form = event.target;
-      if (form instanceof HTMLFormElement && form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
-        event.preventDefault();
-      }
-    });
   } else {
     boot();
   }

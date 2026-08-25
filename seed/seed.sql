@@ -233,8 +233,7 @@ UPDATE therapists SET photo_url = (
   SELECT p.photo_url FROM _seed_photos p WHERE p.id = therapists.id
 ) WHERE id IN (SELECT id FROM _seed_photos);
 DROP TABLE _seed_photos;
-INSERT INTO therapist_media SELECT m.* FROM _seed_media m
-  WHERE m.therapist_id IN (SELECT id FROM therapists);
+INSERT INTO therapist_media SELECT * FROM _seed_media;
 DROP TABLE _seed_media;
 
 -- Każdy profil demo pokazuje inny układ: motywy strony plus nadpisania

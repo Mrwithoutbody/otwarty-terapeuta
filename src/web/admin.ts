@@ -577,7 +577,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
       .bind(therapistId)
       .all<FaqRow>(),
     env.DB.prepare(
-      `SELECT id, url FROM therapist_media WHERE therapist_id = ? ORDER BY position, created_at DESC`,
+      `SELECT id, url FROM therapist_media WHERE therapist_id = ? ORDER BY created_at DESC`,
     )
       .bind(therapistId)
       .all<{ id: string; url: string }>(),
@@ -970,7 +970,7 @@ function mediaGallery(
     .map((m) => {
       const isPortrait = row.photo_url === m.url;
       return `<li class="media-item${isPortrait ? ' is-portrait' : ''}">
-  <img src="${escapeHtml(m.url)}" alt="" loading="lazy" width="120" height="120">
+  <img src="${escapeHtml(m.url)}" alt="" loading="lazy">
   ${isPortrait ? '<span class="media-tag">portret</span>' : `<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/media/${escapeHtml(m.id)}/portret">
     <input type="hidden" name="csrf" value="${escapeHtml(session.csrfToken)}">
     <button class="btn secondary" type="submit">Ustaw jako portret</button>
@@ -1820,8 +1820,7 @@ adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
   // deleted any more: it stays in the gallery and can be made the portrait
   // again from the panel. Files leave the bucket only via the delete action.
   await c.env.DB.prepare(
-    `INSERT INTO therapist_media (id, therapist_id, url, alt, position, created_at)
-     VALUES (?, ?, ?, '', 0, ?)`,
+    `INSERT INTO therapist_media (id, therapist_id, url, created_at) VALUES (?, ?, ?, ?)`,
   )
     .bind(randomId('med'), id, url, at)
     .run();
@@ -1881,11 +1880,14 @@ adminApp.post('/terapeuci/:id/faq', async (c) => {
 });
 
 /**
- * The media relation's two verbs. Setting the portrait only repoints
- * therapists.photo_url; nothing is copied or deleted. Deleting removes the row
- * and - only for files this app uploaded - both renditions from the bucket.
+ * The media relation's two verbs share one preamble: session, ownership and
+ * the row itself. Setting the portrait only repoints therapists.photo_url;
+ * deleting removes the row and - only for files this app uploaded - both
+ * renditions from the bucket.
  */
-adminApp.post('/terapeuci/:id/media/:mid/portret', async (c) => {
+async function mediaTarget(
+  c: { env: Env; req: { raw: Request; param(name: string): string } },
+): Promise<Response | { session: AdminSession; id: string; row: { id: string; url: string } | null }> {
   const body = await formValues(c.req.raw);
   const g = await guard(c, body, ['admin', 'therapist']);
   if ('response' in g) return g.response;
@@ -1893,29 +1895,28 @@ adminApp.post('/terapeuci/:id/media/:mid/portret', async (c) => {
   if (!ownsTherapist(g.session.user, id)) {
     return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
   }
-  const row = await c.env.DB.prepare(`SELECT url FROM therapist_media WHERE id = ? AND therapist_id = ?`)
+  const row = await c.env.DB.prepare(`SELECT id, url FROM therapist_media WHERE id = ? AND therapist_id = ?`)
     .bind(c.req.param('mid'), id)
-    .first<{ url: string }>();
-  if (row) {
+    .first<{ id: string; url: string }>();
+  return { session: g.session, id, row };
+}
+
+adminApp.post('/terapeuci/:id/media/:mid/portret', async (c) => {
+  const t = await mediaTarget(c);
+  if (t instanceof Response) return t;
+  if (t.row) {
     await c.env.DB.prepare(`UPDATE therapists SET photo_url = ?, updated_at = ? WHERE id = ?`)
-      .bind(row.url, nowIso(), id)
+      .bind(t.row.url, nowIso(), t.id)
       .run();
   }
-  return c.redirect(`/admin/terapeuci/${id}`, 303);
+  return c.redirect(`/admin/terapeuci/${t.id}`, 303);
 });
 
 adminApp.post('/terapeuci/:id/media/:mid/usun', async (c) => {
-  const body = await formValues(c.req.raw);
-  const g = await guard(c, body, ['admin', 'therapist']);
-  if ('response' in g) return g.response;
-  const id = c.req.param('id');
-  if (!ownsTherapist(g.session.user, id)) {
-    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-  }
-  const mid = c.req.param('mid');
-  const row = await c.env.DB.prepare(`SELECT url FROM therapist_media WHERE id = ? AND therapist_id = ?`)
-    .bind(mid, id)
-    .first<{ url: string }>();
+  const t = await mediaTarget(c);
+  if (t instanceof Response) return t;
+  const { id, row } = t;
+  const mid = row?.id ?? '';
   if (row) {
     await c.env.DB.prepare(`DELETE FROM therapist_media WHERE id = ?`).bind(mid).run();
     // Portret wskazujący na usuwaną grafikę wraca do placeholdera.
@@ -1928,8 +1929,8 @@ adminApp.post('/terapeuci/:id/media/:mid/usun', async (c) => {
       await Promise.all([key, thumb].map((k) => c.env.MEDIA!.delete(k).catch(() => undefined)));
     }
     await audit(c.env, {
-      actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
-      actorId: g.session.user.id,
+      actorType: t.session.user.role === 'admin' ? 'admin' : 'therapist',
+      actorId: t.session.user.id,
       action: 'therapist.media_deleted',
       subjectType: 'therapist',
       subjectId: id,
