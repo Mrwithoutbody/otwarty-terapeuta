@@ -958,25 +958,19 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .offer-card .per { color: var(--text-muted); font-size: 0.86rem; }
 /* Days as columns, hours beneath - the ZnanyLekarz/Booksy pattern people
    already know. A table because that is what this is: days across, times down. */
-/* The week as seven day cards with the hours as pills. The table before it
-   said "online" under all thirty-five cells and dashed out every gap - the
-   mode is one line under the calendar now, and an empty day is one quiet
-   dash, not five. */
-.cal-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
-.cal { display: grid; grid-template-columns: repeat(7, minmax(6.2rem, 1fr)); gap: 0.6rem;
-  list-style: none; margin: 0; padding: 0; min-width: 46rem; }
-.cal-day { margin: 0; padding: 0.75rem 0.55rem 0.85rem; text-align: center;
-  background: var(--surface-solid); border: 1px solid var(--border); border-radius: var(--radius);
-  display: flex; flex-direction: column; gap: 0.15rem; }
-.cal-day.is-today { border-color: var(--accent-strong); border-top-width: 3px; }
-.cal-day.is-empty { background: transparent; border-style: dashed; }
-.cal-name { font-size: 0.85rem; font-weight: 650; text-transform: capitalize; }
-.cal-date { font-size: 0.74rem; color: var(--text-muted); }
-.cal-free { margin: auto 0; color: var(--text-muted); }
-.cal-slots { list-style: none; margin: 0.55rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-.cal-slots li { margin: 0; padding: 0.32rem 0.2rem; border: 1px solid var(--border-strong);
-  border-radius: 999px; background: var(--bg); font-size: 0.88rem; font-weight: 600;
-  font-variant-numeric: tabular-nums; }
+/* A row per working day, the hours as chips beside the label. No card around
+   a day, no dashed box for a free Saturday - the chip is the only frame. */
+.cal { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: flex; flex-direction: column; }
+.cal-row { margin: 0; padding: 0.7rem 0; display: flex; align-items: baseline; gap: 1.2rem;
+  border-top: 1px solid var(--border); flex-wrap: wrap; }
+.cal-row:first-child { border-top: 0; }
+.cal-when { flex: 0 0 7rem; }
+.cal-when b { font-size: 0.95rem; font-weight: 650; text-transform: capitalize; }
+.cal-when span { display: block; font-size: 0.76rem; color: var(--text-muted); }
+.cal-slots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.cal-slots li { margin: 0; padding: 0.4rem 0.85rem; border: 1px solid var(--border-strong);
+  border-radius: 999px; background: var(--bg); font-size: 0.9rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: center; }
 .cal-slots li span { display: block; font-weight: 400; font-size: 0.7rem; color: var(--text-muted); }
 .cal-slots li.cal-more { border-style: dashed; background: transparent; color: var(--text-muted); font-weight: 500; }
 

@@ -408,48 +408,41 @@ function slotsByDay(slots: PublicSlot[]): string {
   const zone = first.timezone;
   const today = civilDateIn(zone, new Date());
 
-  // Seven consecutive calendar days, not seven days that happen to have slots.
-  // Skipping empty days silently makes Friday and Monday look adjacent; an empty
-  // column says "she does not work weekends", which is worth knowing.
-  const columns = Array.from({ length: SLOT_DAYS_SHOWN }, (_, i) => {
+  // A row per day that actually has hours, the hours as chips beside the
+  // label. The seven-column grid before it was frames inside frames: a card
+  // per day, a pill per hour, a tall dashed box for every free Saturday.
+  const days = Array.from({ length: SLOT_DAYS_SHOWN }, (_, i) => {
     const day = addCivilDays(today, i);
     const entries = slots.filter((s) => {
       const c = civilDateIn(s.timezone, new Date(s.starts_at_utc));
       return c.year === day.year && c.month === day.month && c.day === day.day;
     });
     return { day, items: entries };
-  });
+  }).filter((c) => c.items.length > 0);
 
-  if (columns.every((c) => c.items.length === 0)) return '';
+  if (days.length === 0) return '';
 
-  // One therapist, one mode almost always: the per-cell "online" under every
-  // hour was what crammed the grid. The label appears per chip only when the
-  // week actually mixes both modes.
   const mixed = new Set(slots.map((s) => s.mode)).size > 1;
 
-  const days = columns
-    .map(({ day, items: dayItems }, i) => {
+  const rows = days
+    .map(({ day, items: dayItems }) => {
       const label = dayLabel(day, today);
-      const shown = dayItems.slice(0, SLOT_ROWS_SHOWN);
+      const shown = dayItems.slice(0, 6);
       const extra = dayItems.length - shown.length;
       const chips = shown
         .map((s) => `<li>${escapeHtml(formatTime(s.starts_at_utc, s.timezone))}${
           mixed ? `<span>${s.mode === 'online' ? 'online' : 'gabinet'}</span>` : ''
         }</li>`)
         .join('');
-      const body = dayItems.length === 0
-        ? '<p class="cal-free" aria-label="brak terminów">–</p>'
-        : `<ul class="cal-slots">${chips}${extra > 0 ? `<li class="cal-more">+${extra}</li>` : ''}</ul>`;
-      return `<li class="cal-day${i === 0 ? ' is-today' : ''}${dayItems.length === 0 ? ' is-empty' : ''}">
-  <span class="cal-name">${escapeHtml(label.name)}</span><span class="cal-date">${escapeHtml(label.date)}</span>
-  ${body}
+      return `<li class="cal-row">
+  <span class="cal-when"><b>${escapeHtml(label.name)}</b><span>${escapeHtml(label.date)}</span></span>
+  <ul class="cal-slots">${chips}${extra > 0 ? `<li class="cal-more">+${extra}</li>` : ''}</ul>
 </li>`;
     })
     .join('');
 
-  return `<div class="cal-scroll" role="group" aria-label="Wolne terminy w najbliższych siedmiu dniach">
-  <ol class="cal">${days}</ol>
-</div>${mixed ? '' : `<p class="hint">Wszystkie terminy ${first.mode === 'online' ? 'online' : 'w gabinecie'}.</p>`}`;
+  return `<ol class="cal" aria-label="Wolne terminy w najbliższych siedmiu dniach">${rows}</ol>
+<p class="hint">${mixed ? '' : `Wszystkie terminy ${first.mode === 'online' ? 'online' : 'w gabinecie'}. `}Rezerwacja odbywa się przez asystenta ChatGPT.</p>`;
 }
 
 /** Days read better than hours: nobody plans in units of 48. */
@@ -703,7 +696,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
         ? escapeHtml(t.cancellation_policy)
         : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
       return `${eyebrow('Najbliższe wolne terminy')}<h2>${escapeHtml('Kiedy możemy się spotkać')}</h2>${table}
-<p class="hint">Rezerwacja odbywa się przez asystenta ChatGPT. ${policy}</p>
+<p class="hint">${policy}</p>
 ${pluginCta(env)}`;
     },
   },
