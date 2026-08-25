@@ -927,6 +927,15 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   text-transform: uppercase; color: var(--text-muted); }
 .pservice-facts dd { margin: 0.1rem 0 0; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
 @media (max-width: 56rem) { .pservice { grid-template-columns: 1fr; } }
+/* Two service chapters in a row are the same slide twice; every second one
+   mirrors - the facts card walks to the left, the text to the right. */
+@media (min-width: 56rem) {
+  .profile-page > :nth-child(even of .pblock:has(.pservice)) .pservice {
+    grid-template-columns: minmax(13rem, 0.75fr) minmax(0, 1.25fr);
+  }
+  .profile-page > :nth-child(even of .pblock:has(.pservice)) .pservice > div { order: 2; }
+  .profile-page > :nth-child(even of .pblock:has(.pservice)) .pservice > .pservice-facts { order: 1; }
+}
 .pblock > p:not(.eyebrow):not(.hint) { max-width: 62ch; color: var(--prose); }
 /* Same specificity as the rule above, and after it - that is what carries the
    light text on the dark band, without reaching for !important. */
