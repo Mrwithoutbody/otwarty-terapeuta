@@ -87,10 +87,28 @@ Trzy wyjścia, w kolejności od najczystszego:
 2. **Hosting po stronie serwisu.** Landing mieszka pod domeną x402Landings,
    ot-02 tylko linkuje. Zero problemu z CSP, ale adres nie jest Twój.
 3. **Fragment w chromie ot-02** — `renderBlocks()` zwraca same sekcje bez
-   dokumentu, `PAGE_CSS` jest osobnym eksportem. Wymaga zakresowania stylów pod
-   `.lp`: PAGE_CSS ma **9 reguł globalnych** (`html, body, *, p, a, img, h1,
-   h2/h3, :focus-visible`) i **5 klas kolidujących** z `APP_CSS`
-   (`.btn .hero .kicker .lead .steps`). Do zrobienia po stronie x402, nie tutaj.
+   dokumentu. **Zakresowanie jest już zrobione (2026-08-26):** każdy selektor
+   `PAGE_CSS` siedzi pod `.lp`, a reguły dokumentu (`html`, `body`, skip link)
+   są w osobnym eksporcie `DOCUMENT_CSS`, którego nie bierzesz. Dziewięć reguł
+   globalnych i pięć klas kolidujących z `APP_CSS`
+   (`.btn .hero .kicker .lead .steps`) przestało istnieć.
+
+   Sprawdzone na stronie z celowo wrogimi stylami gospodarza — zero przecieku
+   w obie strony. Po stronie ot-02 zostaje:
+
+   ```
+   <style>{PAGE_CSS}</style>                     ← jeden raz, jako /assets/lp.css
+   <div class="lp lp--theme-forest">{fragment}</div>
+   ```
+
+   Podanie `PAGE_CSS` jako **osobnego pliku** przez `/assets/…` załatwia przy
+   okazji problem CSP z punktu wyżej: `style-src 'self'` przepuszcza plik, nie
+   przepuszcza wklejki. To jest najprostsza droga, jeśli landing ma żyć w
+   chromie serwisu.
+
+   Uwaga: `block--stripe` i `block--dark` celowo wychodzą na pełną szerokość
+   okna matematyką `50vw` — uciekną z kolumny `.wrap`. Tak mają działać pasy;
+   jeśli landing ma zostać w kolumnie, nie używaj tych dwóch tonów.
 
 Dla landinga marketingowego wybierz (1). Fragment jest potrzebny dopiero, gdy
 landing ma się pokazać wewnątrz strony serwisu — czyli w podglądzie.
