@@ -1,53 +1,53 @@
-# x402 Landings jako produkt zewnętrzny w ot-02
+# x402 Landings jako silnik stron w ot-02
 
-Przewodnik dla sesji, która ma podłączyć landingi do katalogu. Powstał
-2026-08-26 z rozmowy projektowej; liczby w nim są zmierzone, nie szacowane.
+Przewodnik dla sesji, która ma podłączyć silnik do katalogu. Liczby w nim są
+zmierzone, nie szacowane.
 
-## Czym to jest, a czym nie
+## Decyzja 2026-09-02: silnik x402 zastępuje silnik profilu
 
-`/home/dadmor/code/x402Landings` to **osobny serwis**, nie biblioteka do
-zwendorowania. Renderuje landing page'e z JSON-a: schemat wchodzi, gotowy HTML
-wychodzi. Nie woła żadnego modelu językowego — treść generuje klient.
+Właściciel: „ma być prosto do edycji dla terapeuty/trenera, superstrony,
+booking, eventy, campy, terapie grupowe". Jeden silnik dla ot-02, ZNANY7 i
+landingów, jeden schemat dla LLM, jedno narzędzie MCP „zarządzaj stroną".
 
-W tej relacji **ot-02 jest klientem**, jednym z wielu. Drugim rodzajem klienta są
-agenci AI płacący przez x402.
+To odwraca sekcję „nie podmieniaj silnika" z 2026-08-26 (zostawiona niżej jako
+historia — jej przeszkody są nadal prawdziwe i to jest lista rzeczy do
+zrobienia, nie do ominięcia). Co się zmieniło po stronie x402 (2026-09-02):
 
-Konsekwencja, którą trzeba trzymać: **nie kopiuj kodu silnika do ot-02.** Jak
-tylko powstanie druga kopia, obie zaczną się rozjeżdżać i przestaniesz być
-użytkownikiem własnego produktu — a to jest jedyny mechanizm, który wykryje braki
-serwisu szybciej niż zewnętrzny klient.
+- `src/engine` jest **pakietem**: `"x402-landings": "file:../x402Landings"`,
+  import z `x402-landings`. Importy bez `.ts`, więc tsc ot-02 przechodzi bez
+  zmian w `tsconfig`. Sprawdzone z kopią tsconfig ot-02 i esbuildem.
+- `registerBlocks(blokiHosta)` dokłada bloki ot-02 do tego samego rejestru,
+  z którego idzie schemat, parser i render.
+- `BlockDef.resolve(block, host)` + `resolvePage(page, host)`: pre-pass z
+  danymi z D1 przed synchronicznym renderem. Tak przechodzi 15 sekcji `auto`.
+  Kalendarz slotów = własny `render` (tabela dni, „nie przerabiać"), FAQ i
+  oferta = `resolve` zwracające generyczny `faq` / `pricing`.
+- `PAGE_CSS` podawany jako plik `/assets/lp.css` → `style-src 'self'` bez
+  zmian. Chrome ot-02 zostaje, w środku `<div class="lp lp--theme-…">`.
+- Serwis `/v1/render` i cache w R2 zostają **tylko** dla statycznych landingów
+  marketingowych. Profil renderuje się w żądaniu, z bazy.
 
-## Po co to w ot-02
+Kolejność: ZNANY7 pierwszy (mniejsze ryzyko), ot-02 ostatni. Migracja
+`sections_json` u każdej terapeutki = jednorazowy skrypt z kopią do
+`sections_json_old`. **Nigdy przez seed** — raz już skasował zdjęcie.
 
-Terapeutka dostaje **osobny landing marketingowy**, obok profilu w katalogu. Do
-kampanii, do wizytówki, do linku w bio. Profil w katalogu zostaje jak jest.
+## Historia: dlaczego podmiana była odrzucona 2026-08-26
 
-To jest cała integracja. Nic więcej.
+Zmierzone przeszkody, dziś lista pracy:
 
-## CZEGO NIE ROBIĆ: nie podmieniaj silnika profilu
+- **Zero pokrycia nazw.** ot-02 ma 21 sekcji (polskie typy i pola), x402 14
+  bloków (angielskie). `cleanBlock` wyrzuca nieznany typ **po cichu** —
+  `sections_json` bez migracji renderuje pustą stronę.
+- **15 sekcji `auto` nie ma odpowiednika** — dziś: bloki hosta z `resolve`.
+- **Migracja na produkcji** — skrypt z kopią kolumny, nie seed.
+- Reguły kompozycji z `CLAUDE.md` (kalendarz jako tabela dni, jeden akcent na
+  stronę) → walidacja w parse hosta, nie w silniku.
 
-**To jest najdroższy błąd, jaki można tu popełnić.** Kuszące, bo oba silniki
-mają wspólnego przodka — `x402Landings` został wydzielony właśnie z
-`src/web/sections.ts`. Zmierzone przeszkody:
+## Landing marketingowy (nadal osobny byt)
 
-- **Zero pokrycia nazw.** ot-02 ma 11 sekcji neutralnych domenowo
-  (`tekst usluga cytat zdjecie-tekst tekst-zdjecie tekst-wyrozniony filary
-  artykuly kroki fakty wyroznienie`), x402 ma 14 innych (`hero hero-poster
-  hero-split text features steps stats quote logos pricing faq media-text cta
-  contact`). Pojęciowo się pokrywają, nazwy typów i pól nie — polskie kontra
-  angielskie. `cleanBlock` wyrzuca nieznany typ **po cichu**, więc istniejący
-  `sections_json` wyrenderowałby pustą stronę. Nie błąd, nie ostrzeżenie —
-  pustkę.
-- **17 sekcji `auto` nie ma odpowiednika.** Kalendarz, oferta, FAQ z bazy —
-  cała wartość profilu. W x402 tego nie ma i być nie powinno.
-- **Migracja `sections_json` u każdej terapeutki na produkcji.** W tym repo
-  pełny seed raz już skasował wgrane zdjęcie. Nie ma powodu wracać w to miejsce.
-- Reguły kompozycji profilu z `CLAUDE.md` (kalendarz jako tabela dni w
-  kolumnach, jeden akcent typograficzny na stronę) są wywalczone rundami
-  cofnięć i oznaczone „nie przerabiać".
-
-Dwa silniki dostrojone do dwóch różnych rzeczy. Profil katalogowy to nie landing
-sprzedażowy.
+Terapeutka może dostać **osobny landing** obok profilu — kampania, link w bio.
+Ten sam silnik, ale statyczny: render przy zapisie, HTML w R2. Reszta tego
+dokumentu (kontrakt HTTP, CSP, R2, awaria) dotyczy tej ścieżki.
 
 ## Kontrakt
 
