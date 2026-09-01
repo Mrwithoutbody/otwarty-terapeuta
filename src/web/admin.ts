@@ -28,11 +28,10 @@ import {
 } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
-import { htmlResponse, renderPage } from './layout';
+import { assetUrls, htmlResponse, renderPage } from './layout';
 import {
   defaultSections,
   LAYOUT_AXES,
-  layoutClasses,
   MAX_SECTIONS,
   parseLayout,
   parseSections,
@@ -45,15 +44,18 @@ import {
 } from './sections';
 import type { BlockDef, Field as LpField } from 'x402-landings';
 import {
+  applyPreset,
   blockAllFields,
   BLOCKS,
   getPageById,
   HOST_BLOCKS,
   listPages,
+  LP_DOC_CSS,
   LP_LAYOUT_AXES,
   lpParseLayout,
   parseBlocks,
-  renderTherapistPage,
+  PRESETS,
+  renderTherapistDocument,
   slugify,
   type PageRow,
 } from './lp';
@@ -1435,10 +1437,15 @@ ${
         )
         .join('')}</tbody></table></div>`
 }
-<form method="post" action="/admin/terapeuci/${id}/strony" class="inline-form">
+<form method="post" action="/admin/terapeuci/${id}/strony">
   ${csrfField(session)}
   <div class="field"><label for="page_title">Tytuł nowej podstrony</label>
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
+  <div class="field"><label for="page_preset">Szablon</label>
+    <select id="page_preset" name="preset">${Object.entries(PRESETS)
+      .map(([key, p]) => `<option value="${escapeHtml(key)}">${escapeHtml(p.label)} — ${escapeHtml(p.hint)}</option>`)
+      .join('')}</select>
+    <p class="hint">Szablon ustawia motyw, układ i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
   <button class="btn" type="submit">Utwórz podstronę</button>
 </form>
 </section>
@@ -1887,11 +1894,12 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
   if (title === '') return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
   const pid = randomId('pg');
   const at = nowIso();
+  const preset = applyPreset(body.get('preset') ?? '', title);
   await c.env.DB.prepare(
     `INSERT INTO therapist_pages (id, therapist_id, slug, title, status, blocks_json, layout_json, position, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'draft', '[]', '{}', 0, ?, ?)`,
+     VALUES (?, ?, ?, ?, 'draft', ?, ?, 0, ?, ?)`,
   )
-    .bind(pid, id, await freePageSlug(c.env, id, title), title, at, at)
+    .bind(pid, id, await freePageSlug(c.env, id, title), title, JSON.stringify(preset.blocks), JSON.stringify(preset.layout), at, at)
     .run();
   await audit(c.env, {
     actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
@@ -2009,17 +2017,8 @@ adminApp.get('/terapeuci/:id/strony/:pid/podglad', async (c) => {
   if ('response' in g) return g.response;
   const t = await getTherapist(c.env, { therapist_id: g.therapist.id });
   if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc podstrony nie da się jeszcze pokazać.</p>', 404);
-  const body = await renderTherapistPage(g.row, await profileContext(c.env, t));
-  return htmlResponse(
-    c.env,
-    renderPage(c.env, {
-      title: g.row.title,
-      path: '/terapeuci',
-      noindex: true,
-      lp: true,
-      body: `<article class="profile-page${layoutClasses(t.layout)}">${body}</article>`,
-    }),
-  );
+  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
+  return htmlResponse(c.env, await renderTherapistDocument(g.row, ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {

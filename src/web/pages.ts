@@ -17,8 +17,8 @@ import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
-import { htmlResponse, renderPage } from './layout';
-import { getPage, listPages, renderTherapistPage, type PageRow } from './lp';
+import { assetUrls, htmlResponse, renderPage } from './layout';
+import { getPage, listPages, LP_DOC_CSS, renderTherapistDocument, type PageRow } from './lp';
 import {
   languageList,
   layoutClasses,
@@ -408,14 +408,12 @@ export async function profileContext(env: Env, t: PublicTherapist): Promise<Sect
 }
 
 /** Links to her published subpages, under the breadcrumb. Nothing when she has none. */
-function subpageNav(t: PublicTherapist, pages: PageRow[], current?: string): string {
+function subpageNav(t: PublicTherapist, pages: PageRow[]): string {
   if (pages.length === 0) return '';
   const items = [
-    `<li><a href="/terapeuci/${escapeHtml(t.slug)}"${current === undefined ? ' aria-current="page"' : ''}>Profil</a></li>`,
+    `<li><a href="/terapeuci/${escapeHtml(t.slug)}" aria-current="page">Profil</a></li>`,
     ...pages.map(
-      (p) => `<li><a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}"${
-        current === p.slug ? ' aria-current="page"' : ''
-      }>${escapeHtml(p.title)}</a></li>`,
+      (p) => `<li><a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a></li>`,
     ),
   ];
   return `<nav class="subpages" aria-label="Strony terapeuty"><ul>${items.join('')}</ul></nav>`;
@@ -458,23 +456,7 @@ siteApp.get('/terapeuci/:slug/:page', async (c) => {
   if (!t || !row || row.status !== 'published') return notFoundProfile(c.env);
 
   const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-  const body = await renderTherapistPage(row, ctx);
-
-  return htmlResponse(
-    c.env,
-    renderPage(c.env, {
-      title: `${row.title} — ${t.display_name}`,
-      description: t.headline ?? row.title,
-      path: '/terapeuci',
-      lp: true,
-      body: `
-<article class="profile-page${layoutClasses(t.layout)}">
-<nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / <a href="/terapeuci/${escapeHtml(t.slug)}">${escapeHtml(t.display_name)}</a> / ${escapeHtml(row.title)}</p></nav>
-${subpageNav(t, pages, row.slug)}
-${body}
-</article>`,
-    }),
-  );
+  return htmlResponse(c.env, await renderTherapistDocument(row, ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 // ------------------------------------------------------------ static pages ---

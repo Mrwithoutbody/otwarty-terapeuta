@@ -35,16 +35,21 @@ describe('podstrony terapeutki', () => {
   it('creates, arranges, publishes and lists a subpage', async () => {
     const anna = await actor('anna-pages@example.invalid', ANNA);
 
-    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców']]);
+    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['preset', 'plakat']]);
     expect(created.status).toBe(303);
     const editor = created.headers.get('location')!;
     expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/pg_`));
     const pid = editor.split('/').pop()!;
 
+    // The template filled the page in: its theme, its axes and one empty block per type, hero titled.
+    const fresh = await env.DB.prepare(`SELECT blocks_json, layout_json FROM therapist_pages WHERE id = ?`).bind(pid).first<{ blocks_json: string; layout_json: string }>();
+    expect(JSON.parse(fresh!.layout_json)).toMatchObject({ theme: 'ink', display: 'poster', bands: 'stripes' });
+    expect(JSON.parse(fresh!.blocks_json)[0]).toEqual({ type: 'hero-poster', heading: 'Grupa wsparcia dla rodziców' });
+
     // Editor renders the block palette in Polish and the host blocks from her data.
     const form = await (await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: anna.cookie } })).text();
     expect(form).toContain('Wolne terminy');
-    expect(form).toContain('Nagłówek — klasyczny');
+    expect(form).toContain('Nagłówek — plakat');
     expect(form).not.toContain('Hero — classic');
 
     // A draft is invisible to the public, even with the right address.
@@ -85,6 +90,10 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('/assets/lp.css');
     // The calendar on the subpage is the profile's calendar - same renderer, same data.
     expect(html).toContain('slot-table');
+    // Its own document: no catalogue header, one bar back to her.
+    expect(html).not.toContain('class="header-cta"');
+    expect(html).toContain('class="lp-bar"');
+    expect(html).toContain('<main id="main" class="lp ');
 
     // The profile links to it, and the subpage links back.
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
