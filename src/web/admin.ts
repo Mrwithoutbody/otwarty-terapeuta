@@ -32,17 +32,33 @@ import { htmlResponse, renderPage } from './layout';
 import {
   defaultSections,
   LAYOUT_AXES,
+  layoutClasses,
   MAX_SECTIONS,
   parseLayout,
   parseSections,
   SECTION_GROUPS,
   SECTIONS_DEF,
   sectionAllFields,
-  type Field,
   type SecDef,
   type Section,
   type Values,
 } from './sections';
+import type { BlockDef, Field as LpField } from 'x402-landings';
+import {
+  blockAllFields,
+  BLOCKS,
+  getPageById,
+  HOST_BLOCKS,
+  listPages,
+  LP_LAYOUT_AXES,
+  lpParseLayout,
+  parseBlocks,
+  renderTherapistPage,
+  slugify,
+  type PageRow,
+} from './lp';
+import { getTherapist } from '../db/catalog';
+import { profileContext } from './pages';
 
 /**
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
@@ -461,7 +477,46 @@ interface EditorContext {
   offers: OfferRow[];
   faq: FaqRow[];
   media: Array<{ id: string; url: string }>;
+  pages: PageRow[];
 }
+
+/**
+ * Two engines, one builder. The profile arranges sections from `sections.ts`;
+ * a subpage arranges blocks from x402-landings. Both registries have the same
+ * shape - label, hint, fields, family - so the form generator, the reader and
+ * the palette are written once and handed the registry.
+ */
+interface BuilderDef {
+  label: string;
+  hint: string;
+  auto?: boolean;
+  resolve?: unknown;
+  fields?: LpField[];
+  repeatable?: boolean;
+  family?: string;
+}
+interface Builder {
+  defs: Record<string, BuilderDef>;
+  groups: Array<[boolean, string]>;
+  allFields(def: BuilderDef): LpField[];
+  parse(raw: unknown): Section[];
+}
+const PROFILE_BUILDER: Builder = {
+  defs: SECTIONS_DEF,
+  groups: SECTION_GROUPS,
+  allFields: (def) => sectionAllFields(def as SecDef),
+  parse: parseSections,
+};
+const LP_BUILDER: Builder = {
+  defs: BLOCKS,
+  groups: [[true, 'Twoje dane'], [false, 'Własna treść']],
+  allFields: (def) => blockAllFields(def as BlockDef),
+  parse: parseBlocks,
+};
+/** Content from the database rather than from the form: a profile section flagged so, or a host block. */
+const isAuto = (def: BuilderDef): boolean => def.auto === true || def.resolve !== undefined;
+
+type Axes = ReadonlyArray<{ name: string; label: string; hint?: string; options: ReadonlyArray<readonly [string, string]> }>;
 
 const SESSION_TYPE_LABELS: RefTag[] = [
   { slug: 'individual', name_pl: 'indywidualne' },
@@ -545,8 +600,10 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     offers: [],
     faq: [],
     media: [],
+    pages: [],
   };
   if (!therapistId) return context;
+  context.pages = await listPages(env, therapistId, false);
 
   const [chosenLanguages, chosenTopics, chosenModalities, location, offers, faq, media] = await Promise.all([
     env.DB.prepare(`SELECT language_code FROM therapist_languages WHERE therapist_id = ?`)
@@ -612,9 +669,8 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * How the page is presented, above the list of what is on it. Two selects, not
  * ten: the sections carry the content, this carries the shape.
  */
-function layoutChoice(row: TherapistRow): string {
-  const layout = parseLayout(row.layout_json);
-  const field = (axis: (typeof LAYOUT_AXES)[number]): string => `<div class="field">
+function layoutChoice(axes: Axes, layout: Record<string, string>): string {
+  const field = (axis: Axes[number]): string => `<div class="field">
     <label for="layout_${escapeHtml(axis.name)}">${escapeHtml(axis.label)}</label>
     <select id="layout_${escapeHtml(axis.name)}" name="layout_${escapeHtml(axis.name)}">${axis.options
       .map(([value, label]) =>
@@ -625,39 +681,42 @@ function layoutChoice(row: TherapistRow): string {
 
   return `<fieldset class="sec-layout">
   <legend>Sposób podania</legend>
-  ${LAYOUT_AXES.map(field).join('')}
+  ${axes.map(field).join('')}
 </fieldset>`;
 }
 
 /** What the selects posted, validated by the same reader the page uses. */
-function collectLayout(body: URLSearchParams): string {
+function collectLayout(axes: Axes, parse: (raw: unknown) => Record<string, string>, body: URLSearchParams): string {
   const posted: Record<string, unknown> = {};
-  for (const axis of LAYOUT_AXES) posted[axis.name] = body.get(`layout_${axis.name}`);
-  return JSON.stringify(parseLayout(posted));
+  for (const axis of axes) posted[axis.name] = body.get(`layout_${axis.name}`);
+  return JSON.stringify(parse(posted));
 }
 
 function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {
   const stored = parseSections(row?.sections_json ?? null);
-  const summary = autoSummary(row, context);
-  const sections = stored.length > 0
-    ? stored
-    : defaultSections();
+  return editorList(PROFILE_BUILDER, stored.length > 0 ? stored : defaultSections(), autoSummary(row, context));
+}
 
+function editorList(
+  b: Builder,
+  sections: Section[],
+  summary: Record<string, { text: string; empty?: true } | undefined>,
+): string {
   const rows = sections
     .map((section, index) => {
-      const def = SECTIONS_DEF[section.type];
+      const def = b.defs[section.type];
       if (!def) return '';
       // A section with nothing in it is listed but says so, and an auto one says
       // what it holds today - otherwise the screen is ten names and no content.
       const holds = summary[section.type];
-      const empty = def.auto === true
+      const empty = isAuto(def)
         ? holds?.empty === true
         : filled(def.fields ?? [], section, true) === 0;
       return `<li class="sec-item" data-section draggable="true">
   <div class="sec-head">
     <span class="grip" aria-hidden="true">⠿</span>
     <span class="sec-copy"><strong>${escapeHtml(def.label)}</strong>
-      <span>${escapeHtml(def.auto === true ? (holds?.text ?? def.hint) : def.hint)}${
+      <span>${escapeHtml(isAuto(def) ? (holds?.text ?? def.hint) : def.hint)}${
         empty ? ' · sekcja się nie pokaże' : ''
       }</span></span>
     <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
@@ -665,17 +724,17 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext): strin
       <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_SECTIONS}" data-section-pos></label>
     <label class="sec-del"><input type="checkbox" name="sec_${index}_del" value="1"><span>usuń</span></label>
   </div>
-  ${sectionFields(def, section, index)}
+  ${sectionFields(b, def, section, index)}
 </li>`;
     })
     .join('');
 
   const families = new Set(
-    sections.map((section) => SECTIONS_DEF[section.type]?.family).filter((f): f is string => !!f),
+    sections.map((section) => b.defs[section.type]?.family).filter((f): f is string => !!f),
   );
-  const palette = SECTION_GROUPS.map(([auto, label]) => {
-    const options = Object.entries(SECTIONS_DEF)
-      .filter(([type, def]) => (def.auto === true) === auto
+  const palette = b.groups.map(([auto, label]) => {
+    const options = Object.entries(b.defs)
+      .filter(([type, def]) => isAuto(def) === auto
         && (def.repeatable === true || !sections.some((s) => s.type === type))
         && (def.family === undefined || !families.has(def.family)))
       .map(([type, def]) => `<option value="${escapeHtml(type)}">${escapeHtml(def.label)} — ${escapeHtml(def.hint)}</option>`)
@@ -696,7 +755,7 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext): strin
  * heading and the lead, which every section has and neither of which counts as
  * content of its own.
  */
-function filled(fields: Field[], values: Values, skipTitles = false): number {
+function filled(fields: LpField[], values: Values, skipTitles = false): number {
   return fields.filter((field) => {
     if (skipTitles && (field.name === 'heading' || field.name === 'lead')) return false;
     const value = values[field.name];
@@ -709,8 +768,8 @@ function filled(fields: Field[], values: Values, skipTitles = false): number {
  * Eight sections with their fields all open is a wall of empty inputs; the
  * summary says whether there is anything inside worth opening.
  */
-function sectionFields(def: SecDef, section: Section, index: number): string {
-  const fields = sectionAllFields(def)
+function sectionFields(b: Builder, def: BuilderDef, section: Section, index: number): string {
+  const fields = b.allFields(def)
     .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`))
     .join('');
   if (fields === '') return '';
@@ -815,7 +874,7 @@ function credentialKey(title: string, issuer: string): string {
   return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
 }
 
-function sectionField(field: Field, value: unknown, name: string): string {
+function sectionField(field: LpField, value: unknown, name: string): string {
   const label = `<label for="${name}">${escapeHtml(field.label)}</label>`;
   const hint = field.hint ? `<p class="hint">${escapeHtml(field.hint)}</p>` : '';
 
@@ -842,6 +901,13 @@ function sectionField(field: Field, value: unknown, name: string): string {
     return `<div class="field">${label}<select id="${name}" name="${escapeHtml(name)}">${(field.options ?? [])
       .map(([v, l]) => `<option value="${escapeHtml(v)}"${text === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
       .join('')}</select>${hint}</div>`;
+  }
+  if (field.kind === 'media') {
+    // A picture is an address here: hers from the "Grafiki" tab, or nothing for
+    // artwork drawn in the page theme. The engine reads a bare URL as a media ref.
+    const media = typeof value === 'object' && value !== null ? String((value as Values).url ?? '') : text;
+    return `<div class="field">${label}<input id="${name}" name="${escapeHtml(name)}" type="text"
+    maxlength="500" placeholder="/media/… albo https://…" value="${escapeHtml(media)}">${hint}</div>`;
   }
   return `<div class="field">${label}<input id="${name}" name="${escapeHtml(name)}" type="${field.kind === 'url' ? 'url' : 'text'}"
     maxlength="${field.max ?? 120}" value="${escapeHtml(text)}">${hint}</div>`;
@@ -1338,7 +1404,7 @@ każdym zapisie.</p>
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
   <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
-  ${layoutChoice(row)}
+  ${layoutChoice(LAYOUT_AXES, parseLayout(row.layout_json))}
   <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność i dodawaj kolejne.
   Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
   najbliższy termin) jest u wszystkich taka sama, żeby dało się porównywać terapeutów między sobą.</p>
@@ -1350,6 +1416,31 @@ każdym zapisie.</p>
   <iframe src="/terapeuci/${escapeHtml(row.slug)}" title="Podgląd Twojej strony profilowej"></iframe>
 </aside>
 </div>
+</section>
+
+<section data-tab-panel data-tab-label="Podstrony" id="panel-strony">
+<h2>Podstrony</h2>
+<p class="panel-lead">Osobne strony obok profilu: landing pod kampanię, terapia grupowa, warsztat,
+wyjazd. Każda ma własny adres pod Twoim profilem i własny układ; kalendarz, oferta i FAQ
+wchodzą na nią z Twoich danych.</p>
+${
+  context.pages.length === 0
+    ? '<p class="hint">Nie masz jeszcze żadnej podstrony.</p>'
+    : `<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th><th></th></tr></thead><tbody>${context.pages
+        .map(
+          (p) => `<tr><td>${escapeHtml(p.title)}</td>
+             <td><a href="/terapeuci/${escapeHtml(row.slug)}/${escapeHtml(p.slug)}" target="_blank" rel="noopener">/${escapeHtml(p.slug)}</a></td>
+             <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td>
+             <td><a class="btn secondary" href="/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}">Edytuj</a></td></tr>`,
+        )
+        .join('')}</tbody></table></div>`
+}
+<form method="post" action="/admin/terapeuci/${id}/strony" class="inline-form">
+  ${csrfField(session)}
+  <div class="field"><label for="page_title">Tytuł nowej podstrony</label>
+    <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
+  <button class="btn" type="submit">Utwórz podstronę</button>
+</form>
 </section>
 
 </div>`;
@@ -1420,17 +1511,17 @@ function checkedValues(body: URLSearchParams, name: string, allowed: string[] | 
  * goes through the engine's own parser before it is stored, so an unknown type,
  * an unknown field or an over-long string never reaches the database.
  */
-function collectSections(body: URLSearchParams): string {
+function collectSections(b: Builder, body: URLSearchParams): string {
   const found: Array<{ pos: number; index: number; section: Section }> = [];
 
   for (const index of postedSections(body)) {
     const type = body.get(`sec_${index}_type`);
     if (!type || body.get(`sec_${index}_del`) === '1') continue;
-    const def = SECTIONS_DEF[type];
+    const def = b.defs[type];
     if (!def) continue;
 
     const section: Section = { type };
-    for (const field of sectionAllFields(def)) {
+    for (const field of b.allFields(def)) {
       const value = readField(body, field, `sec_${index}_${field.name}`);
       if (value !== undefined) section[field.name] = value;
     }
@@ -1443,15 +1534,15 @@ function collectSections(body: URLSearchParams): string {
   // "Add section" is a submit button, so the profile saves and comes back with
   // the new section appended - one round trip, no JavaScript required.
   const added = body.get('action') === 'add_section' ? (body.get('add_section') ?? '') : '';
-  const def = added === '' ? undefined : SECTIONS_DEF[added];
+  const def = added === '' ? undefined : b.defs[added];
   if (def && sections.length < MAX_SECTIONS) {
     const repeated = sections.some((s) => s.type === added);
     const familyTaken =
-      def.family !== undefined && sections.some((s) => SECTIONS_DEF[s.type]?.family === def.family);
+      def.family !== undefined && sections.some((s) => b.defs[s.type]?.family === def.family);
     if ((def.repeatable === true || !repeated) && !familyTaken) sections.push({ type: added });
   }
 
-  return JSON.stringify(parseSections(sections));
+  return JSON.stringify(b.parse(sections));
 }
 
 /** Which section indexes the form actually posted, in the order it posted them. */
@@ -1464,7 +1555,7 @@ function postedSections(body: URLSearchParams): number[] {
   return [...seen];
 }
 
-function readField(body: URLSearchParams, field: Field, name: string): unknown {
+function readField(body: URLSearchParams, field: LpField, name: string): unknown {
   if (field.kind === 'list') {
     const rows: Values[] = [];
     for (let i = 0; i < (field.max ?? 6); i++) {
@@ -1732,9 +1823,9 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   const id = c.req.param('id');
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
-  const sections = collectSections(body);
+  const sections = collectSections(PROFILE_BUILDER, body);
   await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
-    .bind(sections, collectLayout(body), nowIso(), id)
+    .bind(sections, collectLayout(LAYOUT_AXES, parseLayout, body), nowIso(), id)
     .run();
 
   await audit(c.env, {
@@ -1746,6 +1837,189 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
     meta: { count: JSON.parse(sections).length },
   });
   return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}#panel-strona` } });
+});
+
+// ---------------------------------------------------------------- podstrony ---
+
+/** Session, ownership and the page itself. A posted body means CSRF is checked too. */
+async function ownedPage(
+  c: { env: Env; req: { raw: Request; param(name: string): string } },
+  body: URLSearchParams | null,
+): Promise<{ session: AdminSession; row: PageRow; therapist: TherapistRow } | { response: Response }> {
+  let session: AdminSession;
+  if (body) {
+    const g = await guard(c, body, ['admin', 'therapist']);
+    if ('response' in g) return g;
+    session = g.session;
+  } else {
+    const loaded = await loadAdminSession(c.env, c.req.raw);
+    if (!loaded) return { response: page(c.env, 'Zaloguj się', loginForm(c.env), 401, true) };
+    session = loaded;
+  }
+  const id = c.req.param('id');
+  if (!ownsTherapist(session.user, id)) {
+    return { response: page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403) };
+  }
+  const [therapist, row] = await Promise.all([getTherapistRowForAdmin(c.env, id), getPageById(c.env, id, c.req.param('pid'))]);
+  if (!therapist || !row) return { response: page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono podstrony</h1>', 404) };
+  return { session, row, therapist };
+}
+
+/** A free slug under her profile: the title, and a counter when she reuses one. */
+async function freePageSlug(env: Env, therapistId: string, title: string): Promise<string> {
+  const base = slugify(title).slice(0, 48) || 'strona';
+  const taken = new Set(
+    (await env.DB.prepare(`SELECT slug FROM therapist_pages WHERE therapist_id = ?`).bind(therapistId).all<{ slug: string }>())
+      .results.map((r) => r.slug),
+  );
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+adminApp.post('/terapeuci/:id/strony', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const title = sanitizeLine(body.get('title') ?? '', 140);
+  if (title === '') return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
+  const pid = randomId('pg');
+  const at = nowIso();
+  await c.env.DB.prepare(
+    `INSERT INTO therapist_pages (id, therapist_id, slug, title, status, blocks_json, layout_json, position, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'draft', '[]', '{}', 0, ?, ?)`,
+  )
+    .bind(pid, id, await freePageSlug(c.env, id, title), title, at, at)
+    .run();
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'therapist.page_created',
+    subjectType: 'therapist',
+    subjectId: id,
+    meta: { page: pid },
+  });
+  return c.redirect(`/admin/terapeuci/${id}/strony/${pid}`, 303);
+});
+
+function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow, context: EditorContext): string {
+  const id = escapeHtml(therapist.id);
+  const pid = escapeHtml(row.id);
+  // Host blocks show what the database holds for them today, like the profile's auto sections.
+  const profileSummary = autoSummary(therapist, context);
+  const summary = Object.fromEntries(Object.entries(HOST_BLOCKS).map(([block, section]) => [block, profileSummary[section]]));
+  const preview = `/admin/terapeuci/${id}/strony/${pid}/podglad`;
+
+  return `<p><a href="/admin/terapeuci/${id}#panel-strony">← Profil: ${escapeHtml(therapist.display_name)}</a></p>
+<h1>Podstrona: ${escapeHtml(row.title)}</h1>
+<div class="composer-split">
+<form method="post" action="/admin/terapeuci/${id}/strony/${pid}" class="composer" data-composer>
+  ${csrfField(session)}
+  <div class="field"><label for="page_title">Tytuł</label>
+    <input id="page_title" name="title" required maxlength="140" value="${escapeHtml(row.title)}"></div>
+  <div class="field"><label for="page_slug">Adres</label>
+    <input id="page_slug" name="slug" required maxlength="64" pattern="[a-z0-9-]{1,64}" value="${escapeHtml(row.slug)}">
+    <p class="hint">/terapeuci/${escapeHtml(therapist.slug)}/<strong>${escapeHtml(row.slug)}</strong> — małe litery, cyfry i myślniki.</p></div>
+  <div class="field"><label for="page_status">Widoczność</label>
+    <select id="page_status" name="status">
+      <option value="draft"${row.status === 'draft' ? ' selected' : ''}>Szkic — widzisz tylko Ty</option>
+      <option value="published"${row.status === 'published' ? ' selected' : ''}>Opublikowana — link na profilu</option>
+    </select></div>
+  <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
+  ${layoutChoice(LP_LAYOUT_AXES, lpParseLayout(row.layout_json))}
+  <p class="hint">Przeciągnij blok, żeby zmienić kolejność, i dodawaj kolejne. Blok, w którym nic nie ma,
+  nie pokaże się na stronie. Strona bez nagłówka dostaje nagłówek z tytułu.</p>
+  ${editorList(LP_BUILDER, parseBlocks(row.blocks_json), summary)}
+  <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
+</form>
+<aside class="composer-preview">
+  <p class="hint">Podgląd — <a href="${preview}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
+  <iframe src="${preview}" title="Podgląd podstrony"></iframe>
+</aside>
+</div>
+<form method="post" action="/admin/terapeuci/${id}/strony/${pid}/usun" class="inline-form"
+      data-confirm="Usunąć podstronę „${escapeHtml(row.title)}"? Tego nie da się cofnąć.">
+  ${csrfField(session)}
+  <button class="btn secondary" type="submit">Usuń podstronę</button>
+</form>`;
+}
+
+adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
+  const g = await ownedPage(c, null);
+  if ('response' in g) return g.response;
+  const context = await loadEditorContext(c.env, g.therapist.id);
+  return page(c.env, g.row.title, pageEditor(g.session, g.therapist, g.row, context));
+});
+
+adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await ownedPage(c, body);
+  if ('response' in g) return g.response;
+  const { row, therapist } = g;
+
+  const title = sanitizeLine(body.get('title') ?? '', 140) || row.title;
+  const slug = (body.get('slug') ?? '').trim().toLowerCase();
+  const status = body.get('status') === 'published' ? 'published' : 'draft';
+  if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
+    return page(c.env, 'Zły adres', '<h1>Zły adres</h1><p>Adres to małe litery, cyfry i myślniki.</p>', 400);
+  }
+  const blocks = collectSections(LP_BUILDER, body);
+  try {
+    await c.env.DB.prepare(
+      `UPDATE therapist_pages SET title=?, slug=?, status=?, blocks_json=?, layout_json=?, updated_at=? WHERE id=? AND therapist_id=?`,
+    )
+      .bind(title, slug, status, blocks, collectLayout(LP_LAYOUT_AXES, lpParseLayout, body), nowIso(), row.id, therapist.id)
+      .run();
+  } catch (err) {
+    if (!String(err).includes('UNIQUE')) throw err;
+    return page(c.env, 'Adres zajęty', `<h1>Adres zajęty</h1><p>Masz już podstronę pod adresem /${escapeHtml(slug)}. Wybierz inny.</p>`, 409);
+  }
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'therapist.page_updated',
+    subjectType: 'therapist',
+    subjectId: therapist.id,
+    meta: { page: row.id, status, count: JSON.parse(blocks).length },
+  });
+  return c.redirect(`/admin/terapeuci/${therapist.id}/strony/${row.id}`, 303);
+});
+
+adminApp.post('/terapeuci/:id/strony/:pid/usun', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await ownedPage(c, body);
+  if ('response' in g) return g.response;
+  await c.env.DB.prepare(`DELETE FROM therapist_pages WHERE id = ? AND therapist_id = ?`).bind(g.row.id, g.therapist.id).run();
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'therapist.page_deleted',
+    subjectType: 'therapist',
+    subjectId: g.therapist.id,
+    meta: { page: g.row.id },
+  });
+  return c.redirect(`/admin/terapeuci/${g.therapist.id}#panel-strony`, 303);
+});
+
+/** The draft as the public would see it once published. Owner only, so drafts stay private. */
+adminApp.get('/terapeuci/:id/strony/:pid/podglad', async (c) => {
+  const g = await ownedPage(c, null);
+  if ('response' in g) return g.response;
+  const t = await getTherapist(c.env, { therapist_id: g.therapist.id });
+  if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc podstrony nie da się jeszcze pokazać.</p>', 404);
+  const body = await renderTherapistPage(g.row, await profileContext(c.env, t));
+  return htmlResponse(
+    c.env,
+    renderPage(c.env, {
+      title: g.row.title,
+      path: '/terapeuci',
+      noindex: true,
+      lp: true,
+      body: `<article class="profile-page${layoutClasses(t.layout)}">${body}</article>`,
+    }),
+  );
 });
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {

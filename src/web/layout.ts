@@ -2,6 +2,7 @@ import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
+import { PAGE_CSS } from './lp';
 import { APP_CSS } from './styles';
 
 /**
@@ -26,6 +27,7 @@ const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000'))
 
 const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
+const LP_CSS_VERSION = assetVersion(PAGE_CSS);
 
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere, which
@@ -105,6 +107,8 @@ export interface PageOptions {
    * same-origin files, so the `script-src 'self'` policy stays untouched.
    */
   adminAssets?: boolean;
+  /** Loads the subpage engine stylesheet (x402-landings, scoped under `.lp`). */
+  lp?: boolean;
 }
 
 export function renderPage(env: Env, options: PageOptions): string {
@@ -122,7 +126,7 @@ export function renderPage(env: Env, options: PageOptions): string {
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">
-${
+${options.lp ? `<link rel="stylesheet" href="/assets/lp.css?v=${LP_CSS_VERSION}">\n` : ''}${
   options.adminAssets
     ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
       `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`

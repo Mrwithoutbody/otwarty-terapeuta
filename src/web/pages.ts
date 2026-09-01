@@ -18,6 +18,7 @@ import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
 import { htmlResponse, renderPage } from './layout';
+import { getPage, listPages, renderTherapistPage, type PageRow } from './lp';
 import {
   languageList,
   layoutClasses,
@@ -375,25 +376,24 @@ ${
 });
 
 
-siteApp.get('/terapeuci/:slug', async (c) => {
-  const slug = c.req.param('slug');
-  const t = await getTherapist(c.env, { slug });
-  if (!t) {
-    return htmlResponse(
-      c.env,
-      renderPage(c.env, {
-        title: 'Nie znaleziono profilu',
-        path: '/terapeuci',
-        body: `<h1>Nie znaleziono profilu</h1><p>Ten profil nie istnieje albo nie jest opublikowany.</p>
-               <p><a href="/terapeuci">Wróć do katalogu</a></p>`,
-      }),
-      { status: 404 },
-    );
-  }
+function notFoundProfile(env: Env): Response {
+  return htmlResponse(
+    env,
+    renderPage(env, {
+      title: 'Nie znaleziono profilu',
+      path: '/terapeuci',
+      body: `<h1>Nie znaleziono profilu</h1><p>Ten profil nie istnieje albo nie jest opublikowany.</p>
+             <p><a href="/terapeuci">Wróć do katalogu</a></p>`,
+    }),
+    { status: 404 },
+  );
+}
 
+/** What every page of a therapist renders from: her FAQ and her open slots. */
+export async function profileContext(env: Env, t: PublicTherapist): Promise<SectionCtx> {
   const [faq, slots] = await Promise.all([
-    getPublishedFaq(c.env, t.therapist_id),
-    listOpenSlots(c.env, {
+    getPublishedFaq(env, t.therapist_id),
+    listOpenSlots(env, {
       therapist_id: t.therapist_id,
       from_utc: nowIso(),
       to_utc: new Date(Date.now() + 21 * 86_400_000).toISOString(),
@@ -404,11 +404,33 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       limit: 80,
     }),
   ]);
+  return { env, therapist: t, faq, slots };
+}
+
+/** Links to her published subpages, under the breadcrumb. Nothing when she has none. */
+function subpageNav(t: PublicTherapist, pages: PageRow[], current?: string): string {
+  if (pages.length === 0) return '';
+  const items = [
+    `<li><a href="/terapeuci/${escapeHtml(t.slug)}"${current === undefined ? ' aria-current="page"' : ''}>Profil</a></li>`,
+    ...pages.map(
+      (p) => `<li><a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}"${
+        current === p.slug ? ' aria-current="page"' : ''
+      }>${escapeHtml(p.title)}</a></li>`,
+    ),
+  ];
+  return `<nav class="subpages" aria-label="Strony terapeuty"><ul>${items.join('')}</ul></nav>`;
+}
+
+siteApp.get('/terapeuci/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  const t = await getTherapist(c.env, { slug });
+  if (!t) return notFoundProfile(c.env);
+
+  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
 
   // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
   c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
 
-  const ctx: SectionCtx = { env: c.env, therapist: t, faq, slots };
   const sections = pageSections(parseSections(t.sections));
   const layout = parseLayout(t.layout);
   const body = renderSections(sections, ctx, { nav: layout.nav === 'kotwice', bands: layout.bands });
@@ -422,7 +444,33 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       body: `
 <article class="profile-page${layoutClasses(t.layout)}">
 <nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
+${subpageNav(t, pages)}
+${body}
+</article>`,
+    }),
+  );
+});
 
+/** A therapist's subpage: her own landing, group, workshop or camp, on the engine. */
+siteApp.get('/terapeuci/:slug/:page', async (c) => {
+  const t = await getTherapist(c.env, { slug: c.req.param('slug') });
+  const row = t ? await getPage(c.env, t.therapist_id, c.req.param('page')) : null;
+  if (!t || !row || row.status !== 'published') return notFoundProfile(c.env);
+
+  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
+  const body = await renderTherapistPage(row, ctx);
+
+  return htmlResponse(
+    c.env,
+    renderPage(c.env, {
+      title: `${row.title} — ${t.display_name}`,
+      description: t.headline ?? row.title,
+      path: '/terapeuci',
+      lp: true,
+      body: `
+<article class="profile-page${layoutClasses(t.layout)}">
+<nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / <a href="/terapeuci/${escapeHtml(t.slug)}">${escapeHtml(t.display_name)}</a> / ${escapeHtml(row.title)}</p></nav>
+${subpageNav(t, pages, row.slug)}
 ${body}
 </article>`,
     }),

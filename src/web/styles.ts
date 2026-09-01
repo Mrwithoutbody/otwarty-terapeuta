@@ -499,6 +499,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .profile-page { width: min(100%, 76rem); margin-inline: auto; }
 .profile-page > nav { margin-bottom: 2.5rem; color: var(--text-muted); font-size: 0.78rem; }
 .profile-page .crumbs { margin: 0; }
+.profile-page .subpages ul { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0.6rem 0 0; padding: 0; }
+.profile-page .subpages a { display: inline-block; padding: 0.3rem 0.8rem; border: 1px solid var(--line, #cfd6c4); border-radius: 999px; text-decoration: none; font-size: 0.92rem; }
+.profile-page .subpages a[aria-current] { background: var(--dark, #26332a); border-color: var(--dark, #26332a); color: #fff; }
+.profile-page > .lp { margin-top: 1rem; }
 
 /* --- profile spine: never moves, so profiles stay comparable ------------- */
 /* Every other heading on the site is a painted panel - the directory, the

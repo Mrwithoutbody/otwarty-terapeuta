@@ -21,6 +21,7 @@ import { siteApp } from './web/pages';
 import { htmlResponse, renderPage, securityHeaders } from './web/layout';
 import { APP_CSS } from './web/styles';
 import { ADMIN_CSS, ADMIN_JS } from './web/admin-ui';
+import { PAGE_CSS } from './web/lp';
 import { topUpDemoSlots } from './db/demo';
 import { log } from './lib/log';
 import { purgeExpiredData } from './db/retention';
@@ -47,6 +48,17 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.get('/assets/app.css', () =>
   new Response(APP_CSS, {
+    headers: {
+      'content-type': 'text/css; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+    },
+  }),
+);
+
+// Arkusz silnika podstron jako plik, nie wklejka: `style-src 'self'` przepuszcza
+// plik, a inline <style> by zablokował.
+app.get('/assets/lp.css', () =>
+  new Response(PAGE_CSS, {
     headers: {
       'content-type': 'text/css; charset=utf-8',
       'cache-control': 'public, max-age=3600',

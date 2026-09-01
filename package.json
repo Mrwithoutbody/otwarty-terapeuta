@@ -27,6 +27,7 @@
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
     "hono": "4.13.3",
+    "x402-landings": "file:../../x402Landings",
     "zod": "4.4.3"
   },
   "devDependencies": {
