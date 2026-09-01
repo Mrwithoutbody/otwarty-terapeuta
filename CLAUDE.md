@@ -149,3 +149,12 @@ domysłów. Przy zmianie odcienia sprawdź, czy nowa wartość leży na osi serw
   wierszy. Upload niczego nie kasuje z R2; pliki znikają tylko przez „Usuń"
   w panelu. Seed przenosi zdjęcia i media dem przez reseed (tabele `_seed_*`)
   — pełny seed na produkcji był raz skasował wgrane zdjęcie.
+
+## Deploy: produkcja leży na koncie Cloudflare `b1277ebcf49382e42bc5c111cd6adce3`
+
+Baza D1 produkcji: `9186df20-81e8-405b-aa74-b8812c082751`. Jeśli `npx wrangler whoami`
+nie pokazuje tego konta, `npm run db:migrate:prod` i `wrangler deploy --env production`
+padają z „not authorized [code: 7403]" (2026-09-02: zalogowane było tylko ANNA:R).
+Wtedy poproś o `! npx wrangler login` na właściwym koncie — `CLOUDFLARE_ACCOUNT_ID` bez
+dostępu do konta nic nie da. Kolejność na produkcji: migracja → `npm run build:widget &&
+npx wrangler deploy --env production`.
