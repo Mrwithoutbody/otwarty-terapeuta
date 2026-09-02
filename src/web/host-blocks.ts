@@ -1,22 +1,21 @@
+/**
+ * Host blocks: the parts of a therapist's page that come from the database.
+ *
+ * The page itself is composed and rendered by the x402-landings engine; these
+ * are the blocks the engine cannot know about - her portrait and facts in the
+ * heading, her offer, her calendar, her FAQ, her credentials, the closing
+ * invitation. Each one renders from `SectionCtx` (the therapist, her FAQ, her
+ * open slots) and is registered into the engine in `lp.ts`.
+ *
+ * What used to live here as well - text blocks, layout axes, the parser and
+ * the page renderer - is the engine's job now and was deleted.
+ */
+import type { Block as Section, Field, Values } from 'x402-landings';
 import type { Env } from '../env';
 import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
-import { escapeHtml, renderBodyText, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { escapeHtml, renderBodyText, safeUrl } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
-
-/**
- * The profile is a list of sections the therapist assembles herself.
- *
- * Two kinds live here. An `auto` section renders data she already keeps
- * elsewhere in the panel - her offer, her calendar, her FAQ - so the same fact
- * is never typed twice and the MCP tools keep serving it whatever the page
- * shows. A free section carries its own text, which is what stops two profiles
- * built from the same blocks from reading like the same page.
- *
- * `SECTIONS_DEF` is the single source: the builder's forms, the validation on
- * save and the renderer all come from it. A new section type or field is added
- * there and nowhere else.
- */
 
 export interface SectionCtx {
   env: Env;
@@ -26,36 +25,14 @@ export interface SectionCtx {
   /**
    * Anchors the arrangement actually renders. She can delete the slots block
    * while keeping a calendar full of slots; a button jumping to an anchor that
-   * is not on the page is worse than no button. `renderSections` fills this in,
+   * is not on the page is worse than no button. `renderProfile` fills this in,
    * and an absent set means "render every link", which is what a caller
    * rendering one section on its own wants.
    */
   anchors?: ReadonlySet<string>;
 }
 
-export type Values = Record<string, unknown>;
-export type Section = Values & { type: string };
-
-/**
- * How a block sits on the page. The type carries the default; the therapist
- * may override it per section with the `tlo` presentation field, so a plain
- * paragraph can go dark and the dark close can go plain.
- */
 export type Tone = '' | 'alt' | 'dark' | 'narrow';
-
-type FieldKind = 'text' | 'textarea' | 'url' | 'select' | 'list';
-
-export interface Field {
-  kind: FieldKind;
-  name: string;
-  label: string;
-  hint?: string;
-  /** Character budget for text fields, item budget for lists. */
-  max?: number;
-  options?: Array<[string, string]>;
-  /** Shape of one list entry. */
-  of?: Field[];
-}
 
 export interface SecDef {
   label: string;
@@ -81,7 +58,6 @@ const T = (name: string, label: string, extra: Partial<Field> = {}): Field =>
 const AREA = (name: string, label: string, extra: Partial<Field> = {}): Field =>
   ({ kind: 'textarea', name, label, max: 2000, ...extra });
 
-export const MAX_SECTIONS = 24;
 
 /**
  * Presentation of one block, chosen per section. Content fields differ per
@@ -89,43 +65,8 @@ export const MAX_SECTIONS = 24;
  * `fields`. An empty value means "as the type / the page decides", which is
  * why a profile saved before this existed renders exactly as it did.
  */
-export const WYGLAD_FIELDS: Field[] = [
-  {
-    kind: 'select', name: 'tlo', label: 'Tło sekcji',
-    options: [
-      ['', 'Wg rodzaju sekcji'],
-      ['zwykle', 'Zwykłe — na tle strony'],
-      ['panel', 'Przygaszone — w kolorze motywu'],
-      ['ciemne', 'Ciemne — jasny tekst na ciemnym tle'],
-      ['waskie', 'Wąska taśma — mało powietrza, na krótką treść'],
-    ],
-  },
-  {
-    kind: 'select', name: 'kadr', label: 'Kadr',
-    hint: 'Działa dla sekcji barwnych: karta w kadrze albo pas przez całą szerokość ekranu.',
-    options: [
-      ['', 'Wg ustawień strony'],
-      ['karta', 'Karta — w kadrze, z powietrzem wokół'],
-      ['pas', 'Pas — przez całą szerokość ekranu'],
-    ],
-  },
-  {
-    kind: 'select', name: 'skala', label: 'Skala nagłówka',
-    options: [
-      ['', 'Wg ustawień strony'],
-      ['duza', 'Duża — nagłówek wyraźnie większy'],
-      ['plakat', 'Plakatowa — nadtytuł na marginesie'],
-    ],
-  },
-];
 
-/** Content fields plus the presentation selects; the hero carries its own layout. */
-export function sectionAllFields(def: SecDef): Field[] {
-  return def.family === 'hero' ? def.fields ?? [] : [...(def.fields ?? []), ...WYGLAD_FIELDS];
-}
 
-/** What the `tlo` override means in tone terms. */
-const TLO_TONE: Record<string, Tone> = { zwykle: '', panel: 'alt', ciemne: 'dark', waskie: 'narrow' };
 
 
 
@@ -192,7 +133,7 @@ function items(section: Section): Values[] {
 }
 
 function eyebrow(text: string): string {
-  return text === '' ? '' : `<p class="eyebrow">${escapeHtml(text)}</p>`;
+  return text === '' ? '' : `<p class="lp-kicker">${escapeHtml(text)}</p>`;
 }
 
 
@@ -200,7 +141,7 @@ function ctaButton(section: Section, ghost = false): string {
   const label = str(section.cta_label);
   const href = safeUrl(str(section.cta_href));
   if (label === '' || href === null) return '';
-  return `<a class="btn${ghost ? ' ghost' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+  return `<a class="lp-btn${ghost ? ' lp-btn--ghost' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
 }
 
 /**
@@ -264,13 +205,6 @@ function blockHead(s: Section): string {
   return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
     lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
   }`;
-}
-
-/** A heading, a paragraph and an optional button - the plain text blocks. */
-function plainBody(s: Section): string {
-  const body = renderBodyText(str(s.body));
-  if (body === '') return '';
-  return `${blockHead(s)}${body}${ctaButton(s)}`;
 }
 
 /**
@@ -345,8 +279,8 @@ function heroBody(
     ${opts.greeting ? `<p class="phero-greeting">${escapeHtml(opts.greeting)}</p>` : ''}
     ${opts.lead ? `<p class="phero-lead">${escapeHtml(opts.lead)}</p>` : t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
     <div class="phero-actions">
-      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="lp-btn lp-btn--ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
     ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
     ${profileLinks(t)}
@@ -475,16 +409,9 @@ export function pluginCta(env: Env): string {
 const HEADING_FIELD = T('heading', 'Nagłówek', { hint: 'puste = domyślny' });
 const LEAD_FIELD = T('lead', 'Zdanie pod nagłówkiem', { max: 200, hint: 'opcjonalne — pomiń, jeśli tylko powtarza nagłówek' });
 
-// ------------------------------------------------------------ definitions ---
-
-export const SECTIONS_DEF: Record<string, SecDef> = {
-  // --- heading blocks: one per page, three shapes, different content -------
-
-  /**
-   * The plain heading: portrait beside the name, the facts someone comparing
-   * profiles needs, and the way in.
-   */
-  hero: {
+/** Every block of hers that reads the database, keyed by the type the engine sees. */
+export const HOST_SECTIONS: Record<string, SecDef> = {
+  'hero-profil': {
     label: 'Nagłówek — klasyczny', hint: 'Portret obok imienia, fakty i przycisk',
     auto: true, family: 'hero',
     render: (_s, ctx) => heroBody(ctx, { facts: true }),
@@ -551,8 +478,8 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     <h1>${escapeHtml(title || t.display_name)}</h1>
     ${lead === '' ? '' : `<p class="phero-lead">${escapeHtml(lead)}</p>`}
     <div class="phero-actions">
-      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="btn ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
+      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
+      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="lp-btn lp-btn--ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
     </div>
     ${title === '' ? '' : `<p class="phero-plakat-name">${escapeHtml(t.display_name)}</p>`}
     <ul class="badges">
@@ -629,7 +556,7 @@ export const SECTIONS_DEF: Record<string, SecDef> = {
     <strong>${nextSlot ? escapeHtml(compactDateTime(nextSlot.starts_at_utc, nextSlot.timezone)) : 'brak wolnych terminów'}</strong>
     <span>${nextSlot ? 'najbliższy wolny termin' : 'w najbliższych trzech tygodniach'}</span>
   </div>
-  <div class="pfact-cta">${nextSlot && hasAnchor(ctx, 'terminy') ? '<a class="btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
+  <div class="pfact-cta">${nextSlot && hasAnchor(ctx, 'terminy') ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
 </div>`;
     },
   },
@@ -816,7 +743,7 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
     },
   },
 
-  faq: {
+  'faq-profil': {
     label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
     render: (s, { faq }) =>
       faq.length === 0
@@ -865,8 +792,8 @@ ${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => 
 ${written}
 <p class="phero-actions">${
         t.accepting_new_clients && t.next_available_slot_utc && hasAnchor(ctx, 'terminy')
-          ? '<a class="btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
-          : '<a class="btn" href="/terapeuci">Wróć do katalogu</a>'
+          ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
+          : '<a class="lp-btn" href="/terapeuci">Wróć do katalogu</a>'
       }${pluginCta(env)}</p>
 ${profileLinks(t)}`;
     },
@@ -874,23 +801,7 @@ ${profileLinks(t)}`;
 
   // --- her own words: what stops two profiles reading as one template ------
 
-  tekst: {
-    label: 'Tekst', hint: 'Akapit własnymi słowami', repeatable: true,
-    fields: [
-      T('eyebrow', 'Nadtytuł', { max: 60, hint: 'małe litery nad nagłówkiem' }),
-      HEADING_FIELD, AREA('body', 'Treść', { hint: 'pusta linia = nowy akapit' }),
-      T('cta_label', 'Przycisk — napis', { max: 60 }),
-      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
-    ],
-    render: (s) => plainBody(s),
-  },
 
-  /**
-   * The editorial service card the reference landings are built around: a
-   * category, a promise, what it covers, a quote and the practical grid. The
-   * `offers` block renders the price list from her data; this one is written,
-   * for the page that presents each service as a chapter.
-   */
   usluga: {
     label: 'Usługa', hint: 'Opis jednej usługi: zakres, cytat i praktyczne szczegóły',
     repeatable: true, tone: 'alt',
@@ -935,24 +846,7 @@ ${profileLinks(t)}`;
     },
   },
 
-  cytat: {
-    label: 'Cytat', hint: 'Jedno zdanie, które ma wybrzmieć', repeatable: true,
-    fields: [AREA('body', 'Cytat', { max: 400 }), T('author', 'Podpis', { max: 80 })],
-    render: (s) => {
-      const body = str(s.body);
-      if (body === '') return '';
-      const author = str(s.author);
-      return `<figure class="pquote"><blockquote><p>${escapeHtml(body)}</p></blockquote>${
-        author === '' ? '' : `<figcaption>${escapeHtml(author)}</figcaption>`
-      }</figure>`;
-    },
-  },
 
-  /**
-   * Two columns: her words beside her photograph. The old page had no such
-   * section at all, which is why every block was one full-width column and the
-   * page went flat after the third one.
-   */
   'zdjecie-tekst': {
     label: 'Zdjęcie i tekst', hint: 'Dwie kolumny: Twoje słowa obok portretu', repeatable: true,
     fields: [
@@ -977,47 +871,7 @@ ${profileLinks(t)}`;
   },
 
   /** A paragraph that carries its own tinted band, for something worth stopping on. */
-  'tekst-wyrozniony': {
-    label: 'Tekst wyróżniony', hint: 'Akapit na przyciemnionym tle', repeatable: true, tone: 'alt',
-    fields: [
-      T('eyebrow', 'Nadtytuł', { max: 60, hint: 'małe litery nad nagłówkiem' }),
-      HEADING_FIELD, AREA('body', 'Treść', { hint: 'pusta linia = nowy akapit' }),
-      T('cta_label', 'Przycisk — napis', { max: 60 }),
-      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
-    ],
-    render: (s) => plainBody(s),
-  },
 
-  /**
-   * Three claims across, the shape every reference profile uses under its
-   * philosophy paragraphs. `kroki` is the same data in a vertical numbered
-   * list; this is the one that breaks a long page into columns.
-   */
-  filary: {
-    label: 'Filary', hint: 'Trzy krótkie tezy obok siebie', repeatable: true,
-    fields: [
-      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD, LEAD_FIELD,
-      {
-        kind: 'list', name: 'items', label: 'Filary', max: 4,
-        of: [T('title', 'Tytuł'), AREA('desc', 'Opis', { max: 400 })],
-      },
-    ],
-    render: (s) => {
-      const pillars = items(s).filter((it) => str(it.title) !== '');
-      if (pillars.length === 0) return '';
-      return `${blockHead(s)}<ul class="pillars">${pillars
-        .map((it) => `<li><h3>${escapeHtml(str(it.title))}</h3>${
-          str(it.desc) === '' ? '' : `<p>${escapeHtml(str(it.desc))}</p>`
-        }</li>`)
-        .join('')}</ul>`;
-    },
-  },
-
-  /**
-   * What she has written elsewhere. Cards with a link out, not an article
-   * system: the catalogue has no business storing her blog, and a link to the
-   * piece she is proud of does the same work.
-   */
   artykuly: {
     label: 'Teksty i publikacje', hint: 'Karty z odnośnikami do Twoich tekstów',
     repeatable: true, tone: 'alt',
@@ -1045,379 +899,4 @@ ${profileLinks(t)}`;
     },
   },
 
-  kroki: {
-    label: 'Kroki', hint: 'Numerowane etapy — np. jak wygląda współpraca', repeatable: true, tone: 'alt',
-    fields: [
-      HEADING_FIELD, LEAD_FIELD,
-      {
-        kind: 'list', name: 'items', label: 'Kroki', max: 6,
-        of: [T('title', 'Tytuł'), AREA('desc', 'Opis', { max: 400 })],
-      },
-    ],
-    render: (s) => {
-      const steps = items(s).filter((it) => str(it.title) !== '');
-      if (steps.length === 0) return '';
-      const title = str(s.heading);
-      return `${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}<ol class="meeting-steps">${steps
-        .map((it) => `<li><h3>${escapeHtml(str(it.title))}</h3>${
-          str(it.desc) === '' ? '' : `<p>${escapeHtml(str(it.desc))}</p>`
-        }</li>`)
-        .join('')}</ol>`;
-    },
-  },
-
-  /**
-   * The narrow strip the reference page puts under the hero. Its job is rhythm:
-   * a short band between two tall sections is what keeps a long page from
-   * reading as one column.
-   */
-  fakty: {
-    label: 'Pasek faktów', hint: 'Cztery krótkie fakty w jednej linii',
-    repeatable: true, tone: 'narrow',
-    fields: [
-      {
-        kind: 'list', name: 'items', label: 'Fakty', max: 4,
-        of: [T('value', 'Fakt', { max: 60 }), T('label', 'Doprecyzowanie', { max: 90 })],
-      },
-    ],
-    render: (s) => {
-      const facts = items(s).filter((it) => str(it.value) !== '');
-      if (facts.length === 0) return '';
-      return `<ul class="pfacts-strip">${facts
-        .map((it) => `<li><strong>${escapeHtml(str(it.value))}</strong>${
-          str(it.label) === '' ? '' : `<span>${escapeHtml(str(it.label))}</span>`
-        }</li>`)
-        .join('')}</ul>`;
-    },
-  },
-
-  /**
-   * The dark band the reference page closes with. The profile used to end on
-   * "Zasady odwołania" - the dullest thing it had to say.
-   */
-  wyroznienie: {
-    label: 'Wyróżniony pas', hint: 'Ciemny pas — dobre domknięcie strony',
-    repeatable: true, tone: 'dark',
-    fields: [
-      HEADING_FIELD, AREA('body', 'Treść', { max: 600 }),
-      T('cta_label', 'Przycisk — napis', { max: 60 }),
-      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
-    ],
-    render: (s) => {
-      const title = str(s.heading);
-      const body = renderBodyText(str(s.body));
-      if (title === '' && body === '') return '';
-      return `${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s)}`;
-    },
-  },
 };
-
-/** The palette is split the same way the engine is: her data, then her words. */
-export const SECTION_GROUPS: Array<[boolean, string]> = [
-  [true, 'Twoje dane'],
-  [false, 'Własna treść'],
-];
-
-// ---------------------------------------------------------- parse & render ---
-
-/**
- * Sections arrive as JSON that a person edited, so nothing is trusted on the
- * way in: an unknown type is dropped, an unknown field is dropped, and every
- * string is cut to the length its field declares. A profile must never come out
- * broken because this column was hand-edited.
- */
-/**
- * How the page is presented.
- *
- * A theme is a palette and a typeface, applied as tokens on the profile element
- * only (see `--dark`, `--band`, `--serif` in styles.ts). Presets rather than a
- * colour picker: a free palette produces unreadable contrast, and a catalogue
- * where every entry invents its own colours stops reading as one service.
- */
-/**
- * The panel builds its selects from this, `parseLayout` validates by it, and a
- * new axis is one entry here. The first option of every list is the default.
- */
-export const LAYOUT_AXES: ReadonlyArray<{
-  name: string;
-  label: string;
-  hint?: string;
-  options: ReadonlyArray<readonly [string, string]>;
-}> = [
-  {
-    name: 'theme', label: 'Motyw',
-    options: [
-      ['', 'Serwisowy — szałwia i limonka'],
-      ['bursztyn', 'Bursztyn — ciepły piasek, akcent miodowy'],
-      ['glina', 'Glina — różowawy beż, akcent terakota'],
-      ['grafit', 'Grafit — chłodna szarość, akcent atramentowy'],
-      ['las', 'Las — głęboka zieleń, akcent szmaragdowy'],
-      ['papier', 'Papier — achromatyczny, czerń na bieli'],
-      ['atrament', 'Atrament — nocny, jasny tekst, miodowy akcent'],
-    ],
-  },
-  {
-    name: 'rhythm', label: 'Rytm strony',
-    options: [
-      ['', 'Standardowy'],
-      ['zwarty', 'Zwarty — mniej powietrza, więcej treści na ekranie'],
-      ['dostojny', 'Przestronny — szerokie odstępy jak na stronie autorskiej'],
-    ],
-  },
-  {
-    name: 'display', label: 'Skala nagłówków',
-    hint: 'Przy skali plakatowej nadtytuł sekcji przechodzi do lewej kolumny, obok treści.',
-    options: [
-      ['', 'Katalogowa — nagłówki jak w reszcie serwisu'],
-      ['duza', 'Duża — nagłówki wyraźnie większe'],
-      ['plakat', 'Plakatowa — nagłówek na całą szerokość, nadtytuł na marginesie'],
-    ],
-  },
-  {
-    name: 'bands', label: 'Sekcje barwne',
-    options: [
-      ['panele', 'Panele — sekcja barwna w kadrze, z powietrzem wokół'],
-      ['pasy', 'Pasy — sekcja barwna przez całą szerokość ekranu'],
-    ],
-  },
-  {
-    name: 'hero', label: 'Nagłówek strony',
-    hint: 'Karta nad pasem przez cały ekran styka się z nim bez szczeliny, dlatego przy pasach nagłówek domyślnie karty nie ma.',
-    options: [
-      ['', 'Automatycznie — karta przy panelach, bez karty przy pasach'],
-      ['karta', 'Zawsze w karcie'],
-      ['goly', 'Nigdy w karcie'],
-    ],
-  },
-  {
-    name: 'nav', label: 'Pasek sekcji',
-    hint: 'Odnośniki buduje sama strona z nagłówków sekcji, które faktycznie renderuje.',
-    options: [
-      ['', 'Bez paska'],
-      ['kotwice', 'Pasek z odnośnikami do sekcji strony'],
-    ],
-  },
-];
-
-/** The first option of a list is what an unset - or bogus - value falls back to. */
-function layoutOption(value: unknown, list: ReadonlyArray<readonly [string, string]>): string {
-  const fallback = list[0]?.[0] ?? '';
-  return typeof value === 'string' && list.some(([v]) => v === value) ? value : fallback;
-}
-
-/**
- * The one reader of this column, whether it comes from the database as a
- * string, from the panel as form values, or from a hand edit. Everything that
- * is not one of the options above becomes the default.
- */
-export function parseLayout(raw: unknown): Record<string, string> {
-  let parsed: unknown = raw;
-  if (typeof raw === 'string' || raw === null || raw === undefined) {
-    try {
-      parsed = JSON.parse((raw as string) || '{}');
-    } catch {
-      parsed = null;
-    }
-  }
-  const values = (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-    ? parsed
-    : {}) as Record<string, unknown>;
-  const out: Record<string, string> = {};
-  for (const axis of LAYOUT_AXES) out[axis.name] = layoutOption(values[axis.name], axis.options);
-  return out;
-}
-
-/** What the layout means for the page element, once the automatic case is resolved. */
-export function layoutClasses(raw: unknown): string {
-  const { theme, rhythm, display, bands, hero } = parseLayout(raw);
-  const out: string[] = [];
-  if (theme !== '') out.push(`profile-page--theme-${theme}`);
-  if (rhythm !== '') out.push(`profile-page--rytm-${rhythm}`);
-  if (display !== '') out.push(`profile-page--skala-${display}`);
-  if (bands === 'pasy') out.push('profile-page--pasy');
-  if (hero === 'goly' || (hero === '' && bands === 'pasy')) out.push('profile-page--hero-goly');
-  return out.length > 0 ? ` ${out.join(' ')}` : '';
-}
-
-export function parseSections(raw: unknown): Section[] {
-  let parsed: unknown = raw;
-  if (typeof raw === 'string' || raw === null || raw === undefined) {
-    try {
-      parsed = JSON.parse(raw || '[]');
-    } catch {
-      return [];
-    }
-  }
-  if (!Array.isArray(parsed)) return [];
-  const out: Section[] = [];
-  for (const entry of parsed.slice(0, MAX_SECTIONS)) {
-    const clean = cleanSection(entry);
-    if (clean) out.push(clean);
-  }
-  return out;
-}
-
-function cleanSection(entry: unknown): Section | null {
-  if (typeof entry !== 'object' || entry === null) return null;
-  const raw = entry as Values;
-  const type = typeof raw.type === 'string' ? raw.type : '';
-  const def = SECTIONS_DEF[type];
-  if (!def) return null;
-
-  const out: Section = { type };
-  for (const field of sectionAllFields(def)) {
-    const value = cleanField(field, raw[field.name]);
-    if (value !== undefined) out[field.name] = value;
-  }
-  return out;
-}
-
-function cleanField(field: Field, value: unknown): unknown {
-  if (field.kind === 'list') {
-    if (!Array.isArray(value)) return undefined;
-    const rows = value.slice(0, field.max ?? 12).map((item) => {
-      const src = (typeof item === 'object' && item !== null ? item : {}) as Values;
-      const dst: Values = {};
-      for (const sub of field.of ?? []) {
-        const clean = cleanField(sub, src[sub.name]);
-        if (clean !== undefined) dst[sub.name] = clean;
-      }
-      return dst;
-    });
-    return rows.filter((row) => Object.keys(row).length > 0);
-  }
-
-  if (typeof value !== 'string') return undefined;
-  if (field.kind === 'url') return safeUrl(value) ?? undefined;
-  if (field.kind === 'select') {
-    return (field.options ?? []).some(([v]) => v === value) ? value : undefined;
-  }
-  const text = field.kind === 'textarea'
-    ? sanitizeRichText(value, field.max ?? 2000)
-    : sanitizeLine(value, field.max ?? 120);
-  return text === '' ? undefined : text;
-}
-
-/**
- * The order a profile falls back to before the therapist has arranged anything.
- * It reproduces the fixed spine the page had before sections existed, so an
- * untouched profile keeps rendering exactly as it did.
- */
-const DEFAULT_ORDER = [
-  'hero', 'kluczowe', 'intro', 'dane', 'first_meeting', 'topics', 'offers', 'slots', 'faq', 'credentials',
-  'zaproszenie',
-] as const;
-
-/** Her arrangement if she made one, the default spine otherwise. */
-export function pageSections(arranged: Section[]): Section[] {
-  if (arranged.length === 0) return defaultSections();
-  // A page always renders exactly one heading: without it there is no <h1> and
-  // no photograph, which is broken rather than minimal.
-  return arranged.some((section) => SECTIONS_DEF[section.type]?.family === 'hero')
-    ? arranged
-    : [{ type: 'hero' }, ...arranged];
-}
-
-export function defaultSections(): Section[] {
-  return DEFAULT_ORDER.map((id) => ({ type: id }));
-}
-
-
-
-/** How many links the anchor bar shows before it would wrap onto a second line. */
-const NAV_MAX = 6;
-
-/** Anchors kept from the old markup: the hero and the widget link to them. */
-const ANCHORS: Record<string, string> = {
-  slots: 'terminy', zestawienie: 'terminy', faq: 'faq', first_meeting: 'pierwsze',
-};
-
-/**
- * One broken section must not take the profile down with it, so each renders
- * inside its own try/catch. A section whose renderer returns nothing - no bio,
- * no offer, no slots - is skipped entirely: a heading above nothing is the thing
- * that reads as broken.
- */
-export function renderSections(
-  sections: Section[],
-  baseCtx: SectionCtx,
-  options: { nav?: boolean; bands?: string } = {},
-): string {
-  const seenAnchor = new Set<string>();
-  // Two blocks can carry the same anchor (the slot table and the two-card
-  // summary both are "terminy"): the first one on the page takes the id, and
-  // the links elsewhere know whether it is there at all.
-  const ctx: SectionCtx = {
-    ...baseCtx,
-    anchors: new Set(sections.map((s) => ANCHORS[s.type]).filter((a): a is string => a !== undefined)),
-  };
-  // The anchor bar is built from what the page renders, not from a list she
-  // keeps in step by hand: a section that came out empty is not in it.
-  const bar: Array<[string, string]> = [];
-  let heroAt = -1;
-
-  const parts = sections.map((section, index) => {
-    const def = SECTIONS_DEF[section.type];
-    if (!def) return '';
-    let inner: string;
-    try {
-      inner = def.render(section, ctx);
-    } catch {
-      return '';
-    }
-    if (inner.trim() === '') return '';
-
-    // The heading block is the page's masthead, not one of the bands below
-    // it: it brings its own element and its own layout class.
-    if (def.family === 'hero') {
-      heroAt = index;
-      return `<header class="phero phero--${escapeHtml(section.type.replace(/^hero-?/, '') || 'klasyczny')}">${inner}</header>`;
-    }
-    const anchor = ANCHORS[section.type];
-    const claimed = anchor !== undefined && !seenAnchor.has(anchor) && !!seenAnchor.add(anchor);
-    const id = claimed ? anchor : options.nav === true ? `sekcja-${index}` : '';
-    const label = options.nav === true ? navLabel(inner) : '';
-    if (id !== '' && label !== '') bar.push([id, label]);
-    // The block's own choices first, the type's and the page's defaults after.
-    const tlo = typeof section.tlo === 'string' ? section.tlo : '';
-    const tone = tlo in TLO_TONE ? TLO_TONE[tlo] : def.tone ?? '';
-    const kadr = typeof section.kadr === 'string' && section.kadr !== ''
-      ? section.kadr
-      : options.bands === 'pasy' ? 'pas' : '';
-    const skala = typeof section.skala === 'string' ? section.skala : '';
-    const cls = ['pblock'];
-    if (tone !== '') cls.push(`pblock--${tone}`);
-    if (kadr === 'pas' && (tone === 'alt' || tone === 'narrow')) cls.push('pblock--pas');
-    if (skala === 'duza' || skala === 'plakat') cls.push(`pblock--skala-${skala}`);
-    return `<section class="${cls.join(' ')}"${id === '' ? '' : ` id="${escapeHtml(id)}"`}>${inner}</section>`;
-  });
-
-  // One link is not a bar, it is a stray word under the heading. Ten of them
-  // is not a bar either - it wraps onto two lines and stops being scannable, so
-  // the bar carries the first six and the rest of the page is found by
-  // scrolling, which is what someone does with a profile anyway.
-  if (options.nav === true && bar.length > 1) {
-    const nav = `<nav class="pnav" aria-label="Sekcje profilu">${bar
-      .slice(0, NAV_MAX)
-      .map(([id, label]) => `<a href="#${escapeHtml(id)}">${label}</a>`)
-      .join('')}</nav>`;
-    parts.splice(heroAt + 1, 0, nav);
-  }
-  return parts.join('');
-}
-
-/**
- * The label the anchor bar uses. The eyebrow first, because that is already the
- * two-word name of the block ("Jak pracuję", "W skrócie"); the heading is a
- * whole sentence and a bar of those wraps onto three lines. The markup is ours
- * and already escaped, so the tags come out and the text goes straight back in.
- */
-function navLabel(inner: string): string {
-  const heading = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(inner)?.[1]?.replace(/<[^>]*>/g, '') ?? '';
-  const label = (/<p class="eyebrow">([\s\S]*?)<\/p>/.exec(inner)?.[1] ?? heading).trim();
-  if (label.length <= 28) return label;
-  // Cut on a word, not mid-syllable: half a Polish word in small caps is noise.
-  const cut = label.slice(0, 28);
-  return `${cut.slice(0, cut.lastIndexOf(' ')) || cut}…`;
-}
-

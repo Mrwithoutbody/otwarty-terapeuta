@@ -1,15 +1,15 @@
 /**
- * Podstrony terapeutki na silniku x402-landings.
+ * The therapist's pages on the x402-landings engine.
  *
- * Profil zostaje na własnym silniku sekcji; podstrona (landing pod kampanię,
- * terapia grupowa, warsztat, camp) to bloki x402 plus bloki hosta, które czytają
- * bazę: kalendarz, oferta, FAQ, kwalifikacje. Blok hosta opakowuje istniejący
- * renderer z `sections.ts`, więc kalendarz na podstronie jest tym samym
- * kalendarzem co na profilu - jedna tabela dni, jedne zasady odwołania.
+ * One engine renders her profile and every subpage (a landing, a group, a
+ * workshop, a camp). The engine brings the text blocks, the themes and the
+ * templates; this module brings what the engine cannot know - the blocks that
+ * read her data (`host-blocks.ts`), the old profile JSON translated on the
+ * way in, and the two documents the pages are served as.
  *
- * Render jest przy żądaniu, z bazy: sloty zmieniają się co minutę, więc cache
- * HTML nie ma tu sensu. `resolvePage` to asynchroniczny pre-pass z danymi hosta,
- * sam render jest synchroniczny.
+ * Render is per request, from the database: her open slots change by the
+ * minute, so nothing here is cached as HTML. `resolvePage` is the async
+ * pre-pass that hands host data to the blocks; the render itself is sync.
  */
 import {
   applyPreset,
@@ -18,6 +18,7 @@ import {
   DOCUMENT_CSS,
   LAYOUT_AXES as LP_LAYOUT_AXES,
   layoutClasses as lpLayoutClasses,
+  MAX_BLOCKS,
   PAGE_CSS,
   parseBlocks,
   parseLayout as lpParseLayout,
@@ -33,13 +34,177 @@ import {
 import type { Env } from '../env';
 import type { PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
-import { SECTIONS_DEF, type SectionCtx } from './sections';
+import { HOST_SECTIONS, type SectionCtx } from './host-blocks';
 import { APP_CSS } from './styles';
 
-export { applyPreset, blockAllFields, BLOCKS, LP_LAYOUT_AXES, lpParseLayout, parseBlocks, PRESETS, slugify };
+export { applyPreset, blockAllFields, BLOCKS, LP_LAYOUT_AXES, lpParseLayout, MAX_BLOCKS, parseBlocks, PRESETS, slugify };
+export type { SectionCtx };
+
+// ------------------------------------------------------------ host blocks ---
+
+/** Ids the profile's own buttons point at: the calendar and the first meeting. */
+const HOST_ANCHORS: Record<string, string> = { slots: 'terminy', zestawienie: 'pierwsze' };
+
+registerBlocks(
+  Object.fromEntries(
+    Object.entries(HOST_SECTIONS).map(([type, def]): [string, BlockDef] => [
+      type,
+      {
+        label: def.label,
+        hint: def.hint,
+        tone: def.tone,
+        repeatable: def.repeatable,
+        family: def.family,
+        fields: def.fields,
+        anchor: HOST_ANCHORS[type],
+        // Her data goes in, finished HTML comes out. The parser never lets an
+        // `html` field through from outside, so only this can set it.
+        resolve: async (block, host) => {
+          const html = def.render(block, host as SectionCtx);
+          // The old renderer wrapped her heading in the frame its styles expect.
+          const variant = type === 'hero-profil' ? 'klasyczny' : type.replace(/^hero-/, '');
+          return { ...block, html: def.family === 'hero' && html !== '' ? `<div class="phero phero--${variant}">${html}</div>` : html };
+        },
+        render: (block: Block) => (typeof block.html === 'string' ? block.html : ''),
+      },
+    ]),
+  ),
+);
+
+export const HOST_TYPES: string[] = Object.keys(HOST_SECTIONS);
+
+// ------------------------------------------------------- the old profile ---
 
 /**
- * The subpage is its own document, not a section of the catalogue: full
+ * The profile JSON written by the previous engine, translated on read. Types
+ * and fields were Polish there and are the engine's here; what the engine has
+ * no block for stays a host block (her service, her articles, text beside her
+ * portrait). Nothing is migrated in the database: a profile converts every
+ * time it is read and is stored in the new shape the next time she saves.
+ *
+ * ponytail: delete this once `SELECT count(*) FROM therapists WHERE
+ * sections_json LIKE '%"tekst"%' OR ... ` is zero on production.
+ */
+const LEGACY_TYPE: Record<string, string> = {
+  hero: 'hero-profil',
+  faq: 'faq-profil',
+  tekst: 'text',
+  'tekst-wyrozniony': 'text',
+  cytat: 'quote',
+  filary: 'features',
+  kroki: 'steps',
+  fakty: 'stats',
+  wyroznienie: 'cta',
+};
+const LEGACY_TONE: Record<string, string> = { zwykle: 'plain', panel: 'alt', ciemne: 'dark', waskie: 'narrow' };
+const LEGACY_FRAME: Record<string, string> = { karta: 'card', pas: 'stripe' };
+const LEGACY_SCALE: Record<string, string> = { duza: 'large', plakat: 'poster' };
+const LEGACY_LAYOUT: Record<string, Record<string, string>> = {
+  theme: { '': 'sage', bursztyn: 'amber', glina: 'clay', grafit: 'graphite', las: 'forest', papier: 'paper', atrament: 'ink' },
+  rhythm: { zwarty: 'tight', dostojny: 'roomy' },
+  display: LEGACY_SCALE,
+  bands: { panele: 'panels', pasy: 'stripes' },
+  hero: { karta: 'card', goly: 'bare' },
+  nav: { kotwice: 'anchors' },
+};
+
+function legacyBlock(raw: Record<string, unknown>): Record<string, unknown> {
+  const oldType = typeof raw.type === 'string' ? raw.type : '';
+  const out: Record<string, unknown> = { ...raw, type: LEGACY_TYPE[oldType] ?? oldType };
+  if (oldType === 'tekst-wyrozniony' && typeof raw.tlo !== 'string') out.tone = 'alt';
+  if (typeof raw.tlo === 'string') out.tone = LEGACY_TONE[raw.tlo] ?? '';
+  if (typeof raw.kadr === 'string') out.frame = LEGACY_FRAME[raw.kadr] ?? '';
+  if (typeof raw.skala === 'string') out.scale = LEGACY_SCALE[raw.skala] ?? '';
+  if (typeof raw.cta_label === 'string' && typeof raw.cta_href === 'string' && oldType in LEGACY_TYPE) {
+    out.buttons = [{ label: raw.cta_label, href: raw.cta_href, style: 'primary' }];
+  }
+  if (Array.isArray(raw.items)) {
+    out.items = raw.items.map((item) => {
+      const src = (typeof item === 'object' && item !== null ? item : {}) as Record<string, unknown>;
+      return typeof src.desc === 'string' && src.body === undefined ? { ...src, body: src.desc } : src;
+    });
+  }
+  return out;
+}
+
+const DEFAULT_PROFILE = [
+  'hero-profil', 'kluczowe', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'faq-profil',
+  'credentials', 'zaproszenie',
+];
+
+/** Her arrangement in the engine's shape, or the default spine; always with a heading. */
+export function profileBlocks(raw: unknown): Block[] {
+  let parsed: unknown = raw;
+  if (typeof raw === 'string' || raw === null || raw === undefined) {
+    try {
+      parsed = JSON.parse((raw as string) || '[]');
+    } catch {
+      parsed = [];
+    }
+  }
+  const list = Array.isArray(parsed) ? parsed : [];
+  const blocks = parseBlocks(
+    list.map((entry) => legacyBlock((typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>)),
+  );
+  if (blocks.length === 0) return DEFAULT_PROFILE.map((type) => ({ type }));
+  return blocks.some((b) => BLOCKS[b.type]?.family === 'hero') ? blocks : [{ type: 'hero-profil' }, ...blocks];
+}
+
+/** Her layout in the engine's axes, whether stored by the old engine or this one. */
+export function profileLayout(raw: unknown): Record<string, string> {
+  let parsed: unknown = raw;
+  if (typeof raw === 'string' || raw === null || raw === undefined) {
+    try {
+      parsed = JSON.parse((raw as string) || '{}');
+    } catch {
+      parsed = {};
+    }
+  }
+  const src = (typeof parsed === 'object' && parsed !== null ? parsed : {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [axis, value] of Object.entries(src)) {
+    out[axis] = typeof value === 'string' ? (LEGACY_LAYOUT[axis]?.[value] ?? value) : value;
+  }
+  return lpParseLayout(out);
+}
+
+/** A template for the profile: the engine's look, the profile's own spine. */
+export function applyProfilePreset(id: string): { layout: Record<string, string>; blocks: Block[] } {
+  const { layout } = applyPreset(id);
+  const hero = layout.display === 'poster' ? 'hero-plakat' : 'hero-profil';
+  return { layout, blocks: DEFAULT_PROFILE.map((type) => ({ type: type === 'hero-profil' ? hero : type })) };
+}
+
+// ---------------------------------------------------------------- render ---
+
+export interface PageRow {
+  id: string;
+  therapist_id: string;
+  slug: string;
+  title: string;
+  status: 'draft' | 'published';
+  blocks_json: string;
+  layout_json: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+async function renderLp(title: string, blocks: Block[], layout: Record<string, string>, host: SectionCtx): Promise<string> {
+  const page = parsePage({ meta: { title }, layout, blocks });
+  // Her buttons link to the calendar and the first meeting only when those are on the page.
+  const anchors = new Set(page.blocks.map((b) => HOST_ANCHORS[b.type]).filter((a): a is string => a !== undefined));
+  return renderBlocks(await resolvePage(page, { ...host, anchors }));
+}
+
+/** The profile, inside the catalogue: the engine's page in the catalogue's frame. */
+export async function renderProfile(t: PublicTherapist, host: SectionCtx): Promise<string> {
+  const layout = profileLayout(t.layout);
+  return `<div class="${lpLayoutClasses(layout)}">${await renderLp(t.display_name, profileBlocks(t.sections), layout, host)}</div>`;
+}
+
+/**
+ * A subpage is its own document, not a section of the catalogue: full
  * viewport, the engine's stripes edge to edge, no catalogue header or footer.
  * What ties it back is one slim bar with her name and her other pages.
  */
@@ -56,18 +221,19 @@ main.lp{padding-block:0}
 
 /**
  * Only the catalogue rules the host blocks need, pulled out of `app.css` by
- * the class names `sections.ts` renders. Loading the whole of `app.css` into
- * the subpage document was measured to break the engine: its `.hero` painted a
- * light card under a dark poster, `.steps li` bleached the step cards, and
- * `.kicker` turned a label into a pill. Selectors are filtered one comma-part
- * at a time, so a shared rule keeps only the part that belongs to a section.
+ * the class names `host-blocks.ts` renders. Loading the whole of `app.css`
+ * into the subpage document was measured to break the engine, and the engine
+ * now prefixes its own classes so the catalogue cannot hit them - but the
+ * catalogue's element rules (h2 margins, p widths, main padding) would still
+ * fight the engine's, so the standalone document takes only these.
  */
 const SECTION_CLASSES = [
   'amount', 'badge', 'badges', 'block-lead', 'chips', 'details-body', 'lang', 'meeting-steps',
   'offer-card', 'offer-grid', 'offer-meta', 'offer-name', 'offer-price', 'offer-rows', 'pcard', 'pcards',
-  'pdata', 'per', 'pfact', 'pfact-cta', 'pfacts', 'pfacts-strip', 'pillars', 'plinks', 'pquote', 'pservice',
-  'pservice-facts', 'pservice-points', 'psplit', 'psplit-empty', 'psplit-photo', 'read-more', 'slot-chips',
-  'slot-foot', 'slot-mode', 'slot-none', 'slot-table', 'slot-table-scroll', 'slot-time', 'visually-hidden',
+  'pdata', 'per', 'pfact', 'pfact-cta', 'pfacts', 'pfacts-strip', 'phero', 'pillars', 'plinks', 'pquote',
+  'pservice', 'pservice-facts', 'pservice-points', 'psplit', 'psplit-empty', 'psplit-photo', 'read-more',
+  'slot-chips', 'slot-foot', 'slot-mode', 'slot-none', 'slot-table', 'slot-table-scroll', 'slot-time',
+  'visually-hidden',
 ];
 const SECTION_CLASS = new RegExp(`\\.(${SECTION_CLASSES.join('|')})(?![\\w-])`);
 
@@ -127,56 +293,49 @@ function keepSectionRules(css: string): string {
     .join('\n');
 }
 
-export const HOST_CSS = keepSectionRules(APP_CSS);
-export const LP_DOC_CSS = DOCUMENT_CSS + PAGE_CSS + HOST_CSS + BAR_CSS;
+/** The engine's stylesheet for pages inside the catalogue (`app.css` is there too). */
+export const LP_CSS = PAGE_CSS;
+/** Everything a subpage document needs, in one file. */
+export const LP_DOC_CSS = DOCUMENT_CSS + PAGE_CSS + keepSectionRules(APP_CSS) + BAR_CSS;
 
-export interface PageRow {
-  id: string;
-  therapist_id: string;
-  slug: string;
-  title: string;
-  status: 'draft' | 'published';
-  blocks_json: string;
-  layout_json: string;
-  position: number;
-  created_at: string;
-  updated_at: string;
+export async function renderTherapistDocument(
+  row: PageRow,
+  host: SectionCtx,
+  t: PublicTherapist,
+  pages: PageRow[],
+  assets: { lpDocCss: string },
+): Promise<string> {
+  const links = pages
+    .filter((p) => p.id !== row.id)
+    .map((p) => `<a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a>`)
+    .join('');
+  const layout = lpParseLayout(row.layout_json);
+  const body = await renderLp(row.title, parseBlocks(row.blocks_json), layout, host);
+  return `<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(row.title)} — ${escapeHtml(t.display_name)}</title>
+<meta name="description" content="${escapeHtml(t.headline ?? row.title)}">
+${row.status === 'published' ? '' : '<meta name="robots" content="noindex, nofollow">'}
+<link rel="stylesheet" href="${assets.lpDocCss}">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<a class="skip" href="#main">Przejdź do treści</a>
+<nav class="lp-bar" aria-label="Strony terapeuty">
+  <a class="lp-bar-name" href="/terapeuci/${escapeHtml(t.slug)}">← ${escapeHtml(t.display_name)}</a>
+  <a href="/terapeuci/${escapeHtml(t.slug)}">Profil</a>
+  <a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(row.slug)}" aria-current="page">${escapeHtml(row.title)}</a>
+  ${links}
+</nav>
+<main id="main" class="${lpLayoutClasses(layout)}">
+${body}
+</main>
+</body>
+</html>`;
 }
-
-/**
- * Blok hosta → sekcja profilu, której renderer i dane bierze. Nazwy bloków są
- * osobne od nazw sekcji tylko tam, gdzie kolidują z rdzeniem x402 (`faq`).
- */
-export const HOST_BLOCKS: Record<string, string> = {
-  intro: 'intro',
-  topics: 'topics',
-  offers: 'offers',
-  'oferta-lista': 'oferta-lista',
-  slots: 'slots',
-  dane: 'dane',
-  'faq-profil': 'faq',
-  credentials: 'credentials',
-  zaproszenie: 'zaproszenie',
-};
-
-function hostBlock(section: string): BlockDef {
-  const def = SECTIONS_DEF[section];
-  if (!def) throw new Error(`Brak sekcji profilu: ${section}`);
-  return {
-    label: def.label,
-    hint: def.hint,
-    tone: def.tone,
-    repeatable: def.repeatable,
-    family: def.family,
-    fields: def.fields,
-    // Renderer profilu dostaje kontekst hosta i zwraca gotowy HTML; parser
-    // nigdy nie przepuści pola `html` z zewnątrz, więc trafia tu tylko to.
-    resolve: async (block, host) => ({ ...block, html: def.render(block, host as SectionCtx) }),
-    render: (block: Block) => (typeof block.html === 'string' ? block.html : ''),
-  };
-}
-
-registerBlocks(Object.fromEntries(Object.entries(HOST_BLOCKS).map(([type, section]) => [type, hostBlock(section)])));
 
 // ------------------------------------------------------------------ baza ---
 
@@ -200,48 +359,4 @@ export async function getPageById(env: Env, therapistId: string, id: string): Pr
   return env.DB.prepare(`SELECT * FROM therapist_pages WHERE therapist_id = ? AND id = ?`)
     .bind(therapistId, id)
     .first<PageRow>();
-}
-
-// ---------------------------------------------------------------- render ---
-
-/** Podstrona jako samodzielny dokument: belka powrotu + strona silnika na całą szerokość. */
-export async function renderTherapistDocument(
-  row: PageRow,
-  host: SectionCtx,
-  t: PublicTherapist,
-  pages: PageRow[],
-  assets: { lpCss: string },
-): Promise<string> {
-  const page = await resolvePage(
-    parsePage({ meta: { title: row.title }, layout: row.layout_json, blocks: row.blocks_json }),
-    host,
-  );
-  const links = pages
-    .filter((p) => p.id !== row.id)
-    .map((p) => `<a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a>`)
-    .join('');
-  return `<!doctype html>
-<html lang="pl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(row.title)} — ${escapeHtml(t.display_name)}</title>
-<meta name="description" content="${escapeHtml(t.headline ?? row.title)}">
-${row.status === 'published' ? '' : '<meta name="robots" content="noindex, nofollow">'}
-<link rel="stylesheet" href="${assets.lpCss}">
-<link rel="icon" href="data:,">
-</head>
-<body>
-<a class="skip" href="#main">Przejdź do treści</a>
-<nav class="lp-bar" aria-label="Strony terapeuty">
-  <a class="lp-bar-name" href="/terapeuci/${escapeHtml(t.slug)}">← ${escapeHtml(t.display_name)}</a>
-  <a href="/terapeuci/${escapeHtml(t.slug)}">Profil</a>
-  <a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(row.slug)}" aria-current="page">${escapeHtml(row.title)}</a>
-  ${links}
-</nav>
-<main id="main" class="${lpLayoutClasses(row.layout_json)}">
-${renderBlocks(page)}
-</main>
-</body>
-</html>`;
 }

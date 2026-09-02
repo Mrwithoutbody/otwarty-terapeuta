@@ -27,9 +27,13 @@ zrobienia, nie do ominięcia). Co się zmieniło po stronie x402 (2026-09-02):
 - Serwis `/v1/render` i cache w R2 zostają **tylko** dla statycznych landingów
   marketingowych. Profil renderuje się w żądaniu, z bazy.
 
-Kolejność: ZNANY7 pierwszy (mniejsze ryzyko), ot-02 ostatni. Migracja
-`sections_json` u każdej terapeutki = jednorazowy skrypt z kopią do
-`sections_json_old`. **Nigdy przez seed** — raz już skasował zdjęcie.
+Zrobione 2026-09-02: profil renderuje x402 (`renderProfile` w `src/web/lp.ts`),
+stary `sections.ts` skasowany, zostały renderery z bazy w `host-blocks.ts`
+(rejestrowane jako bloki hosta z `resolve`). Stary `sections_json` i
+`layout_json` są **tłumaczone przy odczycie** (`profileBlocks`, `profileLayout`)
+i zapisywane w nowym kształcie przy następnym zapisie z panelu — zero migracji
+na produkcji, zero seedu. Kolizje klas silnika z `app.css` zamknięte prefiksem
+`lp-` po stronie x402. Bilans: `src/` 13 495 → 12 528 linii.
 
 ## Historia: dlaczego podmiana była odrzucona 2026-08-26
 

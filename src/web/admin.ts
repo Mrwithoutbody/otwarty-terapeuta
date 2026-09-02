@@ -29,32 +29,22 @@ import {
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { assetUrls, htmlResponse, renderPage } from './layout';
-import {
-  defaultSections,
-  LAYOUT_AXES,
-  MAX_SECTIONS,
-  parseLayout,
-  parseSections,
-  SECTION_GROUPS,
-  SECTIONS_DEF,
-  sectionAllFields,
-  type SecDef,
-  type Section,
-  type Values,
-} from './sections';
-import type { BlockDef, Field as LpField } from 'x402-landings';
+import type { BlockDef, Field as LpField, Block as Section, Values } from 'x402-landings';
 import {
   applyPreset,
+  applyProfilePreset,
   blockAllFields,
   BLOCKS,
   getPageById,
-  HOST_BLOCKS,
   listPages,
   LP_DOC_CSS,
   LP_LAYOUT_AXES,
   lpParseLayout,
+  MAX_BLOCKS,
   parseBlocks,
   PRESETS,
+  profileBlocks,
+  profileLayout,
   renderTherapistDocument,
   slugify,
   type PageRow,
@@ -482,12 +472,7 @@ interface EditorContext {
   pages: PageRow[];
 }
 
-/**
- * Two engines, one builder. The profile arranges sections from `sections.ts`;
- * a subpage arranges blocks from x402-landings. Both registries have the same
- * shape - label, hint, fields, family - so the form generator, the reader and
- * the palette are written once and handed the registry.
- */
+/** The builder is generated from the engine's registry: core blocks and the host's. */
 interface BuilderDef {
   label: string;
   hint: string;
@@ -503,12 +488,6 @@ interface Builder {
   allFields(def: BuilderDef): LpField[];
   parse(raw: unknown): Section[];
 }
-const PROFILE_BUILDER: Builder = {
-  defs: SECTIONS_DEF,
-  groups: SECTION_GROUPS,
-  allFields: (def) => sectionAllFields(def as SecDef),
-  parse: parseSections,
-};
 const LP_BUILDER: Builder = {
   defs: BLOCKS,
   groups: [[true, 'Twoje dane'], [false, 'Własna treść']],
@@ -695,8 +674,20 @@ function collectLayout(axes: Axes, parse: (raw: unknown) => Record<string, strin
 }
 
 function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {
-  const stored = parseSections(row?.sections_json ?? null);
-  return editorList(PROFILE_BUILDER, stored.length > 0 ? stored : defaultSections(), autoSummary(row, context));
+  return editorList(LP_BUILDER, profileBlocks(row?.sections_json ?? null), autoSummary(row, context));
+}
+
+/** One select, one button: the template sets the look and the spine, the form saves it. */
+function presetChoice(profile: boolean): string {
+  return `<fieldset class="sec-layout">
+  <legend>Szablon</legend>
+  <div class="field"><label for="preset">Gotowy zestaw: motyw, układ i kolejność bloków</label>
+    <select id="preset" name="preset">${Object.entries(PRESETS)
+      .map(([key, p]) => `<option value="${escapeHtml(key)}">${escapeHtml(p.label)} — ${escapeHtml(p.hint)}</option>`)
+      .join('')}</select>
+    <p class="hint">Zastąpi ${profile ? 'układ profilu' : 'układ podstrony'} zestawem z szablonu. Treść w zakładkach zostaje.</p></div>
+  <button class="btn secondary" type="submit" name="action" value="apply_preset">Zastosuj szablon</button>
+</fieldset>`;
 }
 
 function editorList(
@@ -723,7 +714,7 @@ function editorList(
       }</span></span>
     <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
     <label class="sec-pos"><span class="visually-hidden">Pozycja sekcji ${escapeHtml(def.label)}</span>
-      <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_SECTIONS}" data-section-pos></label>
+      <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_BLOCKS}" data-section-pos></label>
     <label class="sec-del"><input type="checkbox" name="sec_${index}_del" value="1"><span>usuń</span></label>
   </div>
   ${sectionFields(b, def, section, index)}
@@ -936,7 +927,7 @@ function autoSummary(
   const links = parseStoredLinks(row?.links ?? null).length;
 
   return {
-    hero: { text: `imię, zdjęcie i ${links > 0 ? count(links, 'link', 'linki', 'linków') : 'fakty'} — z zakładki O mnie` },
+    'hero-profil': { text: `imię, zdjęcie i ${links > 0 ? count(links, 'link', 'linki', 'linków') : 'fakty'} — z zakładki O mnie` },
     'hero-obietnica': { text: 'Twoje zdanie w tytule, nazwisko na karcie' },
     'hero-spotlight': { text: 'imię i zdanie na powitanie' },
     'hero-okladka': { text: 'imię, zdjęcie i najbliższy termin' },
@@ -1406,7 +1397,8 @@ każdym zapisie.</p>
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
   <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
-  ${layoutChoice(LAYOUT_AXES, parseLayout(row.layout_json))}
+  ${presetChoice(true)}
+  ${layoutChoice(LP_LAYOUT_AXES, profileLayout(row.layout_json))}
   <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność i dodawaj kolejne.
   Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
   najbliższy termin) jest u wszystkich taka sama, żeby dało się porównywać terapeutów między sobą.</p>
@@ -1542,7 +1534,7 @@ function collectSections(b: Builder, body: URLSearchParams): string {
   // the new section appended - one round trip, no JavaScript required.
   const added = body.get('action') === 'add_section' ? (body.get('add_section') ?? '') : '';
   const def = added === '' ? undefined : b.defs[added];
-  if (def && sections.length < MAX_SECTIONS) {
+  if (def && sections.length < MAX_BLOCKS) {
     const repeated = sections.some((s) => s.type === added);
     const familyTaken =
       def.family !== undefined && sections.some((s) => b.defs[s.type]?.family === def.family);
@@ -1830,9 +1822,11 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   const id = c.req.param('id');
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
-  const sections = collectSections(PROFILE_BUILDER, body);
+  const preset = body.get('action') === 'apply_preset' ? applyProfilePreset(body.get('preset') ?? '') : null;
+  const sections = preset ? JSON.stringify(preset.blocks) : collectSections(LP_BUILDER, body);
+  const layout = preset ? JSON.stringify(preset.layout) : collectLayout(LP_LAYOUT_AXES, lpParseLayout, body);
   await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
-    .bind(sections, collectLayout(LAYOUT_AXES, parseLayout, body), nowIso(), id)
+    .bind(sections, layout, nowIso(), id)
     .run();
 
   await audit(c.env, {
@@ -1915,9 +1909,8 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
 function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow, context: EditorContext): string {
   const id = escapeHtml(therapist.id);
   const pid = escapeHtml(row.id);
-  // Host blocks show what the database holds for them today, like the profile's auto sections.
-  const profileSummary = autoSummary(therapist, context);
-  const summary = Object.fromEntries(Object.entries(HOST_BLOCKS).map(([block, section]) => [block, profileSummary[section]]));
+  // Host blocks show what the database holds for them today, same as on the profile.
+  const summary = autoSummary(therapist, context);
   const preview = `/admin/terapeuci/${id}/strony/${pid}/podglad`;
 
   return `<p><a href="/admin/terapeuci/${id}#panel-strony">← Profil: ${escapeHtml(therapist.display_name)}</a></p>
@@ -1936,6 +1929,7 @@ function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow
       <option value="published"${row.status === 'published' ? ' selected' : ''}>Opublikowana — link na profilu</option>
     </select></div>
   <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
+  ${presetChoice(false)}
   ${layoutChoice(LP_LAYOUT_AXES, lpParseLayout(row.layout_json))}
   <p class="hint">Przeciągnij blok, żeby zmienić kolejność, i dodawaj kolejne. Blok, w którym nic nie ma,
   nie pokaże się na stronie. Strona bez nagłówka dostaje nagłówek z tytułu.</p>
@@ -1973,12 +1967,14 @@ adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
   if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
     return page(c.env, 'Zły adres', '<h1>Zły adres</h1><p>Adres to małe litery, cyfry i myślniki.</p>', 400);
   }
-  const blocks = collectSections(LP_BUILDER, body);
+  const preset = body.get('action') === 'apply_preset' ? applyPreset(body.get('preset') ?? '', title) : null;
+  const blocks = preset ? JSON.stringify(preset.blocks) : collectSections(LP_BUILDER, body);
+  const layout = preset ? JSON.stringify(preset.layout) : collectLayout(LP_LAYOUT_AXES, lpParseLayout, body);
   try {
     await c.env.DB.prepare(
       `UPDATE therapist_pages SET title=?, slug=?, status=?, blocks_json=?, layout_json=?, updated_at=? WHERE id=? AND therapist_id=?`,
     )
-      .bind(title, slug, status, blocks, collectLayout(LP_LAYOUT_AXES, lpParseLayout, body), nowIso(), row.id, therapist.id)
+      .bind(title, slug, status, blocks, layout, nowIso(), row.id, therapist.id)
       .run();
   } catch (err) {
     if (!String(err).includes('UNIQUE')) throw err;

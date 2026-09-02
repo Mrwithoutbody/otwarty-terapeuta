@@ -87,7 +87,7 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('<h1>Nie musisz tego dźwigać sama</h1>');
     expect(html).toContain('Mała grupa, do ośmiu osób.');
     expect(html).toContain('class="lp lp--theme-clay');
-    expect(html).toContain('/assets/lp.css');
+    expect(html).toContain('/assets/lp-doc.css');
     // The calendar on the subpage is the profile's calendar - same renderer, same data.
     expect(html).toContain('slot-table');
     // Its own document: no catalogue header, one bar back to her.
@@ -102,7 +102,7 @@ describe('podstrony terapeutki', () => {
 
     // The engine stylesheet is a file, so the strict CSP stays as it is.
     expect(publicPage.headers.get('content-security-policy')).toContain(`style-src 'self'`);
-    expect((await SELF.fetch('https://localhost/assets/lp.css')).headers.get('content-type')).toContain('text/css');
+    expect((await SELF.fetch('https://localhost/assets/lp-doc.css')).headers.get('content-type')).toContain('text/css');
 
     const deleted = await post(anna, `${editor}/usun`, []);
     expect(deleted.status).toBe(303);

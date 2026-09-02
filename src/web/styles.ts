@@ -14,6 +14,7 @@ export const APP_CSS = `
   src: url("/fonts/lora-latin-ext-variable.woff2") format("woff2-variations");
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
+
 @font-face {
   font-family: "Lora Variable";
   font-style: normal;
@@ -22,6 +23,7 @@ export const APP_CSS = `
   src: url("/fonts/lora-latin-variable.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
+
 @font-face {
   font-family: "Playfair Variable";
   font-style: normal;
@@ -30,6 +32,7 @@ export const APP_CSS = `
   src: url("/fonts/playfair-latin-ext-variable.woff2") format("woff2-variations");
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
+
 @font-face {
   font-family: "Playfair Variable";
   font-style: normal;
@@ -38,7 +41,6 @@ export const APP_CSS = `
   src: url("/fonts/playfair-latin-variable.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
-
 :root {
   color-scheme: light;
   --bg: #f7f8f1;
@@ -139,16 +141,13 @@ a:hover { text-decoration-thickness: 2px; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 5px; }
 img { max-width: 100%; height: auto; }
 code { background: var(--surface-alt); border-radius: 6px; padding: 0.08em 0.32em; }
-
 .skip-link {
   position: fixed; left: 1rem; top: -5rem; z-index: 100;
   background: var(--accent-strong); color: #fff; padding: 0.7rem 1rem;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm); transition: top 0.18s ease;
 }
 .skip-link:focus { top: 0; }
-
 .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding-inline: clamp(1rem, 3vw, 2.5rem); }
-
 header.site {
   position: sticky; top: 0; z-index: 20;
   border-bottom: 1px solid rgba(210, 216, 194, 0.72);
@@ -187,16 +186,11 @@ nav.site a:hover, nav.site a[aria-current="page"] {
 }
 .header-cta:hover { background: #2d3428; text-decoration: none; }
 .mobile-nav { display: none; position: relative; }
-
 main { display: block; padding-block: clamp(2rem, 4vw, 3rem) clamp(4rem, 8vw, 6rem); }
-/* A band that breaks out to the full viewport has to meet the footer. Left with
-   main's bottom padding under it, the page ends on a strip of white below a
-   dark block, which reads as a mistake - because it is one. */
-main:has(.profile-page > .pblock--dark:last-child) { padding-bottom: 0; }
 main > .wrap > :first-child { margin-top: 0; }
-
 footer.site { border-top: 1px solid var(--border); background: #f1f3e8; padding-block: clamp(3rem, 6vw, 5rem) 2rem; }
 footer.site .wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr); gap: 3rem 6rem; }
+
 /* The crisis numbers open the footer, across its full width, with the accent
    rule down the side. Loud enough to find while scrolling past, quiet enough
    not to shout at someone who is not in a crisis. */
@@ -206,6 +200,7 @@ footer.site .wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minma
 .footer-crisis h2 { font-size: 1.05rem; margin: 0 0 var(--space-4); }
 .footer-crisis ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: var(--space-4); list-style: none; margin: 0; padding: 0; }
+
 /* The link-list rule in footer.site sets a top margin and ties with this
    selector, so it has to be beaten on specificity - otherwise the second and
    third numbers sit lower than the first. */
@@ -215,11 +210,11 @@ footer.site .footer-crisis li + li { margin-top: 0; }
   letter-spacing: -0.02em; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
 .footer-crisis li span { display: block; color: var(--text-muted); font-size: 0.84rem; }
 .footer-crisis li a:hover b { text-decoration: underline; }
+
 /* The global paragraph measure would wrap the arrow onto its own line. */
 .footer-crisis > p { margin: var(--space-4) 0 0; max-width: none; }
 .footer-crisis > p a { font-size: 0.88rem; color: var(--accent-strong); }
-@media (max-width: 40rem) { .footer-crisis { padding: var(--space-6); } }
-
+@media (max-width: 40rem) {.footer-crisis { padding: var(--space-6); } }
 .footer-brand p { color: var(--text-muted); margin-top: 1rem; max-width: 38ch; font-size: 0.9rem; }
 .footer-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; }
 .footer-links h2 { margin: 0 0 0.8rem; font: 700 0.72rem/1.3 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -230,7 +225,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .footer-legal { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-strong); }
 .footer-legal p { color: var(--text-muted); font-size: 0.76rem; line-height: 1.55; margin: 0; }
 .footer-legal p:first-child { max-width: 80ch; }
-
 .hero {
   isolation: isolate; position: relative; overflow: hidden;
   min-height: clamp(31rem, 52vw, 38rem); display: grid; place-content: center;
@@ -252,7 +246,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .hero h1 { max-width: 16ch; margin-inline: auto; }
 .hero p { margin-inline: auto; }
 .hero p.lead { max-width: 52ch; color: #686f5f; font-size: clamp(1rem, 0.96rem + 0.25vw, 1.125rem); line-height: 1.7; }
-
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   min-height: 2.75rem; padding: 0.625rem 1.25rem; border: 1px solid var(--accent-strong);
@@ -266,7 +259,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .btn.secondary { background: var(--surface); color: var(--accent-strong); border-color: var(--border-strong); box-shadow: none; }
 .btn.secondary:hover { background: var(--accent-soft); border-color: var(--accent); }
 .btn[aria-disabled="true"], .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
-
 .notice {
   position: relative; border: 1px solid var(--border); background: var(--surface-alt);
   padding: 1rem 1.15rem 1rem 1.35rem; border-radius: var(--radius-sm); margin: 1.25rem 0;
@@ -279,12 +271,10 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .notice.warn::before { background: var(--focus); }
 .notice h2, .notice h3 { margin-top: 0; }
 .notice > :last-child { margin-bottom: 0; }
-
 .grid { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); }
 .grid > li { margin-top: 0; }
-@media (min-width: 46rem) { .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 64rem) { .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-
+@media (min-width: 46rem) {.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 64rem) {.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .card {
   position: relative; min-width: 0; padding: clamp(1.25rem, 2.5vw, 1.5rem);
   display: flex; flex-direction: column; gap: var(--space-3);
@@ -304,9 +294,11 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .card dt { color: var(--text-muted); }
 .card dd { margin: 0; overflow-wrap: anywhere; }
 .lang { display: inline-flex; align-items: center; gap: 0.4em; }
+
 /* Przygaszone: flaga ma być znacznikiem, nie najjaśniejszym punktem strony. */
 .lang svg { width: 1.15em; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; filter: saturate(0.62); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); flex: none; }
 .therapist-card .card-actions { margin-top: auto; padding-top: var(--space-2); }
+
 /* Her colour on the card, as a hairline and a link - not as a repainted card.
    The list has to stay comparable: six differently coloured cards side by side
    is a rainbow, and the eye stops reading the facts.
@@ -318,26 +310,26 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   --card-edge: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent);
   --card-ink: color-mix(in srgb, var(--card-accent) 70%, #000);
 }
+
 /* Hover strengthens: the hairline goes to full accent instead of vanishing. */
 .therapist-card:hover { --card-edge: inset 0 3px 0 var(--card-accent); }
-.therapist-card--theme-bursztyn { --card-accent: var(--acc-bursztyn); }
-.therapist-card--theme-glina { --card-accent: var(--acc-glina); }
-.therapist-card--theme-grafit { --card-accent: var(--acc-grafit); }
-.therapist-card--theme-las { --card-accent: var(--acc-las); }
-.therapist-card--theme-atrament { --card-accent: var(--acc-atrament); }
-.therapist-card--theme-papier { --card-accent: var(--acc-papier); }
+.therapist-card--theme-amber { --card-accent: var(--acc-bursztyn); }
+.therapist-card--theme-clay { --card-accent: var(--acc-glina); }
+.therapist-card--theme-graphite { --card-accent: var(--acc-grafit); }
+.therapist-card--theme-forest { --card-accent: var(--acc-las); }
+.therapist-card--theme-ink { --card-accent: var(--acc-atrament); }
+.therapist-card--theme-paper { --card-accent: var(--acc-papier); }
 .therapist-card .card-actions a { color: var(--card-ink); }
+
 /* The name keeps its colour and gains her underline - swapping the colour on
    hover made the strongest link on the card go paler the moment it was aimed at. */
 .therapist-card h3 a:hover { text-decoration-color: var(--card-accent); }
-
 .avatar {
   width: 72px; height: 72px; border-radius: 22px; object-fit: cover; flex: none;
   border: 1px solid var(--border); background:
     radial-gradient(circle at 35% 25%, rgba(255,255,255,0.75), transparent 34%), var(--accent-soft);
   box-shadow: inset 0 0 0 5px rgba(255,255,255,0.2);
 }
-
 .tags { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; }
 .tags li + li { margin-top: 0; }
 .tag {
@@ -346,7 +338,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 }
 .tag.verified { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--border-strong); }
 .tag.demo { background: #fbf0df; color: #82511d; border-color: #e9cda6; }
-
 main .wrap > form:not(.filters) {
   max-width: 56rem; padding: clamp(1.2rem, 3vw, 2rem); margin-block: 1.3rem 2rem;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
@@ -375,12 +366,11 @@ select { cursor: pointer; }
 input[type="checkbox"], input[type="radio"] { width: 1.05rem; height: 1.05rem; accent-color: var(--accent-strong); }
 .field { margin-bottom: var(--space-4); }
 .field-row { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 42rem) { .field-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 42rem) {.field-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .checkbox { display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 0.7rem; }
 .checkbox input { flex: none; margin-top: 0.32rem; }
 .checkbox label { margin: 0; font-weight: 450; }
 .hint { color: var(--text-muted); font-size: 0.875rem; line-height: 1.55; margin: var(--space-1) 0 0; }
-
 .table-scroll {
   overflow-x: auto; margin-block: 1rem 1.7rem; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm);
@@ -390,7 +380,6 @@ th, td { text-align: left; padding: var(--space-3) var(--space-4); border-bottom
 th { background: var(--surface-alt); color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 700; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, transparent); }
-
 .error {
   color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--surface-solid));
   border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
@@ -401,6 +390,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
+
 
 /* Public subpages */
 .subpage { display: grid; gap: clamp(4.5rem, 9vw, 7.5rem); }
@@ -421,7 +411,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .subpage-heading { max-width: 45rem; margin-bottom: 2.5rem; }
 .subpage-heading h2, .resource-heading h2 { margin: 0 0 0.8rem; font-size: clamp(2.2rem, 4vw, 3.7rem); letter-spacing: -0.045em; }
 .subpage-heading > p:last-child, .resource-heading > p:last-child { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; }
-
 .process-grid { counter-reset: process; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0; list-style: none; }
 .process-grid li { counter-increment: process; min-height: 17rem; margin: 0; padding: 1.8rem; border: 1px solid var(--border); border-radius: 1rem; background: #fff; box-shadow: var(--shadow-sm); }
 .process-grid li::before { content: "0" counter(process); display: grid; place-items: center; width: 2.35rem; height: 2.35rem; margin-bottom: 2.6rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.7rem; font-weight: 800; }
@@ -435,7 +424,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .calm-list { display: grid; gap: 0.85rem; margin: 1.4rem 0 0; padding: 0; list-style: none; }
 .calm-list li { position: relative; margin: 0; padding-left: 1.6rem; color: #596250; font-size: 0.88rem; line-height: 1.65; }
 .calm-list li::before { content: "✓"; position: absolute; left: 0; top: 0.05rem; color: var(--accent-strong); font-weight: 800; }
-
 .info-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .info-card { min-height: 21rem; padding: clamp(2rem, 4vw, 3rem); border: 1px solid var(--border); border-radius: 1.2rem; background: #fff; box-shadow: var(--shadow-sm); }
 .info-card:nth-child(2), .info-card:nth-child(3) { background: #f3f5ea; }
@@ -448,7 +436,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .data-panel .calm-list { margin: 0; }
 .contact-panel { padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.3rem; background: #fff; }
 .contact-panel p:last-child { margin-bottom: 0; color: var(--text-muted); }
-
 .crisis-page { gap: clamp(4rem, 8vw, 7rem); }
 .crisis-hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr); gap: clamp(2.5rem, 7vw, 7rem); align-items: center; padding: clamp(2.5rem, 7vw, 6rem); border-radius: 1.5rem; background: linear-gradient(135deg, #eef2e4, #faf6e8); border: 1px solid var(--border); }
 .crisis-hero h1 { max-width: 14ch; margin: 0 0 1.2rem; font-size: clamp(2.7rem, 5vw, 4.8rem); line-height: 1; letter-spacing: -0.055em; }
@@ -475,7 +462,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .minor-resources .resource-card { background: rgba(255,255,252,0.82); }
 .source-note { max-width: 54rem; margin: -2rem auto 0; text-align: center; }
 .source-note p { margin: 0; color: var(--text-muted); font-size: 0.72rem; line-height: 1.6; }
-
 .document-page { display: grid; gap: clamp(4rem, 8vw, 6rem); }
 .document-hero { position: relative; overflow: hidden; padding: clamp(3rem, 7vw, 6rem); border: 1px solid var(--border); border-radius: 1.5rem; background: linear-gradient(135deg, #eef3e8, #faf8ea); }
 .document-hero h1 { max-width: 15ch; margin: 0 0 1rem; font-size: clamp(2.8rem, 5vw, 4.8rem); letter-spacing: -0.055em; }
@@ -488,7 +474,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .document-content h2 { margin: 0 0 1.4rem; font-size: clamp(1.8rem, 3vw, 2.5rem); }
 .document-content p, .document-content li { color: #5f6758; font-size: 0.92rem; line-height: 1.8; }
 .document-content ul { display: grid; gap: 0.8rem; padding-left: 1.3rem; }
-
 .directory-page { display: grid; gap: clamp(3.5rem, 7vw, 5.5rem); }
 .directory-hero { padding: clamp(2.5rem, 6vw, 5rem); border: 1px solid var(--border); border-radius: 1.5rem; background: linear-gradient(140deg, #eef4e8, #faf9eb); }
 .directory-hero h1 { max-width: 15ch; margin: 0 0 1rem; font-size: clamp(2.8rem, 5vw, 4.8rem); letter-spacing: -0.055em; }
@@ -504,6 +489,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .profile-page .subpages a[aria-current] { background: var(--dark, #26332a); border-color: var(--dark, #26332a); color: #fff; }
 .profile-page > .lp { margin-top: 1rem; }
 
+
 /* --- profile spine: never moves, so profiles stay comparable ------------- */
 /* Every other heading on the site is a painted panel - the directory, the
    documents, the crisis page, the signup. The profile was the one page that
@@ -514,6 +500,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   border: 1px solid var(--border); border-radius: var(--radius-lg);
   background: linear-gradient(140deg, var(--wash-a), var(--wash-b)); }
 .phero > div { order: -1; }
+
 /* The name used to be the loudest thing on the page at 3.6rem. Someone looking
    for help is not looking for a surname - they are looking for whether this is
    for them, which is what the line under it answers. */
@@ -524,6 +511,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
   display: block; box-shadow: var(--shadow); }
 .phero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: var(--space-6) 0 var(--space-6); }
+
 /* The same drawing the demo profiles are served, so an empty photo slot and a
    demo avatar cannot end up looking like two different ideas. */
 /* One drawing, every theme: the placeholder keeps its shape and takes the
@@ -533,6 +521,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   background: var(--band) url("/avatar-placeholder.webp") center / cover no-repeat;
   background-blend-mode: luminosity; }
 .phero-photo.empty { display: block; }
+
 
 /* --- heading blocks ------------------------------------------------------ */
 /* Portrait first in the source, text second, so the classic block puts the text
@@ -555,7 +544,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero-card figcaption { padding: 1.1rem 1.3rem; border-top: 1px solid var(--border); }
 .phero-card strong { display: block; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
 .phero-card span { display: block; color: var(--text-muted); font-size: 0.9rem; }
-@media (max-width: 56rem) { .phero--obietnica { grid-template-columns: 1fr; } }
+@media (max-width: 56rem) {.phero--obietnica { grid-template-columns: 1fr; } }
+
 
 /* Dark, centred, portrait above the name - the shape a single-person site uses
    when the person is the whole offer. */
@@ -578,13 +568,13 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--plakat .phero-actions { margin-top: 2.2rem; }
 .phero-plakat-name { margin-top: 2.6rem; font: 650 0.78rem/1.4 var(--sans); letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--text-muted); }
+
 /* The portrait beside the slogan; without one the type takes the full width. */
 .phero--plakat:has(.phero-plakat-photo) { grid-template-columns: minmax(0, 1.25fr) minmax(13rem, 19rem); }
 .phero-plakat-photo { margin: 0; }
 .phero-plakat-photo img { width: 100%; height: auto; display: block; border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm); }
-@media (max-width: 56rem) { .phero--plakat:has(.phero-plakat-photo) { grid-template-columns: 1fr; } }
-
+@media (max-width: 56rem) {.phero--plakat:has(.phero-plakat-photo) { grid-template-columns: 1fr; } }
 .phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
   text-align: center; background: var(--dark); color: var(--dark-ink); border: 0; border-radius: var(--radius-lg);
   padding: clamp(2rem, 5vw, 3.5rem); margin-top: var(--space-6); }
@@ -604,6 +594,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero--spotlight .phero-actions { justify-content: center; }
 .phero--spotlight .btn.ghost { color: var(--dark-ink); border-color: color-mix(in srgb, var(--dark-ink) 45%, transparent); }
 
+
 /* Label and value, two pairs across - the layout the catalogue card has always
    used for exactly these facts. Two columns rather than three: at three the
    label and its value drift apart and the eye stops pairing them. */
@@ -613,7 +604,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   gap: var(--space-4); padding: 0.7rem 0; border-top: 1px solid var(--border); align-items: baseline; }
 .pdata dt { color: var(--text-muted); font-size: 0.92rem; }
 .pdata dd { margin: 0; overflow-wrap: anywhere; }
-@media (max-width: 46rem) { .pdata > div { grid-template-columns: minmax(7rem, auto) minmax(0, 1fr); } }
+@media (max-width: 46rem) {.pdata > div { grid-template-columns: minmax(7rem, auto) minmax(0, 1fr); } }
+
 
 /* Two cards in one row: the whole "what it costs and when" in a single glance,
    instead of two full-width bands one under the other. */
@@ -632,6 +624,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .slot-chips b { display: block; font-size: 0.92rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .slot-chips span { display: block; color: var(--text-muted); font-size: 0.78rem; }
 
+
 /* The offer as rows: three cards of one line each is a lot of furniture. */
 .offer-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--surface-solid); overflow: hidden; }
@@ -641,6 +634,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .offer-name { font-weight: 500; }
 .offer-meta { color: var(--text-muted); font-size: 0.88rem; }
 .offer-price { margin-left: auto; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+
 
 /* The whole heading on a colour block: words one side, portrait the other with
    one fact pinned to it. A panoramic crop was the first attempt and it turned a
@@ -657,7 +651,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .phero-badge b { display: block; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .phero-badge span { display: block; color: var(--text-muted); font-size: 0.76rem; }
 .phero--okladka .phero-facts li { background: var(--surface-solid); border-color: var(--border); }
-@media (max-width: 56rem) { .phero--okladka { grid-template-columns: 1fr; } }
+@media (max-width: 56rem) {.phero--okladka { grid-template-columns: 1fr; } }
 .phero-headline { font-size: 1.15rem; line-height: 1.55; color: var(--text-muted); max-width: 52ch;
   margin-bottom: var(--space-6); }
 .phero-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
@@ -670,7 +664,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   border: 1px solid var(--border); background: var(--surface-solid); }
 .badge.ok { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, var(--accent-soft)); color: var(--accent-strong); }
 .badge.demo { background: var(--surface-alt); color: var(--text-muted); }
-
 .pfacts { margin-top: var(--space-6); background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--space-6);
   display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-6); align-items: center; }
@@ -678,82 +671,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pfact span { display: block; color: var(--text-muted); font-size: 0.82rem; }
 .pfact.empty strong { font-family: var(--sans); font-size: 1rem; font-weight: 500; color: var(--text-muted); }
 
-/* --- sections: the therapist's own arrangement --------------------------- */
-/* Not a landing page by default. Six rems of air between bands is right for a
-   page selling something and wrong for a profile someone is comparing against
-   three others. */
-.pblock { padding-block: calc(clamp(2.6rem, 5.5vw, 6rem) * var(--rhythm)); border-top: 1px solid var(--border); }
-/* The first section sits right under the fact card, which already has its own
-   outline - a hairline there separates nothing. A tinted section draws its own
-   bottom border, so the one after it must not add a second. */
-.pblock:first-of-type { border-top: 0; }
-.pblock--alt + .pblock, .pblock--dark + .pblock, .pblock--narrow + .pblock { border-top: 0; }
-.pblock > h2 { margin: 0 0 var(--space-4);
-  font-size: calc(clamp(1.35rem, 1.2rem + 0.6vw, 1.5rem) * var(--display));
-  line-height: 1.12; letter-spacing: -0.025em; }
-.pblock > .block-lead { max-width: 56ch; color: var(--text-muted); font-size: 1.02rem;
-  margin-bottom: var(--space-6); }
-.pblock > h2 + .chips, .pblock > h2 + .offer-grid, .pblock > h2 + .meeting-steps { margin-top: var(--space-6); }
-
-/* Background belongs to the section, not to its position. Tinting every second
-   block gave seven identical bands; now she picks, and a page can have one
-   tinted stretch, a narrow strip and a dark close.
-   The sections live inside main > .wrap > .profile-page, so a tinted one is an
-   island unless it breaks out. This escapes to the full viewport and pads the
-   content straight back to the column, which is what the reference does with
-   full-width sections wrapping an inner container.
-   overflow-x: clip on the root is what keeps 100vw (which counts the
-   scrollbar) from adding a horizontal scrollbar. */
-.pblock--dark { margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); }
-/* A tinted section is a panel, not a stripe. Two flat full-width fills tried
-   here first - one sage, one sand - and both turned the page below the heading
-   into wallpaper: the tint ran wall to wall, the sections lost their edges and
-   the whole scroll read as one colour. The heading works because it is a framed
-   panel with a wash inside it, so the tinted sections are built the same way,
-   with the pool of light on the opposite side. Consecutive panels mirror, so
-   two in a row are not the same picture twice - counted among the panels, not
-   among all sections: nth-of-type counts every section element, so two panels
-   with a plain block between them landed on the same gradient. */
-.pblock--alt, .pblock--narrow {
-  margin-block: var(--space-6); padding-inline: clamp(1.6rem, 3vw, 3rem); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); background:
-    radial-gradient(circle at 84% 10%, var(--glow), transparent 20rem),
-    linear-gradient(140deg, var(--panel-tint), var(--band)); }
-:is(.pblock--alt, .pblock--narrow):nth-child(even of :is(.pblock--alt, .pblock--narrow)) { background:
-    radial-gradient(circle at 14% 88%, var(--glow), transparent 20rem),
-    linear-gradient(220deg, var(--panel-tint), var(--band)); }
-.pblock--narrow { padding-block: calc(clamp(1.2rem, 2vw, 1.6rem) * var(--rhythm)); }
-/* The other presentation: the same section as a band running the full width of
-   the viewport, flat, no frame. The server resolves the page default and the
-   per-section choice into one class, so CSS sees only the verdict. The heading loses its card by default in this
-   layout (see layoutClasses) - a bordered card butting straight into a
-   full-width band is a seam with nothing on either side of it.
-   overflow-x: clip on the root is what keeps 100vw, which counts the
-   scrollbar, from adding a horizontal scrollbar. */
-.pblock.pblock--pas {
-  margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%);
-  margin-block: 0; border: 0; border-block: 1px solid var(--border-strong);
-  border-radius: 0; background: var(--band); }
-main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
-/* Only the two headings that take their background from here lose it; the dark
-   one and the coloured one are cards by definition. */
-.profile-page--hero-goly :is(.phero--klasyczny, .phero--obietnica) {
-  margin-top: 0; padding: 0; border: 0; border-radius: 0; background: none;
-  padding-block: clamp(1.5rem, 4vw, 5rem) clamp(2rem, 5vw, 6rem); }
-
-/* The dark band the page closes on. Ending on "Zasady odwołania" was ending on
-   the dullest thing the profile had to say. */
-.pblock--dark { background: var(--dark); color: var(--dark-ink); border-block: 0;
-  padding-block: calc(clamp(3rem, 6vw, 4.5rem) * var(--rhythm)); }
-.pblock--dark h2 { color: var(--dark-head); }
-.pblock--dark .btn { background: var(--dark-head); color: var(--dark); border-color: var(--dark-head); }
-.pblock--dark .btn.ghost { background: transparent; color: var(--dark-ink); border-color: color-mix(in srgb, var(--dark-ink) 45%, transparent); }
-/* A light card keeps its own ink whatever block it sits in: with per-section
-   backgrounds any section can go dark, and a white card must not inherit the
-   dark band's light text. */
-.pblock--dark :is(.pfacts, .pcard, .offer-card, .phero-card, .chips li, details) { color: var(--text); }
-/* The small caps and the accents drown in the dark ground unless remapped. */
-.pblock--dark .eyebrow { color: var(--dark-mute); }
 
 /* --- themes: the same sections, her palette ------------------------------ */
 /* A theme is a set of tokens on the profile element - nothing here is a new
@@ -773,112 +690,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   content: ""; position: absolute; z-index: -1; inset-block: calc(var(--space-16) * -1) 0;
   left: 50%; width: 100vw; translate: -50% 0; background: var(--wash-a); }
 
-/* Air, not colour: the same arrangement as a catalogue entry or as a practice's
-   own site. */
-/* Type scale, the axis the reference profiles actually carry themselves on.
-   The catalogue default stays where it was: a profile compared against three
-   others wants a 2rem name, not a 6rem one. */
-.profile-page--skala-duza { --display: 1.7; }
-.profile-page--skala-plakat { --display: 2.7; }
-/* The same scale chosen for one section only. */
-.pblock--skala-duza { --display: 1.7; }
-.pblock--skala-plakat { --display: 2.7; }
-
-.profile-page--rytm-zwarty { --rhythm: 0.72; }
-.profile-page--rytm-dostojny { --rhythm: 1.25; }
-
-/* The themes that speak in a display serif; las keeps the service face. */
-:is(.profile-page--theme-bursztyn, .profile-page--theme-glina, .profile-page--theme-grafit,
-    .profile-page--theme-papier, .profile-page--theme-atrament) {
-  --serif: "Playfair Variable", Playfair Display, Georgia, "Times New Roman", serif;
-}
-.profile-page--theme-bursztyn {
-  --text: #3b3020; --text-muted: #6f6350;
-  --band: #f5ead3; --panel-tint: #fdf7ea; --glow: rgba(240, 200, 120, 0.34);
-  --wash-a: #fdf7ea; --wash-b: #f6e8cf;
-  --border: #e8ddc6; --border-strong: #d9c9a6;
-  --accent: var(--acc-bursztyn); --accent-strong: #7c5417; --accent-soft: #f7ecd7; --accent-2: #3e5a78;
-  --dark: #3d3222; --dark-ink: #f3e6cd; --dark-mute: #d8c7a5; --dark-head: #fffdf6;
-  --prose: #5f5340;
-}
-.profile-page--theme-grafit {
-  --text: #232830; --text-muted: #5c6472;
-  --band: #eceef1; --panel-tint: #f7f8fa; --glow: rgba(150, 170, 200, 0.26);
-  --wash-a: #f8f9fb; --wash-b: #e9ecf1;
-  --border: #dde0e6; --border-strong: #c4c9d3;
-  --accent: var(--acc-grafit); --accent-strong: #2c3e52; --accent-soft: #e8ecf2; --accent-2: #8a5f26;
-  --dark: #232830; --dark-ink: #e4e8ee; --dark-mute: #b9c1cd; --dark-head: #ffffff;
-  --prose: #4d5560;
-}
-.profile-page--theme-glina {
-  --text: #3e2f28; --text-muted: #6f5d55;
-  --band: #f3e3da; --panel-tint: #fbf1ec; --glow: rgba(226, 160, 130, 0.3);
-  --wash-a: #fbf2ed; --wash-b: #f2e0d6;
-  --border: #e8d5cb; --border-strong: #d8bcae;
-  --accent: var(--acc-glina); --accent-strong: #7c3c26; --accent-soft: #f7e6de; --accent-2: #28616e;
-  --dark: #40302a; --dark-ink: #f2ded4; --dark-mute: #d5b8ab; --dark-head: #fffaf7;
-  --prose: #62504a;
-}
-/* Achromatic on purpose: every surface at S<=4%, the accent carried by the
-   near-black rather than by a hue. The reference profile that reads as the most
-   "designed" has no colour in it at all. */
-.profile-page--theme-papier {
-  --text: #171716; --text-muted: #6b6b66;
-  --band: #f2f2f1; --panel-tint: #fafafa; --glow: rgba(0, 0, 0, 0.035);
-  --wash-a: #fbfbfa; --wash-b: #f0f0ef;
-  --border: #e3e3e2; --border-strong: #c8c8c6;
-  --accent: var(--acc-papier); --accent-strong: #171716; --accent-soft: #f0f0ee; --accent-2: #5c5346;
-  --dark: #171716; --dark-ink: #ededec; --dark-mute: #b8b8b6; --dark-head: #ffffff;
-  --prose: #56564f;
-}
-.profile-page--theme-las {
-  --text: #1f3a2c; --text-muted: #55665a;
-  --band: #e4ede4; --panel-tint: #f2f7f1; --glow: rgba(120, 190, 150, 0.26);
-  --wash-a: #f3f8f2; --wash-b: #e2ebe1;
-  --border: #d7e2d6; --border-strong: #bacfb9;
-  --accent: var(--acc-las); --accent-strong: #1f4d37; --accent-soft: #e3f0e6; --accent-2: #7a3a54;
-  --dark: #1f3a2c; --dark-ink: #dcead9; --dark-mute: #b4c9b2; --dark-head: #fbfffa;
-  --prose: #4a5c4d;
-}
-/* The night theme. The whole page inverts, so the surface tokens the cards and
-   chips sit on come along - without them a light card would keep the light
-   text it inherits from the dark ground. The accent is honey on near-black,
-   the way the reference dark landing carries its warmth. */
-.profile-page--theme-atrament {
-  --text: #ecebe8; --text-muted: #a6a29a;
-  --band: #21201d; --panel-tint: #292824; --glow: rgba(233, 196, 106, 0.07);
-  --wash-a: #171614; --wash-b: #201f1c;
-  --border: #33312b; --border-strong: #4b4840;
-  --accent: var(--acc-atrament); --accent-strong: #dcb765; --accent-soft: #2c2820; --accent-2: #93aecb;
-  --dark: #0e0e0d; --dark-ink: #e8e6e1; --dark-mute: #b3b0a8; --dark-head: #ffffff;
-  --prose: #cfccc4;
-  --surface-solid: #26241f; --surface: #26241f; --surface-alt: #2b2925; --bg: #1d1c19;
-  --btn-ink: #1d1a12;
-}
-
-/* The section label in the left column, not above the heading. This is what
-   makes the reference pages read as a grid rather than as a stack; it needs the
-   room only the poster scale has. */
-@media (min-width: 60rem) {
-  .profile-page--skala-plakat .pblock, .pblock--skala-plakat {
-    display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr); column-gap: var(--space-8);
-  }
-  :is(.profile-page--skala-plakat .pblock, .pblock--skala-plakat) > * { grid-column: 2; }
-  :is(.profile-page--skala-plakat .pblock, .pblock--skala-plakat) > .eyebrow {
-    grid-column: 1; grid-row: 1 / span 40; margin: 0.7rem 0 0; align-self: start;
-  }
-}
-
-/* --- the profile's own anchor bar ---------------------------------------- */
-/* Not sticky: the service header already is, and two stacked bars eat a phone
-   screen. It sits under the heading and lists what the page actually renders,
-   which is why it is built from the sections rather than hand-kept. */
-.pnav { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; align-items: baseline;
-  padding: 1.1rem 0; border-bottom: 1px solid var(--border); margin-bottom: var(--space-4); }
-.pnav a { font: 600 0.8rem/1.4 var(--sans); letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--text-muted); text-decoration: none; padding: 0.3rem 0; }
-.pnav a:hover { color: var(--accent-strong); }
-.profile-page--pasy .pnav { margin-bottom: 0; }
 
 /* Three claims across, the shape every reference profile uses under its
    philosophy paragraphs. */
@@ -888,6 +699,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   border-radius: var(--radius-lg); background: var(--surface-solid); }
 .pillars h3 { margin: 0 0 var(--space-3); font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
 .pillars p { margin: 0; color: var(--prose); font-size: 0.95rem; line-height: 1.65; }
+
 
 /* Her writing elsewhere: title, one line, link out. */
 .plinks { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
@@ -903,6 +715,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .plinks em { display: block; margin-top: var(--space-3); font-style: normal; font-size: 0.8rem;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-strong); }
 
+
 /* Two columns: her words beside her portrait. Without a section shaped like
    this every block was one full-width column, which is what went flat after the
    third heading. */
@@ -913,8 +726,8 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .psplit-photo img, .psplit-empty { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
   object-fit: cover; border-radius: var(--radius-lg); border: 1px solid var(--border);
   background: var(--surface-alt); box-shadow: var(--shadow); }
-@media (max-width: 860px) { .psplit { grid-template-columns: 1fr; } .psplit--flip > div { order: 0; } }
-
+@media (max-width: 860px) {.psplit { grid-template-columns: 1fr; }
+.psplit--flip > div { order: 0; } }
 .pquote { margin: 0; }
 .pquote blockquote { margin: 0; border-left: 3px solid var(--accent-2); padding-left: 1.2rem; }
 .pquote p { font-family: var(--serif); font-style: italic; max-width: 52ch;
@@ -922,13 +735,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .pquote figcaption { margin-top: var(--space-3); padding-left: 1.2rem; color: var(--text-muted);
   font-size: 0.92rem; }
 
-/* A short band between two tall sections is what keeps a long page from reading
-   as one column. */
-.pfacts-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: var(--space-4) var(--space-6); list-style: none; margin: 0; padding: 0; }
-.pfacts-strip li { margin: 0; font-size: 0.92rem; color: var(--text-muted); }
-.pfacts-strip strong { display: block; font-family: var(--serif); font-size: 1.02rem;
-  font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
 
 /* The service chapter: the written text and its points on the left, the
    practical grid on a card to the right. One column under 56rem. */
@@ -944,20 +750,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .pservice-facts dt { font: 650 0.72rem/1.4 var(--sans); letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--accent-2); }
 .pservice-facts dd { margin: 0.1rem 0 0; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
-@media (max-width: 56rem) { .pservice { grid-template-columns: 1fr; } }
-/* Two service chapters in a row are the same slide twice; every second one
-   mirrors - the facts card walks to the left, the text to the right. */
-@media (min-width: 56rem) {
-  .profile-page > :nth-child(even of .pblock:has(.pservice)) .pservice {
-    grid-template-columns: minmax(13rem, 0.75fr) minmax(0, 1.25fr);
-  }
-  .profile-page > :nth-child(even of .pblock:has(.pservice)) .pservice > div { order: 2; }
-  .profile-page > :nth-child(even of .pblock:has(.pservice)) .pservice > .pservice-facts { order: 1; }
-}
-.pblock > p:not(.eyebrow):not(.hint) { max-width: 62ch; color: var(--prose); }
-/* Same specificity as the rule above, and after it - that is what carries the
-   light text on the dark band, without reaching for !important. */
-.pblock--dark > p:not(.eyebrow):not(.hint), .pblock--dark > .block-lead { color: var(--dark-mute); }
+@media (max-width: 56rem) {.pservice { grid-template-columns: 1fr; } }
 .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: var(--space-4) 0 0; padding: 0; }
 .chips li { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
   border-radius: 999px; padding: 0.55rem 1.1rem; font-size: 0.95rem; }
@@ -967,6 +760,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .offer-card h3 { margin: 0 0 var(--space-2); font-size: 1.02rem; }
 .offer-card .amount { display: block; font-family: var(--serif); font-size: 2.4rem; font-weight: 600; letter-spacing: -0.02em; }
 .offer-card .per { color: var(--text-muted); font-size: 0.86rem; }
+
 /* Days as columns, hours beneath - the ZnanyLekarz/Booksy pattern people
    already know. A table because that is what this is: days across, times down. */
 .slot-table-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
@@ -975,14 +769,17 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .slot-table th b { display: block; font-size: 0.9rem; font-weight: 600; text-transform: capitalize; }
 .slot-table th span { display: block; font-size: 0.78rem; color: var(--text-muted); }
 .slot-table td { padding: 0.45rem var(--space-2); text-align: center; vertical-align: top; }
+
 /* Plain text, no filled blocks: thirty-five tinted rectangles read as noise. */
 .slot-time { display: block; font-size: 0.98rem; font-variant-numeric: tabular-nums; }
 .slot-mode { display: block; font-size: 0.7rem; color: var(--text-muted); }
 .slot-none { display: block; color: var(--border-strong); }
+
 /* The site's tables highlight rows on hover, which promises a click. These rows
    are hours to read, not rows to act on. */
 .slot-table tbody tr:hover td { background: none; }
 .slot-table td, .slot-table th { border: 0; }
+
 /* The lines under the calendar used to sit glued to the table and to each
    other; now they are one footer with its own air, and the button gets a row
    of its own. */
@@ -990,6 +787,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   align-items: flex-start; }
 .slot-foot p { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
 .slot-foot .btn { margin-top: var(--space-3); }
+
 
 /* Where else to find her: quiet text links under the name, not a band. */
 .phero-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none;
@@ -1000,7 +798,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .phero-links a:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
 .phero--spotlight .phero-links { justify-content: center; }
 .phero--spotlight .phero-links a { color: var(--dark-mute); border-color: color-mix(in srgb, var(--dark-ink) 40%, transparent); }
-.pblock--dark .phero-links a { color: var(--dark-mute); border-color: color-mix(in srgb, var(--dark-ink) 40%, transparent); }
+
 /* "Pierwsze spotkanie": her answers, in the order the person will live them. */
 .meeting-steps { counter-reset: s; list-style: none; display: grid; gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 0; padding: 0; }
@@ -1012,6 +810,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   color: var(--surface-solid); border-radius: 50%; font-size: 0.9rem; font-weight: 600; }
 .meeting-steps h3 { margin: 0.3rem 0 0.4rem; font-size: 1.02rem; }
 .meeting-steps p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+
 /* A card at --surface-solid on the --bg page is three percent of lightness
    away from it, and all that said "card" was a #e2e5d8 hairline and a shadow at
    four percent opacity. That was already thin; beside a tinted band the eye
@@ -1019,37 +818,26 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
    shadow strong enough to survive the comparison. */
 .pfacts, .pcard, .offer-card, .meeting-steps li, .phero-card, .phero-badge {
   border-color: var(--border-strong); box-shadow: var(--shadow); }
+
 /* Stacked rows and pills: an edge, but no shadow - four dropped cards in a
    column is a pile, not a list. */
-.pblock details, .chips li { border-color: var(--border-strong); }
-
+.chips li { border-color: var(--border-strong); }
 .read-more { margin-top: var(--space-4); }
-/* Sits inside whichever band the therapist put it in. --surface-alt is a green
-   grey and went muddy on the sand band; the card white the rest of the page
-   uses reads on every background. */
-.pblock details { background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius); margin: 0.7rem 0 0; }
-.pblock summary { cursor: pointer; padding: 1rem 1.3rem; font-weight: 500; list-style: none;
-  display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; }
-.pblock summary::-webkit-details-marker { display: none; }
-.pblock summary::after { content: "+"; color: var(--accent-strong); font-size: 1.25rem; line-height: 1; }
-.pblock details[open] summary::after { content: "–"; }
 .details-body { padding: 0 1.15rem 1rem; color: var(--text-muted); font-size: 0.95rem; }
 .details-body p:last-child { margin-bottom: 0; }
-
-@media (max-width: 52rem) {
-  .phero { grid-template-columns: 1fr; }
-  .phero > div { order: 0; }
-  .phero-photo { max-width: 18rem; }
-  .pfacts { grid-template-columns: 1fr 1fr; }
-  .pfacts .pfact-cta { grid-column: 1 / -1; }
+@media (max-width: 52rem) {.phero { grid-template-columns: 1fr; }
+.phero > div { order: 0; }
+.phero-photo { max-width: 18rem; }
+.pfacts { grid-template-columns: 1fr 1fr; }
+.pfacts .pfact-cta { grid-column: 1 / -1; }
 }
-@media (max-width: 30rem) { .pfacts { grid-template-columns: 1fr; } }
+@media (max-width: 30rem) {.pfacts { grid-template-columns: 1fr; } }
 .signup-page { width: min(100%, 62rem); margin-inline: auto; }
 .signup-intro { margin-bottom: 2.5rem; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.4rem; background: linear-gradient(140deg, var(--wash-b), var(--wash-a)); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(2.6rem, 5vw, 4.2rem); }
 .signup-intro p:last-child { max-width: 58ch; margin: 0; color: var(--text-muted); }
 .signup-page > form { max-width: none !important; margin-inline: 0; padding: clamp(1.5rem, 4vw, 2.7rem) !important; }
+
 
 /* Homepage */
 .home { display: grid; gap: 0; }
@@ -1079,6 +867,7 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
   letter-spacing: 0.08em; text-transform: uppercase;
 }
 .eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.7rem; margin-bottom: 1.25rem; border: 1px solid rgba(99,114,0,0.18); border-radius: 999px; background: rgba(255,255,250,0.62); }
+
 /* Inside a profile the eyebrow is a plain line of small caps, the way the
    reference sets it - the pill belongs to the marketing pages. */
 .profile-page .eyebrow { display: block; padding: 0; border: 0; background: none;
@@ -1093,7 +882,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .hero-assurances { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.55rem 1.4rem; margin: 1.3rem 0 0; padding: 0; list-style: none; color: #697261; font-size: 0.76rem; }
 .hero-assurances li { margin: 0; }
 .hero-assurances li::before { content: "✓"; margin-right: 0.35rem; color: var(--accent-strong); font-weight: 800; }
-
 .finder-preview {
   position: relative; z-index: 3; width: min(100%, 52rem); margin-top: 2.4rem; padding: 1rem;
   border: 1px solid rgba(197, 207, 175, 0.9); border-radius: 1.25rem 1.25rem 0 0;
@@ -1120,14 +908,12 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .preview-note > span { display: grid; place-items: center; flex: 0 0 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.7rem; font-weight: 800; }
 .preview-note p { margin: 0; color: var(--text-muted); font-size: 0.63rem; line-height: 1.45; }
 .preview-note strong { color: var(--text); }
-
 .trust-strip { display: grid; grid-template-columns: repeat(4, 1fr); padding: 1.15rem clamp(1rem, 4vw, 3rem); border: 1px solid var(--border); border-top: 0; border-radius: 0 0 1.5rem 1.5rem; background: #f6f7ed; }
 .trust-strip p { margin: 0; padding: 0.2rem 1rem; border-right: 1px solid var(--border-strong); font-size: 0.72rem; line-height: 1.4; }
 .trust-strip p:last-child { border-right: 0; }
 .trust-strip strong, .trust-strip span { display: block; }
 .trust-strip strong { color: var(--text); font-size: 0.7rem; }
 .trust-strip span { margin-top: 0.15rem; color: var(--text-muted); font-size: 0.61rem; }
-
 .home-section { margin-top: clamp(5rem, 10vw, 8rem); }
 .section-heading { max-width: 34rem; }
 .section-heading.centered { margin-inline: auto; text-align: center; }
@@ -1141,7 +927,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .feature-icon { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border: 1px solid var(--border-strong); border-radius: 0.75rem; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.67rem; font-weight: 800; }
 .value-list h3 { margin: 0 0 0.5rem; font-size: 1.18rem; }
 .value-list p { margin: 0; color: var(--text-muted); font-size: 0.88rem; line-height: 1.65; }
-
 .steps-section { padding: clamp(3rem, 7vw, 5.5rem); border: 1px solid var(--border); border-radius: 1.5rem; background: #f6f7ef; }
 .steps-section .section-heading { max-width: 40rem; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 3rem 0 2.5rem; padding: 0; list-style: none; background: var(--border-strong); }
@@ -1150,7 +935,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .steps h3 { margin: 0 0 0.6rem; font-size: 1.2rem; }
 .steps p { margin: 0; color: var(--text-muted); font-size: 0.83rem; line-height: 1.6; }
 .section-action { margin: 0; text-align: center; }
-
 .assistant-section { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(3rem, 8vw, 7rem); align-items: center; }
 .chat-window { overflow: hidden; border: 1px solid #d7d9d2; border-radius: 1.3rem; background: #fff; box-shadow: 0 24px 70px rgba(50, 55, 45, 0.13); }
 .chat-topbar { display: flex; align-items: center; gap: 0.55rem; padding: 0.8rem 1rem; border-bottom: 1px solid #e5e6e1; color: #30332d; font-size: 0.74rem; }
@@ -1191,7 +975,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .launch-note > span { display: inline-block; width: 0.48rem; height: 0.48rem; margin-right: 0.4rem; border-radius: 50%; background: #d99b35; }
 .launch-note strong { color: var(--text); }
 .assistant-copy > a, .safety-copy > a { font-size: 0.82rem; font-weight: 750; text-decoration: none; }
-
 .for-you-section .section-heading { max-width: 45rem; }
 .audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2.5rem; }
 .audience-grid article { overflow: hidden; padding: 0 1.25rem 1.5rem; border: 1px solid var(--border); border-radius: 1rem; background: #fff; box-shadow: var(--shadow-sm); }
@@ -1201,7 +984,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .audience-art-transparency { object-position: 50% 44%; }
 .audience-grid h3 { margin: 0 0 0.6rem; font-size: 1.08rem; }
 .audience-grid p { margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.6; }
-
 .safety-section { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: clamp(3rem, 8vw, 8rem); padding: clamp(3rem, 7vw, 5rem); border-radius: 1.5rem; background: #eef1e5; }
 .safety-copy { align-self: center; }
 .safety-list { display: grid; }
@@ -1210,7 +992,6 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .safety-list article > span { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--accent-strong); background: rgba(255,255,255,0.45); font-size: 0.7rem; font-weight: 800; }
 .safety-list h3 { margin: 0 0 0.35rem; font-size: 1rem; }
 .safety-list p { margin: 0; color: var(--text-muted); font-size: 0.79rem; line-height: 1.55; }
-
 .home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(5rem, 10vw, 8rem); padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid #dce3b2; border-radius: 1.5rem; background: radial-gradient(circle at 70% 50%, rgba(227,237,116,0.62), transparent 22rem), linear-gradient(120deg, #eef2dc, #f7f7e4); }
 .home-cta h2 { max-width: 18ch; margin: 0; font-size: clamp(2rem, 4vw, 3.7rem); line-height: 1.04; letter-spacing: -0.045em; }
 .home-cta > div:last-child { display: grid; justify-items: start; gap: 0.9rem; }
@@ -1218,102 +999,99 @@ main:has(.profile-page > .pblock--pas:last-child) { padding-bottom: 0; }
 .crisis-inline { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; margin: 1rem 0 0; padding: 0.85rem 1rem; color: var(--text-muted); font-size: 0.7rem; }
 .crisis-inline p { margin: 0; }
 .crisis-inline a { flex: none; font-weight: 700; }
-
-@media (max-width: 64rem) {
-  .desktop-nav, .header-cta { display: none; }
-  .mobile-nav { display: block; }
-  .mobile-nav summary { cursor: pointer; list-style: none; padding: 0.48rem 0.8rem; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text); font-size: 0.78rem; font-weight: 700; }
-  .mobile-nav summary::-webkit-details-marker { display: none; }
-  .mobile-nav[open] summary { background: var(--accent-soft); }
-  .mobile-nav nav { position: absolute; z-index: 30; right: 0; top: calc(100% + 0.55rem); width: min(18rem, calc(100vw - 2rem)); padding: 0.65rem; border: 1px solid var(--border); border-radius: 0.9rem; background: #fff; box-shadow: var(--shadow); }
-  .mobile-nav ul { display: grid; margin: 0; padding: 0; list-style: none; }
-  .mobile-nav li { margin: 0; }
-  .mobile-nav a { display: block; padding: 0.65rem 0.75rem; border-radius: 0.55rem; color: var(--text); font-size: 0.82rem; text-decoration: none; }
-  .mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
-  .preview-note { right: -1rem; }
-  .value-section, .assistant-section, .safety-section { grid-template-columns: 1fr; gap: 2.5rem; }
-  .section-heading, .assistant-copy { max-width: 42rem; }
-  .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .crisis-hero { grid-template-columns: 1fr; }
-  .emergency-panel { width: min(100%, 32rem); }
+@media (max-width: 64rem) {.desktop-nav, .header-cta { display: none; }
+.mobile-nav { display: block; }
+.mobile-nav summary { cursor: pointer; list-style: none; padding: 0.48rem 0.8rem; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text); font-size: 0.78rem; font-weight: 700; }
+.mobile-nav summary::-webkit-details-marker { display: none; }
+.mobile-nav[open] summary { background: var(--accent-soft); }
+.mobile-nav nav { position: absolute; z-index: 30; right: 0; top: calc(100% + 0.55rem); width: min(18rem, calc(100vw - 2rem)); padding: 0.65rem; border: 1px solid var(--border); border-radius: 0.9rem; background: #fff; box-shadow: var(--shadow); }
+.mobile-nav ul { display: grid; margin: 0; padding: 0; list-style: none; }
+.mobile-nav li { margin: 0; }
+.mobile-nav a { display: block; padding: 0.65rem 0.75rem; border-radius: 0.55rem; color: var(--text); font-size: 0.82rem; text-decoration: none; }
+.mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
+.preview-note { right: -1rem; }
+.value-section, .assistant-section, .safety-section { grid-template-columns: 1fr; gap: 2.5rem; }
+.section-heading, .assistant-copy { max-width: 42rem; }
+.process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.crisis-hero { grid-template-columns: 1fr; }
+.emergency-panel { width: min(100%, 32rem); }
+}
+@media (max-width: 45rem) {header.site { position: sticky; }
+header.site .wrap { min-height: 4.1rem; padding-block: 0.5rem; }
+.brand { font-size: 0.94rem; }
+.brand img { width: 1.8rem; height: 1.8rem; }
+main { padding-block: 1rem 3.5rem; }
+.hero { min-height: 30rem; border-radius: var(--radius); padding-inline: var(--space-6); }
+.hero h1 { font-size: clamp(2.25rem, 10vw, 3rem); }
+.btn { width: 100%; }
+.card:hover { transform: none; }
+.home-hero { min-height: 42rem; padding: 3.25rem 1rem 0; border-radius: 1rem 1rem 0 0; }
+.home-hero h1 { max-width: 12ch; font-size: clamp(2.6rem, 12vw, 3.65rem); }
+.home-hero .lead { font-size: 0.93rem; line-height: 1.65; }
+.hero-actions { width: 100%; }
+.hero-assurances { gap: 0.35rem 0.8rem; font-size: 0.67rem; }
+.finder-preview { width: calc(100% + 0.5rem); margin-top: 2rem; padding: 0.7rem; border-radius: 1rem 1rem 0 0; }
+.preview-toolbar > span:nth-child(2) { max-width: 10rem; }
+.preview-filters { overflow-x: auto; }
+.preview-filters span { flex: none; }
+.preview-result { grid-template-columns: auto 1fr; }
+.match-score { display: none; }
+.profile-photo { width: 3rem; height: 3rem; }
+.preview-result h2 { font-size: 0.86rem; }
+.preview-slots { display: grid; grid-template-columns: repeat(2, 1fr); }
+.preview-slots p, .preview-slots a { grid-column: 1 / -1; }
+.preview-note { display: none; }
+.trust-strip { grid-template-columns: repeat(2, 1fr); padding: 0.65rem; border-radius: 0 0 1rem 1rem; }
+.trust-strip p { padding: 0.65rem; }
+.trust-strip p:nth-child(2) { border-right: 0; }
+.trust-strip p:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+.home-section { margin-top: 4.5rem; }
+.section-heading h2, .assistant-copy h2, .safety-copy h2 { font-size: 2.45rem; }
+.value-list article { padding: 1.35rem 0; }
+.steps-section { padding: 2.5rem 1rem; border-radius: 1rem; }
+.steps { grid-template-columns: 1fr; margin-top: 2rem; }
+.steps li { display: grid; grid-template-columns: auto 1fr; column-gap: 0.85rem; padding: 1.2rem 0.85rem; }
+.steps li > span { grid-row: 1 / 3; margin: 0; }
+.steps h3 { margin-top: 0.25rem; }
+.steps p { grid-column: 2; }
+.chat-window { border-radius: 1rem; }
+.chat-thread { padding: 0.8rem; }
+.chat-widget { margin-left: 0; }
+.chat-caption { margin-left: 0; }
+.audience-grid { grid-template-columns: 1fr; }
+.audience-art { height: clamp(10rem, 48vw, 13rem); }
+.safety-section { padding: 2.5rem 1.25rem; border-radius: 1rem; }
+.home-cta { grid-template-columns: 1fr; padding: 2.5rem 1.25rem; border-radius: 1rem; }
+.home-cta > div:last-child { justify-items: stretch; }
+.home-cta > div:last-child > a:last-child { text-align: center; }
+.crisis-inline { display: grid; padding-inline: 0.25rem; }
+.crisis-inline a { justify-self: start; }
+.subpage { gap: 4rem; }
+.subpage-hero, .document-hero, .crisis-hero { min-height: 0; padding: 3rem 1.25rem; border-radius: 1rem; }
+.subpage-hero h1, .crisis-hero h1, .document-hero h1 { font-size: clamp(2.45rem, 12vw, 3.4rem); }
+.process-grid, .principles-panel, .info-card-grid, .data-panel, .resource-grid { grid-template-columns: 1fr; }
+.process-grid li { min-height: 0; padding: 1.5rem; }
+.process-grid li::before { margin-bottom: 2rem; }
+.principles-panel article { padding: 2rem 1.25rem; }
+.principles-panel article + article { border-top: 1px solid var(--border-strong); border-left: 0; }
+.info-card { min-height: 0; padding: 2rem 1.25rem; }
+.info-index { margin-bottom: 2rem; }
+.data-panel { gap: 2rem; padding: 2.5rem 1.25rem; border-radius: 1rem; }
+.contact-panel { padding: 2.5rem 1.25rem; }
+.emergency-panel { padding: 2rem 1.25rem; }
+.resource-card { min-height: 0; padding: 1.5rem 1.25rem; }
+.minor-resources { margin-inline: -0.25rem; padding: 2.5rem 0.75rem; border-radius: 1rem; }
+.document-content section { padding-block: 2.5rem; }
+.directory-page { gap: 3rem; }
+.directory-hero, .signup-intro { padding: 3rem 1.25rem; border-radius: 1rem; }
+.directory-hero h1, .signup-intro h1 { font-size: clamp(2.45rem, 12vw, 3.4rem); }
+footer.site .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
+.footer-links { max-width: 24rem; }
+.footer-legal { display: grid; gap: 0.8rem; }
+}
+@media (prefers-reduced-motion: reduce) {*, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
-@media (max-width: 45rem) {
-  header.site { position: sticky; }
-  header.site .wrap { min-height: 4.1rem; padding-block: 0.5rem; }
-  .brand { font-size: 0.94rem; }
-  .brand img { width: 1.8rem; height: 1.8rem; }
-  main { padding-block: 1rem 3.5rem; }
-  .hero { min-height: 30rem; border-radius: var(--radius); padding-inline: var(--space-6); }
-  .hero h1 { font-size: clamp(2.25rem, 10vw, 3rem); }
-  .btn { width: 100%; }
-  .card:hover { transform: none; }
-  .home-hero { min-height: 42rem; padding: 3.25rem 1rem 0; border-radius: 1rem 1rem 0 0; }
-  .home-hero h1 { max-width: 12ch; font-size: clamp(2.6rem, 12vw, 3.65rem); }
-  .home-hero .lead { font-size: 0.93rem; line-height: 1.65; }
-  .hero-actions { width: 100%; }
-  .hero-assurances { gap: 0.35rem 0.8rem; font-size: 0.67rem; }
-  .finder-preview { width: calc(100% + 0.5rem); margin-top: 2rem; padding: 0.7rem; border-radius: 1rem 1rem 0 0; }
-  .preview-toolbar > span:nth-child(2) { max-width: 10rem; }
-  .preview-filters { overflow-x: auto; }
-  .preview-filters span { flex: none; }
-  .preview-result { grid-template-columns: auto 1fr; }
-  .match-score { display: none; }
-  .profile-photo { width: 3rem; height: 3rem; }
-  .preview-result h2 { font-size: 0.86rem; }
-  .preview-slots { display: grid; grid-template-columns: repeat(2, 1fr); }
-  .preview-slots p, .preview-slots a { grid-column: 1 / -1; }
-  .preview-note { display: none; }
-  .trust-strip { grid-template-columns: repeat(2, 1fr); padding: 0.65rem; border-radius: 0 0 1rem 1rem; }
-  .trust-strip p { padding: 0.65rem; }
-  .trust-strip p:nth-child(2) { border-right: 0; }
-  .trust-strip p:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
-  .home-section { margin-top: 4.5rem; }
-  .section-heading h2, .assistant-copy h2, .safety-copy h2 { font-size: 2.45rem; }
-  .value-list article { padding: 1.35rem 0; }
-  .steps-section { padding: 2.5rem 1rem; border-radius: 1rem; }
-  .steps { grid-template-columns: 1fr; margin-top: 2rem; }
-  .steps li { display: grid; grid-template-columns: auto 1fr; column-gap: 0.85rem; padding: 1.2rem 0.85rem; }
-  .steps li > span { grid-row: 1 / 3; margin: 0; }
-  .steps h3 { margin-top: 0.25rem; }
-  .steps p { grid-column: 2; }
-  .chat-window { border-radius: 1rem; }
-  .chat-thread { padding: 0.8rem; }
-  .chat-widget { margin-left: 0; }
-  .chat-caption { margin-left: 0; }
-  .audience-grid { grid-template-columns: 1fr; }
-  .audience-art { height: clamp(10rem, 48vw, 13rem); }
-  .safety-section { padding: 2.5rem 1.25rem; border-radius: 1rem; }
-  .home-cta { grid-template-columns: 1fr; padding: 2.5rem 1.25rem; border-radius: 1rem; }
-  .home-cta > div:last-child { justify-items: stretch; }
-  .home-cta > div:last-child > a:last-child { text-align: center; }
-  .crisis-inline { display: grid; padding-inline: 0.25rem; }
-  .crisis-inline a { justify-self: start; }
-  .subpage { gap: 4rem; }
-  .subpage-hero, .document-hero, .crisis-hero { min-height: 0; padding: 3rem 1.25rem; border-radius: 1rem; }
-  .subpage-hero h1, .crisis-hero h1, .document-hero h1 { font-size: clamp(2.45rem, 12vw, 3.4rem); }
-  .process-grid, .principles-panel, .info-card-grid, .data-panel, .resource-grid { grid-template-columns: 1fr; }
-  .process-grid li { min-height: 0; padding: 1.5rem; }
-  .process-grid li::before { margin-bottom: 2rem; }
-  .principles-panel article { padding: 2rem 1.25rem; }
-  .principles-panel article + article { border-top: 1px solid var(--border-strong); border-left: 0; }
-  .info-card { min-height: 0; padding: 2rem 1.25rem; }
-  .info-index { margin-bottom: 2rem; }
-  .data-panel { gap: 2rem; padding: 2.5rem 1.25rem; border-radius: 1rem; }
-  .contact-panel { padding: 2.5rem 1.25rem; }
-  .emergency-panel { padding: 2rem 1.25rem; }
-  .resource-card { min-height: 0; padding: 1.5rem 1.25rem; }
-  .minor-resources { margin-inline: -0.25rem; padding: 2.5rem 0.75rem; border-radius: 1rem; }
-  .document-content section { padding-block: 2.5rem; }
-  .directory-page { gap: 3rem; }
-  .directory-hero, .signup-intro { padding: 3rem 1.25rem; border-radius: 1rem; }
-  .directory-hero h1, .signup-intro h1 { font-size: clamp(2.45rem, 12vw, 3.4rem); }
-  footer.site .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
-  .footer-links { max-width: 24rem; }
-  .footer-legal { display: grid; gap: 0.8rem; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
-}
+/* The engine frames every heading block; the profile's heading brings its own frame. */
+.lp .lp-hero:has(> .phero) { display: block; padding: 0; }
 `;

@@ -189,10 +189,10 @@ describe('the way the page is presented', () => {
 
   it('stores what the selects posted and drops a value it does not know', async () => {
     const response = await saveSections(admin, [
-      ['layout_theme', 'bursztyn'],
-      ['layout_rhythm', 'zwarty'],
-      ['layout_bands', 'pasy'],
-      ['layout_nav', 'kotwice'],
+      ['layout_theme', 'amber'],
+      ['layout_rhythm', 'tight'],
+      ['layout_bands', 'stripes'],
+      ['layout_nav', 'anchors'],
       ['layout_hero', 'onclick=1'],
     ]);
     expect(response.status).toBe(302);
@@ -201,7 +201,7 @@ describe('the way the page is presented', () => {
       .bind(ANNA)
       .first<{ layout_json: string }>();
     expect(JSON.parse(row?.layout_json ?? '{}')).toEqual({
-      theme: 'bursztyn', rhythm: 'zwarty', display: '', bands: 'pasy', hero: '', nav: 'kotwice',
+      theme: 'amber', rhythm: 'tight', display: '', bands: 'stripes', hero: '', nav: 'anchors',
     });
   });
 });
@@ -509,15 +509,15 @@ describe('page layout saves on its own', () => {
   it('stores the sections in the posted order', async () => {
     await saveSections(admin, [
       ['sec_0_type', 'intro'], ['sec_0_pos', '2'],
-      ['sec_1_type', 'cytat'], ['sec_1_pos', '1'], ['sec_1_body', 'Jedno zdanie.'],
+      ['sec_1_type', 'quote'], ['sec_1_pos', '1'], ['sec_1_body', 'Jedno zdanie.'],
     ]);
 
     const sections = await storedSections();
-    expect(sections.map((section) => section.type)).toEqual(['cytat', 'intro']);
+    expect(sections.map((section) => section.type)).toEqual(['quote', 'intro']);
   });
 
   it('keeps the layout when the profile form is saved', async () => {
-    await saveSections(admin, [['sec_0_type', 'cytat'], ['sec_0_pos', '1'], ['sec_0_body', 'Zostaje.']]);
+    await saveSections(admin, [['sec_0_type', 'quote'], ['sec_0_pos', '1'], ['sec_0_body', 'Zostaje.']]);
     await saveProfile(admin, [['bio', 'Nowy opis.']]);
 
     const sections = await storedSections();
@@ -527,12 +527,12 @@ describe('page layout saves on its own', () => {
 
   it('drops a section marked for removal and appends the one being added', async () => {
     await saveSections(admin, [
-      ['sec_0_type', 'cytat'], ['sec_0_pos', '1'], ['sec_0_body', 'Do usunięcia.'], ['sec_0_del', '1'],
+      ['sec_0_type', 'quote'], ['sec_0_pos', '1'], ['sec_0_body', 'Do usunięcia.'], ['sec_0_del', '1'],
       ['sec_1_type', 'intro'], ['sec_1_pos', '2'],
-      ['action', 'add_section'], ['add_section', 'wyroznienie'],
+      ['action', 'add_section'], ['add_section', 'cta'],
     ]);
 
-    expect((await storedSections()).map((section) => section.type)).toEqual(['intro', 'wyroznienie']);
+    expect((await storedSections()).map((section) => section.type)).toEqual(['intro', 'cta']);
   });
 
   it('refuses a therapist reaching for someone else\'s layout', async () => {

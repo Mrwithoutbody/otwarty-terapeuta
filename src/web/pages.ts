@@ -18,17 +18,8 @@ import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
 import { assetUrls, htmlResponse, renderPage } from './layout';
-import { getPage, listPages, LP_DOC_CSS, renderTherapistDocument, type PageRow } from './lp';
-import {
-  languageList,
-  layoutClasses,
-  parseLayout,
-  pageSections,
-  parseSections,
-  pluginCta,
-  renderSections,
-  type SectionCtx,
-} from './sections';
+import { getPage, listPages, LP_DOC_CSS, profileLayout, renderProfile, renderTherapistDocument, type PageRow, type SectionCtx } from './lp';
+import { languageList, pluginCta } from './host-blocks';
 
 /**
  * The public website. Everything is server rendered with escaped text and no
@@ -66,8 +57,8 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
 
   // Her page's theme, as one hairline on the card. The catalogue stays one
   // list; the colour is a signature, not a second design.
-  const theme = parseLayout(t.layout).theme;
-  return `<li class="card therapist-card${theme === '' ? '' : ` therapist-card--theme-${escapeHtml(theme)}`}">
+  const theme = profileLayout(t.layout).theme;
+  return `<li class="card therapist-card${theme === 'sage' ? '' : ` therapist-card--theme-${escapeHtml(theme)}`}">
   <div style="display:flex;gap:0.9rem;align-items:flex-start">
     ${
       t.photo_url
@@ -429,9 +420,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
   // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
   c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
 
-  const sections = pageSections(parseSections(t.sections));
-  const layout = parseLayout(t.layout);
-  const body = renderSections(sections, ctx, { nav: layout.nav === 'kotwice', bands: layout.bands });
+  const body = await renderProfile(t, ctx);
 
   return htmlResponse(
     c.env,
@@ -439,8 +428,9 @@ siteApp.get('/terapeuci/:slug', async (c) => {
       title: t.display_name,
       description: t.headline ?? 'Profil psychoterapeuty',
       path: '/terapeuci',
+      lp: true,
       body: `
-<article class="profile-page${layoutClasses(t.layout)}">
+<article class="profile-page">
 <nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
 ${subpageNav(t, pages)}
 ${body}
