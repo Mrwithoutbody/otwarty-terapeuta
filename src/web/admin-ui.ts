@@ -19,50 +19,6 @@ export const ADMIN_JS = String.raw`(function () {
   // Reordering by dragging. The position inputs stay the source of truth and are
   // renumbered after every drop, so the form posts the same thing either way and
   // the no-JS path keeps working untouched.
-  function initComposer(root) {
-    var list = root.querySelector('.sec-list');
-    if (!list) return;
-    document.documentElement.classList.add('js-drag');
-
-    var dragged = null;
-
-    function renumber() {
-      var rows = list.querySelectorAll('.sec-item');
-      for (var i = 0; i < rows.length; i++) {
-        var input = rows[i].querySelector('[data-section-pos]');
-        if (input) input.value = String(i + 1);
-      }
-    }
-
-    list.addEventListener('dragstart', function (e) {
-      var item = e.target.closest ? e.target.closest('.sec-item') : null;
-      // Dragging inside a textarea must not pick the whole section up.
-      if (!item || (e.target.closest && e.target.closest('.sec-fields'))) return;
-      dragged = item;
-      item.classList.add('dragging');
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-    });
-
-    list.addEventListener('dragend', function () {
-      if (dragged) dragged.classList.remove('dragging');
-      var over = list.querySelector('.over');
-      if (over) over.classList.remove('over');
-      dragged = null;
-      renumber();
-    });
-
-    list.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      var target = e.target.closest ? e.target.closest('.sec-item') : null;
-      if (!target || !dragged || target === dragged) return;
-      var box = target.getBoundingClientRect();
-      var before = e.clientY < box.top + box.height / 2;
-      list.insertBefore(dragged, before ? target : target.nextSibling);
-    });
-
-    list.addEventListener('drop', function (e) { e.preventDefault(); });
-  }
-
   // ------------------------------------------------------------------ tabs ---
 
   function initTabs(root) {
@@ -562,7 +518,6 @@ export const ADMIN_JS = String.raw`(function () {
     document.querySelectorAll('[data-editor]').forEach(initEditor);
     document.querySelectorAll('[data-repeat]').forEach(initRepeat);
     document.querySelectorAll('[data-crop]').forEach(initCrop);
-    document.querySelectorAll('[data-composer]').forEach(initComposer);
   }
 
   // Formularze z data-confirm pytają zanim wyślą — usuwanie grafik jest nieodwracalne.
@@ -719,54 +674,10 @@ export const ADMIN_CSS = String.raw`
 .crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
 .crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
 
-/* --- profile composer ---------------------------------------------------- */
+/* --- profile composer: the editor itself is the engine's (lp-editor.css) ---- */
 .composer .hint { max-width: 62ch; }
-.sec-item { border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fff;
-  margin-bottom: 0.7rem; overflow: hidden; }
-.sec-head { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.9rem; align-items: center;
-  padding: 0.75rem 0.9rem; }
-.sec-item .grip { cursor: grab; color: var(--border-strong, #d1d8c1); font-size: 1.15rem; line-height: 1; }
-.sec-copy strong { display: block; font-size: 0.98rem; }
-.sec-copy span { color: var(--text-muted, #6a7360); font-size: 0.85rem; }
-.sec-pos input { width: 3.2rem; }
-.sec-del { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--text-muted, #6a7360); }
-.sec-fields { border-top: 1px solid var(--border, #e3e6d8); background: #fbfcf7; }
-.sec-fields > summary { cursor: pointer; padding: 0.55rem 0.9rem; font-size: 0.86rem;
-  color: var(--text-muted, #6a7360); }
-.sec-fields-body { padding: 0 0.9rem 0.9rem; }
-.sec-list-field { margin: 0 0 0.6rem; }
-.sec-list-field ol { list-style: none; margin: 0; padding: 0; }
-.sec-subrow { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  padding: 0.5rem 0; border-bottom: 1px dashed var(--border, #e3e6d8); }
-.sec-subrow:last-child { border-bottom: 0; }
-/* How the page is presented, above what is on it. */
-.sec-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 0.9rem 1.4rem; margin: 1rem 0 0; padding: 1rem 1.2rem 1.2rem;
-  border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); }
-.sec-layout legend { padding-inline: 0.4rem; font-weight: 600; font-size: 0.9rem; }
-.sec-layout .field { margin: 0; }
-.sec-layout .hint { margin: 0.4rem 0 0; }
-
-.sec-add { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
-.sec-add select { min-width: 18rem; }
-.sec-list { list-style: none; margin: 1rem 0 0; padding: 0; }
-/* Arrange on the left, watch on the right. Building a page while looking at a
-   list of twelve names is what made this feel like paperwork. */
 .composer-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
   gap: 1.5rem; align-items: start; }
-/* Templates: her page, five times, small. The iframe renders at desktop width
-   and is zoomed down, so the thumbnail is the page and not its phone layout. */
-.tpl-set { border: 1px solid var(--border, #e3e6d8); border-radius: 12px; padding: 0.8rem 1rem 1rem; margin: 0 0 1rem; }
-.tpl-set legend { padding-inline: 0.4rem; font-weight: 600; font-size: 0.9rem; }
-.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; list-style: none; margin: 0.6rem 0 0; padding: 0; }
-.tpl { display: grid; gap: 0.5rem; margin: 0; }
-.tpl-frame { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--border, #e3e6d8); border-radius: 10px; background: #fff; }
-.tpl--active .tpl-frame { outline: 3px solid var(--accent-strong, #4b5a1f); outline-offset: -3px; }
-.tpl-frame iframe { width: 1280px; height: 960px; border: 0; zoom: 0.25; pointer-events: none; }
-.tpl-copy { display: grid; gap: 0.15rem; font-size: 0.9rem; }
-.tpl-copy span { color: var(--text-muted, #666); font-size: 0.82rem; }
-.tpl .btn { justify-self: start; }
-
 .composer-preview { position: sticky; top: 1rem; }
 .composer-preview .hint { margin: 0 0 0.5rem; }
 .composer-preview iframe { width: 100%; height: min(78vh, 900px); border: 1px solid var(--border, #e3e6d8);
@@ -785,5 +696,4 @@ export const ADMIN_CSS = String.raw`
 .sec-item.dragging { opacity: 0.45; }
 .sec-item.over { border-color: var(--accent-strong, #637200); }
 /* With drag available the numbers are redundant, so JS hides them. */
-.js-drag .sec-pos { display: none; }
 `;

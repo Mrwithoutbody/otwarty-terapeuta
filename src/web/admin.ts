@@ -29,23 +29,21 @@ import {
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { assetUrls, htmlResponse, renderPage } from './layout';
-import type { BlockDef, Field as LpField, Block as Section, Values } from 'x402-landings';
 import {
   applyPreset,
-  presetLook,
-  renderProfileWith,
-  blockAllFields,
-  BLOCKS,
   getPageById,
+  heroFor,
   listPages,
   LP_DOC_CSS,
-  LP_LAYOUT_AXES,
   lpParseLayout,
-  MAX_BLOCKS,
   parseBlocks,
+  presetLook,
   PRESETS,
   profileBlocks,
   profileLayout,
+  readEditor,
+  renderEditor,
+  renderProfileWith,
   renderTherapistDocument,
   slugify,
   type PageRow,
@@ -473,33 +471,6 @@ interface EditorContext {
   pages: PageRow[];
 }
 
-/** The builder is generated from the engine's registry: core blocks and the host's. */
-interface BuilderDef {
-  label: string;
-  hint: string;
-  auto?: boolean;
-  resolve?: unknown;
-  fields?: LpField[];
-  repeatable?: boolean;
-  family?: string;
-}
-interface Builder {
-  defs: Record<string, BuilderDef>;
-  groups: Array<[boolean, string]>;
-  allFields(def: BuilderDef): LpField[];
-  parse(raw: unknown): Section[];
-}
-const LP_BUILDER: Builder = {
-  defs: BLOCKS,
-  groups: [[true, 'Twoje dane'], [false, 'Własna treść']],
-  allFields: (def) => blockAllFields(def as BlockDef),
-  parse: parseBlocks,
-};
-/** Content from the database rather than from the form: a profile section flagged so, or a host block. */
-const isAuto = (def: BuilderDef): boolean => def.auto === true || def.resolve !== undefined;
-
-type Axes = ReadonlyArray<{ name: string; label: string; hint?: string; options: ReadonlyArray<readonly [string, string]> }>;
-
 const SESSION_TYPE_LABELS: RefTag[] = [
   { slug: 'individual', name_pl: 'indywidualne' },
   { slug: 'couples', name_pl: 'dla par' },
@@ -647,155 +618,6 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * carried by numeric position inputs; the drag-and-drop in `admin.js` only
  * rewrites those numbers, so both paths post the same thing.
  */
-/**
- * How the page is presented, above the list of what is on it. Two selects, not
- * ten: the sections carry the content, this carries the shape.
- */
-function layoutChoice(axes: Axes, layout: Record<string, string>): string {
-  const field = (axis: Axes[number]): string => `<div class="field">
-    <label for="layout_${escapeHtml(axis.name)}">${escapeHtml(axis.label)}</label>
-    <select id="layout_${escapeHtml(axis.name)}" name="layout_${escapeHtml(axis.name)}">${axis.options
-      .map(([value, label]) =>
-        `<option value="${escapeHtml(value)}"${value === layout[axis.name] ? ' selected' : ''}>${escapeHtml(label)}</option>`)
-      .join('')}</select>
-    ${axis.hint ? `<p class="hint">${escapeHtml(axis.hint)}</p>` : ''}
-  </div>`;
-
-  return `<fieldset class="sec-layout">
-  <legend>Sposób podania</legend>
-  ${axes.map(field).join('')}
-</fieldset>`;
-}
-
-/** What the selects posted, validated by the same reader the page uses. */
-function collectLayout(axes: Axes, parse: (raw: unknown) => Record<string, string>, body: URLSearchParams): string {
-  const posted: Record<string, unknown> = {};
-  for (const axis of axes) posted[axis.name] = body.get(`layout_${axis.name}`);
-  return JSON.stringify(parse(posted));
-}
-
-function sectionsEditor(row: TherapistRow | null, context: EditorContext): string {
-  return editorList(LP_BUILDER, profileBlocks(row?.sections_json ?? null), autoSummary(row, context));
-}
-
-/**
- * The templates, each shown on her own page: a card per template with the page
- * rendered in that look, and one button that applies it. Her blocks and her
- * words stay; the look changes.
- */
-function presetGallery(previewUrl: string, current: Record<string, string>): string {
-  const cards = Object.entries(PRESETS)
-    .map(([key, p]) => {
-      const active = Object.entries(p.layout).every(([axis, value]) => current[axis] === value);
-      return `<li class="tpl${active ? ' tpl--active' : ''}">
-  <div class="tpl-frame"><iframe src="${previewUrl}?preset=${escapeHtml(key)}" title="${escapeHtml(p.label)}" loading="lazy" tabindex="-1"></iframe></div>
-  <div class="tpl-copy"><strong>${escapeHtml(p.label)}</strong><span>${escapeHtml(p.hint)}</span></div>
-  <button class="btn${active ? '' : ' secondary'}" type="submit" name="action" value="apply_preset:${escapeHtml(key)}">${active ? 'Wybrany' : 'Zastosuj'}</button>
-</li>`;
-    })
-    .join('');
-  return `<fieldset class="tpl-set">
-  <legend>Szablon</legend>
-  <p class="hint">Każdy podgląd to Twoja strona w tym szablonie. Treść zostaje, zmienia się wygląd.</p>
-  <ul class="tpl-grid">${cards}</ul>
-</fieldset>`;
-}
-
-/** The template named in a submit button, or null for a plain save. */
-function presetAction(body: URLSearchParams): string | null {
-  const action = body.get('action') ?? '';
-  return action.startsWith('apply_preset:') ? action.slice('apply_preset:'.length) : null;
-}
-
-function editorList(
-  b: Builder,
-  sections: Section[],
-  summary: Record<string, { text: string; empty?: true } | undefined>,
-): string {
-  const rows = sections
-    .map((section, index) => {
-      const def = b.defs[section.type];
-      if (!def) return '';
-      // A section with nothing in it is listed but says so, and an auto one says
-      // what it holds today - otherwise the screen is ten names and no content.
-      const holds = summary[section.type];
-      const empty = isAuto(def)
-        ? holds?.empty === true
-        : filled(def.fields ?? [], section, true) === 0;
-      return `<li class="sec-item" data-section draggable="true">
-  <div class="sec-head">
-    <span class="grip" aria-hidden="true">⠿</span>
-    <span class="sec-copy"><strong>${escapeHtml(def.label)}</strong>
-      <span>${escapeHtml(isAuto(def) ? (holds?.text ?? def.hint) : def.hint)}${
-        empty ? ' · sekcja się nie pokaże' : ''
-      }</span></span>
-    <input type="hidden" name="sec_${index}_type" value="${escapeHtml(section.type)}">
-    <label class="sec-pos"><span class="visually-hidden">Pozycja sekcji ${escapeHtml(def.label)}</span>
-      <input type="number" name="sec_${index}_pos" value="${index + 1}" min="1" max="${MAX_BLOCKS}" data-section-pos></label>
-    <label class="sec-del"><input type="checkbox" name="sec_${index}_del" value="1"><span>usuń</span></label>
-  </div>
-  ${sectionFields(b, def, section, index)}
-</li>`;
-    })
-    .join('');
-
-  const families = new Set(
-    sections.map((section) => b.defs[section.type]?.family).filter((f): f is string => !!f),
-  );
-  const palette = b.groups.map(([auto, label]) => {
-    const options = Object.entries(b.defs)
-      .filter(([type, def]) => isAuto(def) === auto
-        && (def.repeatable === true || !sections.some((s) => s.type === type))
-        && (def.family === undefined || !families.has(def.family)))
-      .map(([type, def]) => `<option value="${escapeHtml(type)}">${escapeHtml(def.label)} — ${escapeHtml(def.hint)}</option>`)
-      .join('');
-    return options === '' ? '' : `<optgroup label="${escapeHtml(label)}">${options}</optgroup>`;
-  }).join('');
-
-  return `<ol class="sec-list">${rows}</ol>
-<div class="sec-add">
-  <label for="add_section"><span class="visually-hidden">Rodzaj sekcji</span>
-    <select id="add_section" name="add_section"><option value="">— wybierz sekcję do dodania —</option>${palette}</select></label>
-  <button class="btn secondary" type="submit" name="action" value="add_section">Dodaj sekcję</button>
-</div>`;
-}
-
-/**
- * How many of a section's fields carry something. `skipTitles` ignores the
- * heading and the lead, which every section has and neither of which counts as
- * content of its own.
- */
-function filled(fields: LpField[], values: Values, skipTitles = false): number {
-  return fields.filter((field) => {
-    if (skipTitles && (field.name === 'heading' || field.name === 'lead')) return false;
-    const value = values[field.name];
-    return Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== '';
-  }).length;
-}
-
-/**
- * Fields for one section, generated from its definition and folded away.
- * Eight sections with their fields all open is a wall of empty inputs; the
- * summary says whether there is anything inside worth opening.
- */
-function sectionFields(b: Builder, def: BuilderDef, section: Section, index: number): string {
-  const fields = b.allFields(def)
-    .map((field) => sectionField(field, section[field.name], `sec_${index}_${field.name}`))
-    .join('');
-  if (fields === '') return '';
-  // The presentation selects are not content: they never count towards the
-  // summary and never force the section open.
-  const own = def.fields ?? [];
-  const count = filled(own, section);
-  const summary = own.length === 0
-    ? 'Wygląd sekcji'
-    : count > 0 ? `Treść (${count} ${count === 1 ? 'pole' : 'pola'})` : 'Wpisz treść';
-  return `<details class="sec-fields"${own.length > 0 && count === 0 ? ' open' : ''}>
-  <summary>${escapeHtml(summary)}</summary>
-  <div class="sec-fields-body">${fields}</div>
-</details>`;
-}
-
 function linkRow(entry: LinkInput | null, index: number): string {
   const suffix = entry ? `_${index}` : '';
   const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
@@ -883,46 +705,6 @@ function collectLinks(body: URLSearchParams): string {
 function credentialKey(title: string, issuer: string): string {
   return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
 }
-
-function sectionField(field: LpField, value: unknown, name: string): string {
-  const label = `<label for="${name}">${escapeHtml(field.label)}</label>`;
-  const hint = field.hint ? `<p class="hint">${escapeHtml(field.hint)}</p>` : '';
-
-  if (field.kind === 'list') {
-    const existing = Array.isArray(value) ? (value as Values[]) : [];
-    // One spare row so something can always be added without JavaScript.
-    const count = Math.min((field.max ?? 6), existing.length + 1);
-    const rows = Array.from({ length: count }, (_, i) => {
-      const item = existing[i] ?? {};
-      const inner = (field.of ?? [])
-        .map((sub) => sectionField(sub, item[sub.name], `${name}_${i}_${sub.name}`))
-        .join('');
-      return `<li class="sec-subrow">${inner}</li>`;
-    }).join('');
-    return `<fieldset class="sec-list-field"><legend>${escapeHtml(field.label)}</legend>${hint}<ol>${rows}</ol></fieldset>`;
-  }
-
-  const text = typeof value === 'string' ? value : '';
-  if (field.kind === 'textarea') {
-    return `<div class="field">${label}<textarea id="${name}" name="${escapeHtml(name)}" rows="4"
-      maxlength="${field.max ?? 2000}">${escapeHtml(text)}</textarea>${hint}</div>`;
-  }
-  if (field.kind === 'select') {
-    return `<div class="field">${label}<select id="${name}" name="${escapeHtml(name)}">${(field.options ?? [])
-      .map(([v, l]) => `<option value="${escapeHtml(v)}"${text === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
-      .join('')}</select>${hint}</div>`;
-  }
-  if (field.kind === 'media') {
-    // A picture is an address here: hers from the "Grafiki" tab, or nothing for
-    // artwork drawn in the page theme. The engine reads a bare URL as a media ref.
-    const media = typeof value === 'object' && value !== null ? String((value as Values).url ?? '') : text;
-    return `<div class="field">${label}<input id="${name}" name="${escapeHtml(name)}" type="text"
-    maxlength="500" placeholder="/media/… albo https://…" value="${escapeHtml(media)}">${hint}</div>`;
-  }
-  return `<div class="field">${label}<input id="${name}" name="${escapeHtml(name)}" type="${field.kind === 'url' ? 'url' : 'text'}"
-    maxlength="${field.max ?? 120}" value="${escapeHtml(text)}">${hint}</div>`;
-}
-
 
 /**
  * What each auto section will actually put on the page. "Twój opis i nurt pracy"
@@ -1406,20 +1188,20 @@ ${
 }
 </section>
 
-<section data-tab-panel data-tab-label="Układ strony" id="panel-strona">
-<h2>Układ strony</h2>
-<p class="panel-lead">Po lewej układasz, po prawej widzisz efekt. Podgląd odświeża się po
-każdym zapisie.</p>
+<section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
+<h2>Wygląd strony</h2>
+<p class="panel-lead">Wybierz szablon — każdy podgląd to Twój profil w tym wyglądzie. Po prawej
+widzisz efekt po zapisie.</p>
 <div class="composer-split">
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
   <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
-  ${presetGallery(`/admin/terapeuci/${id}/podglad`, profileLayout(row.layout_json))}
-  ${layoutChoice(LP_LAYOUT_AXES, profileLayout(row.layout_json))}
-  <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność i dodawaj kolejne.
-  Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
-  najbliższy termin) jest u wszystkich taka sama, żeby dało się porównywać terapeutów między sobą.</p>
-  ${sectionsEditor(row, context)}
+  ${renderEditor({
+    blocks: profileBlocks(row.sections_json),
+    layout: profileLayout(row.layout_json),
+    summary: autoSummary(row, context),
+    previewUrl: `/admin/terapeuci/${id}/podglad`,
+  })}
   <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
 </form>
 <aside class="composer-preview">
@@ -1521,76 +1303,6 @@ function checkedValues(body: URLSearchParams, name: string, allowed: string[] | 
  * Linki do wizytówek w innych serwisach. `safeUrl` przepuszcza wyłącznie https,
  * więc `javascript:` albo `//evil` odpada zanim trafi do bazy i na profil.
  */
-/**
- * Every section posts its type, its position and its own fields. Positions
- * survive without JavaScript; the drag-and-drop only rewrites them. The result
- * goes through the engine's own parser before it is stored, so an unknown type,
- * an unknown field or an over-long string never reaches the database.
- */
-function collectSections(b: Builder, body: URLSearchParams): string {
-  const found: Array<{ pos: number; index: number; section: Section }> = [];
-
-  for (const index of postedSections(body)) {
-    const type = body.get(`sec_${index}_type`);
-    if (!type || body.get(`sec_${index}_del`) === '1') continue;
-    const def = b.defs[type];
-    if (!def) continue;
-
-    const section: Section = { type };
-    for (const field of b.allFields(def)) {
-      const value = readField(body, field, `sec_${index}_${field.name}`);
-      if (value !== undefined) section[field.name] = value;
-    }
-    found.push({ pos: Number(body.get(`sec_${index}_pos`) ?? index + 1) || index + 1, index, section });
-  }
-
-  found.sort((a, b) => a.pos - b.pos || a.index - b.index);
-  const sections = found.map((entry) => entry.section);
-
-  // "Add section" is a submit button, so the profile saves and comes back with
-  // the new section appended - one round trip, no JavaScript required.
-  const added = body.get('action') === 'add_section' ? (body.get('add_section') ?? '') : '';
-  const def = added === '' ? undefined : b.defs[added];
-  if (def && sections.length < MAX_BLOCKS) {
-    const repeated = sections.some((s) => s.type === added);
-    const familyTaken =
-      def.family !== undefined && sections.some((s) => b.defs[s.type]?.family === def.family);
-    if ((def.repeatable === true || !repeated) && !familyTaken) sections.push({ type: added });
-  }
-
-  return JSON.stringify(b.parse(sections));
-}
-
-/** Which section indexes the form actually posted, in the order it posted them. */
-function postedSections(body: URLSearchParams): number[] {
-  const seen = new Set<number>();
-  for (const key of body.keys()) {
-    const match = /^sec_(\d+)_type$/.exec(key);
-    if (match) seen.add(Number(match[1]));
-  }
-  return [...seen];
-}
-
-function readField(body: URLSearchParams, field: LpField, name: string): unknown {
-  if (field.kind === 'list') {
-    const rows: Values[] = [];
-    for (let i = 0; i < (field.max ?? 6); i++) {
-      const item: Values = {};
-      for (const sub of field.of ?? []) {
-        const value = readField(body, sub, `${name}_${i}_${sub.name}`);
-        if (value !== undefined) item[sub.name] = value;
-      }
-      if (Object.keys(item).length > 0) rows.push(item);
-    }
-    return rows.length > 0 ? rows : undefined;
-  }
-  const raw = body.get(name);
-  if (raw === null) return undefined;
-  const value = raw.trim();
-  return value === '' ? undefined : value;
-}
-
-
 adminApp.post('/terapeuci/:id', async (c) => {
   const body = await formValues(c.req.raw);
   const id = c.req.param('id');
@@ -1839,13 +1551,10 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   const id = c.req.param('id');
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
-  const posted = collectSections(LP_BUILDER, body);
-  const chosen = presetAction(body);
-  const preset = chosen === null ? null : presetLook(chosen, JSON.parse(posted) as Section[]);
-  const sections = preset ? JSON.stringify(preset.blocks) : posted;
-  const layout = preset ? JSON.stringify(preset.layout) : collectLayout(LP_LAYOUT_AXES, lpParseLayout, body);
+  const edited = readEditor(body, { heroFor });
+  const sections = JSON.stringify(edited.blocks);
   await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
-    .bind(sections, layout, nowIso(), id)
+    .bind(sections, JSON.stringify(edited.layout), nowIso(), id)
     .run();
 
   await audit(c.env, {
@@ -1948,11 +1657,7 @@ function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow
       <option value="published"${row.status === 'published' ? ' selected' : ''}>Opublikowana — link na profilu</option>
     </select></div>
   <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
-  ${presetGallery(preview, lpParseLayout(row.layout_json))}
-  ${layoutChoice(LP_LAYOUT_AXES, lpParseLayout(row.layout_json))}
-  <p class="hint">Przeciągnij blok, żeby zmienić kolejność, i dodawaj kolejne. Blok, w którym nic nie ma,
-  nie pokaże się na stronie. Strona bez nagłówka dostaje nagłówek z tytułu.</p>
-  ${editorList(LP_BUILDER, parseBlocks(row.blocks_json), summary)}
+  ${renderEditor({ blocks: parseBlocks(row.blocks_json), layout: lpParseLayout(row.layout_json), summary, previewUrl: preview, blocksOpen: true })}
   <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
 </form>
 <aside class="composer-preview">
@@ -1986,11 +1691,9 @@ adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
   if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
     return page(c.env, 'Zły adres', '<h1>Zły adres</h1><p>Adres to małe litery, cyfry i myślniki.</p>', 400);
   }
-  const posted = collectSections(LP_BUILDER, body);
-  const chosen = presetAction(body);
-  const preset = chosen === null ? null : presetLook(chosen, JSON.parse(posted) as Section[]);
-  const blocks = preset ? JSON.stringify(preset.blocks) : posted;
-  const layout = preset ? JSON.stringify(preset.layout) : collectLayout(LP_LAYOUT_AXES, lpParseLayout, body);
+  const edited = readEditor(body, { heroFor });
+  const blocks = JSON.stringify(edited.blocks);
+  const layout = JSON.stringify(edited.layout);
   try {
     await c.env.DB.prepare(
       `UPDATE therapist_pages SET title=?, slug=?, status=?, blocks_json=?, layout_json=?, updated_at=? WHERE id=? AND therapist_id=?`,

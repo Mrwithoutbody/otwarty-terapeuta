@@ -13,18 +13,20 @@
  */
 import {
   applyPreset,
-  blockAllFields,
+  applyPresetTo,
   BLOCKS,
   DOCUMENT_CSS,
-  LAYOUT_AXES as LP_LAYOUT_AXES,
+  EDITOR_CSS,
+  EDITOR_JS,
   layoutClasses as lpLayoutClasses,
-  MAX_BLOCKS,
   PAGE_CSS,
   parseBlocks,
   parseLayout as lpParseLayout,
   parsePage,
   PRESETS,
+  readEditor,
   registerBlocks,
+  renderEditor,
   renderBlocks,
   resolvePage,
   slugify,
@@ -37,7 +39,7 @@ import { escapeHtml } from '../lib/sanitize';
 import { HOST_SECTIONS, type SectionCtx } from './host-blocks';
 import { APP_CSS } from './styles';
 
-export { applyPreset, blockAllFields, BLOCKS, LP_LAYOUT_AXES, lpParseLayout, MAX_BLOCKS, parseBlocks, PRESETS, slugify };
+export { applyPreset, EDITOR_CSS, EDITOR_JS, lpParseLayout, parseBlocks, PRESETS, readEditor, renderEditor, slugify };
 export type { SectionCtx };
 
 // ------------------------------------------------------------ host blocks ---
@@ -168,20 +170,15 @@ export function profileLayout(raw: unknown): Record<string, string> {
   return lpParseLayout(out);
 }
 
-/**
- * A template applied to a page she already has: the template's look, her
- * blocks. Only the heading changes shape, because a poster template with a
- * catalogue heading is not that template. Content is never thrown away.
- */
+/** What a template's heading means here: the profile's own heading blocks, or the engine's. */
+export function heroFor(poster: boolean, current: Block): string {
+  if (current.type in HOST_SECTIONS) return poster ? 'hero-plakat' : 'hero-profil';
+  return poster ? 'hero-poster' : current.type === 'hero-poster' ? 'hero' : current.type;
+}
+
+/** A template on a page that already exists: its look, her blocks. */
 export function presetLook(id: string, blocks: Block[]): { layout: Record<string, string>; blocks: Block[] } {
-  const { layout } = applyPreset(id);
-  const poster = layout.display === 'poster';
-  const swapped = blocks.map((b) => {
-    if (BLOCKS[b.type]?.family !== 'hero') return b;
-    if (b.type in HOST_SECTIONS) return { ...b, type: poster ? 'hero-plakat' : 'hero-profil' };
-    return { ...b, type: poster ? 'hero-poster' : b.type === 'hero-poster' ? 'hero' : b.type };
-  });
-  return { layout, blocks: swapped };
+  return applyPresetTo(id, blocks, heroFor);
 }
 
 // ---------------------------------------------------------------- render ---

@@ -2,7 +2,7 @@ import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
-import { LP_CSS } from './lp';
+import { EDITOR_CSS, EDITOR_JS, LP_CSS } from './lp';
 import { APP_CSS } from './styles';
 
 /**
@@ -28,6 +28,7 @@ const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000'))
 const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
 const LP_CSS_VERSION = assetVersion(LP_CSS);
+const EDITOR_VERSION = assetVersion(EDITOR_CSS, EDITOR_JS);
 
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere, which
@@ -134,7 +135,9 @@ ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 ${options.lp ? `<link rel="stylesheet" href="/assets/lp.css?v=${LP_CSS_VERSION}">\n` : ''}${
   options.adminAssets
     ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
-      `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`
+      `<link rel="stylesheet" href="/assets/lp-editor.css?v=${EDITOR_VERSION}">\n` +
+      `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>\n` +
+      `<script src="/assets/lp-editor.js?v=${EDITOR_VERSION}" defer></script>`
     : ''
 }
 <link rel="icon" href="data:,">
