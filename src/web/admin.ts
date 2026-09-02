@@ -14,7 +14,7 @@ import {
 import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/challenge';
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
-import { escapeHtml, isEmail, normalizeForSearch, safeUrl, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import {
   addCivilDays,
   civilDateIn,
@@ -438,23 +438,6 @@ interface FaqRow {
   updated_at: string;
 }
 
-interface CredentialInput {
-  title: string;
-  issuer: string;
-  year: string;
-  verified: boolean;
-}
-
-/**
- * Everything the editor needs that does not live on the `therapists` row:
- * the controlled vocabularies, what this profile has selected from them, its
- * primary location, its offers and its FAQ.
- *
- * Loading the current selections is what makes the checkbox state truthful.
- * The previous form rendered these inputs empty while the save handler
- * replaced the relations wholesale, so every save silently dropped the
- * therapist's languages, topics and modalities.
- */
 interface EditorContext {
   languages: RefTag[];
   specialties: RefTag[];
@@ -464,8 +447,6 @@ interface EditorContext {
   chosenModalities: Set<string>;
   city: string;
   addressLine: string;
-  credentials: CredentialInput[];
-  links: LinkInput[];
   offers: OfferRow[];
   faq: FaqRow[];
   media: Array<{ id: string; url: string }>;
@@ -485,54 +466,6 @@ const AGE_GROUP_LABELS: RefTag[] = [
   { slug: 'seniors', name_pl: 'seniorzy' },
 ];
 
-interface LinkInput {
-  label: string;
-  url: string;
-}
-
-/** Ten sam kształt co kwalifikacje: lista rośnie i kurczy się w formularzu. */
-function parseStoredLinks(value: string | null): LinkInput[] {
-  try {
-    const parsed: unknown = JSON.parse(value ?? '[]');
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
-      .slice(0, 8)
-      .map((entry) => ({
-        label: typeof entry.label === 'string' ? entry.label : '',
-        url: typeof entry.url === 'string' ? entry.url : '',
-      }))
-      .filter((entry) => entry.label !== '' && entry.url !== '');
-  } catch {
-    return [];
-  }
-}
-
-/** Tolerant: a profile edited through the old free-text JSON field may hold anything. */
-function parseStoredCredentials(value: string | null): CredentialInput[] {
-  try {
-    const parsed: unknown = JSON.parse(value ?? '[]');
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
-      .slice(0, 20)
-      .map((entry) => ({
-        title: typeof entry.title === 'string' ? entry.title : '',
-        issuer: typeof entry.issuer === 'string' ? entry.issuer : '',
-        year:
-          typeof entry.year === 'number' && Number.isFinite(entry.year)
-            ? String(Math.trunc(entry.year))
-            : typeof entry.year === 'string'
-              ? entry.year
-              : '',
-        verified: entry.verified === true,
-      }))
-      .filter((entry) => entry.title !== '');
-  } catch {
-    return [];
-  }
-}
-
 async function loadEditorContext(env: Env, therapistId: string | null): Promise<EditorContext> {
   const [languages, specialties, modalities] = await Promise.all([
     env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
@@ -549,8 +482,6 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     chosenModalities: new Set(),
     city: '',
     addressLine: '',
-    credentials: [],
-    links: [],
     offers: [],
     faq: [],
     media: [],
@@ -619,93 +550,6 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
  * carried by numeric position inputs; the drag-and-drop in `admin.js` only
  * rewrites those numbers, so both paths post the same thing.
  */
-function linkRow(entry: LinkInput | null, index: number): string {
-  const suffix = entry ? `_${index}` : '';
-  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
-  return `<div class="repeat-row" data-repeat-row>
-  <div class="field">
-    <label data-label-for="link_label"${entry ? ` for="link_label${suffix}"` : ''}>Nazwa</label>
-    <input data-name="link_label"${nameAttr('link_label')} maxlength="40" placeholder="Facebook" value="${escapeHtml(entry?.label ?? '')}">
-  </div>
-  <div class="field">
-    <label data-label-for="link_url"${entry ? ` for="link_url${suffix}"` : ''}>Adres (https)</label>
-    <input data-name="link_url"${nameAttr('link_url')} type="url" maxlength="500" placeholder="https://" value="${escapeHtml(entry?.url ?? '')}">
-  </div>
-  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
-</div>`;
-}
-
-function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
-  const suffix = entry ? `_${index}` : '';
-  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
-  return `<div class="repeat-row" data-repeat-row>
-  <div class="field">
-    <label data-label-for="cred_title"${entry ? ` for="cred_title${suffix}"` : ''}>Nazwa</label>
-    <input data-name="cred_title"${nameAttr('cred_title')} maxlength="120" value="${escapeHtml(entry?.title ?? '')}">
-  </div>
-  <div class="field">
-    <label data-label-for="cred_issuer"${entry ? ` for="cred_issuer${suffix}"` : ''}>Wydający</label>
-    <input data-name="cred_issuer"${nameAttr('cred_issuer')} maxlength="120" value="${escapeHtml(entry?.issuer ?? '')}">
-  </div>
-  <div class="field">
-    <label data-label-for="cred_year"${entry ? ` for="cred_year${suffix}"` : ''}>Rok</label>
-    <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${escapeHtml(entry?.year ?? '')}">
-  </div>
-  ${
-    isAdmin
-      ? `<div class="checkbox">
-    <input type="checkbox" value="1" data-name="cred_verified"${nameAttr('cred_verified')}${entry?.verified ? ' checked' : ''}>
-    <label data-label-for="cred_verified"${entry ? ` for="cred_verified${suffix}"` : ''}>zweryfikowane</label>
-  </div>`
-      : `<p class="hint">${entry?.verified ? 'zweryfikowane przez zespół' : 'deklarowane'}</p>`
-  }
-  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
-</div>`;
-}
-
-/**
- * Reads the repeatable credential rows. Rows are named `cred_*_<index>`; the
- * scan tolerates gaps so a row removed in the browser needs no renumbering.
- *
- * `verified` is a trust signal shown on the public profile. A therapist must
- * not be able to award it to themselves, so only an administrator may set it,
- * and a therapist's own save preserves whatever the administrator decided.
- */
-function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: CredentialInput[]): string {
-  const alreadyVerified = new Set(
-    previous.filter((entry) => entry.verified).map((entry) => credentialKey(entry.title, entry.issuer)),
-  );
-  const out: Array<{ title: string; issuer: string; year: number | null; verified: boolean }> = [];
-
-  for (let index = 0; index < 50 && out.length < 20; index++) {
-    const title = sanitizeLine(body.get(`cred_title_${index}`) ?? '', 120);
-    if (!title) continue;
-    const issuer = sanitizeLine(body.get(`cred_issuer_${index}`) ?? '', 120);
-    const parsedYear = Number(body.get(`cred_year_${index}`) ?? '');
-    const year = Number.isInteger(parsedYear) && parsedYear >= 1950 && parsedYear <= 2100 ? parsedYear : null;
-    const verified = isAdmin
-      ? body.get(`cred_verified_${index}`) === '1'
-      : alreadyVerified.has(credentialKey(title, issuer));
-    out.push({ title, issuer, year, verified });
-  }
-  return JSON.stringify(out);
-}
-
-function collectLinks(body: URLSearchParams): string {
-  const out: LinkInput[] = [];
-  for (let index = 0; index < 20 && out.length < 8; index++) {
-    const label = sanitizeLine(body.get(`link_label_${index}`) ?? '', 40);
-    const url = safeUrl(sanitizeLine(body.get(`link_url_${index}`) ?? '', 500));
-    if (!label || !url) continue;
-    out.push({ label, url });
-  }
-  return JSON.stringify(out);
-}
-
-/** Matches a submitted credential against the ones already stored. */
-function credentialKey(title: string, issuer: string): string {
-  return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
-}
 
 
 
@@ -841,7 +685,6 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   const v = <K extends keyof TherapistRow>(key: K, fallback = ''): string =>
     escapeHtml(row ? String(row[key] ?? fallback) : fallback);
   const isAdmin = session.user.role === 'admin';
-  const credentials = context.credentials;
   const sessionTypes = jsonListToSet(row?.session_types, ['individual']);
   const ageGroups = jsonListToSet(row?.age_groups, ['adults']);
 
@@ -857,12 +700,6 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   <div class="field"><label for="headline">Nagłówek</label>
     <input id="headline" name="headline" maxlength="200" value="${v('headline')}"></div>
 
-  <div class="field" data-editor data-editor-label="bio-label">
-    <label id="bio-label" for="bio">Opis doświadczenia i sposobu pracy</label>
-    <textarea id="bio" name="bio" rows="10" maxlength="4000" data-editor-value>${v('bio')}</textarea>
-    <p class="hint">Pusty wiersz rozdziela akapity. Zaznacz tekst i użyj „Pogrub” albo Ctrl+B.</p>
-  </div>
-
   ${photoField(session, row)}
 
   <div class="field-row two">
@@ -872,27 +709,6 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
       <input id="address_line" name="address_line" maxlength="160" value="${escapeHtml(context.addressLine)}"></div>
   </div>
   <p class="hint">Wyczyszczenie miejscowości usuwa adres gabinetu z profilu publicznego.</p>
-
-  <fieldset>
-    <legend>Pierwsze spotkanie</legend>
-    <p class="hint">To jest najczęstsze pytanie osoby, która zastanawia się, czy się odezwać.
-    Odpowiedz krótko i po swojemu — każde pole możesz zostawić puste, wtedy się nie pokaże.</p>
-    <div class="field">
-      <label for="first_meeting_course">Jak wygląda pierwsze spotkanie?</label>
-      <textarea id="first_meeting_course" name="first_meeting_course" rows="2" maxlength="400"
-        placeholder="np. Rozmawiamy o tym, z czym przychodzisz. Opowiadam, jak pracuję.">${escapeHtml(row?.first_meeting_course ?? '')}</textarea>
-    </div>
-    <div class="field">
-      <label for="first_meeting_prep">Czy trzeba się przygotować?</label>
-      <textarea id="first_meeting_prep" name="first_meeting_prep" rows="2" maxlength="400"
-        placeholder="np. Nie. Nie musisz wiedzieć, czego potrzebujesz — to jest materiał na pierwsze spotkania.">${escapeHtml(row?.first_meeting_prep ?? '')}</textarea>
-    </div>
-    <div class="field">
-      <label for="first_meeting_decision">Kiedy decydujecie o dalszej pracy?</label>
-      <textarea id="first_meeting_decision" name="first_meeting_decision" rows="2" maxlength="400"
-        placeholder="np. Po dwóch–trzech spotkaniach decydujemy oboje, czy zaczynamy regularną terapię.">${escapeHtml(row?.first_meeting_decision ?? '')}</textarea>
-    </div>
-  </fieldset>
 
   <fieldset>
     <legend>Forma spotkań</legend>
@@ -914,33 +730,6 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
     ${checkboxGrid('topics', context.specialties, context.chosenTopics)}</fieldset>
   <fieldset><legend>Nurty</legend>
     ${checkboxGrid('modalities', context.modalities, context.chosenModalities)}</fieldset>
-
-  <fieldset data-repeat>
-    <legend>Kwalifikacje</legend>
-    <!-- One spare row is always rendered, so adding a credential works without JavaScript. -->
-    <div data-repeat-body>${[...credentials, { title: '', issuer: '', year: '', verified: false }]
-      .map((entry, index) => credentialRow(entry, index, isAdmin))
-      .join('')}</div>
-    <template>${credentialRow(null, 0, isAdmin)}</template>
-    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
-    ${
-      isAdmin
-        ? '<p class="hint">„Zweryfikowane” oznacza, że zespół widział dokument. Terapeuta nie może ustawić tego sam.</p>'
-        : '<p class="hint">Oznaczenie „zweryfikowane” nadaje wyłącznie zespół po sprawdzeniu dokumentu.</p>'
-    }
-  </fieldset>
-
-  <fieldset data-repeat>
-    <legend>Linki i wizytówki</legend>
-    <div data-repeat-body>${[...context.links, { label: '', url: '' }]
-      .map((entry, index) => linkRow(entry, index))
-      .join('')}</div>
-    <template>${linkRow(null, 0)}</template>
-    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj link</button></p>
-    <p class="hint">Facebook, Instagram, wizytówka Google, własna strona. Tylko adresy https.
-      Wizytówkę Google skopiuj przyciskiem „Udostępnij” z panelu firmy — adres z paska wyszukiwarki
-      niesie parametry sesji i po czasie przestaje działać.</p>
-  </fieldset>
 
   <div class="field-row two">
     <div class="field"><label for="cancellation_policy">Zasady odwołania</label>
@@ -987,14 +776,13 @@ function therapistTabs(session: AdminSession, row: TherapistRow, context: Editor
   const id = escapeHtml(row.id);
 
   return `
-<p class="tabs-lead">W zakładkach <strong>O mnie</strong>, <strong>Oferta</strong>,
-<strong>Dostępność</strong> i <strong>FAQ</strong> wpisujesz treść — każdą rzecz raz.
-W zakładce <strong>Układ strony</strong> decydujesz, co z tego i w jakiej kolejności
-zobaczy osoba, która trafi na Twój profil.</p>
+<p class="tabs-lead">Tu są dane, z których korzysta katalog i rezerwacja: kim jesteś, co oferujesz,
+kiedy masz czas. Treść strony układasz w ChatGPT; w zakładce <strong>Wygląd strony</strong>
+wybierasz szablon.</p>
 
 <div class="tabs" data-tabs="terapeuta-v3">
 
-<section data-tab-panel data-tab-label="O mnie" id="panel-profil">
+<section data-tab-panel data-tab-label="Dane" id="panel-profil">
 <h2 class="visually-hidden">O mnie</h2>
 <p class="panel-lead">Kim jesteś i jak pracujesz: opis, zdjęcie, gabinet, obszary, nurty,
 kwalifikacje. Po tych danych wyszukiwarka dobiera Cię do osoby, która szuka pomocy.</p>
@@ -1211,8 +999,6 @@ adminApp.get('/terapeuci/:id', async (c) => {
   if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
 
   const context = await loadEditorContext(c.env, id);
-  context.credentials = parseStoredCredentials(row.credentials);
-  context.links = parseStoredLinks(row.links);
 
   return page(
     c.env,
@@ -1272,7 +1058,8 @@ adminApp.post('/terapeuci/:id', async (c) => {
     slug,
     display_name: sanitizeLine(body.get('display_name') ?? '', 120),
     headline: sanitizeLine(body.get('headline') ?? '', 200),
-    bio: sanitizeRichText(body.get('bio') ?? '', 4000),
+    // The page's words live in her blocks now (edited in ChatGPT); the columns stay as they are.
+    bio: existing?.bio ?? '',
     photo_url: sanitizeLine(body.get('photo_url') ?? '', 500),
     offers_online: body.get('offers_online') === '1' ? 1 : 0,
     offers_in_person: body.get('offers_in_person') === '1' ? 1 : 0,
@@ -1299,11 +1086,11 @@ adminApp.post('/terapeuci/:id', async (c) => {
           ? (body.get('status') as string)
           : 'draft')
       : (existing?.status ?? 'draft'),
-    credentials: collectCredentials(body, isAdmin, parseStoredCredentials(existing?.credentials ?? null)),
-    links: collectLinks(body),
-    first_meeting_course: sanitizeLine(body.get('first_meeting_course') ?? '', 400),
-    first_meeting_prep: sanitizeLine(body.get('first_meeting_prep') ?? '', 400),
-    first_meeting_decision: sanitizeLine(body.get('first_meeting_decision') ?? '', 400),
+    credentials: existing?.credentials ?? '[]',
+    links: existing?.links ?? '[]',
+    first_meeting_course: existing?.first_meeting_course ?? '',
+    first_meeting_prep: existing?.first_meeting_prep ?? '',
+    first_meeting_decision: existing?.first_meeting_decision ?? '',
   };
   const verifiedAt =
     values.verification_status === 'verified'
