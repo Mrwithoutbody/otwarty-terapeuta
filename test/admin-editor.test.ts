@@ -180,12 +180,6 @@ describe('the way the page is presented', () => {
     admin = await actor('layout-admin@example.invalid', 'admin');
   });
 
-  it('renders one select per layout axis', async () => {
-    const html = await editorHtml(admin);
-    for (const axis of ['theme', 'rhythm', 'display', 'bands', 'hero', 'nav']) {
-      expect(html).toContain(`name="layout_${axis}"`);
-    }
-  });
 
   it('stores what the selects posted and drops a value it does not know', async () => {
     const response = await saveSections(admin, [

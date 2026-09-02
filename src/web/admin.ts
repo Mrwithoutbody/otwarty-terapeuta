@@ -42,7 +42,7 @@ import {
   profileBlocks,
   profileLayout,
   readEditor,
-  renderEditor,
+  renderTemplatePicker,
   renderProfileWith,
   renderTherapistDocument,
   slugify,
@@ -706,59 +706,6 @@ function credentialKey(title: string, issuer: string): string {
   return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
 }
 
-/**
- * What each auto section will actually put on the page. "Twój opis i nurt pracy"
- * says what the section is for; this says what is in it right now and where it
- * comes from, which is the thing that was missing - a builder listing ten
- * section names and no content reads as an empty screen.
- */
-function autoSummary(
-  row: TherapistRow | null,
-  context: EditorContext,
-): Record<string, { text: string; empty?: true }> {
-  const count = (n: number, one: string, few: string, many: string): string =>
-    `${n} ${n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many}`;
-
-  const bio = (row?.bio ?? '').trim();
-  const firstMeeting = [row?.first_meeting_course, row?.first_meeting_prep, row?.first_meeting_decision]
-    .filter((x) => (x ?? '').trim() !== '').length;
-  const credentials = parseStoredCredentials(row?.credentials ?? null).length;
-  const links = parseStoredLinks(row?.links ?? null).length;
-
-  return {
-    'hero-profil': { text: `imię, zdjęcie i ${links > 0 ? count(links, 'link', 'linki', 'linków') : 'fakty'} — z zakładki O mnie` },
-    'hero-obietnica': { text: 'Twoje zdanie w tytule, nazwisko na karcie' },
-    'hero-spotlight': { text: 'imię i zdanie na powitanie' },
-    'hero-okladka': { text: 'imię, zdjęcie i najbliższy termin' },
-    kluczowe: { text: 'cena, długość sesji i najbliższy termin' },
-    dane: { text: 'wszystkie fakty z zakładek O mnie, Oferta i Dostępność' },
-    intro: bio === ''
-      ? { text: 'pusty opis — uzupełnij w zakładce O mnie', empty: true }
-      : { text: `${count(bio.length, 'znak', 'znaki', 'znaków')} opisu` },
-    first_meeting: firstMeeting === 0
-      ? { text: 'trzy pytania bez odpowiedzi — wypełnij w zakładce O mnie', empty: true }
-      : { text: count(firstMeeting, 'odpowiedź', 'odpowiedzi', 'odpowiedzi') },
-    topics: context.chosenTopics.size === 0
-      ? { text: 'brak obszarów — zaznacz w zakładce O mnie', empty: true }
-      : { text: count(context.chosenTopics.size, 'obszar', 'obszary', 'obszarów') },
-    offers: context.offers.length === 0
-      ? { text: 'brak ofert — dodaj w zakładce Oferta', empty: true }
-      : { text: count(context.offers.length, 'oferta', 'oferty', 'ofert') },
-    'oferta-lista': context.offers.length === 0
-      ? { text: 'brak ofert — dodaj w zakładce Oferta', empty: true }
-      : { text: count(context.offers.length, 'oferta', 'oferty', 'ofert') },
-    zestawienie: { text: 'oferta i najbliższe terminy obok siebie' },
-    slots: { text: 'wolne terminy z zakładki Dostępność' },
-    faq: context.faq.length === 0
-      ? { text: 'brak pytań — dodaj w zakładce FAQ', empty: true }
-      : { text: count(context.faq.length, 'pytanie', 'pytania', 'pytań') },
-    credentials: credentials === 0
-      ? { text: 'brak kwalifikacji — wypełnij w zakładce O mnie', empty: true }
-      : { text: count(credentials, 'kwalifikacja', 'kwalifikacje', 'kwalifikacji') },
-    policy: { text: 'wyliczone z Twojego wyprzedzenia' },
-    zaproszenie: { text: 'zaproszenie zbudowane z Twoich danych' },
-  };
-}
 
 
 function checkboxGrid(name: string, options: RefTag[], chosen: Set<string>): string {
@@ -1195,14 +1142,7 @@ widzisz efekt po zapisie.</p>
 <div class="composer-split">
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
-  <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
-  ${renderEditor({
-    blocks: profileBlocks(row.sections_json),
-    layout: profileLayout(row.layout_json),
-    summary: autoSummary(row, context),
-    previewUrl: `/admin/terapeuci/${id}/podglad`,
-  })}
-  <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
+  ${renderTemplatePicker(`/admin/terapeuci/${id}/podglad`, profileLayout(row.layout_json))}
 </form>
 <aside class="composer-preview">
   <p class="hint">Podgląd — <a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
@@ -1551,7 +1491,8 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   const id = c.req.param('id');
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
-  const edited = readEditor(body, { heroFor });
+  const current = await getTherapistRowForAdmin(c.env, id);
+  const edited = readEditor(body, { heroFor, blocks: profileBlocks(current?.sections_json ?? null) });
   const sections = JSON.stringify(edited.blocks);
   await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
     .bind(sections, JSON.stringify(edited.layout), nowIso(), id)
@@ -1634,11 +1575,9 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
   return c.redirect(`/admin/terapeuci/${id}/strony/${pid}`, 303);
 });
 
-function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow, context: EditorContext): string {
+function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow): string {
   const id = escapeHtml(therapist.id);
   const pid = escapeHtml(row.id);
-  // Host blocks show what the database holds for them today, same as on the profile.
-  const summary = autoSummary(therapist, context);
   const preview = `/admin/terapeuci/${id}/strony/${pid}/podglad`;
 
   return `<p><a href="/admin/terapeuci/${id}#panel-strony">← Profil: ${escapeHtml(therapist.display_name)}</a></p>
@@ -1657,8 +1596,7 @@ function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow
       <option value="published"${row.status === 'published' ? ' selected' : ''}>Opublikowana — link na profilu</option>
     </select></div>
   <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
-  ${renderEditor({ blocks: parseBlocks(row.blocks_json), layout: lpParseLayout(row.layout_json), summary, previewUrl: preview, blocksOpen: true })}
-  <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
+  ${renderTemplatePicker(preview, lpParseLayout(row.layout_json))}
 </form>
 <aside class="composer-preview">
   <p class="hint">Podgląd — <a href="${preview}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
@@ -1675,8 +1613,7 @@ function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow
 adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
   const g = await ownedPage(c, null);
   if ('response' in g) return g.response;
-  const context = await loadEditorContext(c.env, g.therapist.id);
-  return page(c.env, g.row.title, pageEditor(g.session, g.therapist, g.row, context));
+  return page(c.env, g.row.title, pageEditor(g.session, g.therapist, g.row));
 });
 
 adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
@@ -1691,7 +1628,7 @@ adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
   if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
     return page(c.env, 'Zły adres', '<h1>Zły adres</h1><p>Adres to małe litery, cyfry i myślniki.</p>', 400);
   }
-  const edited = readEditor(body, { heroFor });
+  const edited = readEditor(body, { heroFor, blocks: parseBlocks(row.blocks_json) });
   const blocks = JSON.stringify(edited.blocks);
   const layout = JSON.stringify(edited.layout);
   try {

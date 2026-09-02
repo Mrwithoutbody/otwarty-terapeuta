@@ -27,6 +27,7 @@ import {
   readEditor,
   registerBlocks,
   renderEditor,
+  renderTemplatePicker,
   renderBlocks,
   renderChrome,
   resolvePage,
@@ -41,7 +42,7 @@ import { escapeHtml } from '../lib/sanitize';
 import { HOST_SECTIONS, type SectionCtx } from './host-blocks';
 import { APP_CSS } from './styles';
 
-export { applyPreset, EDITOR_CSS, EDITOR_JS, lpParseLayout, parseBlocks, PRESETS, readEditor, renderEditor, slugify };
+export { applyPreset, EDITOR_CSS, EDITOR_JS, lpParseLayout, parseBlocks, PRESETS, readEditor, renderEditor, renderTemplatePicker, slugify };
 export type { SectionCtx };
 
 // ------------------------------------------------------------ host blocks ---
