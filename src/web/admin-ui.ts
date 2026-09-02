@@ -754,6 +754,19 @@ export const ADMIN_CSS = String.raw`
    list of twelve names is what made this feel like paperwork. */
 .composer-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
   gap: 1.5rem; align-items: start; }
+/* Templates: her page, five times, small. The iframe renders at desktop width
+   and is zoomed down, so the thumbnail is the page and not its phone layout. */
+.tpl-set { border: 1px solid var(--border, #e3e6d8); border-radius: 12px; padding: 0.8rem 1rem 1rem; margin: 0 0 1rem; }
+.tpl-set legend { padding-inline: 0.4rem; font-weight: 600; font-size: 0.9rem; }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; list-style: none; margin: 0.6rem 0 0; padding: 0; }
+.tpl { display: grid; gap: 0.5rem; margin: 0; }
+.tpl-frame { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--border, #e3e6d8); border-radius: 10px; background: #fff; }
+.tpl--active .tpl-frame { outline: 3px solid var(--accent-strong, #4b5a1f); outline-offset: -3px; }
+.tpl-frame iframe { width: 1280px; height: 960px; border: 0; zoom: 0.25; pointer-events: none; }
+.tpl-copy { display: grid; gap: 0.15rem; font-size: 0.9rem; }
+.tpl-copy span { color: var(--text-muted, #666); font-size: 0.82rem; }
+.tpl .btn { justify-self: start; }
+
 .composer-preview { position: sticky; top: 1rem; }
 .composer-preview .hint { margin: 0 0 0.5rem; }
 .composer-preview iframe { width: 100%; height: min(78vh, 900px); border: 1px solid var(--border, #e3e6d8);

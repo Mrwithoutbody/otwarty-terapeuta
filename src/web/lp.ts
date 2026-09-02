@@ -168,11 +168,20 @@ export function profileLayout(raw: unknown): Record<string, string> {
   return lpParseLayout(out);
 }
 
-/** A template for the profile: the engine's look, the profile's own spine. */
-export function applyProfilePreset(id: string): { layout: Record<string, string>; blocks: Block[] } {
+/**
+ * A template applied to a page she already has: the template's look, her
+ * blocks. Only the heading changes shape, because a poster template with a
+ * catalogue heading is not that template. Content is never thrown away.
+ */
+export function presetLook(id: string, blocks: Block[]): { layout: Record<string, string>; blocks: Block[] } {
   const { layout } = applyPreset(id);
-  const hero = layout.display === 'poster' ? 'hero-plakat' : 'hero-profil';
-  return { layout, blocks: DEFAULT_PROFILE.map((type) => ({ type: type === 'hero-profil' ? hero : type })) };
+  const poster = layout.display === 'poster';
+  const swapped = blocks.map((b) => {
+    if (BLOCKS[b.type]?.family !== 'hero') return b;
+    if (b.type in HOST_SECTIONS) return { ...b, type: poster ? 'hero-plakat' : 'hero-profil' };
+    return { ...b, type: poster ? 'hero-poster' : b.type === 'hero-poster' ? 'hero' : b.type };
+  });
+  return { layout, blocks: swapped };
 }
 
 // ---------------------------------------------------------------- render ---
@@ -199,8 +208,16 @@ async function renderLp(title: string, blocks: Block[], layout: Record<string, s
 
 /** The profile, inside the catalogue: the engine's page in the catalogue's frame. */
 export async function renderProfile(t: PublicTherapist, host: SectionCtx): Promise<string> {
-  const layout = profileLayout(t.layout);
-  return `<div class="${lpLayoutClasses(layout)}">${await renderLp(t.display_name, profileBlocks(t.sections), layout, host)}</div>`;
+  return renderProfileWith(t, host, profileBlocks(t.sections), profileLayout(t.layout));
+}
+
+export async function renderProfileWith(
+  t: PublicTherapist,
+  host: SectionCtx,
+  blocks: Block[],
+  layout: Record<string, string>,
+): Promise<string> {
+  return `<div class="${lpLayoutClasses(layout)}">${await renderLp(t.display_name, blocks, layout, host)}</div>`;
 }
 
 /**

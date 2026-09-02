@@ -32,7 +32,8 @@ import { assetUrls, htmlResponse, renderPage } from './layout';
 import type { BlockDef, Field as LpField, Block as Section, Values } from 'x402-landings';
 import {
   applyPreset,
-  applyProfilePreset,
+  presetLook,
+  renderProfileWith,
   blockAllFields,
   BLOCKS,
   getPageById,
@@ -677,17 +678,33 @@ function sectionsEditor(row: TherapistRow | null, context: EditorContext): strin
   return editorList(LP_BUILDER, profileBlocks(row?.sections_json ?? null), autoSummary(row, context));
 }
 
-/** One select, one button: the template sets the look and the spine, the form saves it. */
-function presetChoice(profile: boolean): string {
-  return `<fieldset class="sec-layout">
+/**
+ * The templates, each shown on her own page: a card per template with the page
+ * rendered in that look, and one button that applies it. Her blocks and her
+ * words stay; the look changes.
+ */
+function presetGallery(previewUrl: string, current: Record<string, string>): string {
+  const cards = Object.entries(PRESETS)
+    .map(([key, p]) => {
+      const active = Object.entries(p.layout).every(([axis, value]) => current[axis] === value);
+      return `<li class="tpl${active ? ' tpl--active' : ''}">
+  <div class="tpl-frame"><iframe src="${previewUrl}?preset=${escapeHtml(key)}" title="${escapeHtml(p.label)}" loading="lazy" tabindex="-1"></iframe></div>
+  <div class="tpl-copy"><strong>${escapeHtml(p.label)}</strong><span>${escapeHtml(p.hint)}</span></div>
+  <button class="btn${active ? '' : ' secondary'}" type="submit" name="action" value="apply_preset:${escapeHtml(key)}">${active ? 'Wybrany' : 'Zastosuj'}</button>
+</li>`;
+    })
+    .join('');
+  return `<fieldset class="tpl-set">
   <legend>Szablon</legend>
-  <div class="field"><label for="preset">Gotowy zestaw: motyw, układ i kolejność bloków</label>
-    <select id="preset" name="preset">${Object.entries(PRESETS)
-      .map(([key, p]) => `<option value="${escapeHtml(key)}">${escapeHtml(p.label)} — ${escapeHtml(p.hint)}</option>`)
-      .join('')}</select>
-    <p class="hint">Zastąpi ${profile ? 'układ profilu' : 'układ podstrony'} zestawem z szablonu. Treść w zakładkach zostaje.</p></div>
-  <button class="btn secondary" type="submit" name="action" value="apply_preset">Zastosuj szablon</button>
+  <p class="hint">Każdy podgląd to Twoja strona w tym szablonie. Treść zostaje, zmienia się wygląd.</p>
+  <ul class="tpl-grid">${cards}</ul>
 </fieldset>`;
+}
+
+/** The template named in a submit button, or null for a plain save. */
+function presetAction(body: URLSearchParams): string | null {
+  const action = body.get('action') ?? '';
+  return action.startsWith('apply_preset:') ? action.slice('apply_preset:'.length) : null;
 }
 
 function editorList(
@@ -1397,7 +1414,7 @@ każdym zapisie.</p>
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
   <p class="sec-save"><button class="btn" type="submit">Zapisz układ strony</button></p>
-  ${presetChoice(true)}
+  ${presetGallery(`/admin/terapeuci/${id}/podglad`, profileLayout(row.layout_json))}
   ${layoutChoice(LP_LAYOUT_AXES, profileLayout(row.layout_json))}
   <p class="hint">Przeciągnij sekcję, żeby zmienić kolejność i dodawaj kolejne.
   Sekcja, w której nic nie ma, nie pokaże się na stronie. Góra profilu (zdjęcie, imię, cena,
@@ -1822,8 +1839,10 @@ adminApp.post('/terapeuci/:id/sekcje', async (c) => {
   const id = c.req.param('id');
   if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
 
-  const preset = body.get('action') === 'apply_preset' ? applyProfilePreset(body.get('preset') ?? '') : null;
-  const sections = preset ? JSON.stringify(preset.blocks) : collectSections(LP_BUILDER, body);
+  const posted = collectSections(LP_BUILDER, body);
+  const chosen = presetAction(body);
+  const preset = chosen === null ? null : presetLook(chosen, JSON.parse(posted) as Section[]);
+  const sections = preset ? JSON.stringify(preset.blocks) : posted;
   const layout = preset ? JSON.stringify(preset.layout) : collectLayout(LP_LAYOUT_AXES, lpParseLayout, body);
   await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
     .bind(sections, layout, nowIso(), id)
@@ -1929,7 +1948,7 @@ function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow
       <option value="published"${row.status === 'published' ? ' selected' : ''}>Opublikowana — link na profilu</option>
     </select></div>
   <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
-  ${presetChoice(false)}
+  ${presetGallery(preview, lpParseLayout(row.layout_json))}
   ${layoutChoice(LP_LAYOUT_AXES, lpParseLayout(row.layout_json))}
   <p class="hint">Przeciągnij blok, żeby zmienić kolejność, i dodawaj kolejne. Blok, w którym nic nie ma,
   nie pokaże się na stronie. Strona bez nagłówka dostaje nagłówek z tytułu.</p>
@@ -1967,8 +1986,10 @@ adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
   if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
     return page(c.env, 'Zły adres', '<h1>Zły adres</h1><p>Adres to małe litery, cyfry i myślniki.</p>', 400);
   }
-  const preset = body.get('action') === 'apply_preset' ? applyPreset(body.get('preset') ?? '', title) : null;
-  const blocks = preset ? JSON.stringify(preset.blocks) : collectSections(LP_BUILDER, body);
+  const posted = collectSections(LP_BUILDER, body);
+  const chosen = presetAction(body);
+  const preset = chosen === null ? null : presetLook(chosen, JSON.parse(posted) as Section[]);
+  const blocks = preset ? JSON.stringify(preset.blocks) : posted;
   const layout = preset ? JSON.stringify(preset.layout) : collectLayout(LP_LAYOUT_AXES, lpParseLayout, body);
   try {
     await c.env.DB.prepare(
@@ -2014,7 +2035,39 @@ adminApp.get('/terapeuci/:id/strony/:pid/podglad', async (c) => {
   const t = await getTherapist(c.env, { therapist_id: g.therapist.id });
   if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc podstrony nie da się jeszcze pokazać.</p>', 404);
   const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-  return htmlResponse(c.env, await renderTherapistDocument(g.row, ctx, t, pages, assetUrls(LP_DOC_CSS)));
+  const chosen = c.req.query('preset');
+  const row = chosen && chosen in PRESETS
+    ? (() => {
+        const look = presetLook(chosen, parseBlocks(g.row.blocks_json));
+        return { ...g.row, blocks_json: JSON.stringify(look.blocks), layout_json: JSON.stringify(look.layout) };
+      })()
+    : g.row;
+  return htmlResponse(c.env, await renderTherapistDocument(row, ctx, t, pages, assetUrls(LP_DOC_CSS)));
+});
+
+/** Her profile as the public sees it, or as it would look in a template she has not chosen yet. */
+adminApp.get('/terapeuci/:id/podglad', async (c) => {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  const id = c.req.param('id');
+  if (!ownsTherapist(session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  const t = await getTherapist(c.env, { therapist_id: id });
+  if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc nie da się go jeszcze pokazać.</p>', 404);
+  const chosen = c.req.query('preset');
+  const look = chosen && chosen in PRESETS
+    ? presetLook(chosen, profileBlocks(t.sections))
+    : { blocks: profileBlocks(t.sections), layout: profileLayout(t.layout) };
+  const body = await renderProfileWith(t, await profileContext(c.env, t), look.blocks, look.layout);
+  return htmlResponse(
+    c.env,
+    renderPage(c.env, {
+      title: t.display_name,
+      path: '/terapeuci',
+      noindex: true,
+      lp: true,
+      body: `<article class="profile-page">${body}</article>`,
+    }),
+  );
 });
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {

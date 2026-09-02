@@ -51,3 +51,43 @@ describe('the profile page on the engine', () => {
     expect(html).not.toContain('/assets/lp-doc.css');
   });
 });
+
+describe('templates in the panel', () => {
+  it('shows every template as her own page and applies one without losing her words', async () => {
+    const { createAdminSession, loadAdminSession } = await import('../src/auth/session');
+    const { findOrCreateUserByEmail } = await import('../src/db/users');
+    const user = await findOrCreateUserByEmail(env, 'anna-tpl@example.invalid');
+    await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
+    const { cookie } = await createAdminSession(env, user.id);
+    const session = await loadAdminSession(env, new Request('https://localhost/admin', { headers: { cookie } }));
+    await env.DB.prepare(`UPDATE therapists SET sections_json = ?, layout_json = '{}' WHERE id = ?`)
+      .bind(JSON.stringify([{ type: 'hero-profil' }, { type: 'text', heading: 'Moje słowa', body: 'Zostają.' }, { type: 'slots' }]), ANNA)
+      .run();
+
+    const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
+    expect((panel.match(/class="tpl-frame"><iframe/g) ?? []).length).toBe(5);
+    expect(panel).toContain(`src="/admin/terapeuci/${ANNA}/podglad?preset=plakat"`);
+
+    const preview = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/podglad?preset=plakat`, { headers: { cookie } })).text();
+    expect(preview).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
+    expect(preview).toContain('phero--plakat');
+    expect(preview).toContain('<h2>Moje słowa</h2>');
+    expect((await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/podglad`)).status).toBe(401);
+
+    const body = new URLSearchParams([
+      ['csrf', session!.csrfToken], ['action', 'apply_preset:plakat'],
+      ['sec_0_type', 'hero-profil'], ['sec_0_pos', '1'],
+      ['sec_1_type', 'text'], ['sec_1_pos', '2'], ['sec_1_heading', 'Moje słowa'], ['sec_1_body', 'Zostają.'],
+      ['sec_2_type', 'slots'], ['sec_2_pos', '3'],
+    ]);
+    const saved = await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/sekcje`, {
+      method: 'POST', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString(), redirect: 'manual',
+    });
+    expect(saved.status).toBe(302);
+    const row = await env.DB.prepare(`SELECT sections_json, layout_json FROM therapists WHERE id = ?`).bind(ANNA).first<{ sections_json: string; layout_json: string }>();
+    expect(JSON.parse(row!.layout_json)).toMatchObject({ theme: 'ink', display: 'poster', bands: 'stripes' });
+    const types = (JSON.parse(row!.sections_json) as Array<{ type: string; heading?: string }>);
+    expect(types.map((b) => b.type)).toEqual(['hero-plakat', 'text', 'slots']);
+    expect(types[1]!.heading).toBe('Moje słowa');
+  });
+});
