@@ -65,7 +65,7 @@ describe('templates in the panel', () => {
       .run();
 
     const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-    expect((panel.match(/class="tpl-frame"><iframe/g) ?? []).length).toBe(5);
+    expect((panel.match(/class="tpl-frame"><iframe/g) ?? []).length).toBe(7);
     expect(panel).toContain(`src="/admin/terapeuci/${ANNA}/podglad?preset=plakat"`);
 
     const preview = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/podglad?preset=plakat`, { headers: { cookie } })).text();

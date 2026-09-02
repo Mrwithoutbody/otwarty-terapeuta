@@ -28,10 +28,12 @@ import {
   registerBlocks,
   renderEditor,
   renderBlocks,
+  renderChrome,
   resolvePage,
   slugify,
   type Block,
   type BlockDef,
+  type ChromeOptions,
 } from 'x402-landings';
 import type { Env } from '../env';
 import type { PublicTherapist } from '../db/types';
@@ -231,6 +233,9 @@ const BAR_CSS = `
 .lp-bar a[aria-current]{font-weight:700}
 .lp-bar .lp-bar-name{font-weight:700;margin-right:auto}
 main.lp{padding-block:0}
+.lp-foot{padding:2rem clamp(1rem,4vw,2.5rem);font:400 .85rem/1.5 Inter,ui-sans-serif,system-ui,sans-serif;color:#444;background:#fff;border-top:1px solid rgba(0,0,0,.08)}
+.lp-crisis{margin:0}
+.lp-crisis a{color:inherit;font-weight:700}
 `;
 
 /**
@@ -319,12 +324,24 @@ export async function renderTherapistDocument(
   pages: PageRow[],
   assets: { lpDocCss: string },
 ): Promise<string> {
-  const links = pages
-    .filter((p) => p.id !== row.id)
-    .map((p) => `<a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a>`)
-    .join('');
   const layout = lpParseLayout(row.layout_json);
+  const theme = layout.theme ?? '';
   const body = await renderLp(row.title, parseBlocks(row.blocks_json), layout, host);
+  const profileHref = `/terapeuci/${escapeHtml(t.slug)}`;
+  const chrome: ChromeOptions = {
+    brand: { label: t.display_name, href: profileHref },
+    links: [
+      { label: 'Profil', href: profileHref },
+      ...pages.map((p) => ({ label: p.title, href: `${profileHref}/${p.slug}`, current: p.id === row.id })),
+    ],
+    footerExtra: CRISIS_FOOTER,
+  };
+  // A theme with components brings its own header and footer; the palettes get the slim bar.
+  const themed = renderChrome(theme, 'header', chrome) !== '';
+  const bar = `<nav class="lp-bar" aria-label="Strony terapeuty">
+  <a class="lp-bar-name" href="${profileHref}">← ${escapeHtml(t.display_name)}</a>
+  ${chrome.links!.map((l) => `<a href="${escapeHtml(l.href)}"${l.current ? ' aria-current="page"' : ''}>${escapeHtml(l.label)}</a>`).join('\n  ')}
+</nav>`;
   return `<!doctype html>
 <html lang="pl">
 <head>
@@ -338,18 +355,23 @@ ${row.status === 'published' ? '' : '<meta name="robots" content="noindex, nofol
 </head>
 <body>
 <a class="skip" href="#main">Przejdź do treści</a>
-<nav class="lp-bar" aria-label="Strony terapeuty">
-  <a class="lp-bar-name" href="/terapeuci/${escapeHtml(t.slug)}">← ${escapeHtml(t.display_name)}</a>
-  <a href="/terapeuci/${escapeHtml(t.slug)}">Profil</a>
-  <a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(row.slug)}" aria-current="page">${escapeHtml(row.title)}</a>
-  ${links}
-</nav>
-<main id="main" class="${lpLayoutClasses(layout)}">
+<div class="${lpLayoutClasses(layout)}">
+${themed ? renderChrome(theme, 'header', chrome) : bar}
+<main id="main">
 ${body}
 </main>
+${themed ? renderChrome(theme, 'footer', chrome) : `<footer class="lp-foot">${CRISIS_FOOTER}</footer>`}
+</div>
 </body>
 </html>`;
 }
+
+/** The crisis numbers every catalogue page carries in its footer; a subpage is no exception. */
+const CRISIS_FOOTER = `<p class="lp-crisis"><strong>Potrzebujesz pomocy natychmiast?</strong>
+<a href="tel:112">112</a> zagrożenie życia ·
+<a href="tel:116123">116 123</a> wsparcie emocjonalne, całą dobę ·
+<a href="tel:116111">116 111</a> telefon zaufania dla młodzieży ·
+<a href="/pomoc-w-kryzysie">pełna lista miejsc pomocy</a></p>`;
 
 // ------------------------------------------------------------------ baza ---
 

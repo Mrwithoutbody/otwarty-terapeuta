@@ -93,7 +93,7 @@ describe('podstrony terapeutki', () => {
     // Its own document: no catalogue header, one bar back to her.
     expect(html).not.toContain('class="header-cta"');
     expect(html).toContain('class="lp-bar"');
-    expect(html).toContain('<main id="main" class="lp ');
+    expect(html).toMatch(/<div class="lp [^"]*">\s*<nav class="lp-bar"/);
 
     // The profile links to it, and the subpage links back.
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
