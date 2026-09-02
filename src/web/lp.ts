@@ -47,9 +47,6 @@ export type { SectionCtx };
 
 // ------------------------------------------------------------ host blocks ---
 
-/** Ids the profile's own buttons point at: the calendar and the first meeting. */
-const HOST_ANCHORS: Record<string, string> = { slots: 'terminy', zestawienie: 'pierwsze' };
-
 registerBlocks(
   Object.fromEntries(
     Object.entries(HOST_SECTIONS).map(([type, def]): [string, BlockDef] => [
@@ -61,16 +58,11 @@ registerBlocks(
         repeatable: def.repeatable,
         family: def.family,
         fields: def.fields,
-        anchor: HOST_ANCHORS[type],
-        // Her data goes in, finished HTML comes out. The parser never lets an
-        // `html` field through from outside, so only this can set it.
-        resolve: async (block, host) => {
-          const html = def.render(block, host as SectionCtx);
-          // The old renderer wrapped her heading in the frame its styles expect.
-          const variant = type === 'hero-profil' ? 'klasyczny' : type.replace(/^hero-/, '');
-          return { ...block, html: def.family === 'hero' && html !== '' ? `<div class="phero phero--${variant}">${html}</div>` : html };
-        },
-        render: (block: Block) => (typeof block.html === 'string' ? block.html : ''),
+        anchor: def.anchor,
+        // Her data goes in, an ordinary engine block comes out - or, for the
+        // calendar, finished HTML the parser would never let through from outside.
+        resolve: async (block, host) => def.resolve(block, host as SectionCtx),
+        render: (block: Block) => (def.render ? def.render(block) : ''),
       },
     ]),
   ),
@@ -92,6 +84,16 @@ export const HOST_TYPES: string[] = Object.keys(HOST_SECTIONS);
  */
 const LEGACY_TYPE: Record<string, string> = {
   hero: 'hero-profil',
+  'hero-obietnica': 'hero-profil',
+  'hero-plakat': 'hero-profil',
+  'hero-spotlight': 'hero-profil',
+  'hero-okladka': 'hero-profil',
+  kluczowe: 'dane',
+  'oferta-lista': 'offers',
+  usluga: 'text',
+  artykuly: 'features',
+  'zdjecie-tekst': 'media-text',
+  'tekst-zdjecie': 'media-text',
   faq: 'faq-profil',
   tekst: 'text',
   'tekst-wyrozniony': 'text',
@@ -117,6 +119,7 @@ function legacyBlock(raw: Record<string, unknown>): Record<string, unknown> {
   const oldType = typeof raw.type === 'string' ? raw.type : '';
   const out: Record<string, unknown> = { ...raw, type: LEGACY_TYPE[oldType] ?? oldType };
   if (oldType === 'tekst-wyrozniony' && typeof raw.tlo !== 'string') out.tone = 'alt';
+  if (oldType === 'zdjecie-tekst') out.flip = 'left';
   if (typeof raw.tlo === 'string') out.tone = LEGACY_TONE[raw.tlo] ?? '';
   if (typeof raw.kadr === 'string') out.frame = LEGACY_FRAME[raw.kadr] ?? '';
   if (typeof raw.skala === 'string') out.scale = LEGACY_SCALE[raw.skala] ?? '';
@@ -133,8 +136,7 @@ function legacyBlock(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 const DEFAULT_PROFILE = [
-  'hero-profil', 'kluczowe', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'faq-profil',
-  'credentials', 'zaproszenie',
+  'hero-profil', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'faq-profil', 'credentials', 'zaproszenie',
 ];
 
 /** Her arrangement in the engine's shape, or the default spine; always with a heading. */
@@ -175,7 +177,7 @@ export function profileLayout(raw: unknown): Record<string, string> {
 
 /** What a template's heading means here: the profile's own heading blocks, or the engine's. */
 export function heroFor(poster: boolean, current: Block): string {
-  if (current.type in HOST_SECTIONS) return poster ? 'hero-plakat' : 'hero-profil';
+  if (current.type in HOST_SECTIONS) return current.type; // reads the layout itself
   return poster ? 'hero-poster' : current.type === 'hero-poster' ? 'hero' : current.type;
 }
 
@@ -202,22 +204,13 @@ export interface PageRow {
 async function renderLp(title: string, blocks: Block[], layout: Record<string, string>, host: SectionCtx): Promise<string> {
   const page = parsePage({ meta: { title }, layout, blocks });
   // Her buttons link to the calendar and the first meeting only when those are on the page.
-  const anchors = new Set(page.blocks.map((b) => HOST_ANCHORS[b.type]).filter((a): a is string => a !== undefined));
-  return renderBlocks(await resolvePage(page, { ...host, anchors }));
-}
-
-/** The profile, inside the catalogue: the engine's page in the catalogue's frame. */
-export async function renderProfile(t: PublicTherapist, host: SectionCtx): Promise<string> {
-  return renderProfileWith(t, host, profileBlocks(t.sections), profileLayout(t.layout));
-}
-
-export async function renderProfileWith(
-  t: PublicTherapist,
-  host: SectionCtx,
-  blocks: Block[],
-  layout: Record<string, string>,
-): Promise<string> {
-  return `<div class="${lpLayoutClasses(layout)}">${await renderLp(t.display_name, blocks, layout, host)}</div>`;
+  const anchors = new Set<string>();
+  for (const b of page.blocks) {
+    const own = HOST_SECTIONS[b.type]?.anchor;
+    if (own) anchors.add(own);
+    if (b.type === 'zestawienie' || b.type === 'steps') anchors.add('steps');
+  }
+  return renderBlocks(await resolvePage(page, { ...host, layout, anchors }));
 }
 
 /**
@@ -248,12 +241,8 @@ main.lp{padding-block:0}
  * fight the engine's, so the standalone document takes only these.
  */
 const SECTION_CLASSES = [
-  'amount', 'badge', 'badges', 'block-lead', 'chips', 'details-body', 'lang', 'meeting-steps',
-  'offer-card', 'offer-grid', 'offer-meta', 'offer-name', 'offer-price', 'offer-rows', 'pcard', 'pcards',
-  'pdata', 'per', 'pfact', 'pfact-cta', 'pfacts', 'pfacts-strip', 'phero', 'pillars', 'plinks', 'pquote',
-  'pservice', 'pservice-facts', 'pservice-points', 'psplit', 'psplit-empty', 'psplit-photo', 'read-more',
-  'slot-chips', 'slot-foot', 'slot-mode', 'slot-none', 'slot-table', 'slot-table-scroll', 'slot-time',
-  'visually-hidden',
+  'lang', 'pdata', 'pillars', 'slot-foot', 'slot-mode', 'slot-none', 'slot-table', 'slot-table-scroll', 'slot-time',
+  'slots-wrap', 'visually-hidden',
 ];
 const SECTION_CLASS = new RegExp(`\\.(${SECTION_CLASSES.join('|')})(?![\\w-])`);
 
@@ -313,27 +302,36 @@ function keepSectionRules(css: string): string {
     .join('\n');
 }
 
-/** The engine's stylesheet for pages inside the catalogue (`app.css` is there too). */
-export const LP_CSS = PAGE_CSS;
 /** Everything a subpage document needs, in one file. */
 export const LP_DOC_CSS = DOCUMENT_CSS + PAGE_CSS + keepSectionRules(APP_CSS) + BAR_CSS;
 
+/** One of her pages as its own document. `current` is the subpage shown, or null for the profile. */
+export interface DocumentInput {
+  title: string;
+  description: string;
+  blocks: Block[];
+  layout: Record<string, string>;
+  noindex: boolean;
+  current: string | null;
+}
+
 export async function renderTherapistDocument(
-  row: PageRow,
+  doc: DocumentInput,
   host: SectionCtx,
   t: PublicTherapist,
   pages: PageRow[],
   assets: { lpDocCss: string },
 ): Promise<string> {
-  const layout = lpParseLayout(row.layout_json);
+  const { layout } = doc;
   const theme = layout.theme ?? '';
-  const body = await renderLp(row.title, parseBlocks(row.blocks_json), layout, host);
+  const body = await renderLp(doc.title, doc.blocks, layout, host);
   const profileHref = `/terapeuci/${escapeHtml(t.slug)}`;
   const chrome: ChromeOptions = {
     brand: { label: t.display_name, href: profileHref },
     links: [
-      { label: 'Profil', href: profileHref },
-      ...pages.map((p) => ({ label: p.title, href: `${profileHref}/${p.slug}`, current: p.id === row.id })),
+      { label: 'Katalog', href: '/terapeuci' },
+      { label: 'Profil', href: profileHref, current: doc.current === null },
+      ...pages.map((p) => ({ label: p.title, href: `${profileHref}/${p.slug}`, current: p.id === doc.current })),
     ],
     footerExtra: CRISIS_FOOTER,
   };
@@ -348,9 +346,9 @@ export async function renderTherapistDocument(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(row.title)} — ${escapeHtml(t.display_name)}</title>
-<meta name="description" content="${escapeHtml(t.headline ?? row.title)}">
-${row.status === 'published' ? '' : '<meta name="robots" content="noindex, nofollow">'}
+<title>${escapeHtml(doc.current === null ? t.display_name : `${doc.title} — ${t.display_name}`)}</title>
+<meta name="description" content="${escapeHtml(doc.description)}">
+${doc.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="stylesheet" href="${assets.lpDocCss}">
 <link rel="icon" href="data:,">
 </head>
@@ -365,6 +363,29 @@ ${themed ? renderChrome(theme, 'footer', chrome) : `<footer class="lp-foot">${CR
 </div>
 </body>
 </html>`;
+}
+
+/** The profile as a document input: her stored arrangement, or the default spine. */
+export function profileDocument(t: PublicTherapist, noindex = false): DocumentInput {
+  return {
+    title: t.display_name,
+    description: t.headline ?? 'Profil psychoterapeuty',
+    blocks: profileBlocks(t.sections),
+    layout: profileLayout(t.layout),
+    noindex,
+    current: null,
+  };
+}
+
+export function pageDocument(row: PageRow, t: PublicTherapist): DocumentInput {
+  return {
+    title: row.title,
+    description: t.headline ?? row.title,
+    blocks: parseBlocks(row.blocks_json),
+    layout: lpParseLayout(row.layout_json),
+    noindex: row.status !== 'published',
+    current: row.id,
+  };
 }
 
 /** The crisis numbers every catalogue page carries in its footer; a subpage is no exception. */

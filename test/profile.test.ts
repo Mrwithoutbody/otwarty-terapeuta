@@ -36,19 +36,20 @@ describe('the old profile JSON, read by the engine', () => {
 });
 
 describe('the profile page on the engine', () => {
-  it('renders her data blocks inside the catalogue, in her theme', async () => {
+  it('renders her data blocks as engine blocks, in her theme', async () => {
     await env.DB.prepare(`UPDATE therapists SET sections_json = ?, layout_json = ? WHERE id = ?`)
       .bind(JSON.stringify([{ type: 'hero-profil' }, { type: 'tekst', heading: 'Jak pracuję', body: 'Powoli.' }, { type: 'slots' }, { type: 'zaproszenie' }]), '{"theme":"forest","bands":"stripes"}', ANNA)
       .run();
     const html = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(html).toContain('class="header-cta"');
+    // Her own document: no catalogue header, the crisis numbers in the footer.
+    expect(html).not.toContain('class="header-cta"');
+    expect(html).toContain('lp-crisis');
     expect(html).toContain('class="lp lp--theme-forest lp--stripes');
     expect(html).toContain('<h1>Anna Kowalczyk (DEMO)</h1>');
     expect(html).toContain('<h2>Jak pracuję</h2>');
     expect(html).toContain('slot-table');
     expect(html).toContain('id="terminy"');
-    expect(html).toContain('/assets/lp.css');
-    expect(html).not.toContain('/assets/lp-doc.css');
+    expect(html).toContain('/assets/lp-doc.css');
   });
 });
 
@@ -70,7 +71,7 @@ describe('templates in the panel', () => {
 
     const preview = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/podglad?preset=plakat`, { headers: { cookie } })).text();
     expect(preview).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
-    expect(preview).toContain('phero--plakat');
+    expect(preview).toContain('class="lp-hero lp-hero--poster"');
     expect(preview).toContain('<h2>Moje słowa</h2>');
     expect((await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/podglad`)).status).toBe(401);
 
@@ -87,7 +88,7 @@ describe('templates in the panel', () => {
     const row = await env.DB.prepare(`SELECT sections_json, layout_json FROM therapists WHERE id = ?`).bind(ANNA).first<{ sections_json: string; layout_json: string }>();
     expect(JSON.parse(row!.layout_json)).toMatchObject({ theme: 'ink', display: 'poster', bands: 'stripes' });
     const types = (JSON.parse(row!.sections_json) as Array<{ type: string; heading?: string }>);
-    expect(types.map((b) => b.type)).toEqual(['hero-plakat', 'text', 'slots']);
+    expect(types.map((b) => b.type)).toEqual(['hero-profil', 'text', 'slots']);
     expect(types[1]!.heading).toBe('Moje słowa');
   });
 });

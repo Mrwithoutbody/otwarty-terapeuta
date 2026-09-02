@@ -43,7 +43,8 @@ import {
   profileLayout,
   readEditor,
   renderTemplatePicker,
-  renderProfileWith,
+  pageDocument,
+  profileDocument,
   renderTherapistDocument,
   slugify,
   type PageRow,
@@ -1676,13 +1677,9 @@ adminApp.get('/terapeuci/:id/strony/:pid/podglad', async (c) => {
   if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc podstrony nie da się jeszcze pokazać.</p>', 404);
   const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
   const chosen = c.req.query('preset');
-  const row = chosen && chosen in PRESETS
-    ? (() => {
-        const look = presetLook(chosen, parseBlocks(g.row.blocks_json));
-        return { ...g.row, blocks_json: JSON.stringify(look.blocks), layout_json: JSON.stringify(look.layout) };
-      })()
-    : g.row;
-  return htmlResponse(c.env, await renderTherapistDocument(row, ctx, t, pages, assetUrls(LP_DOC_CSS)));
+  const doc = pageDocument(g.row, t);
+  if (chosen && chosen in PRESETS) Object.assign(doc, presetLook(chosen, doc.blocks));
+  return htmlResponse(c.env, await renderTherapistDocument({ ...doc, noindex: true }, ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 /** Her profile as the public sees it, or as it would look in a template she has not chosen yet. */
@@ -1694,20 +1691,10 @@ adminApp.get('/terapeuci/:id/podglad', async (c) => {
   const t = await getTherapist(c.env, { therapist_id: id });
   if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc nie da się go jeszcze pokazać.</p>', 404);
   const chosen = c.req.query('preset');
-  const look = chosen && chosen in PRESETS
-    ? presetLook(chosen, profileBlocks(t.sections))
-    : { blocks: profileBlocks(t.sections), layout: profileLayout(t.layout) };
-  const body = await renderProfileWith(t, await profileContext(c.env, t), look.blocks, look.layout);
-  return htmlResponse(
-    c.env,
-    renderPage(c.env, {
-      title: t.display_name,
-      path: '/terapeuci',
-      noindex: true,
-      lp: true,
-      body: `<article class="profile-page">${body}</article>`,
-    }),
-  );
+  const doc = profileDocument(t, true);
+  if (chosen && chosen in PRESETS) Object.assign(doc, presetLook(chosen, doc.blocks));
+  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
+  return htmlResponse(c.env, await renderTherapistDocument(doc, ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {

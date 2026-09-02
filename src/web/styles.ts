@@ -15,6 +15,7 @@ export const APP_CSS = `
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
 
+
 @font-face {
   font-family: "Lora Variable";
   font-style: normal;
@@ -24,6 +25,7 @@ export const APP_CSS = `
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
+
 @font-face {
   font-family: "Playfair Variable";
   font-style: normal;
@@ -32,6 +34,7 @@ export const APP_CSS = `
   src: url("/fonts/playfair-latin-ext-variable.woff2") format("woff2-variations");
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
+
 
 @font-face {
   font-family: "Playfair Variable";
@@ -191,6 +194,7 @@ main > .wrap > :first-child { margin-top: 0; }
 footer.site { border-top: 1px solid var(--border); background: #f1f3e8; padding-block: clamp(3rem, 6vw, 5rem) 2rem; }
 footer.site .wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr); gap: 3rem 6rem; }
 
+
 /* The crisis numbers open the footer, across its full width, with the accent
    rule down the side. Loud enough to find while scrolling past, quiet enough
    not to shout at someone who is not in a crisis. */
@@ -201,6 +205,7 @@ footer.site .wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minma
 .footer-crisis ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: var(--space-4); list-style: none; margin: 0; padding: 0; }
 
+
 /* The link-list rule in footer.site sets a top margin and ties with this
    selector, so it has to be beaten on specificity - otherwise the second and
    third numbers sit lower than the first. */
@@ -210,6 +215,7 @@ footer.site .footer-crisis li + li { margin-top: 0; }
   letter-spacing: -0.02em; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
 .footer-crisis li span { display: block; color: var(--text-muted); font-size: 0.84rem; }
 .footer-crisis li a:hover b { text-decoration: underline; }
+
 
 /* The global paragraph measure would wrap the arrow onto its own line. */
 .footer-crisis > p { margin: var(--space-4) 0 0; max-width: none; }
@@ -295,9 +301,11 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .card dd { margin: 0; overflow-wrap: anywhere; }
 .lang { display: inline-flex; align-items: center; gap: 0.4em; }
 
+
 /* Przygaszone: flaga ma być znacznikiem, nie najjaśniejszym punktem strony. */
 .lang svg { width: 1.15em; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; filter: saturate(0.62); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); flex: none; }
 .therapist-card .card-actions { margin-top: auto; padding-top: var(--space-2); }
+
 
 /* Her colour on the card, as a hairline and a link - not as a repainted card.
    The list has to stay comparable: six differently coloured cards side by side
@@ -311,6 +319,7 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   --card-ink: color-mix(in srgb, var(--card-accent) 70%, #000);
 }
 
+
 /* Hover strengthens: the hairline goes to full accent instead of vanishing. */
 .therapist-card:hover { --card-edge: inset 0 3px 0 var(--card-accent); }
 .therapist-card--theme-amber { --card-accent: var(--acc-bursztyn); }
@@ -320,6 +329,7 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .therapist-card--theme-ink { --card-accent: var(--acc-atrament); }
 .therapist-card--theme-paper { --card-accent: var(--acc-papier); }
 .therapist-card .card-actions a { color: var(--card-ink); }
+
 
 /* The name keeps its colour and gains her underline - swapping the colour on
    hover made the strongest link on the card go paler the moment it was aimed at. */
@@ -390,6 +400,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
+
 
 
 /* Public subpages */
@@ -481,118 +492,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .directory-page .filters { margin: 0; padding: clamp(1.5rem, 4vw, 2.7rem); border-radius: 1.2rem; }
 .directory-results-heading { margin-bottom: 2rem; }
 .directory-results-heading h2 { margin: 0; font-size: clamp(2.2rem, 4vw, 3.5rem); }
-.profile-page { width: min(100%, 76rem); margin-inline: auto; }
-.profile-page > nav { margin-bottom: 2.5rem; color: var(--text-muted); font-size: 0.78rem; }
-.profile-page .crumbs { margin: 0; }
-.profile-page .subpages ul { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0.6rem 0 0; padding: 0; }
-.profile-page .subpages a { display: inline-block; padding: 0.3rem 0.8rem; border: 1px solid var(--line, #cfd6c4); border-radius: 999px; text-decoration: none; font-size: 0.92rem; }
-.profile-page .subpages a[aria-current] { background: var(--dark, #26332a); border-color: var(--dark, #26332a); color: #fff; }
-.profile-page > .lp { margin-top: 1rem; }
 
-
-/* --- profile spine: never moves, so profiles stay comparable ------------- */
-/* Every other heading on the site is a painted panel - the directory, the
-   documents, the crisis page, the signup. The profile was the one page that
-   opened on flat ivory, which is what made it read as colourless beside the
-   home page. The two variants that paint themselves override this. */
-.phero { display: grid; grid-template-columns: 1.05fr minmax(17rem, 26rem); gap: clamp(2rem, 5vw, 4rem);
-  align-items: center; margin-top: var(--space-6); padding: clamp(1.8rem, 3.5vw, 3.2rem);
-  border: 1px solid var(--border); border-radius: var(--radius-lg);
-  background: linear-gradient(140deg, var(--wash-a), var(--wash-b)); }
-.phero > div { order: -1; }
-
-/* The name used to be the loudest thing on the page at 3.6rem. Someone looking
-   for help is not looking for a surname - they are looking for whether this is
-   for them, which is what the line under it answers. */
-.phero h1 { font-size: calc(clamp(1.7rem, 1.5rem + 0.8vw, 2rem) * var(--display));
-  line-height: calc(1.12 - (var(--display) - 1) * 0.09); letter-spacing: -0.025em;
-  margin-bottom: var(--space-3); }
-.phero-photo { width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: var(--radius-lg);
-  object-fit: cover; border: 1px solid var(--border); background: var(--surface-alt);
-  display: block; box-shadow: var(--shadow); }
-.phero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: var(--space-6) 0 var(--space-6); }
-
-/* The same drawing the demo profiles are served, so an empty photo slot and a
-   demo avatar cannot end up looking like two different ideas. */
-/* One drawing, every theme: the placeholder keeps its shape and takes the
-   page's hue from the band it sits on. Without the blend a sage avatar sat in
-   the middle of an amber profile. */
-.phero-photo.empty, .psplit-empty, .phero-card-empty {
-  background: var(--band) url("/avatar-placeholder.webp") center / cover no-repeat;
-  background-blend-mode: luminosity; }
-.phero-photo.empty { display: block; }
-
-
-/* --- heading blocks ------------------------------------------------------ */
-/* Portrait first in the source, text second, so the classic block puts the text
-   back on the left and the others build on that order. */
-
-/* The promise heading: her sentence carries the page, the name rides on a card
-   under the portrait. Measured off the reference - quote at 1.1rem italic serif
-   with an accent rule, portrait 4:5 in a bordered card. */
-.phero--obietnica { grid-template-columns: 1.15fr 0.85fr; align-items: center; }
-.phero--obietnica > div { order: -1; }
-.phero-quote { font-family: var(--serif); font-style: italic; color: var(--text-muted);
-  border-left: 3px solid var(--accent); padding-left: 1.1rem; margin: 0 0 1.8rem; max-width: 52ch;
-  font-size: 1rem; line-height: 1.7; }
-.phero-lead { font-size: 1.12rem; color: var(--text-muted); max-width: 56ch; margin: 0; }
-.phero--obietnica .phero-actions { margin: 2rem 0 1.4rem; }
-.phero-card { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; }
-.phero-card img, .phero-card-empty { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
-  object-fit: cover; }
-.phero-card figcaption { padding: 1.1rem 1.3rem; border-top: 1px solid var(--border); }
-.phero-card strong { display: block; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
-.phero-card span { display: block; color: var(--text-muted); font-size: 0.9rem; }
-@media (max-width: 56rem) {.phero--obietnica { grid-template-columns: 1fr; } }
-
-
-/* Dark, centred, portrait above the name - the shape a single-person site uses
-   when the person is the whole offer. */
-/* A screen of typography: one column, the slogan at display size, the name in
-   small caps under the actions. Height leaves the top of the next section
-   showing - a fold with nothing peeking over it reads as the end of the page. */
-.phero--plakat { grid-template-columns: minmax(0, 1fr); min-height: min(72vh, 42rem); align-content: center;
-  align-items: center;
-  margin-top: 0; padding: clamp(2rem, 5vw, 5rem) 0 clamp(2.5rem, 6vw, 6rem); border: 0; border-radius: 0;
-  background: none; }
-.phero--plakat .badges { margin: 2.2rem 0 0; }
-.phero--plakat :is(.badge, .badge.ok, .badge.demo) { background: transparent; border-color: transparent;
-  padding-inline: 0; color: var(--text-muted); }
-.phero--plakat .badge.ok { color: var(--accent-strong); }
-.phero--plakat .badges li + li::before { content: "·"; margin-right: 0.6rem; color: var(--text-muted); }
-.phero--plakat h1 { font-size: clamp(2.6rem, 6.5vw, 5.6rem); line-height: 1.02; letter-spacing: -0.035em;
-  max-width: 18ch; }
-.phero--plakat .phero-lead { font-size: clamp(1.15rem, 1rem + 0.9vw, 1.55rem); max-width: 36ch;
-  color: var(--text-muted); }
-.phero--plakat .phero-actions { margin-top: 2.2rem; }
-.phero-plakat-name { margin-top: 2.6rem; font: 650 0.78rem/1.4 var(--sans); letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--text-muted); }
-
-/* The portrait beside the slogan; without one the type takes the full width. */
-.phero--plakat:has(.phero-plakat-photo) { grid-template-columns: minmax(0, 1.25fr) minmax(13rem, 19rem); }
-.phero-plakat-photo { margin: 0; }
-.phero-plakat-photo img { width: 100%; height: auto; display: block; border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm); }
-@media (max-width: 56rem) {.phero--plakat:has(.phero-plakat-photo) { grid-template-columns: 1fr; } }
-.phero--spotlight { grid-template-columns: minmax(0, 46rem); justify-content: center;
-  text-align: center; background: var(--dark); color: var(--dark-ink); border: 0; border-radius: var(--radius-lg);
-  padding: clamp(2rem, 5vw, 3.5rem); margin-top: var(--space-6); }
-.phero--spotlight > div { order: 0; }
-.phero--spotlight h1 { color: var(--dark-head); }
-.phero--spotlight .phero-headline { color: var(--dark-mute); }
-.phero--spotlight .phero-photo { width: 11rem; aspect-ratio: 1; border-radius: 50%;
-  margin: 0 auto var(--space-6); border-color: color-mix(in srgb, var(--dark-ink) 30%, transparent); }
-.phero--spotlight .phero-facts { justify-content: center; }
-.phero-greeting { font-family: var(--serif); font-size: clamp(1.2rem, 1.05rem + 0.8vw, 1.7rem);
-  line-height: 1.4; margin-bottom: var(--space-4); }
-.phero--spotlight .phero-facts li { background: color-mix(in srgb, var(--dark-ink) 12%, transparent); border-color: color-mix(in srgb, var(--dark-ink) 30%, transparent);
-  color: var(--dark-ink); }
-.phero--spotlight .badges { justify-content: center; }
-.phero--spotlight .badge { background: color-mix(in srgb, var(--dark-ink) 12%, transparent); border-color: color-mix(in srgb, var(--dark-ink) 30%, transparent);
-  color: var(--dark-ink); }
-.phero--spotlight .phero-actions { justify-content: center; }
-.phero--spotlight .btn.ghost { color: var(--dark-ink); border-color: color-mix(in srgb, var(--dark-ink) 45%, transparent); }
 
 
 /* Label and value, two pairs across - the layout the catalogue card has always
@@ -607,89 +507,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 @media (max-width: 46rem) {.pdata > div { grid-template-columns: minmax(7rem, auto) minmax(0, 1fr); } }
 
 
-/* Two cards in one row: the whole "what it costs and when" in a single glance,
-   instead of two full-width bands one under the other. */
-.pcards { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-  align-items: start; }
-.pcard { background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm); }
-.pcard h3 { margin: 0 0 var(--space-4); font-size: 0.82rem; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--text-muted); font-family: var(--sans); font-weight: 600; }
-.pcard .offer-rows { border: 0; border-radius: 0; background: none; }
-.pcard .offer-rows li { padding-inline: 0; }
-.pcard .hint { margin: var(--space-3) 0 0; }
-.slot-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
-.slot-chips li { margin: 0; background: var(--bg); border: 1px solid var(--border-strong);
-  border-radius: var(--radius); padding: 0.5rem 0.85rem; }
-.slot-chips b { display: block; font-size: 0.92rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.slot-chips span { display: block; color: var(--text-muted); font-size: 0.78rem; }
-
-
-/* The offer as rows: three cards of one line each is a lot of furniture. */
-.offer-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--surface-solid); overflow: hidden; }
-.offer-rows li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4);
-  margin: 0; padding: 0.9rem var(--space-6); border-top: 1px solid var(--border); }
-.offer-rows li:first-child { border-top: 0; }
-.offer-name { font-weight: 500; }
-.offer-meta { color: var(--text-muted); font-size: 0.88rem; }
-.offer-price { margin-left: auto; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
-
-
-/* The whole heading on a colour block: words one side, portrait the other with
-   one fact pinned to it. A panoramic crop was the first attempt and it turned a
-   portrait photograph into a forehead. */
-.phero--okladka { grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 4vw, 3.5rem);
-  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--accent-soft)); border-radius: var(--radius-lg);
-  padding: clamp(1.8rem, 3.5vw, 3.2rem); margin-top: var(--space-6); align-items: center; }
-.phero--okladka > div { order: -1; }
-.phero-frame { position: relative; margin: 0; max-width: 22rem; margin-inline: auto; }
-.phero--okladka .phero-photo { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
-.phero-badge { position: absolute; left: -0.9rem; bottom: 1.4rem; background: var(--surface-solid);
-  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
-  padding: 0.7rem 1rem; }
-.phero-badge b { display: block; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.phero-badge span { display: block; color: var(--text-muted); font-size: 0.76rem; }
-.phero--okladka .phero-facts li { background: var(--surface-solid); border-color: var(--border); }
-@media (max-width: 56rem) {.phero--okladka { grid-template-columns: 1fr; } }
-.phero-headline { font-size: 1.15rem; line-height: 1.55; color: var(--text-muted); max-width: 52ch;
-  margin-bottom: var(--space-6); }
-.phero-facts { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
-.phero-facts li { margin: 0; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--accent-soft));
-  border-radius: 999px; padding: 0.34rem 0.85rem; font-size: 0.87rem; color: var(--accent-strong); }
-.phero-facts .lang { display: inline-flex; align-items: center; gap: 0.3rem; }
-.badges { display: flex; flex-wrap: wrap; gap: 0.45rem; list-style: none; margin: 0 0 var(--space-3); padding: 0; }
-.badges li { margin: 0; }
-.badge { display: inline-block; font-size: 0.78rem; padding: 0.36rem 0.75rem; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface-solid); }
-.badge.ok { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, var(--accent-soft)); color: var(--accent-strong); }
-.badge.demo { background: var(--surface-alt); color: var(--text-muted); }
-.pfacts { margin-top: var(--space-6); background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--space-6);
-  display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: var(--space-6); align-items: center; }
-.pfact strong { display: block; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
-.pfact span { display: block; color: var(--text-muted); font-size: 0.82rem; }
-.pfact.empty strong { font-family: var(--sans); font-size: 1rem; font-weight: 500; color: var(--text-muted); }
-
-
-/* --- themes: the same sections, her palette ------------------------------ */
-/* A theme is a set of tokens on the profile element - nothing here is a new
-   component, and nothing leaks past .profile-page into the service chrome.
-   Presets rather than a colour picker: a free palette produces unreadable
-   contrast and a catalogue that looks like nine different products. */
-/* A theme owns the whole strip, not just the boxes inside it: the page ground
-   stayed service-sage around an amber profile. Painted by a bleeding pseudo
-   element - the same margin trick the bands use collapses the column here,
-   because the padding percentage resolves against the width it just changed. */
-/* Colour resolved inside the theme's scope: the body sets its colour where the
-   root tokens hold, and a night theme that redefines --text would otherwise
-   leave every element without its own colour rule inheriting the light-theme
-   ink. */
-.profile-page { position: relative; color: var(--text); }
-.profile-page[class*="--theme-"]::before {
-  content: ""; position: absolute; z-index: -1; inset-block: calc(var(--space-16) * -1) 0;
-  left: 50%; width: 100vw; translate: -50% 0; background: var(--wash-a); }
-
 
 /* Three claims across, the shape every reference profile uses under its
    philosophy paragraphs. */
@@ -701,66 +518,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pillars p { margin: 0; color: var(--prose); font-size: 0.95rem; line-height: 1.65; }
 
 
-/* Her writing elsewhere: title, one line, link out. */
-.plinks { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  margin-top: var(--space-6); padding: 0; list-style: none; }
-.plinks li { margin: 0; }
-.plinks a { display: block; height: 100%; padding: var(--space-6); text-decoration: none;
-  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-solid);
-  color: inherit; transition: border-color 0.15s ease; }
-.plinks a:hover { border-color: var(--border-strong); }
-.plinks strong { display: block; font-family: var(--serif); font-size: 1.05rem; font-weight: 600;
-  margin-bottom: var(--space-2); }
-.plinks span { display: block; color: var(--prose); font-size: 0.92rem; line-height: 1.6; }
-.plinks em { display: block; margin-top: var(--space-3); font-style: normal; font-size: 0.8rem;
-  letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-strong); }
-
-
-/* Two columns: her words beside her portrait. Without a section shaped like
-   this every block was one full-width column, which is what went flat after the
-   third heading. */
-.psplit { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: clamp(2rem, 5vw, 4rem);
-  align-items: center; }
-.psplit--flip > div { order: 2; }
-.psplit-photo { margin: 0; }
-.psplit-photo img, .psplit-empty { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
-  object-fit: cover; border-radius: var(--radius-lg); border: 1px solid var(--border);
-  background: var(--surface-alt); box-shadow: var(--shadow); }
-@media (max-width: 860px) {.psplit { grid-template-columns: 1fr; }
-.psplit--flip > div { order: 0; } }
-.pquote { margin: 0; }
-.pquote blockquote { margin: 0; border-left: 3px solid var(--accent-2); padding-left: 1.2rem; }
-.pquote p { font-family: var(--serif); font-style: italic; max-width: 52ch;
-  font-size: clamp(1.15rem, 1.05rem + 0.6vw, 1.5rem); }
-.pquote figcaption { margin-top: var(--space-3); padding-left: 1.2rem; color: var(--text-muted);
-  font-size: 0.92rem; }
-
-
-/* The service chapter: the written text and its points on the left, the
-   practical grid on a card to the right. One column under 56rem. */
-.pservice { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(13rem, 0.75fr);
-  gap: clamp(1.6rem, 4vw, 3.5rem); align-items: start; margin-top: var(--space-6); }
-.pservice-points { margin: var(--space-6) 0 0; padding: 0; list-style: none; max-width: 34rem; }
-.pservice-points li { padding: 0.65rem 0; border-top: 1px solid var(--border); }
-.pservice-points li:last-child { border-bottom: 1px solid var(--border); }
-.pquote--inline { margin: var(--space-6) 0 0; }
-.pservice-facts { margin: 0; padding: var(--space-6); background: var(--surface-solid);
-  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-  display: grid; gap: var(--space-4); }
-.pservice-facts dt { font: 650 0.72rem/1.4 var(--sans); letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--accent-2); }
-.pservice-facts dd { margin: 0.1rem 0 0; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
-@media (max-width: 56rem) {.pservice { grid-template-columns: 1fr; } }
-.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: var(--space-4) 0 0; padding: 0; }
-.chips li { margin: 0; background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: 999px; padding: 0.55rem 1.1rem; font-size: 0.95rem; }
-.offer-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
-.offer-card { background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: var(--space-8); box-shadow: var(--shadow-sm); }
-.offer-card h3 { margin: 0 0 var(--space-2); font-size: 1.02rem; }
-.offer-card .amount { display: block; font-family: var(--serif); font-size: 2.4rem; font-weight: 600; letter-spacing: -0.02em; }
-.offer-card .per { color: var(--text-muted); font-size: 0.86rem; }
-
 /* Days as columns, hours beneath - the ZnanyLekarz/Booksy pattern people
    already know. A table because that is what this is: days across, times down. */
 .slot-table-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
@@ -770,15 +527,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .slot-table th span { display: block; font-size: 0.78rem; color: var(--text-muted); }
 .slot-table td { padding: 0.45rem var(--space-2); text-align: center; vertical-align: top; }
 
+
 /* Plain text, no filled blocks: thirty-five tinted rectangles read as noise. */
 .slot-time { display: block; font-size: 0.98rem; font-variant-numeric: tabular-nums; }
 .slot-mode { display: block; font-size: 0.7rem; color: var(--text-muted); }
 .slot-none { display: block; color: var(--border-strong); }
 
+
 /* The site's tables highlight rows on hover, which promises a click. These rows
    are hours to read, not rows to act on. */
 .slot-table tbody tr:hover td { background: none; }
 .slot-table td, .slot-table th { border: 0; }
+
 
 /* The lines under the calendar used to sit glued to the table and to each
    other; now they are one footer with its own air, and the button gets a row
@@ -787,56 +547,12 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   align-items: flex-start; }
 .slot-foot p { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
 .slot-foot .btn { margin-top: var(--space-3); }
-
-
-/* Where else to find her: quiet text links under the name, not a band. */
-.phero-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none;
-  margin: var(--space-4) 0 0; padding: 0; }
-.phero-links li { margin: 0; }
-.phero-links a { color: var(--text-muted); font-size: 0.86rem; text-decoration: none;
-  border-bottom: 1px solid var(--border-strong); padding-bottom: 1px; }
-.phero-links a:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
-.phero--spotlight .phero-links { justify-content: center; }
-.phero--spotlight .phero-links a { color: var(--dark-mute); border-color: color-mix(in srgb, var(--dark-ink) 40%, transparent); }
-
-/* "Pierwsze spotkanie": her answers, in the order the person will live them. */
-.meeting-steps { counter-reset: s; list-style: none; display: grid; gap: var(--space-4);
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 0; padding: 0; }
-.meeting-steps li { counter-increment: s; position: relative; margin: 0; background: var(--surface-solid);
-  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-  padding: 1.9rem 1.6rem 1.5rem; }
-.meeting-steps li::before { content: counter(s); position: absolute; top: -0.85rem; left: 1.3rem;
-  width: 1.9rem; height: 1.9rem; display: grid; place-items: center; background: var(--accent-2);
-  color: var(--surface-solid); border-radius: 50%; font-size: 0.9rem; font-weight: 600; }
-.meeting-steps h3 { margin: 0.3rem 0 0.4rem; font-size: 1.02rem; }
-.meeting-steps p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
-
-/* A card at --surface-solid on the --bg page is three percent of lightness
-   away from it, and all that said "card" was a #e2e5d8 hairline and a shadow at
-   four percent opacity. That was already thin; beside a tinted band the eye
-   adapts and the card stops existing. The profile's cards get an edge and a
-   shadow strong enough to survive the comparison. */
-.pfacts, .pcard, .offer-card, .meeting-steps li, .phero-card, .phero-badge {
-  border-color: var(--border-strong); box-shadow: var(--shadow); }
-
-/* Stacked rows and pills: an edge, but no shadow - four dropped cards in a
-   column is a pile, not a list. */
-.chips li { border-color: var(--border-strong); }
-.read-more { margin-top: var(--space-4); }
-.details-body { padding: 0 1.15rem 1rem; color: var(--text-muted); font-size: 0.95rem; }
-.details-body p:last-child { margin-bottom: 0; }
-@media (max-width: 52rem) {.phero { grid-template-columns: 1fr; }
-.phero > div { order: 0; }
-.phero-photo { max-width: 18rem; }
-.pfacts { grid-template-columns: 1fr 1fr; }
-.pfacts .pfact-cta { grid-column: 1 / -1; }
-}
-@media (max-width: 30rem) {.pfacts { grid-template-columns: 1fr; } }
 .signup-page { width: min(100%, 62rem); margin-inline: auto; }
 .signup-intro { margin-bottom: 2.5rem; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.4rem; background: linear-gradient(140deg, var(--wash-b), var(--wash-a)); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(2.6rem, 5vw, 4.2rem); }
 .signup-intro p:last-child { max-width: 58ch; margin: 0; color: var(--text-muted); }
 .signup-page > form { max-width: none !important; margin-inline: 0; padding: clamp(1.5rem, 4vw, 2.7rem) !important; }
+
 
 
 /* Homepage */
@@ -867,11 +583,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   letter-spacing: 0.08em; text-transform: uppercase;
 }
 .eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.7rem; margin-bottom: 1.25rem; border: 1px solid rgba(99,114,0,0.18); border-radius: 999px; background: rgba(255,255,250,0.62); }
-
-/* Inside a profile the eyebrow is a plain line of small caps, the way the
-   reference sets it - the pill belongs to the marketing pages. */
-.profile-page .eyebrow { display: block; padding: 0; border: 0; background: none;
-  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.09em; margin-bottom: 0.7rem; }
 .eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(156,173,0,0.12); }
 .home-hero h1 { max-width: 16ch; margin: 0 auto 1.25rem; font-size: clamp(2.65rem, 5.1vw, 5.2rem); line-height: 0.98; letter-spacing: -0.055em; }
 .home-hero .lead { max-width: 48rem; margin: 0 auto 1.65rem; color: #66705d; font-size: clamp(1rem, 1.4vw, 1.13rem); line-height: 1.7; }
@@ -1092,6 +803,6 @@ footer.site .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
 @media (prefers-reduced-motion: reduce) {*, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
-/* The engine frames every heading block; the profile's heading brings its own frame. */
-.lp .lp-hero:has(> .phero) { display: block; padding: 0; }
+/* The calendar is the one host block with markup of its own; it takes the page column the engine would. */
+.lp .slots-wrap { width: min(100% - 2.5rem, 74rem); margin-inline: auto; padding-block: clamp(2rem, 5vw, 4rem); }
 `;

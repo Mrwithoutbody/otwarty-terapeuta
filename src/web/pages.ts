@@ -18,7 +18,7 @@ import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
 import { assetUrls, htmlResponse, renderPage } from './layout';
-import { getPage, listPages, LP_DOC_CSS, profileLayout, renderProfile, renderTherapistDocument, type PageRow, type SectionCtx } from './lp';
+import { getPage, listPages, LP_DOC_CSS, pageDocument, profileDocument, profileLayout, renderTherapistDocument, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
 
 /**
@@ -398,18 +398,6 @@ export async function profileContext(env: Env, t: PublicTherapist): Promise<Sect
   return { env, therapist: t, faq, slots };
 }
 
-/** Links to her published subpages, under the breadcrumb. Nothing when she has none. */
-function subpageNav(t: PublicTherapist, pages: PageRow[]): string {
-  if (pages.length === 0) return '';
-  const items = [
-    `<li><a href="/terapeuci/${escapeHtml(t.slug)}" aria-current="page">Profil</a></li>`,
-    ...pages.map(
-      (p) => `<li><a href="/terapeuci/${escapeHtml(t.slug)}/${escapeHtml(p.slug)}">${escapeHtml(p.title)}</a></li>`,
-    ),
-  ];
-  return `<nav class="subpages" aria-label="Strony terapeuty"><ul>${items.join('')}</ul></nav>`;
-}
-
 siteApp.get('/terapeuci/:slug', async (c) => {
   const slug = c.req.param('slug');
   const t = await getTherapist(c.env, { slug });
@@ -420,23 +408,7 @@ siteApp.get('/terapeuci/:slug', async (c) => {
   // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
   c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
 
-  const body = await renderProfile(t, ctx);
-
-  return htmlResponse(
-    c.env,
-    renderPage(c.env, {
-      title: t.display_name,
-      description: t.headline ?? 'Profil psychoterapeuty',
-      path: '/terapeuci',
-      lp: true,
-      body: `
-<article class="profile-page">
-<nav aria-label="Ścieżka"><p class="crumbs"><a href="/terapeuci">Katalog</a> / ${escapeHtml(t.display_name)}</p></nav>
-${subpageNav(t, pages)}
-${body}
-</article>`,
-    }),
-  );
+  return htmlResponse(c.env, await renderTherapistDocument(profileDocument(t), ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 /** A therapist's subpage: her own landing, group, workshop or camp, on the engine. */
@@ -446,7 +418,7 @@ siteApp.get('/terapeuci/:slug/:page', async (c) => {
   if (!t || !row || row.status !== 'published') return notFoundProfile(c.env);
 
   const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-  return htmlResponse(c.env, await renderTherapistDocument(row, ctx, t, pages, assetUrls(LP_DOC_CSS)));
+  return htmlResponse(c.env, await renderTherapistDocument(pageDocument(row, t), ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 // ------------------------------------------------------------ static pages ---

@@ -1,76 +1,23 @@
 /**
- * Host blocks: the parts of a therapist's page that come from the database.
+ * Host blocks: what a therapist's page knows that the engine cannot.
  *
- * The page itself is composed and rendered by the x402-landings engine; these
- * are the blocks the engine cannot know about - her portrait and facts in the
- * heading, her offer, her calendar, her FAQ, her credentials, the closing
- * invitation. Each one renders from `SectionCtx` (the therapist, her FAQ, her
- * open slots) and is registered into the engine in `lp.ts`.
+ * Every block here is a data provider. It reads the database - her portrait
+ * and facts, her offer, her calendar, her FAQ, her credentials - and hands the
+ * engine an ordinary block filled with it: a `hero`, a `pricing`, a `faq`.
+ * The engine then draws it the way the chosen theme draws every hero and every
+ * price list, so switching a template restyles her data along with her words.
  *
- * What used to live here as well - text blocks, layout axes, the parser and
- * the page renderer - is the engine's job now and was deleted.
+ * One block keeps a renderer of its own: the calendar, a table of days that is
+ * the same on every page of hers on purpose.
  */
-import type { Block as Section, Field, Values } from 'x402-landings';
+import type { Block, BlockDef, Values } from 'x402-landings';
 import type { Env } from '../env';
 import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
-import { escapeHtml, renderBodyText, safeUrl } from '../lib/sanitize';
+import { escapeHtml } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
 
-export interface SectionCtx {
-  env: Env;
-  therapist: PublicTherapist;
-  faq: PublicFaqItem[];
-  slots: PublicSlot[];
-  /**
-   * Anchors the arrangement actually renders. She can delete the slots block
-   * while keeping a calendar full of slots; a button jumping to an anchor that
-   * is not on the page is worse than no button. `renderProfile` fills this in,
-   * and an absent set means "render every link", which is what a caller
-   * rendering one section on its own wants.
-   */
-  anchors?: ReadonlySet<string>;
-}
-
-export type Tone = '' | 'alt' | 'dark' | 'narrow';
-
-export interface SecDef {
-  label: string;
-  hint: string;
-  /** True when the content comes from the database rather than from these fields. */
-  auto?: boolean;
-  fields?: Field[];
-  /** How this block sits on the page. Fixed for the type. */
-  tone?: Tone;
-  /** May this type appear more than once on one profile? */
-  repeatable?: boolean;
-  /**
-   * Only one section from a family may sit on a page. The heading blocks are a
-   * family: each renders the `<h1>`, and a page has exactly one of those.
-   */
-  family?: string;
-  /** Returns the inside of the section. Empty string means "do not render". */
-  render(section: Section, ctx: SectionCtx): string;
-}
-
-const T = (name: string, label: string, extra: Partial<Field> = {}): Field =>
-  ({ kind: 'text', name, label, max: 120, ...extra });
-const AREA = (name: string, label: string, extra: Partial<Field> = {}): Field =>
-  ({ kind: 'textarea', name, label, max: 2000, ...extra });
-
-
-/**
- * Presentation of one block, chosen per section. Content fields differ per
- * type; these three are the same on every block, so they live outside
- * `fields`. An empty value means "as the type / the page decides", which is
- * why a profile saved before this existed renders exactly as it did.
- */
-
-
-
-
-
-
+/** Public names for the enum codes the catalogue stores. */
 const PUBLIC_LABELS: Record<string, string> = {
   individual: 'indywidualne',
   couples: 'dla par',
@@ -88,6 +35,20 @@ const PUBLIC_LABELS: Record<string, string> = {
   es: 'hiszpański',
   be: 'białoruski',
 };
+
+/** What every page of hers renders from. */
+export interface SectionCtx {
+  env: Env;
+  therapist: PublicTherapist;
+  faq: PublicFaqItem[];
+  slots: PublicSlot[];
+  /** Resolved layout axes of the page being rendered; the page renderer fills it. */
+  layout?: Record<string, string>;
+  /** Anchors the page renders, so a button never points at nothing. */
+  anchors?: ReadonlySet<string>;
+}
+
+
 
 export function labelList(values: string[], empty: string): string {
   return values.map((value) => PUBLIC_LABELS[value] ?? value).join(', ') || empty;
@@ -124,170 +85,7 @@ export function languageList(codes: string[]): string {
 // --------------------------------------------------------------- helpers ---
 
 
-function str(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
-function items(section: Section): Values[] {
-  return Array.isArray(section.items) ? (section.items as Values[]) : [];
-}
-
-function eyebrow(text: string): string {
-  return text === '' ? '' : `<p class="lp-kicker">${escapeHtml(text)}</p>`;
-}
-
-
-function ctaButton(section: Section, ghost = false): string {
-  const label = str(section.cta_label);
-  const href = safeUrl(str(section.cta_href));
-  if (label === '' || href === null) return '';
-  return `<a class="lp-btn${ghost ? ' lp-btn--ghost' : ''}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
-}
-
-/**
- * Where else to find her. This used to be a band of its own, which gave a link
- * to Instagram the same weight as her offer; it belongs next to her name and in
- * the closing band, where someone is already deciding whether to write.
- */
-function profileLinks(t: PublicTherapist): string {
-  if (t.links.length === 0) return '';
-  return `<ul class="phero-links">${t.links
-    .map(
-      (l) => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(l.label)} <span aria-hidden="true">↗</span></a></li>`,
-    )
-    .join('')}</ul>`;
-}
-
-/** Is the block this anchor belongs to on the page at all? */
-function hasAnchor(ctx: SectionCtx, anchor: string): boolean {
-  return ctx.anchors === undefined || ctx.anchors.has(anchor);
-}
-
-/** Does she have first-meeting answers? The hero links to that block only then. */
-function hasFirstMeeting(t: PublicTherapist): boolean {
-  const { course, prep, decision } = t.first_meeting;
-  return `${course}${prep}${decision}`.trim() !== '';
-}
-
-/** Her words beside her portrait; `flip` puts the photograph on the left. */
-function splitBody(s: Section, ctx: SectionCtx, flip: boolean): string {
-  const body = renderBodyText(str(s.body));
-  if (body === '') return '';
-  const title = str(s.heading);
-  const photo = ctx.therapist.photo_url
-    ? `<img src="${escapeHtml(ctx.therapist.photo_url)}" alt="" width="320" height="400" loading="lazy" decoding="async">`
-    : '<span class="psplit-empty" aria-hidden="true"></span>';
-  return `<div class="psplit${flip ? ' psplit--flip' : ''}">
-  <div>${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${body}${ctaButton(s, true)}</div>
-  <figure class="psplit-photo">${photo}</figure>
-</div>`;
-}
-
-/** The offer as rows, used by the list block and by the two-card block. */
-function offerRows(t: PublicTherapist): string {
-  return `<ul class="offer-rows">${t.offers
-    .map(
-      (o) => `<li><span class="offer-name">${escapeHtml(o.title)}</span>
-      <span class="offer-meta">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
-      <span class="offer-price">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span></li>`,
-    )
-    .join('')}</ul>`;
-}
-
-/**
- * What opens a written block: her small label, her heading, her sentence under
- * it. Each part is skipped when empty, which is why every block that has these
- * fields starts the same way.
- */
-function blockHead(s: Section): string {
-  const title = str(s.heading);
-  const lead = str(s.lead);
-  return `${eyebrow(str(s.eyebrow))}${title === '' ? '' : `<h2>${escapeHtml(title)}</h2>`}${
-    lead === '' ? '' : `<p class="block-lead">${escapeHtml(lead)}</p>`
-  }`;
-}
-
-/**
- * What every heading block puts on the page. The parts it shows differ; the
- * order never does, so a screen reader hears the same profile whichever shape
- * she picked.
- */
-function heroBody(
-  ctx: SectionCtx,
-  opts: {
-    facts: boolean;
-    greeting?: string;
-    badge?: string;
-    /** Her sentence in the <h1>; the name then moves onto the portrait card. */
-    eyebrow?: string;
-    title?: string;
-    quote?: string;
-    lead?: string;
-    caption?: string;
-  },
-): string {
-  const t = ctx.therapist;
-  const card = opts.caption !== undefined;
-  const formats = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null]
-    .filter((x): x is string => x !== null);
-
-  const photo = t.photo_url
-    // The master, not the thumbnail: this renders small but must stay sharp on
-    // a high-DPI screen. The 160px rendition is for the catalogue cards.
-    ? `<img class="${card ? '' : 'phero-photo'}" src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async">`
-    : `<span class="${card ? 'phero-card-empty' : 'phero-photo empty'}" aria-hidden="true"></span>`;
-
-  const frame = card
-    ? `<figure class="phero-card">${photo}
-    <figcaption><strong>${escapeHtml(t.display_name)}</strong>
-      <span>${escapeHtml(opts.caption ?? '')}</span></figcaption>
-  </figure>`
-    : opts.badge
-      ? `<figure class="phero-frame">${photo}${opts.badge}</figure>`
-      : photo;
-
-  // Each fact is finished HTML by the time it lands here: the plain ones are
-  // escaped as they are built, and the language list arrives with the inline
-  // flag SVGs it draws itself. Escaping the lot printed that markup as text.
-  const facts = card
-    ? [
-        t.price_min_minor === null
-          ? null
-          : escapeHtml(`${formatPrice(t.price_min_minor, t.currency)}${t.offers[0] ? ` / ${t.offers[0].duration_minutes} min` : ''}`),
-        escapeHtml(t.locations.map((l) => [l.city, l.address_line].filter(Boolean).join(', ')).find((x) => x !== '') ?? ''),
-        t.offers_online ? 'lub online' : null,
-        t.session_types.length > 0 ? escapeHtml(labelList(t.session_types, '')) : null,
-      ]
-    : [
-        escapeHtml(t.locations.map((l) => l.city).join(', ')),
-        escapeHtml(formats.join(' i ')),
-        languageList(t.languages),
-        t.session_types.length > 0 ? escapeHtml(labelList(t.session_types, '')) : null,
-      ];
-  const shown = facts.filter((x): x is string => x !== null && x !== '');
-
-  return `${frame}
-  <div>
-    <ul class="badges">
-      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
-      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
-      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
-    </ul>
-    ${eyebrow(opts.eyebrow ?? '')}
-    <h1>${escapeHtml(opts.title || t.display_name)}</h1>
-    ${opts.quote ? `<p class="phero-quote">${escapeHtml(opts.quote)}</p>` : ''}
-    ${opts.greeting ? `<p class="phero-greeting">${escapeHtml(opts.greeting)}</p>` : ''}
-    ${opts.lead ? `<p class="phero-lead">${escapeHtml(opts.lead)}</p>` : t.headline ? `<p class="phero-headline">${escapeHtml(t.headline)}</p>` : ''}
-    <div class="phero-actions">
-      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="lp-btn lp-btn--ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
-    </div>
-    ${opts.facts && shown.length > 0 ? `<ul class="phero-facts">${shown.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
-    ${profileLinks(t)}
-  </div>`;
-}
-
-/** The compact "wt., 25 sie, 11:00" the fact row uses. */
 function compactDateTime(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat('pl-PL', {
     timeZone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -301,21 +99,7 @@ function compactDateTime(iso: string, timeZone: string): string {
  * what turned the therapist's own site into a wall. Three paragraphs stay open,
  * the rest is one click away - nothing is hidden, only deferred.
  */
-const INTRO_PARAGRAPHS_OPEN = 3;
 
-function introBody(bio: string): string {
-  const paragraphs = bio.split(/\n{2,}/).filter((b) => b.trim() !== '');
-  if (paragraphs.length <= INTRO_PARAGRAPHS_OPEN) return renderBodyText(bio);
-  const head = paragraphs.slice(0, INTRO_PARAGRAPHS_OPEN).join('\n\n');
-  const rest = paragraphs.slice(INTRO_PARAGRAPHS_OPEN);
-  return `${renderBodyText(head)}
-<details class="read-more"><summary>Czytaj dalej (${rest.length} ${rest.length === 1 ? 'akapit' : 'akapity'})</summary>
-<div class="details-body">${renderBodyText(rest.join('\n\n'))}</div></details>`;
-}
-
-// A week. Not four days - that number came from ZnanyLekarz, where the calendar
-// sits in a narrow column beside a result card. On a full-width profile there is
-// room for the unit people actually plan in.
 const SLOT_DAYS_SHOWN = 7;
 const SLOT_ROWS_SHOWN = 5;
 
@@ -406,497 +190,178 @@ export function pluginCta(env: Env): string {
   return `<a class="btn secondary" href="${escapeHtml(url)}" rel="noopener">Znajdź terapeutę z pomocą ChatGPT <span aria-hidden="true">↗</span></a>`;
 }
 
-const HEADING_FIELD = T('heading', 'Nagłówek', { hint: 'puste = domyślny' });
-const LEAD_FIELD = T('lead', 'Zdanie pod nagłówkiem', { max: 200, hint: 'opcjonalne — pomiń, jeśli tylko powtarza nagłówek' });
 
-/** Every block of hers that reads the database, keyed by the type the engine sees. */
-export const HOST_SECTIONS: Record<string, SecDef> = {
+// -------------------------------------------------------------- providers ---
+
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+const has = (ctx: SectionCtx, anchor: string): boolean => ctx.anchors === undefined || ctx.anchors.has(anchor);
+
+const T = (name: string, label: string, hint?: string): { kind: 'text'; name: string; label: string; hint?: string; max: number } =>
+  ({ kind: 'text', name, label, hint, max: 160 });
+
+/** Fields the person may fill to override what the data would say. */
+const OWN = [T('eyebrow', 'Nadtytuł', 'puste = z danych'), T('heading', 'Nagłówek', 'puste = z danych'), T('lead', 'Podtytuł', 'puste = z danych')];
+
+function facts(t: PublicTherapist): Values[] {
+  const out: Values[] = [];
+  const price = t.price_min_minor === null
+    ? null
+    : t.price_min_minor === t.price_max_minor
+      ? formatPrice(t.price_min_minor, t.currency)
+      : `od ${formatPrice(t.price_min_minor, t.currency)}`;
+  if (price) out.push({ value: price, label: 'za sesję' });
+  const duration = t.offers[0]?.duration_minutes;
+  if (duration) out.push({ value: `${duration} min`, label: 'jedna sesja' });
+  const modes = [t.offers_online ? 'online' : '', t.offers_in_person ? 'gabinet' : ''].filter(Boolean).join(' i ');
+  if (modes) out.push({ value: modes, label: t.locations[0]?.city ?? 'forma spotkań' });
+  out.push(
+    t.next_available_slot_utc
+      ? { value: compactDateTime(t.next_available_slot_utc, t.timezone), label: 'najbliższy wolny termin' }
+      : { value: t.accepting_new_clients ? 'przyjmuje' : 'lista oczekujących', label: 'nowe osoby' },
+  );
+  return out.slice(0, 4);
+}
+
+function bookButtons(ctx: SectionCtx): Values[] {
+  const out: Values[] = [];
+  if (ctx.slots.length > 0 && has(ctx, 'terminy')) out.push({ label: 'Zobacz wolne terminy', href: '#terminy', style: 'primary' });
+  if (has(ctx, 'steps')) out.push({ label: 'Jak wygląda pierwsze spotkanie', href: '#steps', style: 'ghost' });
+  return out;
+}
+
+/** The opening sentence of her description: a lead, not a biography. */
+function firstSentence(text: string): string {
+  const para = text.split('\n')[0]?.trim() ?? '';
+  const m = /^(.+?[.!?])(\s|$)/.exec(para);
+  return (m ? m[1]! : para).slice(0, 240);
+}
+
+const photo = (t: PublicTherapist): Values => (t.photo_url ? { kind: 'url', url: t.photo_url, alt: t.display_name } : { kind: 'generated' });
+
+export interface HostDef extends Omit<BlockDef, 'render' | 'resolve'> {
+  resolve(block: Block, ctx: SectionCtx): Block | null;
+  render?(block: Block): string;
+}
+
+export const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
-    label: 'Nagłówek — klasyczny', hint: 'Portret obok imienia, fakty i przycisk',
-    auto: true, family: 'hero',
-    render: (_s, ctx) => heroBody(ctx, { facts: true }),
-  },
-
-
-  /**
-   * The heading a one-person practice writes for itself: her sentence in the
-   * <h1>, a line she is quoted on, and the name on a card under the portrait.
-   * The other headings lead with the name, which is right for a catalogue entry
-   * and wrong for a page that has to say "this is for you" first.
-   */
-  'hero-obietnica': {
-    label: 'Nagłówek — obietnica', hint: 'Twoje zdanie w tytule, nazwisko na karcie pod portretem',
-    auto: true, family: 'hero',
-    fields: [
-      T('nadtytul', 'Nadtytuł', { max: 90, hint: 'np. Psychoterapia Gestalt · Warszawa i online' }),
-      T('tytul', 'Tytuł', { max: 120, hint: 'zdanie do osoby, nie Twoje nazwisko' }),
-      AREA('cytat', 'Cytat', { max: 240 }),
-      AREA('wstep', 'Akapit wprowadzający', { max: 600 }),
-      T('podpis', 'Podpis pod nazwiskiem', { max: 120, hint: 'puste = Twój nagłówek profilu' }),
-    ],
-    render: (s, ctx) => heroBody(ctx, {
-      facts: true,
-      eyebrow: str(s.nadtytul),
-      title: str(s.tytul),
-      quote: str(s.cytat),
-      lead: str(s.wstep),
-      caption: str(s.podpis) || ctx.therapist.headline || '',
-    }),
-  },
-
-
-  /**
-   * The landing-page opening: the slogan at display size with the portrait
-   * beside it. Kicker, a slogan-sized <h1>, the lead and the two ways in;
-   * the name still renders (small, under the actions) whenever the slogan
-   * takes the <h1>, because a page must say whose it is. A profile without
-   * a photograph gets the full-width typographic version.
-   */
-  'hero-plakat': {
-    label: 'Nagłówek — plakatowy', hint: 'Cały ekran typografii: nadtytuł, hasło, przyciski',
-    auto: true, family: 'hero',
-    fields: [
-      T('nadtytul', 'Nadtytuł', { max: 90, hint: 'np. Psychoterapeutka · Warszawa · od 2009' }),
-      AREA('tytul', 'Hasło w tytule', { max: 140, hint: 'puste = Twoje imię i nazwisko' }),
-      AREA('wstep', 'Zdanie pod hasłem', { max: 300, hint: 'puste = nagłówek profilu' }),
-      {
-        kind: 'select', name: 'portret', label: 'Zdjęcie w nagłówku',
-        options: [['', 'Bez zdjęcia — portret pokazuje sekcja „Jak pracuję"'], ['pokaz', 'Ze zdjęciem obok hasła']],
-      },
-    ],
-    render: (s, ctx) => {
+    label: 'Nagłówek profilu', hint: 'Imię, zdjęcie, jedno zdanie i fakty z Twoich danych', family: 'hero',
+    fields: OWN,
+    resolve: (b, ctx) => {
       const t = ctx.therapist;
-      const title = str(s.tytul);
-      const lead = str(s.wstep) || t.headline || '';
-      // The poster leads with the promise; the trust line and the badges are
-      // its footer. A verification date above the headline reads as bureaucracy.
-      const photo = str(s.portret) === 'pokaz' && t.photo_url
-        ? `<figure class="phero-plakat-photo"><img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" decoding="async"></figure>`
-        : '';
-      return `<div>
-    ${eyebrow(str(s.nadtytul))}
-    <h1>${escapeHtml(title || t.display_name)}</h1>
-    ${lead === '' ? '' : `<p class="phero-lead">${escapeHtml(lead)}</p>`}
-    <div class="phero-actions">
-      ${ctx.slots[0] && hasAnchor(ctx, 'terminy') ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>' : ''}
-      ${hasFirstMeeting(t) && hasAnchor(ctx, 'pierwsze') ? '<a class="lp-btn lp-btn--ghost" href="#pierwsze">Jak wygląda pierwsze spotkanie</a>' : ''}
-    </div>
-    ${title === '' ? '' : `<p class="phero-plakat-name">${escapeHtml(t.display_name)}</p>`}
-    <ul class="badges">
-      ${t.verification_status === 'verified' ? `<li class="badge ok">profil zweryfikowany${t.verified_at ? ` (${escapeHtml(t.verified_at.slice(0, 10))})` : ''}</li>` : '<li class="badge">dane deklarowane przez terapeutę</li>'}
-      ${t.accepting_new_clients ? '<li class="badge">przyjmuje nowe osoby</li>' : '<li class="badge">brak wolnych miejsc</li>'}
-      ${t.is_demo ? '<li class="badge demo">profil demonstracyjny — osoba fikcyjna</li>' : ''}
-    </ul>
-    ${profileLinks(t)}
-  </div>
-  ${photo}`;
+      return {
+        type: ctx.layout?.display === 'poster' ? 'hero-poster' : 'hero',
+        eyebrow: str(b.eyebrow) || t.headline || t.locations[0]?.city || '',
+        heading: str(b.heading) || t.display_name,
+        lead: str(b.lead) || firstSentence(t.bio),
+        buttons: bookButtons(ctx),
+        stats: facts(t),
+        media: photo(t),
+      };
     },
   },
-
-
-  /**
-   * Dark, centred, the portrait round and above the name. No fact pills: this
-   * one is for a therapist whose profile is the whole of her practice, and the
-   * facts live in the block below it.
-   */
-  'hero-spotlight': {
-    label: 'Nagłówek — spotlight', hint: 'Ciemny, wyśrodkowany, okrągły portret',
-    auto: true, family: 'hero',
-    fields: [AREA('powitanie', 'Zdanie na powitanie', { max: 240,
-      hint: 'np. Nie musisz wiedzieć, od czego zacząć.' })],
-    render: (s, ctx) => heroBody(ctx, { facts: false, greeting: str(s.powitanie) }),
-  },
-
-  /**
-   * A wide photograph with the details on a card riding over its lower edge.
-   * Wants a landscape photo; a portrait one is cropped to its upper third.
-   */
-  /**
-   * A coloured block carrying the whole heading: words on one side, the portrait
-   * on the other with one concrete fact pinned to it. The first attempt made
-   * this a 21:9 panorama, which turns a portrait photograph - or worse, a
-   * placeholder avatar - into a cropped forehead.
-   */
-  'hero-okladka': {
-    label: 'Nagłówek — na kolorze', hint: 'Całość na barwnym bloku, portret z plakietką',
-    auto: true, family: 'hero',
-    fields: [AREA('powitanie', 'Zdanie na powitanie', { max: 240 })],
-    render: (s, ctx) => {
-      const next = ctx.slots[0];
-      const badge = next
-        ? `<span class="phero-badge"><b>${escapeHtml(compactDateTime(next.starts_at_utc, next.timezone))}</b>
-           <span>najbliższy wolny termin</span></span>`
-        : '';
-      return heroBody(ctx, { facts: true, greeting: str(s.powitanie), badge });
-    },
-  },
-
-
-  /**
-   * Price, length and the next free slot in one line. Separate from the heading
-   * because it is the row people compare between profiles, and it has to sit in
-   * the same place whichever heading she picked.
-   */
-  kluczowe: {
-    label: 'Cena i najbliższy termin', hint: 'Wiersz faktów do porównywania profili',
-    auto: true,
-    render: (_s, ctx) => {
-      const { therapist: t, slots } = ctx;
-      const nextSlot = slots[0];
-      const duration = t.offers[0]?.duration_minutes ?? null;
-      return `<div class="pfacts">
-  <div class="pfact${t.price_min_minor === null ? ' empty' : ''}">
-    <strong>${t.price_min_minor === null ? 'cena do ustalenia' : escapeHtml(formatPrice(t.price_min_minor, t.currency))}</strong>
-    <span>${t.price_min_minor === null ? 'zapytaj przy kontakcie' : 'za sesję'}</span>
-  </div>
-  <div class="pfact${duration === null ? ' empty' : ''}">
-    <strong>${duration === null ? 'nie podano' : `${duration} min`}</strong><span>długość sesji</span>
-  </div>
-  <div class="pfact${nextSlot ? '' : ' empty'}">
-    <strong>${nextSlot ? escapeHtml(compactDateTime(nextSlot.starts_at_utc, nextSlot.timezone)) : 'brak wolnych terminów'}</strong>
-    <span>${nextSlot ? 'najbliższy wolny termin' : 'w najbliższych trzech tygodniach'}</span>
-  </div>
-  <div class="pfact-cta">${nextSlot && hasAnchor(ctx, 'terminy') ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy</a>' : ''}</div>
-</div>`;
-    },
-  },
-
-  // --- auto: her data, already in the panel --------------------------------
   intro: {
-    label: 'Jak pracuję', hint: 'Twój opis i nurt pracy, ze zdjęciem', auto: true,
-    render: (s, { therapist: t }) => {
-      if (t.bio.trim() === '') return '';
-      const text = `${introBody(t.bio)}
-${t.modalities.length === 0 ? '' : `<ul class="chips">${t.modalities.map((m) => `<li>${escapeHtml(m.name)}</li>`).join('')}</ul>`}`;
-      // The portrait lives here, beside her own words - not in the poster
-      // heading, which is typography.
-      const head = `${eyebrow('Jak pracuję')}<h2>${escapeHtml('Tak wygląda praca ze mną')}</h2>`;
-      if (!t.photo_url) return `${head}${text}`;
-      return `${head}<div class="psplit">
-  <div>${text}</div>
-  <figure class="psplit-photo"><img src="${escapeHtml(t.photo_url)}" alt="" width="320" height="400" loading="lazy" decoding="async"></figure>
-</div>`;
+    label: 'Jak pracuję', hint: 'Twój opis i zdjęcie obok siebie',
+    fields: OWN,
+    resolve: (b, ctx) => {
+      const t = ctx.therapist;
+      if (t.bio.trim() === '') return null;
+      return { type: 'media-text', eyebrow: str(b.eyebrow) || 'Jak pracuję', heading: str(b.heading) || 'Tak wygląda praca ze mną', body: t.bio, media: photo(t) };
     },
   },
-
-  /**
-   * The question everyone has before writing to a stranger about their mental
-   * health: what will actually happen. Rendered as steps because that is what it
-   * is - each answer she gave, in the order the person will live them.
-   */
-  first_meeting: {
-    label: 'Pierwsze spotkanie', hint: 'Czego może się spodziewać osoba, która się odezwie', tone: 'alt', auto: true,
-    render: (s, { therapist: t }) => {
-      const candidates: Array<[string, string]> = [
-        ['Jak wygląda pierwsze spotkanie', t.first_meeting.course],
-        ['Czy trzeba się przygotować', t.first_meeting.prep],
-        ['Kiedy decydujecie o dalszej pracy', t.first_meeting.decision],
-      ];
-      const steps = candidates.filter(([, body]) => body.trim() !== '');
-      if (steps.length === 0) return '';
-      return `${eyebrow('Pierwsze spotkanie')}<h2>${escapeHtml('Zanim się umówisz')}</h2><ol class="meeting-steps">${steps
-        .map(([title, body]) => `<li><h3>${escapeHtml(title)}</h3><p>${escapeHtml(body)}</p></li>`)
-        .join('')}</ol>`;
-    },
+  dane: {
+    label: 'Podstawowe informacje', hint: 'Cena, długość sesji, forma, najbliższy termin', tone: 'narrow',
+    fields: OWN,
+    resolve: (b, ctx) => ({ type: 'stats', heading: str(b.heading), items: facts(ctx.therapist) }),
   },
-
   topics: {
-    label: 'Z czym pracuję', hint: 'Obszary wybrane w zakładce profilu', tone: 'alt', auto: true,
-    render: (s, { therapist: t }) =>
-      t.topics.length === 0
-        ? ''
-        : `${eyebrow('Z czym pracuję')}<h2>${escapeHtml('Nie musisz wiedzieć, jak to nazwać')}</h2><ul class="chips">${t.topics.map((x) => `<li>${escapeHtml(x.name)}</li>`).join('')}</ul>`,
+    label: 'Z czym przychodzą', hint: 'Obszary i nurty z Twoich danych', tone: 'alt',
+    fields: OWN,
+    resolve: (b, ctx) => {
+      const t = ctx.therapist;
+      const items = [
+        ...t.topics.map((x) => ({ title: x.name, body: 'obszar pracy' })),
+        ...t.modalities.map((x) => ({ title: x.name, body: 'nurt' })),
+      ].slice(0, 6);
+      return items.length === 0 ? null : { type: 'features', eyebrow: str(b.eyebrow) || 'Obszary', heading: str(b.heading) || 'Z czym możesz przyjść', items };
+    },
   },
-
   offers: {
-    label: 'Oferta — karty', hint: 'Każda sesja na osobnej karcie', auto: true,
-    family: 'oferta',
-    render: (s, { therapist: t }) =>
-      t.offers.length === 0
-        ? ''
-        : `${eyebrow('Oferta')}<h2>${escapeHtml('Jedna cena, bez gwiazdek')}</h2><div class="offer-grid">${t.offers
-            .map(
-              (o) => `<div class="offer-card">
-        <h3>${escapeHtml(o.title)}</h3>
-        <span class="amount">${escapeHtml(formatPrice(o.price_minor, o.currency))}</span>
-        <span class="per">${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'stacjonarnie'}</span>
-      </div>`,
-            )
-            .join('')}</div>`,
+    label: 'Oferta', hint: 'Sesje i ceny z zakładki Oferta', family: 'oferta',
+    fields: OWN,
+    resolve: (b, ctx) => {
+      const t = ctx.therapist;
+      if (t.offers.length === 0) return null;
+      return {
+        type: 'pricing', eyebrow: str(b.eyebrow) || 'Oferta', heading: str(b.heading) || 'Sesje i ceny',
+        items: t.offers.slice(0, 4).map((o) => ({
+          name: o.title, price: formatPrice(o.price_minor, o.currency), per: `${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'w gabinecie'}`,
+          cta_label: has(ctx, 'terminy') ? 'Zobacz terminy' : '', cta_href: '#terminy',
+        })),
+      };
+    },
   },
-
-
-  /**
-   * The offer as rows rather than cards. Three cards of one line each is a lot
-   * of furniture for "one session, one price".
-   */
-  'oferta-lista': {
-    label: 'Oferta — lista', hint: 'Wiersze zamiast kart, dla zwięzłej strony',
-    auto: true, family: 'oferta',
-    render: (s, { therapist: t }) =>
-      t.offers.length === 0
-        ? ''
-        : `${eyebrow('Oferta')}<h2>${escapeHtml('Jedna cena, bez gwiazdek')}</h2>${offerRows(t)}`,
-  },
-
   slots: {
-    label: 'Wolne terminy', hint: 'Z Twojego kalendarza, z zasadami odwołania', tone: 'alt', auto: true,
-    render: (s, { therapist: t, slots, env }) => {
-      const table = slotsByDay(slots);
-      if (table === '') return '';
-      // The cancellation rule is a footnote of the calendar, not a chapter of
-      // the page: it matters at the moment of picking an hour and nowhere else.
+    label: 'Wolne terminy', hint: 'Kalendarz z zakładki Dostępność, z zasadami odwołania', tone: 'alt', anchor: 'terminy',
+    fields: [T('heading', 'Nagłówek', 'puste = domyślny')],
+    resolve: (b, ctx) => {
+      const table = slotsByDay(ctx.slots);
+      if (table === '') return null;
+      const t = ctx.therapist;
       const policy = t.cancellation_policy.trim() !== ''
         ? escapeHtml(t.cancellation_policy)
         : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
-      return `${eyebrow('Najbliższe wolne terminy')}<h2>${escapeHtml('Kiedy możemy się spotkać')}</h2>${table}
-<div class="slot-foot">
-  <p>Rezerwacja odbywa się przez asystenta ChatGPT.</p>
-  <p>${policy}</p>
-  ${pluginCta(env)}
-</div>`;
+      return {
+        ...b,
+        html: `<div class="slots-wrap"><p class="lp-kicker">Najbliższe wolne terminy</p><h2>${escapeHtml(str(b.heading) || 'Kiedy możemy się spotkać')}</h2>${table}
+<div class="slot-foot"><p>Rezerwacja odbywa się przez asystenta ChatGPT.</p><p>${policy}</p>${pluginCta(ctx.env)}</div></div>`,
+      };
     },
+    render: (b) => (typeof b.html === 'string' ? b.html : ''),
   },
-
-
-  /**
-   * Offer and next slots side by side, in two cards. Two full-width bands for
-   * "one session, 260 zl" and "here are the hours" is what makes a profile
-   * sprawl; someone comparing four therapists wants both facts in one glance.
-   */
   zestawienie: {
-    label: 'Oferta i terminy obok siebie', hint: 'Dwie karty w jednym rzędzie — zwarty układ',
-    auto: true,
-    render: (s, { therapist: t, slots, env }) => {
-      if (t.offers.length === 0 && slots.length === 0) return '';
-      const soon = slots.slice(0, 6);
-      const rest = slots.length - soon.length;
-      return `${eyebrow('W skrócie')}<h2>${escapeHtml('Ile kosztuje i kiedy możemy się spotkać')}</h2>
-<div class="pcards">
-  ${
-    t.offers.length === 0
-      ? ''
-      : `<div class="pcard">
-    <h3>Oferta</h3>
-    ${offerRows(t)}
-  </div>`
-  }
-  ${
-    soon.length === 0
-      ? ''
-      : `<div class="pcard">
-    <h3>Najbliższe wolne terminy</h3>
-    <ul class="slot-chips">${soon
-        .map(
-          (slot) => `<li><b>${escapeHtml(compactDateTime(slot.starts_at_utc, slot.timezone))}</b>
-      <span>${slot.mode === 'online' ? 'online' : 'gabinet'} · ${slot.duration_minutes} min</span></li>`,
-        )
-        .join('')}</ul>
-    ${rest > 0 ? `<p class="hint">…i ${rest} ${rest === 1 ? 'kolejny termin' : 'kolejnych terminów'}.</p>` : ''}
-    ${pluginCta(env)}
-  </div>`
-  }
-</div>`;
+    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi z zakładki O mnie', tone: 'alt',
+    fields: OWN,
+    resolve: (b, ctx) => {
+      const m = ctx.therapist.first_meeting;
+      const items = [
+        { title: 'Jak wygląda pierwsze spotkanie', body: m.course },
+        { title: 'Jak się przygotować', body: m.prep },
+        { title: 'Co potem', body: m.decision },
+      ].filter((x) => x.body.trim() !== '');
+      return items.length === 0 ? null : { type: 'steps', eyebrow: str(b.eyebrow) || 'Pierwsze spotkanie', heading: str(b.heading) || 'Jak to wygląda na początku', items };
     },
   },
-
-
-  /**
-   * Every basic fact in one place, as label and value in two columns - the
-   * layout the catalogue card has always used. A page of prose is no help to
-   * someone holding four profiles side by side; this is the part they compare.
-   */
-  dane: {
-    label: 'Podstawowe informacje', hint: 'Wszystkie fakty w dwóch kolumnach', tone: 'alt', auto: true,
-    render: (s, { therapist: t, slots }) => {
-      const duration = t.offers[0]?.duration_minutes ?? null;
-      const price =
-        t.price_min_minor === null
-          ? null
-          : t.price_min_minor === t.price_max_minor
-            ? formatPrice(t.price_min_minor, t.currency)
-            : `${formatPrice(t.price_min_minor, t.currency)} – ${formatPrice(t.price_max_minor ?? t.price_min_minor, t.currency)}`;
-      const modes = [t.offers_online ? 'online' : null, t.offers_in_person ? 'stacjonarnie' : null]
-        .filter((x): x is string => x !== null)
-        .join(', ');
-      const next = slots[0];
-
-      // Pairs, not a fixed table: a row nobody filled in is a row nobody reads.
-      const rows: Array<[string, string]> = [
-        ['Cena', price ?? ''],
-        ['Długość sesji', duration === null ? '' : `${duration} min`],
-        ['Forma', modes],
-        ['Miejscowość', t.locations.map((l) => l.city).join(', ') || (t.offers_online ? 'tylko online' : '')],
-        ['Języki', t.languages.length === 0 ? '' : languageList(t.languages)],
-        ['Rodzaje spotkań', labelList(t.session_types, '')],
-        ['Dla kogo', labelList(t.age_groups, '')],
-        ['Nurt', t.modalities.map((m) => m.name).join(', ')],
-        ['Najbliższy termin', next ? compactDateTime(next.starts_at_utc, next.timezone) : 'brak wolnych terminów'],
-        ['Bezpłatne odwołanie', `najpóźniej ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
-      ].filter((row): row is [string, string] => row[1] !== '');
-
-      if (rows.length === 0) return '';
-      return `${eyebrow('W skrócie')}<h2>${escapeHtml('Podstawowe informacje')}</h2>
-<dl class="pdata">${rows
-        .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${label === 'Języki' ? value : escapeHtml(value)}</dd></div>`)
-        .join('')}</dl>`;
-    },
-  },
-
   'faq-profil': {
-    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', auto: true,
-    render: (s, { faq }) =>
-      faq.length === 0
-        ? ''
-        : `${eyebrow('Pytania i odpowiedzi')}<h2>${escapeHtml('Pytania, które padają najczęściej')}</h2>${faq
-            .map(
-              (item) => `<details id="faq-${escapeHtml(item.faq_id)}">
-        <summary>${escapeHtml(item.question)}</summary>
-        <div class="details-body"><p>${escapeHtml(item.answer).replace(/\n/g, '<br>')}</p>
-        <p class="hint">Odpowiedź terapeuty, zaktualizowana ${escapeHtml(item.updated_at.slice(0, 10))}.</p></div>
-      </details>`,
-            )
-            .join('')}
-<p class="hint">Odpowiedzi pochodzą wprost od terapeuty. Nie zastępują konsultacji ani porady klinicznej.</p>`,
+    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt',
+    fields: OWN,
+    resolve: (b, ctx) =>
+      ctx.faq.length === 0
+        ? null
+        : { type: 'faq', eyebrow: str(b.eyebrow) || 'Pytania i odpowiedzi', heading: str(b.heading) || 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
   },
-
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', auto: true,
-
-    render: (s, { therapist: t }) =>
-      t.credentials.length === 0
-        ? ''
-        : `${eyebrow('Kwalifikacje')}<h2>${escapeHtml('Skąd mam do tego przygotowanie')}</h2>${t.credentials
-            .map(
-              (cr) => `<details><summary>${escapeHtml(cr.title)}</summary><div class="details-body">
-        <p>${cr.issuer ? `${escapeHtml(cr.issuer)}` : 'Wystawca nie podany'}${cr.year ? `, ${cr.year}` : ''} —
-        ${cr.verified ? '<strong>zweryfikowane</strong>' : 'deklarowane przez terapeutę'}</p></div></details>`,
-            )
-            .join('')}`,
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt',
+    fields: OWN,
+    resolve: (b, ctx) => {
+      const c = ctx.therapist.credentials;
+      return c.length === 0
+        ? null
+        : { type: 'features', eyebrow: str(b.eyebrow) || 'Kwalifikacje', heading: str(b.heading) || 'Skąd mam do tego przygotowanie',
+            items: c.slice(0, 6).map((x) => ({ title: x.title, body: [x.issuer, x.year, x.verified ? 'zweryfikowane' : ''].filter(Boolean).join(' · ') })) };
+    },
   },
-
-  // The free-text policy is often empty, so the cutoff carries the meaning.
-  /**
-   * The close. Built from what the profile already knows, so every profile ends
-   * on an invitation rather than on its cancellation policy - and a therapist
-   * who never opens the builder still gets one.
-   */
   zaproszenie: {
-    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', auto: true,
-    render: (_s, ctx) => {
-      const { therapist: t, env } = ctx;
-      const written = `<p>${t.accepting_new_clients
-            ? 'Nie musisz wiedzieć, od czego zacząć ani jak nazwać to, z czym przychodzisz. Wystarczy pierwsze pytanie.'
-            : 'W tej chwili nie przyjmuję nowych osób, ale możesz sprawdzić terminy później albo poszukać kogoś innego w katalogu.'}</p>`;
-      return `<h2>${escapeHtml(t.accepting_new_clients ? 'Nie wiesz, czy to dla Ciebie?' : 'Wróć, kiedy zwolnią się miejsca')}</h2>
-${written}
-<p class="phero-actions">${
-        t.accepting_new_clients && t.next_available_slot_utc && hasAnchor(ctx, 'terminy')
-          ? '<a class="lp-btn" href="#terminy">Zobacz wolne terminy <span aria-hidden="true">→</span></a>'
-          : '<a class="lp-btn" href="/terapeuci">Wróć do katalogu</a>'
-      }${pluginCta(env)}</p>
-${profileLinks(t)}`;
+    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark',
+    fields: OWN,
+    resolve: (b, ctx) => {
+      const t = ctx.therapist;
+      return {
+        type: 'cta',
+        heading: str(b.heading) || (t.accepting_new_clients ? 'Umów pierwszą rozmowę' : 'Zapisz się na listę oczekujących'),
+        lead: str(b.lead) || 'Rezerwacja przez asystenta ChatGPT, bez telefonów i bez pisania w nocy.',
+        buttons: bookButtons(ctx),
+      };
     },
   },
-
-  // --- her own words: what stops two profiles reading as one template ------
-
-
-  usluga: {
-    label: 'Usługa', hint: 'Opis jednej usługi: zakres, cytat i praktyczne szczegóły',
-    repeatable: true, tone: 'alt',
-    fields: [
-      T('eyebrow', 'Kategoria', { max: 60, hint: 'np. Terapia indywidualna' }),
-      HEADING_FIELD,
-      LEAD_FIELD,
-      AREA('body', 'Opis', { max: 800 }),
-      {
-        kind: 'list', name: 'cechy', label: 'Z czym pomaga', max: 6,
-        of: [T('tekst', 'Punkt', { max: 60 })],
-      },
-      AREA('cytat', 'Cytat', { max: 240 }),
-      T('cytat_autor', 'Autor cytatu', { max: 80 }),
-      {
-        kind: 'list', name: 'szczegoly', label: 'Praktyczne szczegóły', max: 4,
-        hint: 'np. Czas trwania — 50 minut, Cena — 200 zł',
-        of: [T('etykieta', 'Etykieta', { max: 40 }), T('wartosc', 'Wartość', { max: 60 })],
-      },
-    ],
-    render: (s) => {
-      const body = renderBodyText(str(s.body));
-      const cechy = (Array.isArray(s.cechy) ? (s.cechy as Values[]) : [])
-        .map((r) => str(r.tekst)).filter((x) => x !== '');
-      const szczegoly = (Array.isArray(s.szczegoly) ? (s.szczegoly as Values[]) : [])
-        .map((r) => [str(r.etykieta), str(r.wartosc)] as const)
-        .filter(([k, v]) => k !== '' && v !== '');
-      const quote = str(s.cytat);
-      const autor = str(s.cytat_autor);
-      if (body === '' && cechy.length === 0) return '';
-      return `${blockHead(s)}<div class="pservice">
-  <div>${body}${
-        cechy.length === 0 ? '' : `<ul class="pservice-points">${cechy.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
-      }${
-        quote === '' ? '' : `<figure class="pquote pquote--inline"><blockquote><p>${escapeHtml(quote)}</p></blockquote>${
-          autor === '' ? '' : `<figcaption>${escapeHtml(autor)}</figcaption>`}</figure>`
-      }</div>${
-        szczegoly.length === 0 ? '' : `<dl class="pservice-facts">${szczegoly
-          .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl>`
-      }
-</div>${ctaButton(s)}`;
-    },
-  },
-
-
-  'zdjecie-tekst': {
-    label: 'Zdjęcie i tekst', hint: 'Dwie kolumny: Twoje słowa obok portretu', repeatable: true,
-    fields: [
-      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD,
-      AREA('body', 'Treść'),
-      T('cta_label', 'Przycisk — napis', { max: 60 }),
-      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
-    ],
-    render: (s, ctx) => splitBody(s, ctx, false),
-  },
-
-  'tekst-zdjecie': {
-    label: 'Tekst i zdjęcie', hint: 'Dwie kolumny: portret po lewej, słowa po prawej',
-    repeatable: true,
-    fields: [
-      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD,
-      AREA('body', 'Treść'),
-      T('cta_label', 'Przycisk — napis', { max: 60 }),
-      { kind: 'url', name: 'cta_href', label: 'Przycisk — adres', max: 500 },
-    ],
-    render: (s, ctx) => splitBody(s, ctx, true),
-  },
-
-  /** A paragraph that carries its own tinted band, for something worth stopping on. */
-
-  artykuly: {
-    label: 'Teksty i publikacje', hint: 'Karty z odnośnikami do Twoich tekstów',
-    repeatable: true, tone: 'alt',
-    fields: [
-      T('eyebrow', 'Nadtytuł', { max: 60 }), HEADING_FIELD, LEAD_FIELD,
-      {
-        kind: 'list', name: 'items', label: 'Teksty', max: 4,
-        of: [
-          T('title', 'Tytuł'),
-          AREA('desc', 'Zajawka', { max: 300 }),
-          { kind: 'url', name: 'url', label: 'Adres (https)', max: 500 },
-          T('meta', 'Podpis', { max: 60, hint: 'np. Blog, 2026' }),
-        ],
-      },
-    ],
-    render: (s) => {
-      const entries = items(s).filter((it) => str(it.title) !== '' && str(it.url) !== '');
-      if (entries.length === 0) return '';
-      return `${blockHead(s)}<ul class="plinks">${entries
-        .map((it) => `<li><a href="${escapeHtml(str(it.url))}" target="_blank" rel="noopener noreferrer nofollow">
-        <strong>${escapeHtml(str(it.title))}</strong>${
-          str(it.desc) === '' ? '' : `<span>${escapeHtml(str(it.desc))}</span>`
-        }<em>${escapeHtml(str(it.meta) || 'Czytaj')} <span aria-hidden="true">↗</span></em></a></li>`)
-        .join('')}</ul>`;
-    },
-  },
-
 };

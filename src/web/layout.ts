@@ -2,7 +2,7 @@ import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
-import { EDITOR_CSS, EDITOR_JS, LP_CSS } from './lp';
+import { EDITOR_CSS, EDITOR_JS } from './lp';
 import { APP_CSS } from './styles';
 
 /**
@@ -27,7 +27,6 @@ const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000'))
 
 const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
-const LP_CSS_VERSION = assetVersion(LP_CSS);
 const EDITOR_VERSION = assetVersion(EDITOR_CSS, EDITOR_JS);
 
 /**
@@ -108,8 +107,6 @@ export interface PageOptions {
    * same-origin files, so the `script-src 'self'` policy stays untouched.
    */
   adminAssets?: boolean;
-  /** Loads the engine stylesheet: the profile is an engine page inside the catalogue. */
-  lp?: boolean;
 }
 
 /** Versioned stylesheet URL for a subpage document rendered outside `renderPage`. */
@@ -132,7 +129,7 @@ export function renderPage(env: Env, options: PageOptions): string {
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">
-${options.lp ? `<link rel="stylesheet" href="/assets/lp.css?v=${LP_CSS_VERSION}">\n` : ''}${
+${
   options.adminAssets
     ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
       `<link rel="stylesheet" href="/assets/lp-editor.css?v=${EDITOR_VERSION}">\n` +
