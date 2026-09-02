@@ -676,7 +676,7 @@ export const ADMIN_CSS = String.raw`
 
 /* --- profile composer: the editor itself is the engine's (lp-editor.css) ---- */
 .composer .hint { max-width: 62ch; }
-.composer-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
+.composer-split { display: grid; grid-template-columns: minmax(18rem, 27rem) minmax(0, 1fr);
   gap: 1.5rem; align-items: start; }
 .composer-preview { position: sticky; top: 1rem; }
 .composer-preview .hint { margin: 0 0 0.5rem; }

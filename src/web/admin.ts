@@ -926,16 +926,16 @@ ${
 
 <section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
 <h2>Wygląd strony</h2>
-<p class="panel-lead">Wybierz szablon — każdy podgląd to Twój profil w tym wyglądzie. Po prawej
-widzisz efekt po zapisie.</p>
+<p class="panel-lead">Jeden wybór: szablon. Po prawej widzisz swoją stronę; najedź na szablon, żeby
+zobaczyć ją w tym wyglądzie, kliknij, żeby go wybrać.</p>
 <div class="composer-split">
 <form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
   ${csrfField(session)}
   ${renderTemplatePicker(`/admin/terapeuci/${id}/podglad`, profileLayout(row.layout_json))}
 </form>
 <aside class="composer-preview">
-  <p class="hint">Podgląd — <a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
-  <iframe src="/terapeuci/${escapeHtml(row.slug)}" title="Podgląd Twojej strony profilowej"></iframe>
+  <p class="hint"><span data-preview-label>Twoja strona teraz</span> — <a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
+  <iframe src="/admin/terapeuci/${id}/podglad" data-preview-frame title="Podgląd Twojej strony profilowej"></iframe>
 </aside>
 </div>
 </section>
@@ -1387,8 +1387,8 @@ function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow
   ${renderTemplatePicker(preview, lpParseLayout(row.layout_json))}
 </form>
 <aside class="composer-preview">
-  <p class="hint">Podgląd — <a href="${preview}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
-  <iframe src="${preview}" title="Podgląd podstrony"></iframe>
+  <p class="hint"><span data-preview-label>Podstrona teraz</span> — <a href="${preview}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
+  <iframe src="${preview}" data-preview-frame title="Podgląd podstrony"></iframe>
 </aside>
 </div>
 <form method="post" action="/admin/terapeuci/${id}/strony/${pid}/usun" class="inline-form"

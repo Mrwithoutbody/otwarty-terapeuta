@@ -46,9 +46,11 @@ describe('podstrony terapeutki', () => {
     expect(JSON.parse(fresh!.layout_json)).toMatchObject({ theme: 'ink', display: 'poster', bands: 'stripes' });
     expect(JSON.parse(fresh!.blocks_json)[0]).toEqual({ type: 'hero-poster', heading: 'Grupa wsparcia dla rodziców' });
 
-    // The editor is the template picker: her page in every look, no block form.
+    // The editor is the template picker: one card per template, one preview frame, no block form.
     const form = await (await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: anna.cookie } })).text();
-    expect((form.match(/class="tpl-frame"><iframe/g) ?? []).length).toBe(7);
+    expect((form.match(/data-preset="/g) ?? []).length).toBe(7);
+    expect((form.match(/<iframe /g) ?? []).length).toBe(1);
+    expect(form).toContain(`data-preview="${editor}/podglad"`);
     expect(form).not.toContain('class="sec-item"');
 
     // A draft is invisible to the public, even with the right address.

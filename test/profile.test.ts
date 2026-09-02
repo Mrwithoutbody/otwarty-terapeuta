@@ -66,8 +66,10 @@ describe('templates in the panel', () => {
       .run();
 
     const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-    expect((panel.match(/class="tpl-frame"><iframe/g) ?? []).length).toBe(7);
-    expect(panel).toContain(`src="/admin/terapeuci/${ANNA}/podglad?preset=plakat"`);
+    expect((panel.match(/data-preset="/g) ?? []).length).toBe(7);
+    expect((panel.match(/<iframe /g) ?? []).length).toBe(1);
+    expect(panel).toContain(`data-preview="/admin/terapeuci/${ANNA}/podglad"`);
+    expect(panel).toContain(`src="/admin/terapeuci/${ANNA}/podglad" data-preview-frame`);
 
     const preview = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/podglad?preset=plakat`, { headers: { cookie } })).text();
     expect(preview).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
