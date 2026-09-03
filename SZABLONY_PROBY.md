@@ -47,6 +47,16 @@ wyszły spoza kodu.
 4. **`pp-02/arch/` to zbiór testowy.** Jeśli szósta próba nie przyjmie tych
    dziewięciu stron jako szablonów, jest tak samo zła jak pięć poprzednich.
 
+## Wymaganie właściciela (2026-09-03, po tej notatce)
+
+**Szablon dodaje się tak samo przez API (agent AI) jak z edytora (człowiek).**
+Jedno wejście, dwa klienty: `POST /v1/templates` z tym samym ładunkiem, który
+zapisuje formularz w panelu. Agent dostaje schemat szablonu tak, jak dziś
+dostaje schemat strony. Format szablonu musi więc być tekstem, który zarówno
+model, jak i projektantka potrafią napisać: HTML z miejscami na bloki + CSS.
+Plik graficzny (Figma) nie jest formatem szablonu; jest źródłem, z którego
+człowiek albo agent pisze HTML/CSS.
+
 ## Co z piątej próby zostaje
 
 Baza stron, edytor bloków, API dla hostów, hosting, bloki danych (kalendarz,
