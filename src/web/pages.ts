@@ -13,7 +13,7 @@ import {
 import type { PublicTherapist } from '../db/types';
 import { rankTherapists } from '../matching/rank';
 import { escapeHtml } from '../lib/sanitize';
-import { formatDateTime, formatPrice, nowIso } from '../lib/time';
+import { formatDate, formatDateTime, formatPrice, formatTime, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
@@ -243,13 +243,44 @@ function parseListParam(value: string | undefined): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-/** „1 profil", „3 profile", „10 profili" - the count is a line of text, not a heading. */
-function profileCount(n: number): string {
+/** „1 profil", „3 profile", „10 profili" - Polish counts three ways. */
+function plural(n: number, one: string, few: string, many: string): string {
   const rest10 = n % 10;
   const rest100 = n % 100;
-  if (n === 1) return '1 profil';
-  if (rest10 >= 2 && rest10 <= 4 && (rest100 < 12 || rest100 > 14)) return `${n} profile`;
-  return `${n} profili`;
+  if (n === 1) return `${n} ${one}`;
+  if (rest10 >= 2 && rest10 <= 4 && (rest100 < 12 || rest100 > 14)) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
+/**
+ * What the list below actually holds, in facts a person deciding can use:
+ * how many profiles, in how many towns, the lowest price anyone charges and
+ * the earliest hour anyone has free. Every number is read off the same rows
+ * the cards are built from, so the line can never disagree with the list.
+ */
+function catalogueFacts(entries: PublicTherapist[]): string {
+  if (entries.length === 0) return '';
+  const facts = [plural(entries.length, 'profil', 'profile', 'profili')];
+
+  const cities = new Set(entries.flatMap((t) => t.locations.map((l) => l.city)));
+  if (cities.size > 0) facts.push(plural(cities.size, 'miasto', 'miasta', 'miast'));
+
+  const online = entries.filter((t) => t.offers_online).length;
+  if (online > 0) facts.push(`${online} online`);
+
+  const priced = entries.filter((t) => t.price_min_minor !== null);
+  const cheapest = priced.reduce<PublicTherapist | null>(
+    (best, t) => (best === null || t.price_min_minor! < best.price_min_minor! ? t : best),
+    null,
+  );
+  if (cheapest) facts.push(`od ${formatPrice(cheapest.price_min_minor!, cheapest.currency)} za sesję`);
+
+  const slots = entries.map((t) => t.next_available_slot_utc).filter((s): s is string => s !== null);
+  if (slots.length > 0) {
+    const soonest = slots.reduce((a, b) => (a < b ? a : b));
+    facts.push(`najbliższy termin ${formatDate(soonest)}, ${formatTime(soonest)}`);
+  }
+  return facts.join(' · ');
 }
 
 siteApp.get('/terapeuci', async (c) => {
@@ -278,6 +309,7 @@ siteApp.get('/terapeuci', async (c) => {
     listVocabulary(c.env),
   ]);
   const ranked = rankTherapists(candidates, filters);
+  const facts = catalogueFacts(ranked.map((entry) => entry.therapist));
   const moreOpen = Boolean(
     filters.modalities ||
       filters.languages ||
@@ -299,7 +331,8 @@ siteApp.get('/terapeuci', async (c) => {
       path: '/terapeuci',
       body: `
 <div class="directory-page">
-<header class="directory-hero"><p class="kicker">Jawne kryteria, bez ukrytego rankingu</p><h1>Katalog terapeutów</h1><p>Filtry działają na jawnych danych z profilu. Nie musisz nic opisywać ani zakładać konta, żeby przeglądać.</p></header>
+<header class="directory-hero"><h1>Katalog terapeutów</h1>
+${facts ? `<p class="catalogue-facts">${escapeHtml(facts)}</p>` : ''}</header>
 
 <form class="filters" method="get" action="/terapeuci" aria-label="Filtry katalogu">
   <div class="filter-bar">
@@ -377,7 +410,7 @@ siteApp.get('/terapeuci', async (c) => {
   </details>
 </form>
 
-<section class="directory-results" aria-labelledby="wyniki"><h2 id="wyniki" class="results-count">${profileCount(ranked.length)}</h2>
+<section class="directory-results" aria-labelledby="wyniki"><h2 id="wyniki" class="visually-hidden">Profile w katalogu</h2>
 ${
   ranked.length === 0
     ? `<p class="notice">Brak profili pasujących do podanych kryteriów. Spróbuj rozszerzyć filtry.</p>`

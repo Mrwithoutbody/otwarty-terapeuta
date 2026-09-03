@@ -485,9 +485,9 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .document-content p, .document-content li { color: #5f6758; font-size: 0.92rem; line-height: 1.8; }
 .document-content ul { display: grid; gap: 0.8rem; padding-left: 1.3rem; }
 .directory-page { display: grid; gap: clamp(2.5rem, 5vw, 3.5rem); }
-.directory-hero { padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
+.directory-hero { padding: 0; }
+.catalogue-facts { max-width: none; margin: 0; color: var(--text-muted); font-size: 0.92rem; }
 .directory-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); letter-spacing: -0.025em; }
-.directory-hero > p:last-child { max-width: 55ch; margin: 0; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
 /* The catalogue's filters are a bar, not a page: a search box, a city, an
    area of work and the button. The other seven controls live in a fold that
    opens itself whenever one of them is on, so nothing applied is ever
@@ -517,7 +517,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .filter-bar .btn { justify-self: start; }
 .more-grid .checkbox { padding-top: 0; }
 }
-.results-count { margin: 0 0 0.9rem; color: var(--text-muted); font-size: 0.85rem; font-weight: 550; letter-spacing: 0; }
 
 
 
