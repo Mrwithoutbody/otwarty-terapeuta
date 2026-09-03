@@ -235,6 +235,8 @@ function toPublicTherapist(row: TherapistRow, related: Related, baseUrl: string)
 }
 
 export interface SearchFilters {
+  /** Free text: a name, a city, an area of work, a modality. */
+  text?: string;
   location?: string;
   online?: boolean;
   in_person?: boolean;
@@ -249,6 +251,31 @@ export interface SearchFilters {
   accepting_new_clients?: boolean;
 }
 
+/**
+ * Polish folded to ASCII inside SQL, so "lodz" finds Łódź and "lek" finds lęk.
+ * SQLite's lower() only knows ASCII and D1 has no ICU, so the diacritics are
+ * folded by hand - once here, rather than in a column every writer must keep.
+ *
+ * ponytail: a folded LIKE scans the table; if the catalogue ever passes a few
+ * thousand profiles, move this to an FTS5 index over the same four sources.
+ */
+const FOLD_PL: ReadonlyArray<readonly [string, string]> = [
+  ['ą', 'a'], ['ć', 'c'], ['ę', 'e'], ['ł', 'l'], ['ń', 'n'],
+  ['ó', 'o'], ['ś', 's'], ['ź', 'z'], ['ż', 'z'],
+];
+function folded(expr: string): string {
+  let out = expr;
+  for (const [from, to] of FOLD_PL) {
+    out = `replace(replace(${out}, '${from}', '${to}'), '${from.toUpperCase()}', '${to}')`;
+  }
+  return `lower(${out})`;
+}
+
+/** LIKE wildcards typed by a visitor are literal characters, not operators. */
+function likeTerm(term: string): string {
+  return `%${normalizeForSearch(term).replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+}
+
 /** Hard filters run in SQL; ranking runs in TypeScript so it stays explainable. */
 export async function findCandidates(
   env: Env,
@@ -261,6 +288,23 @@ export async function findCandidates(
   if (filters.online === true) where.push('t.offers_online = 1');
   if (filters.in_person === true) where.push('t.offers_in_person = 1');
   if (filters.accepting_new_clients === true) where.push('t.accepting_new_clients = 1');
+
+  // Every word has to land somewhere - in her name, her city, an area she
+  // works with or her modality - so a second word narrows instead of widening.
+  const terms = (filters.text ?? '').trim().split(/\s+/).filter(Boolean).slice(0, 6);
+  for (const term of terms) {
+    where.push(
+      `(${folded("t.display_name || ' ' || COALESCE(t.headline, '') || ' ' || t.bio")} LIKE ? ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM therapist_locations l
+                    WHERE l.therapist_id = t.id AND l.city_norm LIKE ? ESCAPE '\\')
+        OR EXISTS (SELECT 1 FROM therapist_specialties ts JOIN specialties sp ON sp.slug = ts.specialty_slug
+                    WHERE ts.therapist_id = t.id AND ${folded('sp.name_pl')} LIKE ? ESCAPE '\\')
+        OR EXISTS (SELECT 1 FROM therapist_modalities tm JOIN modalities md ON md.slug = tm.modality_slug
+                    WHERE tm.therapist_id = t.id AND ${folded('md.name_pl')} LIKE ? ESCAPE '\\'))`,
+    );
+    const like = likeTerm(term);
+    params.push(like, like, like, like);
+  }
 
   if (filters.location) {
     where.push(

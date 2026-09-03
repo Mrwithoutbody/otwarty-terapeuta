@@ -248,6 +248,7 @@ siteApp.get('/terapeuci', async (c) => {
   const q = url.searchParams;
 
   const filters: SearchFilters = {
+    text: q.get('szukaj')?.slice(0, 120).trim() || undefined,
     location: q.get('miasto')?.slice(0, 80) || undefined,
     online: q.get('online') === '1' ? true : undefined,
     in_person: q.get('stacjonarnie') === '1' ? true : undefined,
@@ -268,6 +269,15 @@ siteApp.get('/terapeuci', async (c) => {
     listVocabulary(c.env),
   ]);
   const ranked = rankTherapists(candidates, filters);
+  const moreOpen = Boolean(
+    filters.modalities ||
+      filters.languages ||
+      filters.session_types ||
+      filters.price_max ||
+      filters.online ||
+      filters.in_person ||
+      filters.accepting_new_clients,
+  );
 
   const option = (value: string, label: string, selected: boolean): string =>
     `<option value="${escapeHtml(value)}"${selected ? ' selected' : ''}>${escapeHtml(label)}</option>`;
@@ -282,26 +292,34 @@ siteApp.get('/terapeuci', async (c) => {
 <div class="directory-page">
 <header class="directory-hero"><p class="kicker">Jawne kryteria, bez ukrytego rankingu</p><h1>Katalog terapeutów</h1><p>Filtry działają na jawnych danych z profilu. Nie musisz nic opisywać ani zakładać konta, żeby przeglądać.</p></header>
 
-<form class="filters" method="get" action="/terapeuci">
-  <fieldset>
-    <legend>Filtry</legend>
-    <div class="field-row two">
-      <div class="field">
-        <label for="miasto">Miejscowość</label>
-        <select id="miasto" name="miasto">
-          ${option('', 'dowolna', !filters.location)}
-          ${cities.map((city) => option(city, city, filters.location === city)).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label for="obszar">Obszar pracy</label>
-        <select id="obszar" name="obszar">
-          ${option('', 'dowolny', !filters.topics)}
-          ${vocab.topics.map((t) => option(t.slug, t.name, filters.topics?.[0] === t.slug)).join('')}
-        </select>
-      </div>
+<form class="filters" method="get" action="/terapeuci" aria-label="Filtry katalogu">
+  <div class="filter-bar">
+    <div class="field field-search">
+      <label for="szukaj">Szukaj</label>
+      <input id="szukaj" name="szukaj" type="search" maxlength="120" autocomplete="off"
+             placeholder="imię, miasto, obszar pracy, nurt"
+             value="${escapeHtml(filters.text ?? '')}">
     </div>
-    <div class="field-row two">
+    <div class="field">
+      <label for="miasto">Miejscowość</label>
+      <select id="miasto" name="miasto">
+        ${option('', 'dowolna', !filters.location)}
+        ${cities.map((city) => option(city, city, filters.location === city)).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label for="obszar">Obszar pracy</label>
+      <select id="obszar" name="obszar">
+        ${option('', 'dowolny', !filters.topics)}
+        ${vocab.topics.map((t) => option(t.slug, t.name, filters.topics?.[0] === t.slug)).join('')}
+      </select>
+    </div>
+    <button class="btn" type="submit">Szukaj</button>
+  </div>
+
+  <details class="more-filters"${moreOpen ? ' open' : ''}>
+    <summary>Więcej filtrów</summary>
+    <div class="more-grid">
       <div class="field">
         <label for="nurt">Nurt pracy</label>
         <select id="nurt" name="nurt">
@@ -316,8 +334,6 @@ siteApp.get('/terapeuci', async (c) => {
           ${vocab.languages.map((l) => option(l.slug, l.name, filters.languages?.[0] === l.slug)).join('')}
         </select>
       </div>
-    </div>
-    <div class="field-row two">
       <div class="field">
         <label for="forma">Typ spotkania</label>
         <select id="forma" name="forma">
@@ -332,22 +348,24 @@ siteApp.get('/terapeuci', async (c) => {
         <input id="cena_max" name="cena_max" type="number" min="0" max="2000" step="10"
                value="${filters.price_max ? escapeHtml(String(filters.price_max / 100)) : ''}">
       </div>
+      <div class="checkbox">
+        <input id="online" name="online" type="checkbox" value="1"${filters.online ? ' checked' : ''}>
+        <label for="online">Tylko sesje online</label>
+      </div>
+      <div class="checkbox">
+        <input id="stacjonarnie" name="stacjonarnie" type="checkbox" value="1"${filters.in_person ? ' checked' : ''}>
+        <label for="stacjonarnie">Tylko spotkania stacjonarne</label>
+      </div>
+      <div class="checkbox">
+        <input id="wolne" name="wolne" type="checkbox" value="1"${filters.accepting_new_clients ? ' checked' : ''}>
+        <label for="wolne">Tylko przyjmujący nowe osoby</label>
+      </div>
     </div>
-    <div class="checkbox">
-      <input id="online" name="online" type="checkbox" value="1"${filters.online ? ' checked' : ''}>
-      <label for="online">Tylko sesje online</label>
+    <div class="more-actions">
+      <button class="btn" type="submit">Pokaż wyniki</button>
+      <a class="btn secondary" href="/terapeuci">Wyczyść filtry</a>
     </div>
-    <div class="checkbox">
-      <input id="stacjonarnie" name="stacjonarnie" type="checkbox" value="1"${filters.in_person ? ' checked' : ''}>
-      <label for="stacjonarnie">Tylko spotkania stacjonarne</label>
-    </div>
-    <div class="checkbox">
-      <input id="wolne" name="wolne" type="checkbox" value="1"${filters.accepting_new_clients ? ' checked' : ''}>
-      <label for="wolne">Tylko przyjmujący nowe osoby</label>
-    </div>
-  </fieldset>
-  <button class="btn" type="submit">Pokaż wyniki</button>
-  <a class="btn secondary" href="/terapeuci">Wyczyść filtry</a>
+  </details>
 </form>
 
 <section class="directory-results" aria-labelledby="wyniki"><div class="directory-results-heading"><p class="kicker">Profile w katalogu</p><h2 id="wyniki">Wyniki (${ranked.length})</h2></div>

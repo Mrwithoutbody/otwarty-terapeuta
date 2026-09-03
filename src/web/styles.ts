@@ -481,22 +481,35 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .directory-hero { padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
 .directory-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); letter-spacing: -0.025em; }
 .directory-hero > p:last-child { max-width: 55ch; margin: 0; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
-/* The catalogue's filters are a bar, not a page. Six selects, three switches
-   and the button belong in two or three rows above the results - a screenful
-   of form before the first profile is what every listing site avoids.
-   The two-up rows the shared form layout makes are dissolved with
-   display:contents, so every field becomes a cell of one auto-fitting track. */
+/* The catalogue's filters are a bar, not a page: a search box, a city, an
+   area of work and the button. The other seven controls live in a fold that
+   opens itself whenever one of them is on, so nothing applied is ever
+   hidden - a native <details>, no script, works with JavaScript off. */
 .directory-page .filters { margin: 0; padding: clamp(1rem, 2.5vw, 1.4rem); border-radius: 14px; }
-.directory-page .filters fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.7rem 1rem; margin: 0 0 0.9rem; }
-.directory-page .filters legend { grid-column: 1 / -1; margin: 0; font-size: 0.95rem; }
-.directory-page .filters .field-row { display: contents; }
-.directory-page .filters .field { margin: 0; }
-.directory-page .filters label { margin-bottom: 0.25rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
-.directory-page .filters select, .directory-page .filters input[type="number"] { min-height: 2.4rem; padding-block: 0.4rem; font-size: 0.9rem; }
-.directory-page .filters .checkbox { align-items: center; margin: 0; padding-top: 1.2rem; }
-.directory-page .filters .checkbox label { padding-top: 0; font-size: 0.85rem; }
-.directory-page .filters > .btn { min-height: 2.4rem; }
-@media (max-width: 42rem) {.directory-page .filters .checkbox { padding-top: 0; } }
+.filter-bar { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.75rem; align-items: end; }
+.filters .field { margin: 0; }
+.filters label { margin-bottom: 0.25rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.filters select, .filters input[type="number"], .filters input[type="search"] { min-height: 2.6rem; padding-block: 0.45rem; font-size: 0.92rem; }
+.filter-bar .btn { min-height: 2.6rem; }
+.more-filters { margin-top: 0.9rem; border-top: 1px solid var(--border); }
+.more-filters > summary {
+  display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.7rem 0 0;
+  color: var(--accent-strong); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.more-filters > summary::marker { content: ""; }
+.more-filters > summary::-webkit-details-marker { display: none; }
+.more-filters > summary::after { content: "▾"; font-size: 0.7rem; }
+.more-filters[open] > summary::after { content: "▴"; }
+.more-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.7rem 1rem; margin: 0.9rem 0; }
+.more-grid .checkbox { align-items: center; margin: 0; padding-top: 1.2rem; }
+.more-grid .checkbox label { margin: 0; font-size: 0.85rem; font-weight: 450; color: var(--text); }
+.more-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 0.2rem; }
+.more-actions .btn { min-height: 2.5rem; }
+@media (max-width: 52rem) {
+.filter-bar { grid-template-columns: minmax(0, 1fr); }
+.filter-bar .btn { justify-self: start; }
+.more-grid .checkbox { padding-top: 0; }
+}
 .directory-results-heading { margin-bottom: 2rem; }
 .directory-results-heading h2 { margin: 0; font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); }
 

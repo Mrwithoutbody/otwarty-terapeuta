@@ -48,6 +48,20 @@ describe('search filters', () => {
     expect(b.map((t) => t.therapist_id)).toEqual(a.map((t) => t.therapist_id));
   });
 
+  it('searches free text across name, city, area and modality', async () => {
+    const byCity = await findCandidates(env, { text: 'lodz' });
+    expect(byCity.length).toBe(1);
+    const byModality = await findCandidates(env, { text: 'gestalt' });
+    expect(byModality.length).toBeGreaterThan(0);
+
+    // Every word has to land, so a second one narrows the result.
+    const both = await findCandidates(env, { text: 'gestalt nieistniejacemiasto' });
+    expect(both.length).toBe(0);
+
+    // A wildcard typed into the box is a character, not an operator.
+    expect((await findCandidates(env, { text: '%' })).length).toBe(0);
+  });
+
   it('respects a price band', async () => {
     const cheap = await findCandidates(env, { price_max: 18000 });
     expect(cheap.length).toBeGreaterThan(0);
