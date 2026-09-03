@@ -189,6 +189,7 @@ const T = (name: string, label: string, hint?: string): { kind: 'text'; name: st
 /** Fields the person may fill to override what the data would say. */
 const OWN = [T('eyebrow', 'Nadtytuł', 'puste = z danych'), T('heading', 'Nagłówek', 'puste = z danych'), T('lead', 'Podtytuł', 'puste = z danych')];
 
+/** The numbers under the hero: price, length, next free slot. Words are not numbers; they go to the fact sheet. */
 function facts(t: PublicTherapist): Values[] {
   const out: Values[] = [];
   const price = t.price_min_minor === null
@@ -199,14 +200,24 @@ function facts(t: PublicTherapist): Values[] {
   if (price) out.push({ value: price, label: 'za sesję' });
   const duration = t.offers[0]?.duration_minutes;
   if (duration) out.push({ value: `${duration} min`, label: 'jedna sesja' });
-  const modes = [t.offers_online ? 'online' : '', t.offers_in_person ? 'gabinet' : ''].filter(Boolean).join(' i ');
-  if (modes) out.push({ value: modes, label: t.locations[0]?.city ?? 'forma spotkań' });
-  out.push(
-    t.next_available_slot_utc
-      ? { value: compactDateTime(t.next_available_slot_utc, t.timezone), label: 'najbliższy wolny termin' }
-      : { value: t.accepting_new_clients ? 'przyjmuje' : 'lista oczekujących', label: 'nowe osoby' },
-  );
-  return out.slice(0, 4);
+  if (t.next_available_slot_utc) out.push({ value: compactDateTime(t.next_available_slot_utc, t.timezone), label: 'najbliższy wolny termin' });
+  return out;
+}
+
+/** The fact sheet: who she works with, how, where, in what tongue - label and value, one row each. */
+function factSheet(t: PublicTherapist): Values[] {
+  const modes = [t.offers_online ? 'online' : '', t.offers_in_person ? 'w gabinecie' : ''].filter(Boolean).join(' i ');
+  const rows: Array<[string, string]> = [
+    ['Forma', modes],
+    ['Miasto', t.locations[0]?.city ?? ''],
+    ['Dla kogo', labelList(t.age_groups, '')],
+    ['Rodzaj', labelList(t.session_types, '')],
+    ['Nurt', t.modalities.map((m) => m.name).join(', ')],
+    ['Języki', labelList(t.languages, '')],
+    ['Nowe osoby', t.accepting_new_clients ? 'przyjmuje' : 'lista oczekujących'],
+    ['Odwołanie', `bezpłatne do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
+  ];
+  return rows.filter(([, value]) => value !== '').map(([label, value]) => ({ label, value }));
 }
 
 /** Both buttons, always: the service drops the one whose section is not on the page. */
@@ -272,9 +283,9 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   dane: {
-    label: 'Podstawowe informacje', hint: 'Cena, długość sesji, forma, najbliższy termin', tone: 'narrow',
+    label: 'Podstawowe informacje', hint: 'Forma, miasto, dla kogo, nurt, języki, odwołanie', tone: 'narrow', anchor: 'informacje',
     fields: OWN,
-    resolve: (ctx) => ({ type: 'stats', items: facts(ctx.therapist) }),
+    resolve: (ctx) => ({ type: 'contact', eyebrow: 'W skrócie', heading: 'Podstawowe informacje', items: factSheet(ctx.therapist) }),
   },
   topics: {
     label: 'Z czym przychodzą', hint: 'Obszary i nurty z Twoich danych', tone: 'alt',
@@ -334,7 +345,6 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
       if (t.offers_in_person && office) items.push({ label: 'Gabinet', value: [office.address_line, office.city].filter(Boolean).join(', ') });
       if (t.offers_online) items.push({ label: 'Online', value: 'sesje przez wideo, z dowolnego miejsca' });
       if (items.length === 0) return null;
-      items.push({ label: 'Odwołanie', value: `bezpłatne do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją` });
       items.push({ label: 'Rezerwacja', value: 'przez asystenta ChatGPT', href: `${base(ctx.env)}/jak-to-dziala` });
       return { type: 'contact', eyebrow: 'Gdzie się spotykamy', heading: 'Gabinet i online', items };
     },
