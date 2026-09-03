@@ -172,3 +172,10 @@ usługi w iframie. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
 - Kolejność zmian w kontrakcie: najpierw usługa (testy + deploy), potem ot-02.
 - Awaria usługi nie zdejmuje profili: kopia w R2, nagłówek `x-pages-stale: 1`.
 
+## Szablon = artefakt projektantki, nie kod. Pięć prób poszło źle (2026-09-03)
+
+Zanim ruszysz cokolwiek przy szablonach/motywach, przeczytaj `SZABLONY_PROBY.md`.
+Test akceptacyjny: Ewelina wgrywa w panelu jedną stronę z `pp-02/arch/` jako
+szablon bez udziału programisty. Dopóki nowy szablon wymaga commitu i deployu,
+system szablonów nie istnieje, niezależnie od tego, jak dobry jest silnik.
+
