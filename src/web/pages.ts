@@ -243,6 +243,15 @@ function parseListParam(value: string | undefined): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+/** „1 profil", „3 profile", „10 profili" - the count is a line of text, not a heading. */
+function profileCount(n: number): string {
+  const rest10 = n % 10;
+  const rest100 = n % 100;
+  if (n === 1) return '1 profil';
+  if (rest10 >= 2 && rest10 <= 4 && (rest100 < 12 || rest100 > 14)) return `${n} profile`;
+  return `${n} profili`;
+}
+
 siteApp.get('/terapeuci', async (c) => {
   const url = new URL(c.req.url);
   const q = url.searchParams;
@@ -368,7 +377,7 @@ siteApp.get('/terapeuci', async (c) => {
   </details>
 </form>
 
-<section class="directory-results" aria-labelledby="wyniki"><div class="directory-results-heading"><p class="kicker">Profile w katalogu</p><h2 id="wyniki">Wyniki (${ranked.length})</h2></div>
+<section class="directory-results" aria-labelledby="wyniki"><h2 id="wyniki" class="results-count">${profileCount(ranked.length)}</h2>
 ${
   ranked.length === 0
     ? `<p class="notice">Brak profili pasujących do podanych kryteriów. Spróbuj rozszerzyć filtry.</p>`

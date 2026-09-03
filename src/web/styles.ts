@@ -292,14 +292,10 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   display: flex; flex-direction: column; gap: var(--space-3);
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface-solid);
-  /* The hairline a themed card carries rides along with both shadows; hover
-     used to replace the whole box-shadow and wiped it off exactly when the
-     card was supposed to be louder. */
-  box-shadow: var(--card-edge, 0 0 #0000), var(--shadow-sm);
+  box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.card:hover { border-color: var(--border-strong);
-  box-shadow: var(--card-edge, 0 0 #0000), 0 9px 26px rgba(62, 76, 31, 0.065); }
+.card:hover { border-color: var(--border-strong); box-shadow: 0 9px 26px rgba(62, 76, 31, 0.065); }
 .card h3 { margin: 0; font-size: 1.375rem; }
 .card .meta { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
 .card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: 0; font-size: 0.875rem; }
@@ -318,16 +314,21 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
    is a rainbow, and the eye stops reading the facts.
    --card-ink is the accent taken 30% towards black, because the accent itself
    is a decoration colour: the service green reads 2.5:1 on the card surface,
-   and a link has to clear 4.5:1. Mixed, the quietest theme lands at 4.75:1. */
+   and a link has to clear 4.5:1. Mixed, the quietest theme lands at 4.75:1.
+
+   The hairline is the card's own top border, not an inset shadow drawn inside
+   it. Inset, it followed the radius one pixel in from the grey border and left
+   a coloured ledge stepping out of each top corner - a notch, not a rule. */
 .therapist-card {
   --card-accent: var(--accent);
-  --card-edge: inset 0 3px 0 color-mix(in srgb, var(--card-accent) 62%, transparent);
   --card-ink: color-mix(in srgb, var(--card-accent) 70%, #000);
+  border-top: 3px solid color-mix(in srgb, var(--card-accent) 55%, var(--border));
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 
 /* Hover strengthens: the hairline goes to full accent instead of vanishing. */
-.therapist-card:hover { --card-edge: inset 0 3px 0 var(--card-accent); }
+.therapist-card:hover { border-top-color: var(--card-accent); }
 .therapist-card .card-actions a { color: var(--card-ink); }
 
 
@@ -513,8 +514,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .filter-bar .btn { justify-self: start; }
 .more-grid .checkbox { padding-top: 0; }
 }
-.directory-results-heading { margin-bottom: 2rem; }
-.directory-results-heading h2 { margin: 0; font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); }
+.results-count { margin: 0 0 0.9rem; color: var(--text-muted); font-size: 0.85rem; font-weight: 550; letter-spacing: 0; }
 
 
 
