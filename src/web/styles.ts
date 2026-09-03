@@ -541,11 +541,11 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pillars p { margin: 0; color: var(--prose); font-size: 0.95rem; line-height: 1.65; }
 
 
-.signup-page { width: min(100%, 62rem); margin-inline: auto; }
+.signup-page { width: 100%; }
 .signup-intro { margin-bottom: 2.5rem; padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); }
 .signup-intro p:last-child { max-width: 58ch; margin: 0; color: var(--text-muted); }
-.signup-page > form { max-width: none !important; margin-inline: 0; padding: clamp(1.5rem, 4vw, 2.7rem) !important; }
+.signup-page > form { max-width: 48rem !important; margin-inline: 0; padding: clamp(1.5rem, 4vw, 2.2rem) !important; }
 
 
 
@@ -787,8 +787,7 @@ main { padding-block: 1rem 3.5rem; }
 .minor-resources { margin-inline: -0.25rem; padding: 2.5rem 0.75rem; border-radius: 1rem; }
 .document-content section { padding-block: 2.5rem; }
 .directory-page { gap: 3rem; }
-.directory-hero, .signup-intro { padding: 3rem 1.25rem; border-radius: 1rem; }
-.directory-hero h1, .signup-intro h1 { font-size: clamp(2.45rem, 12vw, 3.4rem); }
+.directory-hero h1, .signup-intro h1 { font-size: clamp(1.75rem, 7vw, 2.3rem); }
 footer.site .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
 .footer-links { max-width: 24rem; }
 .footer-legal { display: grid; gap: 0.8rem; }
