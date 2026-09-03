@@ -481,7 +481,22 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .directory-hero { padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
 .directory-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); letter-spacing: -0.025em; }
 .directory-hero > p:last-child { max-width: 55ch; margin: 0; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
-.directory-page .filters { margin: 0; padding: clamp(1.5rem, 4vw, 2.7rem); border-radius: 1.2rem; }
+/* The catalogue's filters are a bar, not a page. Six selects, three switches
+   and the button belong in two or three rows above the results - a screenful
+   of form before the first profile is what every listing site avoids.
+   The two-up rows the shared form layout makes are dissolved with
+   display:contents, so every field becomes a cell of one auto-fitting track. */
+.directory-page .filters { margin: 0; padding: clamp(1rem, 2.5vw, 1.4rem); border-radius: 14px; }
+.directory-page .filters fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.7rem 1rem; margin: 0 0 0.9rem; }
+.directory-page .filters legend { grid-column: 1 / -1; margin: 0; font-size: 0.95rem; }
+.directory-page .filters .field-row { display: contents; }
+.directory-page .filters .field { margin: 0; }
+.directory-page .filters label { margin-bottom: 0.25rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.directory-page .filters select, .directory-page .filters input[type="number"] { min-height: 2.4rem; padding-block: 0.4rem; font-size: 0.9rem; }
+.directory-page .filters .checkbox { align-items: center; margin: 0; padding-top: 1.2rem; }
+.directory-page .filters .checkbox label { padding-top: 0; font-size: 0.85rem; }
+.directory-page .filters > .btn { min-height: 2.4rem; }
+@media (max-width: 42rem) {.directory-page .filters .checkbox { padding-top: 0; } }
 .directory-results-heading { margin-bottom: 2rem; }
 .directory-results-heading h2 { margin: 0; font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); }
 
