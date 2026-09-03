@@ -87,6 +87,8 @@ export function languageList(codes: string[]): string {
 
 // --------------------------------------------------------------- helpers ---
 
+const base = (env: Env): string => env.PUBLIC_BASE_URL.replace(/\/$/, '');
+
 
 
 function compactDateTime(iso: string, timeZone: string): string {
@@ -175,7 +177,7 @@ function pluginButton(env: Env): Values {
   const url = env.PUBLIC_PLUGIN_URL?.trim();
   return url
     ? { label: 'Znajdź terapeutę z pomocą ChatGPT ↗', href: url, style: 'ghost' }
-    : { label: 'Zobacz, jak działa w ChatGPT', href: `${env.PUBLIC_BASE_URL.replace(/\/$/, '')}/jak-to-dziala`, style: 'ghost' };
+    : { label: 'Zobacz, jak działa w ChatGPT', href: `${base(env)}/jak-to-dziala`, style: 'ghost' };
 }
 
 
@@ -226,7 +228,7 @@ function firstSentence(text: string): string {
 const photo = (ctx: SectionCtx): Values => {
   const t = ctx.therapist;
   if (!t.photo_url) return { kind: 'generated' };
-  const url = t.photo_url.startsWith('/') ? `${ctx.env.PUBLIC_BASE_URL.replace(/\/$/, '')}${t.photo_url}` : t.photo_url;
+  const url = t.photo_url.startsWith('/') ? `${base(ctx.env)}${t.photo_url}` : t.photo_url;
   return { kind: 'url', url, alt: t.display_name };
 };
 
@@ -281,7 +283,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
       const t = ctx.therapist;
       const items = [
         ...t.topics.map((x) => ({ title: x.name })),
-        ...t.modalities.map((x) => ({ title: x.name, body: 'nurt pracy' })),
+        ...t.modalities.map((x) => ({ title: x.name })),
       ].slice(0, 6);
       return items.length === 0 ? null : { type: 'features', eyebrow: 'Obszary', heading: 'Z czym możesz przyjść', items };
     },
@@ -333,7 +335,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
       if (t.offers_online) items.push({ label: 'Online', value: 'sesje przez wideo, z dowolnego miejsca' });
       if (items.length === 0) return null;
       items.push({ label: 'Odwołanie', value: `bezpłatne do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją` });
-      items.push({ label: 'Rezerwacja', value: 'przez asystenta ChatGPT', href: `${ctx.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/jak-to-dziala` });
+      items.push({ label: 'Rezerwacja', value: 'przez asystenta ChatGPT', href: `${base(ctx.env)}/jak-to-dziala` });
       return { type: 'contact', eyebrow: 'Gdzie się spotykamy', heading: 'Gabinet i online', items };
     },
   },
