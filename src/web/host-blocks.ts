@@ -265,7 +265,8 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
-      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body: t.bio, media: photo(ctx) };
+      // No portrait here: the hero already shows it, and the service never repeats a photograph on a page.
+      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body: t.bio };
     },
   },
   dane: {
@@ -279,8 +280,8 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     resolve: (ctx) => {
       const t = ctx.therapist;
       const items = [
-        ...t.topics.map((x) => ({ title: x.name, body: 'obszar pracy' })),
-        ...t.modalities.map((x) => ({ title: x.name, body: 'nurt' })),
+        ...t.topics.map((x) => ({ title: x.name })),
+        ...t.modalities.map((x) => ({ title: x.name, body: 'nurt pracy' })),
       ].slice(0, 6);
       return items.length === 0 ? null : { type: 'features', eyebrow: 'Obszary', heading: 'Z czym możesz przyjść', items };
     },
