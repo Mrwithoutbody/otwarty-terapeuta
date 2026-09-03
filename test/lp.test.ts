@@ -97,9 +97,11 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('<a href="tel:116123">116 123</a> wsparcie emocjonalne');
     expect(html).toContain('aria-current="page">Grupa wsparcia dla rodziców');
 
-    // The only stylesheet is the service's; this host ships no CSS for her pages.
+    // Every stylesheet is the service's (its base sheet, then the theme's); this host ships no CSS for her pages.
+    expect(html).toContain('<link rel="stylesheet" href="https://pages.test/themes/base.css?v=');
     expect(html).toContain('<link rel="stylesheet" href="https://pages.test/themes/builtin%3Adefault/style.css?v=');
-    expect((html.match(/<link rel="stylesheet"/g) ?? []).length).toBe(1);
+    expect(html.match(/<link rel="stylesheet" href="([^"]+)"/g)?.every((l) => l.includes('https://pages.test/'))).toBe(true);
+    expect(publicPage.headers.get('content-security-policy')).toContain(`img-src 'self' https://pages.test`);
     expect(publicPage.headers.get('content-security-policy')).toContain(`style-src 'self' https://pages.test`);
     expect(publicPage.headers.get('content-security-policy')).toContain(`font-src 'self' https://pages.test`);
 

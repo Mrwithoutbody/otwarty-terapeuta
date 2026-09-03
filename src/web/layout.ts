@@ -47,7 +47,8 @@ function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string 
     `default-src 'none'`,
     script,
     `style-src ${own}`,
-    `img-src 'self' data:`,
+    // The service's themes bring their own photographs, served from its origin.
+    `img-src ${own} data:`,
     `font-src ${own}`,
     `connect-src 'self'`,
     frame,

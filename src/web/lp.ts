@@ -87,7 +87,6 @@ export async function serveTherapistPage(
     slug,
     resolved: resolveAll(ctx),
     chrome: chromeFor(t),
-    stylesheet: ['engine'],
   };
   try {
     let rendered = await renderPage(env, request);

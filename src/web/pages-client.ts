@@ -135,7 +135,6 @@ export interface RenderRequest {
   slug: string;
   resolved: Record<string, unknown>;
   chrome: Record<string, unknown>;
-  stylesheet: string[];
 }
 
 export interface Rendered {

@@ -30,7 +30,7 @@ w procesie na sklepie w pamięci (testy). Wywołania:
 
 ```
 PUT  /v1/site/blocks              HOST_BLOCK_DEFS — przed każdym utworzeniem strony i sesją edycji
-POST /v1/render/page              {owner, slug, resolved, chrome, stylesheet} → HTML dokumentu
+POST /v1/render/page              {owner, slug, resolved, chrome} → HTML dokumentu
 POST /v1/pages/:id/edit-session   {resolved, summary, fixed} → {url} do iframe
 GET  /v1/pages?owner=  POST /v1/pages {owner, title, theme, variant}  GET /v1/pages/:id  GET /v1/themes
 ```
