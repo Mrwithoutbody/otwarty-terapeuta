@@ -17,6 +17,7 @@ import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
+import { log } from '../lib/log';
 import { hostCssUrl, htmlResponse, renderPage } from './layout';
 import { LP_HOST_CSS, PROFILE_SLUG, serveTherapistPage, unavailablePage, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
@@ -413,7 +414,8 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
     const served = await serveTherapistPage(c.env, t, ctx, pageSlug, { drafts: false, hostCss: hostCssUrl(LP_HOST_CSS) });
     if (!served) return notFoundProfile(c.env);
     return htmlResponse(c.env, served.html, served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
-  } catch {
+  } catch (err) {
+    log.warn('pages.unavailable', { slug, page: pageSlug, error: String((err as Error).message ?? err) });
     return htmlResponse(c.env, renderPage(c.env, { title: t.display_name, path: '/terapeuci', body: unavailablePage(t), noindex: true }), {
       status: 503,
       headers: { 'retry-after': '60' },

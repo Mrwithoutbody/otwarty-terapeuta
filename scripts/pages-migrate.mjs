@@ -102,9 +102,9 @@ export function profileLayout(raw) {
 // -------------------------------------------------------------- database ---
 
 function d1(envFlag, sql) {
-  const args = ['wrangler', 'd1', 'execute', 'DB', envFlag, '--json', '--command', sql];
+  const args = ['wrangler', 'd1', 'execute', 'DB', ...envFlag, '--json', '--command', sql];
   const run = spawnSync('npx', args, { encoding: 'utf8' });
-  if (run.status !== 0) throw new Error(run.stderr || run.stdout);
+  if (run.status !== 0) throw new Error(`${run.stdout}\n${run.stderr}`);
   const parsed = JSON.parse(run.stdout);
   return parsed[0]?.results ?? [];
 }
@@ -137,10 +137,13 @@ async function migrate(envFlag) {
   const subpages = d1(envFlag, `SELECT id, therapist_id, slug, title, status, blocks_json, layout_json FROM therapist_pages`);
   console.log(`${therapists.length} profili, ${subpages.length} podstron → ${base}`);
 
-  // The service must know the host blocks before it will keep them on a page.
-  const { HOST_BLOCK_DEFS } = await import('../src/web/host-blocks.ts').catch(() => ({ HOST_BLOCK_DEFS: null }));
-  if (HOST_BLOCK_DEFS) await call(base, key, '/v1/site/blocks', { method: 'PUT', body: JSON.stringify({ blocks: HOST_BLOCK_DEFS }) });
-  else console.warn('Uwaga: nie udało się wczytać HOST_BLOCK_DEFS - uruchom z Node ≥ 22.18 (strip-types) albo najpierw otwórz panel, żeby host zsynchronizował bloki.');
+  // The service must know the host blocks before it will keep them on a page. The
+  // host declares them itself the first time it serves a profile or opens the
+  // editor, so open one profile on this environment before running this.
+  const known = await (await call(base, key, '/v1/blocks')).text();
+  if (!known.includes('slots')) {
+    throw new Error('Usługa nie zna jeszcze bloków hosta. Otwórz dowolny profil na tym środowisku (host je zgłasza), potem uruchom ponownie.');
+  }
 
   const tally = {};
   const count = (what) => { tally[what] = (tally[what] ?? 0) + 1; };
@@ -187,8 +190,8 @@ function selftest() {
 
 const flag = process.argv[2];
 if (flag === '--selftest') selftest();
-else if (flag === '--local') await migrate('--local');
-else if (flag === '--env' && process.argv[3]) await migrate(`--env=${process.argv[3]}`);
+else if (flag === '--local') await migrate(['--local']);
+else if (flag === '--env' && process.argv[3]) await migrate(['--env', process.argv[3], '--remote']);
 else {
   console.error('usage: pages-migrate.mjs --local | --env <preview|production> | --selftest');
   process.exit(1);
