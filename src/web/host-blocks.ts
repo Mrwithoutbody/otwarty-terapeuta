@@ -322,6 +322,21 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
       };
     },
   },
+  gabinet: {
+    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu, sesje online i zasady odwołania z Twoich danych', tone: 'narrow', anchor: 'gabinet',
+    fields: OWN,
+    resolve: (ctx) => {
+      const t = ctx.therapist;
+      const items: Values[] = [];
+      const office = t.locations[0];
+      if (t.offers_in_person && office) items.push({ label: 'Gabinet', value: [office.address_line, office.city].filter(Boolean).join(', ') });
+      if (t.offers_online) items.push({ label: 'Online', value: 'sesje przez wideo, z dowolnego miejsca' });
+      if (items.length === 0) return null;
+      items.push({ label: 'Odwołanie', value: `bezpłatne do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją` });
+      items.push({ label: 'Rezerwacja', value: 'przez asystenta ChatGPT', href: `${ctx.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/jak-to-dziala` });
+      return { type: 'contact', eyebrow: 'Gdzie się spotykamy', heading: 'Gabinet i online', items };
+    },
+  },
   zestawienie: {
     label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi z zakładki O mnie', tone: 'alt', anchor: 'steps',
     fields: OWN,
@@ -391,5 +406,5 @@ export function summarize(resolved: Record<string, Block | null>): Record<string
 
 /** The default spine of a profile that has never been arranged. */
 export const DEFAULT_PROFILE = [
-  'hero-profil', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'faq-profil', 'credentials', 'zaproszenie',
+  'hero-profil', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'gabinet', 'faq-profil', 'credentials', 'zaproszenie',
 ];
