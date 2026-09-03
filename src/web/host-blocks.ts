@@ -215,7 +215,7 @@ function factSheet(t: PublicTherapist): Values[] {
     ['Nurt', t.modalities.map((m) => m.name).join(', ')],
     ['Języki', labelList(t.languages, '')],
     ['Nowe osoby', t.accepting_new_clients ? 'przyjmuje' : 'lista oczekujących'],
-    ['Odwołanie', `bezpłatne do ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
+    ['Odwołanie', `bezpłatne najpóźniej ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją`],
   ];
   return rows.filter(([, value]) => value !== '').map(([label, value]) => ({ label, value }));
 }
