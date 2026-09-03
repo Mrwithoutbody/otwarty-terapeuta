@@ -545,7 +545,16 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .signup-intro { margin-bottom: 2.5rem; padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); }
 .signup-intro p:last-child { max-width: 58ch; margin: 0; color: var(--text-muted); }
-.signup-page > form { max-width: 48rem !important; margin-inline: 0; padding: clamp(1.5rem, 4vw, 2.2rem) !important; }
+/* The shared card rule is scoped to a form that is a direct child of .wrap,
+   and this one is a grandchild - so it was never boxed, never spaced, and sat
+   glued to the text above it. The !important pair here fought a rule that
+   never matched in the first place. */
+.signup-page > form {
+  max-width: 48rem; margin: clamp(1.75rem, 3.5vw, 2.5rem) 0 0;
+  padding: clamp(1.5rem, 4vw, 2.2rem);
+  border: 1px solid var(--border); border-radius: 14px;
+  background: var(--surface); box-shadow: var(--shadow-sm);
+}
 
 
 
