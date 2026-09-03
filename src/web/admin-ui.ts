@@ -539,6 +539,8 @@ export const ADMIN_CSS = String.raw`
 /* Admin panel only. Loaded on top of app.css, never on public pages. */
 
 .tabs { max-width: 56rem; }
+/* The hosted editor lays its form and preview side by side from 1100px; the page-look tab takes the whole column. */
+.tabs:has(> #panel-strona:not([hidden])) { max-width: none; }
 .tabs-lead { max-width: 68ch; margin: 0 0 1.1rem; color: var(--text-muted, #6a7360); font-size: 0.95rem; }
 .panel-lead { max-width: 64ch; margin: 0 0 1.4rem; color: var(--text-muted, #6a7360); font-size: 0.95rem; }
 .tablist {
