@@ -239,3 +239,20 @@ describe('licznik odsłon profilu', () => {
     expect((await profileViewStats(env, ANNA)).web).toBeGreaterThan(before);
   });
 });
+
+/**
+ * A style attribute is dead code on this site: the policy is
+ * `style-src 'self'` with no 'unsafe-inline', so the browser drops it before
+ * it is ever applied. Two of them had been holding the catalogue's card
+ * header and list layout, silently doing nothing.
+ */
+describe('CSP: no inline style attributes', () => {
+  const pages = ['/', '/terapeuci', '/jak-to-dziala', '/dla-terapeutow', '/bezpieczenstwo', '/pomoc-w-kryzysie'];
+  for (const path of pages) {
+    it(`${path} renders without a style attribute`, async () => {
+      const res = await SELF.fetch(`https://example.com${path}`);
+      expect(res.status).toBe(200);
+      expect(await res.text()).not.toContain('style="');
+    });
+  }
+});

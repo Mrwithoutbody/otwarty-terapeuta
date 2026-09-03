@@ -57,7 +57,7 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
     .join(', ');
 
   return `<li class="card therapist-card">
-  <div style="display:flex;gap:0.9rem;align-items:flex-start">
+  <div class="card-head">
     ${
       t.photo_url
         ? `<img class="avatar" src="${escapeHtml(thumbnailUrl(t.photo_url))}" alt="" width="72" height="72" loading="lazy" decoding="async">`
@@ -381,7 +381,7 @@ siteApp.get('/terapeuci', async (c) => {
 ${
   ranked.length === 0
     ? `<p class="notice">Brak profili pasujących do podanych kryteriów. Spróbuj rozszerzyć filtry.</p>`
-    : `<ul class="grid cols-2" style="list-style:none;padding:0">${ranked
+    : `<ul class="grid cols-2">${ranked
         .slice(0, 24)
         .map((entry) => therapistCard(entry.therapist, entry.match_reasons))
         .join('')}</ul>`

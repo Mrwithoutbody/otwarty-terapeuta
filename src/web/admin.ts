@@ -309,7 +309,7 @@ adminApp.get('/', async (c) => {
     `
 <h1>Panel administracyjny</h1>
 <p class="meta">Zalogowano jako <strong>${escapeHtml(user.role)}</strong>.
-<form method="post" action="/admin/logout" style="display:inline">${csrfField(session)}
+<form method="post" action="/admin/logout" class="inline-form">${csrfField(session)}
 <button class="btn secondary" type="submit">Wyloguj</button></form></p>
 
 ${
@@ -928,7 +928,7 @@ ${
         .map(
           (item) =>
             `<tr><td>${escapeHtml(item.question)}</td><td>${escapeHtml(item.status)}</td>
-             <td><form method="post" action="/admin/faq/${escapeHtml(item.id)}/status" style="display:inline">
+             <td><form method="post" action="/admin/faq/${escapeHtml(item.id)}/status" class="inline-form">
                ${csrfField(session)}
                <button class="btn secondary" name="status" value="${item.status === 'published' ? 'draft' : 'published'}" type="submit">
                  ${item.status === 'published' ? 'Wycofaj' : 'Opublikuj'}</button>

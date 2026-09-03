@@ -283,7 +283,7 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .notice.warn::before { background: var(--focus); }
 .notice h2, .notice h3 { margin-top: 0; }
 .notice > :last-child { margin-bottom: 0; }
-.grid { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); }
+.grid { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); list-style: none; padding: 0; margin: 0; }
 .grid > li { margin-top: 0; }
 @media (min-width: 46rem) {.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 64rem) {.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -306,6 +306,9 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 
 /* Przygaszone: flaga ma być znacznikiem, nie najjaśniejszym punktem strony. */
 .lang svg { width: 1.15em; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; filter: saturate(0.62); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); flex: none; }
+.inline-form { display: inline; }
+.card-head { display: flex; gap: 0.9rem; align-items: flex-start; }
+.card-head > div { min-width: 0; }
 .therapist-card .card-actions { margin-top: auto; padding-top: var(--space-2); }
 
 
