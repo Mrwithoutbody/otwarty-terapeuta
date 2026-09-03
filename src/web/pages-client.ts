@@ -95,6 +95,8 @@ export interface NewPage {
   preset?: string;
   status?: 'draft' | 'published';
   blocks?: Array<{ type: string }>;
+  /** Layout axes; omitted means the template's, `{}` means the engine's defaults. */
+  layout?: Record<string, string>;
 }
 
 export async function createPage(env: Env, input: NewPage): Promise<PageInfo | 'slug_taken'> {

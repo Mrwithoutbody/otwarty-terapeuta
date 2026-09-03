@@ -248,7 +248,7 @@ describe('the public profile shows the photo', () => {
     ]);
 
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(profile).toContain('src="/media/therapists/th_x/img_abc.webp"');
+    expect(profile).toContain(`src="${env.PUBLIC_BASE_URL}/media/therapists/th_x/img_abc.webp"`);
 
     const list = await (await SELF.fetch('https://localhost/terapeuci')).text();
     expect(list).toContain('src="/media/therapists/th_x/img_abc-160.webp"');

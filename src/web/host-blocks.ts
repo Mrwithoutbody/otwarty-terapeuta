@@ -238,7 +238,13 @@ function firstSentence(text: string): string {
   return (m ? m[1]! : para).slice(0, 240);
 }
 
-const photo = (t: PublicTherapist): Values => (t.photo_url ? { kind: 'url', url: t.photo_url, alt: t.display_name } : { kind: 'generated' });
+/** Her portrait with an absolute address: the editor's preview lives on the service's origin. */
+const photo = (ctx: SectionCtx): Values => {
+  const t = ctx.therapist;
+  if (!t.photo_url) return { kind: 'generated' };
+  const url = t.photo_url.startsWith('/') ? `${ctx.env.PUBLIC_BASE_URL.replace(/\/$/, '')}${t.photo_url}` : t.photo_url;
+  return { kind: 'url', url, alt: t.display_name };
+};
 
 /** A host block as the service is told about it, plus how this host fills it. */
 export interface HostDef {
@@ -265,7 +271,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
         lead: firstSentence(t.bio),
         buttons: bookButtons(ctx),
         stats: facts(t),
-        media: photo(t),
+        media: photo(ctx),
       };
     },
   },
@@ -275,7 +281,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
-      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body: t.bio, media: photo(t) };
+      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body: t.bio, media: photo(ctx) };
     },
   },
   dane: {
