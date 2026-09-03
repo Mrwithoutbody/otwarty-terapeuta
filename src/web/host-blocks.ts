@@ -199,12 +199,10 @@ function facts(t: PublicTherapist): Values[] {
   if (duration) out.push({ value: `${duration} min`, label: 'jedna sesja' });
   const modes = [t.offers_online ? 'online' : '', t.offers_in_person ? 'gabinet' : ''].filter(Boolean).join(' i ');
   if (modes) out.push({ value: modes, label: t.locations[0]?.city ?? 'forma spotkań' });
-  out.push(
-    t.next_available_slot_utc
-      ? { value: compactDateTime(t.next_available_slot_utc, t.timezone), label: 'najbliższy wolny termin' }
-      : { value: t.accepting_new_clients ? 'przyjmuje' : 'lista oczekujących', label: 'nowe osoby' },
-  );
-  return out.slice(0, 4);
+  if (t.next_available_slot_utc) out.push({ value: compactDateTime(t.next_available_slot_utc, t.timezone), label: 'najbliższy wolny termin' });
+  // A row of numbers needs numbers. "online i gabinet" standing alone under a
+  // portrait is not a fact sheet, it is a gap - so under three facts, none.
+  return out.length >= 3 ? out.slice(0, 4) : [];
 }
 
 /** Both buttons, always: the service drops the one whose section is not on the page. */
@@ -272,7 +270,10 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
   dane: {
     label: 'Podstawowe informacje', hint: 'Cena, długość sesji, forma, najbliższy termin', tone: 'narrow',
     fields: OWN,
-    resolve: (ctx) => ({ type: 'stats', items: facts(ctx.therapist) }),
+    resolve: (ctx) => {
+      const items = facts(ctx.therapist);
+      return items.length === 0 ? null : { type: 'stats', items };
+    },
   },
   topics: {
     label: 'Z czym przychodzą', hint: 'Obszary i nurty z Twoich danych', tone: 'alt',
