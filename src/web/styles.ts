@@ -512,35 +512,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .pillars p { margin: 0; color: var(--prose); font-size: 0.95rem; line-height: 1.65; }
 
 
-/* Days as columns, hours beneath - the ZnanyLekarz/Booksy pattern people
-   already know. A table because that is what this is: days across, times down. */
-.slot-table-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
-.slot-table { border-collapse: collapse; width: 100%; min-width: 30rem; }
-.slot-table th { padding: 0 var(--space-2) var(--space-3); text-align: center; font-weight: 400; }
-.slot-table th b { display: block; font-size: 0.9rem; font-weight: 600; text-transform: capitalize; }
-.slot-table th span { display: block; font-size: 0.78rem; color: var(--text-muted); }
-.slot-table td { padding: 0.45rem var(--space-2); text-align: center; vertical-align: top; }
-
-
-/* Plain text, no filled blocks: thirty-five tinted rectangles read as noise. */
-.slot-time { display: block; font-size: 0.98rem; font-variant-numeric: tabular-nums; }
-.slot-mode { display: block; font-size: 0.7rem; color: var(--text-muted); }
-.slot-none { display: block; color: var(--border-strong); }
-
-
-/* The site's tables highlight rows on hover, which promises a click. These rows
-   are hours to read, not rows to act on. */
-.slot-table tbody tr:hover td { background: none; }
-.slot-table td, .slot-table th { border: 0; }
-
-
-/* The lines under the calendar used to sit glued to the table and to each
-   other; now they are one footer with its own air, and the button gets a row
-   of its own. */
-.slot-foot { margin-top: var(--space-6); display: flex; flex-direction: column; gap: 0.45rem;
-  align-items: flex-start; }
-.slot-foot p { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
-.slot-foot .btn { margin-top: var(--space-3); }
 .signup-page { width: min(100%, 62rem); margin-inline: auto; }
 .signup-intro { margin-bottom: 2.5rem; padding: clamp(2.5rem, 6vw, 4.5rem); border: 1px solid var(--border); border-radius: 1.4rem; background: linear-gradient(140deg, var(--wash-b), var(--wash-a)); }
 .signup-intro h1 { margin: 0 0 1rem; font-size: clamp(2.6rem, 5vw, 4.2rem); }
@@ -796,7 +767,4 @@ footer.site .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {*, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
-
-/* The calendar is the one host block with markup of its own; it takes the page column the engine would. */
-.lp .slots-wrap { width: min(100% - 2.5rem, 74rem); margin-inline: auto; padding-block: clamp(2rem, 5vw, 4rem); }
 `;

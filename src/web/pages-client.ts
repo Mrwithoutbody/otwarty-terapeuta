@@ -147,7 +147,6 @@ export async function renderPage(env: Env, input: RenderRequest): Promise<Render
 export interface EditSessionInput {
   resolved: Record<string, unknown>;
   summary: Record<string, { text: string; empty?: true }>;
-  css: string;
   /** The host owns title, address and visibility (her profile). */
   fixed: boolean;
 }

@@ -111,10 +111,6 @@ export interface PageOptions {
   adminAssets?: boolean;
 }
 
-/** Versioned URL of the host's own rules for a therapist page (the calendar, its buttons). */
-export function hostCssUrl(css: string): string {
-  return `/assets/lp-host.css?v=${assetVersion(css)}`;
-}
 
 export function renderPage(env: Env, options: PageOptions): string {
   const nav = NAV.map(

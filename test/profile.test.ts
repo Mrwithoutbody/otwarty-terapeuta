@@ -15,9 +15,9 @@ describe('the profile page on the pages service', () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).not.toContain('class="header-cta"');
-    expect(html).toContain('lp-crisis');
+    expect(html).toContain('<a href="tel:116123">116 123</a> wsparcie emocjonalne');
     expect(html).toContain('<h1>Anna Kowalczyk (DEMO)</h1>');
-    expect(html).toContain('slot-table');
+    expect(html).toContain('lp-cal');
     expect(html).toContain('id="terminy"');
     expect(html).toContain('href="#terminy"'); // the hero's button, kept because the calendar rendered
     expect(html).toContain('href="/terapeuci">Katalog</a>');
@@ -31,12 +31,12 @@ describe('the profile page on the pages service', () => {
     const down = { ...env, PAGES_URL: 'memory://down' };
 
     await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo'); // writes the copy
-    const stale = await serveTherapistPage(down, t, ctx, 'profil', { drafts: false, hostCss: '/assets/lp-host.css' });
+    const stale = await serveTherapistPage(down, t, ctx, 'profil', { drafts: false });
     expect(stale?.stale).toBe(true);
     expect(stale?.html).toContain('<h1>Anna Kowalczyk (DEMO)</h1>');
 
     await env.MEDIA!.delete(`pages-html/${ANNA}/profil.html`);
-    await expect(serveTherapistPage(down, t, ctx, 'profil', { drafts: false, hostCss: '/assets/lp-host.css' })).rejects.toThrow(/unreachable/);
+    await expect(serveTherapistPage(down, t, ctx, 'profil', { drafts: false })).rejects.toThrow(/unreachable/);
   });
 });
 
@@ -65,7 +65,7 @@ describe('templates in the panel', () => {
     expect(preview).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
     expect(preview).toContain('class="lp-hero lp-hero--poster"');
     expect(preview).toContain('Anna Kowalczyk (DEMO)');
-    expect(preview).toContain('slot-table');
+    expect(preview).toContain('lp-cal');
 
     const token = path.split('/').pop()!;
     const saved = await pagesFetch(env, path, {
@@ -84,7 +84,7 @@ describe('templates in the panel', () => {
     expect(html).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
     expect(html).toContain('class="lp-hero lp-hero--poster"');
     expect(html).toContain('<h2>Moje słowa</h2>');
-    expect(html).toContain('slot-table');
+    expect(html).toContain('lp-cal');
     expect(session).not.toBeNull();
   });
 });

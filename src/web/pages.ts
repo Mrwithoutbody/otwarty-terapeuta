@@ -18,8 +18,8 @@ import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
 import { log } from '../lib/log';
-import { hostCssUrl, htmlResponse, renderPage } from './layout';
-import { LP_HOST_CSS, PROFILE_SLUG, serveTherapistPage, unavailablePage, type SectionCtx } from './lp';
+import { htmlResponse, renderPage } from './layout';
+import { PROFILE_SLUG, serveTherapistPage, unavailablePage, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
 
 /**
@@ -411,7 +411,7 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
     c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
   }
   try {
-    const served = await serveTherapistPage(c.env, t, ctx, pageSlug, { drafts: false, hostCss: hostCssUrl(LP_HOST_CSS) });
+    const served = await serveTherapistPage(c.env, t, ctx, pageSlug, { drafts: false });
     if (!served) return notFoundProfile(c.env);
     return htmlResponse(c.env, served.html, served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
   } catch (err) {

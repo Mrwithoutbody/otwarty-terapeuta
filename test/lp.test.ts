@@ -88,20 +88,19 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('Mała grupa, do ośmiu osób.');
     expect(html).toContain('class="lp lp--theme-clay');
     // The calendar on the subpage is the profile's calendar - same markup, same data.
-    expect(html).toContain('slot-table');
+    expect(html).toContain('lp-cal');
     expect(html).toContain('id="terminy"');
     // Its own document: no catalogue header, one bar back to her, the crisis numbers.
     expect(html).not.toContain('class="header-cta"');
     expect(html).toContain('class="lp-bar"');
-    expect(html).toContain('lp-crisis');
+    expect(html).toContain('<a href="tel:116123">116 123</a> wsparcie emocjonalne');
     expect(html).toContain('aria-current="page">Grupa wsparcia dla rodziców');
 
-    // The engine's sheet comes from the service, the calendar's from here; the CSP names both.
+    // The only stylesheet is the service's; this host ships no CSS for her pages.
     expect(html).toContain('<link rel="stylesheet" href="https://pages.test/assets/page.css?v=');
-    expect(html).toMatch(/<link rel="stylesheet" href="\/assets\/lp-host\.css\?v=[a-z0-9]+">/);
+    expect((html.match(/<link rel="stylesheet"/g) ?? []).length).toBe(1);
     expect(publicPage.headers.get('content-security-policy')).toContain(`style-src 'self' https://pages.test`);
     expect(publicPage.headers.get('content-security-policy')).toContain(`font-src 'self' https://pages.test`);
-    expect((await SELF.fetch('https://localhost/assets/lp-host.css')).headers.get('content-type')).toContain('text/css');
 
     // The profile links to it.
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();

@@ -14,11 +14,14 @@ reklamowe hostuje usługa.
 | kto | co |
 | --- | --- |
 | usługa | `sites`, `pages` (JSON), szablony i motywy (kod), edytor `/edit/:id/:token`, render, hosting `/p/:id` |
-| ot-02 | dane terapeutki jako bloki (`src/web/host-blocks.ts`), rama strony (katalog, numery kryzysowe), CSS kalendarza, kopia zapasowa HTML w R2 |
+| ot-02 | dane terapeutki jako bloki (`src/web/host-blocks.ts`), rama strony jako dane (`chrome`: katalog, numery kryzysowe), kopia zapasowa HTML w R2 |
 
 Usługa **nigdy nie woła hosta**. Host przy każdym renderze przysyła `resolved` —
-treść swoich bloków (`hero`, `pricing`, `faq`… albo `html` dla kalendarza).
+treść swoich bloków jako bloki rdzenia usługi (`hero`, `pricing`, `faq`, `calendar`).
 Słowa wpisane przez terapeutkę w edytorze wygrywają z danymi; usługa scala.
+**ot-02 nie ma ani linii HTML ani CSS stron terapeutek** — kalendarz to blok
+`calendar` (dni, godziny, dopisek, przyciski jako JSON), stopka kryzysowa to
+`chrome.footerNote` (dane), a jedyny arkusz to arkusz usługi.
 
 ## Klient: `src/web/pages-client.ts`
 
@@ -28,7 +31,7 @@ w procesie na sklepie w pamięci (testy). Wywołania:
 ```
 PUT  /v1/site/blocks              HOST_BLOCK_DEFS — przed każdym utworzeniem strony i sesją edycji
 POST /v1/render/page              {owner, slug, resolved, chrome, stylesheet} → HTML dokumentu
-POST /v1/pages/:id/edit-session   {resolved, summary, css, fixed} → {url} do iframe
+POST /v1/pages/:id/edit-session   {resolved, summary, fixed} → {url} do iframe
 GET  /v1/pages?owner=  POST /v1/pages  GET /v1/pages/:id  GET /v1/presets
 ```
 
@@ -45,10 +48,11 @@ działają.
 
 ## CSS i CSP
 
-Dokument linkuje dwa arkusze: arkusz silnika z usługi (`stylesheet: 'engine'`) i
-`/assets/lp-host.css` (reguły `.slot-*`, `.btn` wycięte z `APP_CSS`). CSP dokłada
-origin usługi do `style-src`, `font-src` (fonty motywów idą z usługi) i `frame-src`
-(edytor w panelu). Edytor usługi odpowiada `frame-ancestors <origin site'u>`.
+Dokument linkuje jeden arkusz: arkusz silnika z usługi (`stylesheet: 'engine'`).
+CSP dokłada origin usługi do `style-src`, `font-src` (fonty motywów idą z usługi)
+i `frame-src` (edytor w panelu). Edytor usługi odpowiada `frame-ancestors
+<origin site'u>`. Portret idzie z adresem bezwzględnym, bo podgląd w edytorze
+żyje na domenie usługi.
 
 ## Migracja danych (jednorazowo)
 
