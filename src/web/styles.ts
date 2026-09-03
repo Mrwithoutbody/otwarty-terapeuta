@@ -359,7 +359,10 @@ form.filters {
 fieldset { border: 0; padding: 0; margin: 0 0 1.2rem; }
 legend { font: 600 1.05rem/1.3 var(--sans); padding: 0; margin-bottom: var(--space-3); }
 label { display: block; color: var(--text); font-size: 0.875rem; font-weight: 620; margin-bottom: var(--space-2); }
-input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], input[type="url"], input:not([type]), select, textarea {
+input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], input[type="url"], input[type="search"], input:not([type]), select, textarea {
+  /* WebKit gives a search field its own control appearance and then ignores
+     the height and padding set here, so it is reset to a plain box first. */
+  -webkit-appearance: none; appearance: none;
   width: 100%; min-height: 2.75rem; padding: 0.625rem var(--space-3);
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
   background: var(--surface-solid); color: var(--text); font: inherit;
@@ -370,7 +373,7 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--accent); outline: 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 textarea { min-height: 8.5rem; resize: vertical; }
-select { cursor: pointer; }
+select { -webkit-appearance: menulist; appearance: menulist; cursor: pointer; }
 input[type="checkbox"], input[type="radio"] { width: 1.05rem; height: 1.05rem; accent-color: var(--accent-strong); }
 .field { margin-bottom: var(--space-4); }
 .field-row { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
