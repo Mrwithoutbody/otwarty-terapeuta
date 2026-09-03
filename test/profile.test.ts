@@ -21,7 +21,7 @@ describe('the profile page on the pages service', () => {
     expect(html).toContain('id="terminy"');
     expect(html).toContain('href="#terminy"'); // the hero's button, kept because the calendar rendered
     expect(html).toContain('href="/terapeuci">Katalog</a>');
-    expect(html).toContain('<link rel="stylesheet" href="https://pages.test/assets/page.css?v=');
+    expect(html).toContain('<link rel="stylesheet" href="https://pages.test/themes/builtin%3Adefault/style.css?v=');
     expect(res.headers.get('x-pages-stale')).toBeNull();
   });
 
@@ -56,14 +56,14 @@ describe('templates in the panel', () => {
     const editor = await pagesFetch(env, path);
     expect(editor.headers.get('content-security-policy')).toContain(`frame-ancestors 'self' ${env.PUBLIC_BASE_URL}`);
     const form = await editor.text();
-    expect((form.match(/data-preset="/g) ?? []).length).toBe(8);
+    expect((form.match(/data-theme="default"/g) ?? []).length).toBe(7);
     expect(form).toContain('name="sec_0_type" value="hero-profil"');
     expect(form).not.toContain('name="slug"'); // the profile's address and visibility are the host's
 
     // The preview shows her data in a template she has not chosen yet.
-    const preview = await (await pagesFetch(env, `${path}/preview?preset=plakat`)).text();
-    expect(preview).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
-    expect(preview).toContain('class="lp-hero lp-hero--poster"');
+    const preview = await (await pagesFetch(env, `${path}/preview?theme=default&variant=ink`)).text();
+    expect(preview).toContain('class="lp lp--theme-ink"');
+    expect(preview).toContain('class="lp-hero lp-hero--classic"');
     expect(preview).toContain('Anna Kowalczyk (DEMO)');
     expect(preview).toContain('lp-cal');
 
@@ -72,7 +72,7 @@ describe('templates in the panel', () => {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams([
-        ['csrf', token], ['action', 'apply_preset:plakat'],
+        ['csrf', token], ['action', 'apply_theme:default:ink'],
         ['sec_0_type', 'hero-profil'], ['sec_0_pos', '1'],
         ['sec_1_type', 'text'], ['sec_1_pos', '2'], ['sec_1_heading', 'Moje słowa'], ['sec_1_body', 'Zostają.'],
         ['sec_2_type', 'slots'], ['sec_2_pos', '3'],
@@ -81,8 +81,8 @@ describe('templates in the panel', () => {
     expect(saved.status).toBe(303);
 
     const html = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(html).toContain('class="lp lp--theme-ink lp--scale-poster lp--stripes');
-    expect(html).toContain('class="lp-hero lp-hero--poster"');
+    expect(html).toContain('class="lp lp--theme-ink"');
+    expect(html).toContain('class="lp-hero lp-hero--classic"');
     expect(html).toContain('<h2>Moje słowa</h2>');
     expect(html).toContain('lp-cal');
     expect(session).not.toBeNull();

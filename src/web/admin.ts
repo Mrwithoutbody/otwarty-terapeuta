@@ -30,7 +30,7 @@ import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { htmlResponse, renderPage } from './layout';
 import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './lp';
-import { createPage, getPage, listPages, listPresets, type PageInfo, type PresetInfo } from './pages-client';
+import { createPage, getPage, listPages, listThemeChoices, type PageInfo, type ThemeChoice } from './pages-client';
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
 import type { SectionCtx } from './host-blocks';
@@ -434,7 +434,7 @@ interface EditorContext {
   faq: FaqRow[];
   media: Array<{ id: string; url: string }>;
   pages: PageInfo[];
-  presets: PresetInfo[];
+  looks: ThemeChoice[];
   /** The hosted editor for her profile page, or the reason there is none. */
   profileEditor: { url: string } | { error: string };
 }
@@ -486,18 +486,18 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     faq: [],
     media: [],
     pages: [],
-    presets: [],
+    looks: [],
     profileEditor: { error: 'Najpierw zapisz profil.' },
   };
   if (!therapistId) return context;
   try {
-    const [pages, presets, editor] = await Promise.all([
+    const [pages, looks, editor] = await Promise.all([
       listPages(env, therapistId),
-      listPresets(env),
+      listThemeChoices(env),
       profileEditorUrl(env, therapistId),
     ]);
     context.pages = pages.filter((p) => p.slug !== PROFILE_SLUG);
-    context.presets = presets;
+    context.looks = looks;
     context.profileEditor = { url: editor };
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;
@@ -969,11 +969,11 @@ ${'url' in context.profileEditor ? `<form method="post" action="/admin/terapeuci
   ${csrfField(session)}
   <div class="field"><label for="page_title">Tytuł nowej podstrony</label>
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
-  <div class="field"><label for="page_preset">Szablon</label>
-    <select id="page_preset" name="preset">${context.presets
-      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.label)} — ${escapeHtml(p.hint)}</option>`)
+  <div class="field"><label for="page_look">Motyw</label>
+    <select id="page_look" name="look">${context.looks
+      .map((l) => `<option value="${escapeHtml(`${l.theme}:${l.variant}`)}">${escapeHtml(l.label)} — ${escapeHtml(l.hint)}</option>`)
       .join('')}</select>
-    <p class="hint">Szablon ustawia motyw, układ i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
+    <p class="hint">Motyw ustawia wygląd i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
   <button class="btn" type="submit">Utwórz podstronę</button>
 </form>` : ''}
 </section>
@@ -1310,12 +1310,13 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
 
   const title = sanitizeLine(body.get('title') ?? '', 140);
   if (title === '') return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
+  const [theme = '', variant = ''] = (body.get('look') ?? '').split(':');
   let made: PageInfo | 'slug_taken';
   try {
-    made = await createPage(c.env, { owner: id, title, preset: body.get('preset') ?? '' });
+    made = await createPage(c.env, { owner: id, title, theme, variant });
     // The title's slug is hers already: number it rather than refuse a second workshop.
     for (let n = 2; made === 'slug_taken' && n < 50; n++) {
-      made = await createPage(c.env, { owner: id, title, slug: `${slugOf(title)}-${n}`, preset: body.get('preset') ?? '' });
+      made = await createPage(c.env, { owner: id, title, slug: `${slugOf(title)}-${n}`, theme, variant });
     }
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;

@@ -17,15 +17,18 @@ export interface PageInfo {
   slug: string;
   title: string;
   status: 'draft' | 'published';
-  layout: Record<string, string>;
+  theme: string;
+  variant: string;
   blocks: Array<Record<string, unknown> & { type: string }>;
   version: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface PresetInfo {
-  id: string;
+/** One look to pick: a theme and one of its palettes. */
+export interface ThemeChoice {
+  theme: string;
+  variant: string;
   label: string;
   hint: string;
 }
@@ -83,20 +86,29 @@ export async function listPages(env: Env, owner: string): Promise<PageInfo[]> {
   return res.ok ? ((await res.json()) as PageInfo[]) : [];
 }
 
-export async function listPresets(env: Env): Promise<PresetInfo[]> {
-  const res = await pagesFetch(env, '/v1/presets');
-  return res.ok ? ((await res.json()) as PresetInfo[]) : [];
+/** Every theme the service offers this site, one entry per palette. */
+export async function listThemeChoices(env: Env): Promise<ThemeChoice[]> {
+  const res = await pagesFetch(env, '/v1/themes');
+  if (!res.ok) return [];
+  const themes = (await res.json()) as Array<{ slug: string; label: string; hint: string; variants: Record<string, { label: string; hint?: string }> }>;
+  return themes.flatMap((t) => {
+    const variants = Object.entries(t.variants ?? {});
+    if (variants.length === 0) return [{ theme: t.slug, variant: '', label: t.label, hint: t.hint }];
+    return variants.map(([variant, v]) => ({
+      theme: t.slug, variant, label: variants.length > 1 ? `${t.label} — ${v.label}` : t.label, hint: v.hint ?? t.hint,
+    }));
+  });
 }
 
 export interface NewPage {
   owner: string;
   title: string;
   slug?: string;
-  preset?: string;
+  /** The look; omitted means the service's default theme and its first palette. */
+  theme?: string;
+  variant?: string;
   status?: 'draft' | 'published';
   blocks?: Array<{ type: string }>;
-  /** Layout axes; omitted means the template's, `{}` means the engine's defaults. */
-  layout?: Record<string, string>;
 }
 
 export async function createPage(env: Env, input: NewPage): Promise<PageInfo | 'slug_taken'> {

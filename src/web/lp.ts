@@ -31,7 +31,6 @@ export async function ensureProfilePage(env: Env, therapistId: string, displayNa
     title: displayName,
     status: 'published',
     blocks: DEFAULT_PROFILE.map((type) => ({ type })),
-    layout: {},
   });
   if (made === 'slug_taken') {
     const again = (await listPages(env, therapistId)).find((p) => p.slug === PROFILE_SLUG);

@@ -49,7 +49,7 @@ describe('podstrony terapeutki', () => {
   it('creates, arranges, publishes and lists a subpage', async () => {
     const anna = await actor('anna-pages@example.invalid', ANNA);
 
-    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['preset', 'plakat']]);
+    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['look', 'default:ink']]);
     expect(created.status).toBe(303);
     const editor = created.headers.get('location')!;
     expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/[a-z0-9]+$`));
@@ -59,9 +59,10 @@ describe('podstrony terapeutki', () => {
     const editorUrl = editorSrc(shell);
     expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\/[a-z0-9]+\/[a-z0-9]+\.\d+\.[\w-]+$/);
     const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
-    expect((form.match(/data-preset="/g) ?? []).length).toBe(8);
+    expect((form.match(/data-theme="default"/g) ?? []).length).toBe(7);
+    expect(form).toContain('data-variant="ink" data-label="Domyślny — Atrament" aria-pressed="true"');
     expect((form.match(/<iframe /g) ?? []).length).toBe(1);
-    expect(form).toContain('name="sec_0_type" value="hero-poster"');
+    expect(form).toContain('name="sec_0_type" value="hero"');
     expect(form).toContain('<optgroup label="Twoje dane">'); // her blocks are offered
 
     // A draft is invisible to the public, even with the right address.
@@ -72,7 +73,7 @@ describe('podstrony terapeutki', () => {
       ['title', 'Grupa wsparcia dla rodziców'],
       ['slug', slug],
       ['status', 'published'],
-      ['layout_theme', 'clay'],
+      ['action', 'apply_theme:default:clay'],
       ['sec_0_type', 'hero'], ['sec_0_pos', '1'], ['sec_0_heading', 'Nie musisz tego dźwigać sama'],
       ['sec_1_type', 'text'], ['sec_1_pos', '2'], ['sec_1_body', 'Spotykamy się co czwartek o 18:00.\n\nMała grupa, do ośmiu osób.'],
       ['sec_2_type', 'slots'], ['sec_2_pos', '3'],
@@ -97,7 +98,7 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('aria-current="page">Grupa wsparcia dla rodziców');
 
     // The only stylesheet is the service's; this host ships no CSS for her pages.
-    expect(html).toContain('<link rel="stylesheet" href="https://pages.test/assets/page.css?v=');
+    expect(html).toContain('<link rel="stylesheet" href="https://pages.test/themes/builtin%3Adefault/style.css?v=');
     expect((html.match(/<link rel="stylesheet"/g) ?? []).length).toBe(1);
     expect(publicPage.headers.get('content-security-policy')).toContain(`style-src 'self' https://pages.test`);
     expect(publicPage.headers.get('content-security-policy')).toContain(`font-src 'self' https://pages.test`);

@@ -32,7 +32,7 @@ w procesie na sklepie w pamięci (testy). Wywołania:
 PUT  /v1/site/blocks              HOST_BLOCK_DEFS — przed każdym utworzeniem strony i sesją edycji
 POST /v1/render/page              {owner, slug, resolved, chrome, stylesheet} → HTML dokumentu
 POST /v1/pages/:id/edit-session   {resolved, summary, fixed} → {url} do iframe
-GET  /v1/pages?owner=  POST /v1/pages  GET /v1/pages/:id  GET /v1/presets
+GET  /v1/pages?owner=  POST /v1/pages {owner, title, theme, variant}  GET /v1/pages/:id  GET /v1/themes
 ```
 
 Profil = strona o slugu `profil`, `owner` = id terapeutki; tworzona przy pierwszym
@@ -48,7 +48,7 @@ działają.
 
 ## CSS i CSP
 
-Dokument linkuje jeden arkusz: arkusz silnika z usługi (`stylesheet: 'engine'`).
+Dokument linkuje jeden arkusz: `style.css` motywu, z usługi (`/themes/<id>/style.css`); usługa linkuje go sama.
 CSP dokłada origin usługi do `style-src`, `font-src` (fonty motywów idą z usługi)
 i `frame-src` (edytor w panelu). Edytor usługi odpowiada `frame-ancestors
 <origin site'u>`. Portret idzie z adresem bezwzględnym, bo podgląd w edytorze
