@@ -2,7 +2,7 @@ import type { Env } from '../env';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
-import { EDITOR_CSS, EDITOR_JS } from './lp';
+import { pagesOrigin } from './pages-client';
 import { APP_CSS } from './styles';
 
 /**
@@ -27,26 +27,28 @@ const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000'))
 
 const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
-const EDITOR_VERSION = assetVersion(EDITOR_CSS, EDITOR_JS);
 
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere, which
  * is why the stylesheet is a separate file and every form is server rendered.
- * The only third-party origin is Turnstile, and only where a form needs it.
+ * Two other origins: Turnstile, only where a form needs it, and the pages
+ * service - its editor is framed in the panel, its stylesheet and fonts are
+ * linked from every therapist page.
  */
-function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin?: string): string {
+function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string | undefined, pages: string | null): string {
   const script = withTurnstile
     ? `script-src 'self' https://challenges.cloudflare.com`
     : `script-src 'self'`;
-  const frame = withTurnstile
-    ? `frame-src 'self' https://challenges.cloudflare.com`
-    : `frame-src 'self'`;
+  const frame = [`frame-src 'self'`, withTurnstile ? 'https://challenges.cloudflare.com' : '', pages ?? '']
+    .filter(Boolean)
+    .join(' ');
+  const own = pages ? `'self' ${pages}` : `'self'`;
   return [
     `default-src 'none'`,
     script,
-    `style-src 'self'`,
+    `style-src ${own}`,
     `img-src 'self' data:`,
-    `font-src 'self'`,
+    `font-src ${own}`,
     `connect-src 'self'`,
     frame,
     // Browsers apply form-action to the WHOLE redirect chain, not just the action
@@ -67,7 +69,7 @@ export function securityHeaders(
 ): Record<string, string> {
   const headers: Record<string, string> = {
     'content-type': 'text/html; charset=utf-8',
-    'content-security-policy': contentSecurityPolicy(withTurnstile, formActionOrigin),
+    'content-security-policy': contentSecurityPolicy(withTurnstile, formActionOrigin, pagesOrigin(env)),
     'referrer-policy': 'strict-origin-when-cross-origin',
     'x-content-type-options': 'nosniff',
     // SAMEORIGIN, not DENY: the layout builder frames the profile being edited.
@@ -109,9 +111,9 @@ export interface PageOptions {
   adminAssets?: boolean;
 }
 
-/** Versioned stylesheet URL for a subpage document rendered outside `renderPage`. */
-export function assetUrls(lpDocCss: string): { lpDocCss: string } {
-  return { lpDocCss: `/assets/lp-doc.css?v=${assetVersion(lpDocCss)}` };
+/** Versioned URL of the host's own rules for a therapist page (the calendar, its buttons). */
+export function hostCssUrl(css: string): string {
+  return `/assets/lp-host.css?v=${assetVersion(css)}`;
 }
 
 export function renderPage(env: Env, options: PageOptions): string {
@@ -132,9 +134,7 @@ ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 ${
   options.adminAssets
     ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
-      `<link rel="stylesheet" href="/assets/lp-editor.css?v=${EDITOR_VERSION}">\n` +
-      `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>\n` +
-      `<script src="/assets/lp-editor.js?v=${EDITOR_VERSION}" defer></script>`
+      `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`
     : ''
 }
 <link rel="icon" href="data:,">

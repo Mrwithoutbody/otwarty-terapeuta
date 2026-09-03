@@ -322,12 +322,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 
 /* Hover strengthens: the hairline goes to full accent instead of vanishing. */
 .therapist-card:hover { --card-edge: inset 0 3px 0 var(--card-accent); }
-.therapist-card--theme-amber { --card-accent: var(--acc-bursztyn); }
-.therapist-card--theme-clay { --card-accent: var(--acc-glina); }
-.therapist-card--theme-graphite { --card-accent: var(--acc-grafit); }
-.therapist-card--theme-forest { --card-accent: var(--acc-las); }
-.therapist-card--theme-ink { --card-accent: var(--acc-atrament); }
-.therapist-card--theme-paper { --card-accent: var(--acc-papier); }
 .therapist-card .card-actions a { color: var(--card-ink); }
 
 

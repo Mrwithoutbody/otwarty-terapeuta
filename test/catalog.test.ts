@@ -188,29 +188,6 @@ describe('links', () => {
 });
 
 /**
- * The catalogue stays one list: a card takes a hairline of the therapist's
- * theme, never her whole palette, and a profile that never chose one looks
- * exactly as it did.
- */
-describe('the card echoes the profile theme', () => {
-  it('carries the theme class only for a therapist who chose one', async () => {
-    await env.DB.prepare(`UPDATE therapists SET layout_json = ? WHERE id = ?`)
-      .bind('{"theme":"glina"}', ANNA)
-      .run();
-
-    const html = await SELF.fetch('https://localhost/terapeuci').then((r) => r.text());
-    expect(html).toContain('therapist-card therapist-card--theme-clay');
-    const withAnna = (html.match(/therapist-card--theme-clay/g) ?? []).length;
-
-    // Her choice cleared, exactly her card loses the class - whatever the rest
-    // of the seed is themed with.
-    await env.DB.prepare(`UPDATE therapists SET layout_json = '{}' WHERE id = ?`).bind(ANNA).run();
-    const after = await SELF.fetch('https://localhost/terapeuci').then((r) => r.text());
-    expect((after.match(/therapist-card--theme-clay/g) ?? []).length).toBe(withAnna - 1);
-  });
-});
-
-/**
  * Statystyka, którą serwis prowadzi, i granica, której nie przekracza: liczba
  * odsłon rośnie, ale w tabeli nie ma niczego, co wskazywałoby na osobę.
  */

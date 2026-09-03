@@ -2,6 +2,7 @@ import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { createAdminSession, loadAdminSession } from '../src/auth/session';
 import { findOrCreateUserByEmail } from '../src/db/users';
+import { pagesFetch } from '../src/web/pages-client';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const MAREK = 'th_8b2d6e10f4a97c53d1e08b26';
@@ -30,7 +31,20 @@ function post(who: Actor, path: string, pairs: Array<[string, string]>): Promise
   });
 }
 
-/** The whole life of one subpage: created, arranged, published, deleted. */
+/** The editor's own form, posted straight to the service the way the framed page does. */
+function postEditor(editorUrl: string, pairs: Array<[string, string]>): Promise<Response> {
+  const path = new URL(editorUrl).pathname;
+  const token = path.split('/').pop()!;
+  return pagesFetch(env, path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams([['csrf', token], ...pairs]).toString(),
+  });
+}
+
+const editorSrc = (html: string): string => /<iframe class="pages-editor" src="([^"]+)"/.exec(html)![1]!;
+
+/** The whole life of one subpage: created, arranged in the service's editor, published, deleted. */
 describe('podstrony terapeutki', () => {
   it('creates, arranges, publishes and lists a subpage', async () => {
     const anna = await actor('anna-pages@example.invalid', ANNA);
@@ -38,49 +52,34 @@ describe('podstrony terapeutki', () => {
     const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['preset', 'plakat']]);
     expect(created.status).toBe(303);
     const editor = created.headers.get('location')!;
-    expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/pg_`));
-    const pid = editor.split('/').pop()!;
+    expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/[a-z0-9]+$`));
 
-    // The template filled the page in: its theme, its axes and one empty block per type, hero titled.
-    const fresh = await env.DB.prepare(`SELECT blocks_json, layout_json FROM therapist_pages WHERE id = ?`).bind(pid).first<{ blocks_json: string; layout_json: string }>();
-    expect(JSON.parse(fresh!.layout_json)).toMatchObject({ theme: 'ink', display: 'poster', bands: 'stripes' });
-    expect(JSON.parse(fresh!.blocks_json)[0]).toEqual({ type: 'hero-poster', heading: 'Grupa wsparcia dla rodziców' });
-
-    // The editor is the template picker: one card per template, one preview frame, no block form.
-    const form = await (await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: anna.cookie } })).text();
-    expect((form.match(/data-preset="/g) ?? []).length).toBe(7);
+    // The panel frames the service's editor; the editor is the template picker, the block list, one preview.
+    const shell = await (await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: anna.cookie } })).text();
+    const editorUrl = editorSrc(shell);
+    expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\/[a-z0-9]+\/[a-z0-9]+\.\d+\.[\w-]+$/);
+    const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
+    expect((form.match(/data-preset="/g) ?? []).length).toBe(8);
     expect((form.match(/<iframe /g) ?? []).length).toBe(1);
-    expect(form).toContain(`data-preview="${editor}/podglad"`);
-    expect(form).not.toContain('class="sec-item"');
+    expect(form).toContain('name="sec_0_type" value="hero-poster"');
+    expect(form).toContain('<optgroup label="Twoje dane">'); // her blocks are offered
 
     // A draft is invisible to the public, even with the right address.
     const slug = 'grupa-wsparcia-dla-rodzicow';
     expect((await SELF.fetch(`https://localhost/terapeuci/anna-kowalczyk-demo/${slug}`)).status).toBe(404);
 
-    const saved = await post(anna, editor, [
+    const saved = await postEditor(editorUrl, [
       ['title', 'Grupa wsparcia dla rodziców'],
       ['slug', slug],
       ['status', 'published'],
       ['layout_theme', 'clay'],
-      ['sec_0_type', 'hero'],
-      ['sec_0_pos', '1'],
-      ['sec_0_heading', 'Nie musisz tego dźwigać sama'],
-      ['sec_1_type', 'text'],
-      ['sec_1_pos', '2'],
-      ['sec_1_body', 'Spotykamy się co czwartek o 18:00.\n\nMała grupa, do ośmiu osób.'],
-      ['sec_2_type', 'slots'],
-      ['sec_2_pos', '3'],
-      ['sec_3_type', 'faq-profil'],
-      ['sec_3_pos', '4'],
-      ['sec_4_type', 'nope'],
-      ['sec_4_pos', '5'],
+      ['sec_0_type', 'hero'], ['sec_0_pos', '1'], ['sec_0_heading', 'Nie musisz tego dźwigać sama'],
+      ['sec_1_type', 'text'], ['sec_1_pos', '2'], ['sec_1_body', 'Spotykamy się co czwartek o 18:00.\n\nMała grupa, do ośmiu osób.'],
+      ['sec_2_type', 'slots'], ['sec_2_pos', '3'],
+      ['sec_3_type', 'faq-profil'], ['sec_3_pos', '4'],
+      ['sec_4_type', 'nope'], ['sec_4_pos', '5'],
     ]);
     expect(saved.status).toBe(303);
-
-    const row = await env.DB.prepare(`SELECT * FROM therapist_pages WHERE id = ?`).bind(pid).first<{ blocks_json: string; layout_json: string; status: string }>();
-    expect(row?.status).toBe('published');
-    expect(JSON.parse(row!.blocks_json).map((b: { type: string }) => b.type)).toEqual(['hero', 'text', 'slots', 'faq-profil']);
-    expect(JSON.parse(row!.layout_json).theme).toBe('clay');
 
     const publicPage = await SELF.fetch(`https://localhost/terapeuci/anna-kowalczyk-demo/${slug}`);
     expect(publicPage.status).toBe(200);
@@ -88,25 +87,29 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('<h1>Nie musisz tego dźwigać sama</h1>');
     expect(html).toContain('Mała grupa, do ośmiu osób.');
     expect(html).toContain('class="lp lp--theme-clay');
-    expect(html).toContain('/assets/lp-doc.css');
-    // The calendar on the subpage is the profile's calendar - same renderer, same data.
+    // The calendar on the subpage is the profile's calendar - same markup, same data.
     expect(html).toContain('slot-table');
-    // Its own document: no catalogue header, one bar back to her.
+    expect(html).toContain('id="terminy"');
+    // Its own document: no catalogue header, one bar back to her, the crisis numbers.
     expect(html).not.toContain('class="header-cta"');
     expect(html).toContain('class="lp-bar"');
-    expect(html).toMatch(/<div class="lp [^"]*">\s*<nav class="lp-bar"/);
-
-    // The profile links to it, and the subpage links back.
-    const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(profile).toContain(`href="/terapeuci/anna-kowalczyk-demo/${slug}"`);
+    expect(html).toContain('lp-crisis');
     expect(html).toContain('aria-current="page">Grupa wsparcia dla rodziców');
 
-    // The engine stylesheet is a file, so the strict CSP stays as it is.
-    expect(publicPage.headers.get('content-security-policy')).toContain(`style-src 'self'`);
-    expect((await SELF.fetch('https://localhost/assets/lp-doc.css')).headers.get('content-type')).toContain('text/css');
+    // The engine's sheet comes from the service, the calendar's from here; the CSP names both.
+    expect(html).toContain('<link rel="stylesheet" href="https://pages.test/assets/page.css?v=');
+    expect(html).toMatch(/<link rel="stylesheet" href="\/assets\/lp-host\.css\?v=[a-z0-9]+">/);
+    expect(publicPage.headers.get('content-security-policy')).toContain(`style-src 'self' https://pages.test`);
+    expect(publicPage.headers.get('content-security-policy')).toContain(`font-src 'self' https://pages.test`);
+    expect((await SELF.fetch('https://localhost/assets/lp-host.css')).headers.get('content-type')).toContain('text/css');
 
-    const deleted = await post(anna, `${editor}/usun`, []);
-    expect(deleted.status).toBe(303);
+    // The profile links to it.
+    const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
+    expect(profile).toContain(`href="/terapeuci/anna-kowalczyk-demo/${slug}"`);
+
+    // Deleting happens in the editor, with the confirmation ticked.
+    const deleted = await postEditor(editorUrl, [['action', 'delete'], ['confirm_delete', '1']]);
+    expect(deleted.status).toBe(200);
     expect((await SELF.fetch(`https://localhost/terapeuci/anna-kowalczyk-demo/${slug}`)).status).toBe(404);
   });
 
@@ -117,8 +120,10 @@ describe('podstrony terapeutki', () => {
     const editor = created.headers.get('location')!;
 
     expect((await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: marek.cookie } })).status).toBe(403);
-    expect((await post(marek, editor, [['title', 'x'], ['slug', 'x'], ['status', 'published']])).status).toBe(403);
-    expect((await post(marek, `${editor}/usun`, [])).status).toBe(403);
-    expect((await SELF.fetch(`https://localhost${editor}/podglad`)).status).toBe(401);
+    expect((await post(marek, `/admin/terapeuci/${ANNA}/strony`, [['title', 'x']])).status).toBe(403);
+    expect((await SELF.fetch(`https://localhost${editor}`)).status).toBe(401);
+    // Marek's own panel cannot open Anna's page by id either.
+    const pid = editor.split('/').pop()!;
+    expect((await SELF.fetch(`https://localhost/admin/terapeuci/${MAREK}/strony/${pid}`, { headers: { cookie: marek.cookie } })).status).toBe(404);
   });
 });

@@ -1,16 +1,21 @@
 /**
- * Host blocks: what a therapist's page knows that the engine cannot.
+ * Host blocks: what a therapist's page knows that the pages service cannot.
  *
  * Every block here is a data provider. It reads the database - her portrait
  * and facts, her offer, her calendar, her FAQ, her credentials - and hands the
- * engine an ordinary block filled with it: a `hero`, a `pricing`, a `faq`.
- * The engine then draws it the way the chosen theme draws every hero and every
+ * service an ordinary block filled with it: a `hero`, a `pricing`, a `faq`.
+ * The service draws it the way the chosen theme draws every hero and every
  * price list, so switching a template restyles her data along with her words.
+ * What she typed over the data in the editor (a heading of her own) wins over
+ * what is sent here; the service merges the two.
  *
- * One block keeps a renderer of its own: the calendar, a table of days that is
- * the same on every page of hers on purpose.
+ * One block keeps markup of its own: the calendar, a table of days that is the
+ * same on every page of hers on purpose. It travels as an `html` block, which
+ * only this authenticated host can send.
+ *
+ * `HOST_BLOCK_DEFS` is what the service is told about these blocks (label,
+ * hint, the fields she may fill); `resolveAll` is what it gets at render time.
  */
-import type { Block, BlockDef, Values } from 'x402-landings';
 import type { Env } from '../env';
 import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
@@ -42,11 +47,10 @@ export interface SectionCtx {
   therapist: PublicTherapist;
   faq: PublicFaqItem[];
   slots: PublicSlot[];
-  /** Resolved layout axes of the page being rendered; the page renderer fills it. */
-  layout?: Record<string, string>;
-  /** Anchors the page renders, so a button never points at nothing. */
-  anchors?: ReadonlySet<string>;
 }
+
+type Values = Record<string, unknown>;
+type Block = Values & { type: string };
 
 
 
@@ -193,9 +197,6 @@ export function pluginCta(env: Env): string {
 
 // -------------------------------------------------------------- providers ---
 
-const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
-const has = (ctx: SectionCtx, anchor: string): boolean => ctx.anchors === undefined || ctx.anchors.has(anchor);
-
 const T = (name: string, label: string, hint?: string): { kind: 'text'; name: string; label: string; hint?: string; max: number } =>
   ({ kind: 'text', name, label, hint, max: 160 });
 
@@ -222,10 +223,11 @@ function facts(t: PublicTherapist): Values[] {
   return out.slice(0, 4);
 }
 
+/** Both buttons, always: the service drops the one whose section is not on the page. */
 function bookButtons(ctx: SectionCtx): Values[] {
   const out: Values[] = [];
-  if (ctx.slots.length > 0 && has(ctx, 'terminy')) out.push({ label: 'Zobacz wolne terminy', href: '#terminy', style: 'primary' });
-  if (has(ctx, 'steps')) out.push({ label: 'Jak wygląda pierwsze spotkanie', href: '#steps', style: 'ghost' });
+  if (ctx.slots.length > 0) out.push({ label: 'Zobacz wolne terminy', href: '#terminy', style: 'primary' });
+  out.push({ label: 'Jak wygląda pierwsze spotkanie', href: '#steps', style: 'ghost' });
   return out;
 }
 
@@ -238,22 +240,29 @@ function firstSentence(text: string): string {
 
 const photo = (t: PublicTherapist): Values => (t.photo_url ? { kind: 'url', url: t.photo_url, alt: t.display_name } : { kind: 'generated' });
 
-export interface HostDef extends Omit<BlockDef, 'render' | 'resolve'> {
-  resolve(block: Block, ctx: SectionCtx): Block | null;
-  render?(block: Block): string;
+/** A host block as the service is told about it, plus how this host fills it. */
+export interface HostDef {
+  label: string;
+  hint: string;
+  fields?: Array<{ kind: 'text'; name: string; label: string; hint?: string; max: number }>;
+  tone?: 'alt' | 'dark' | 'narrow';
+  family?: string;
+  anchor?: string;
+  /** Her data as a core block of the service, or null when there is nothing to show. */
+  resolve(ctx: SectionCtx): Block | null;
 }
 
 export const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
     label: 'Nagłówek profilu', hint: 'Imię, zdjęcie, jedno zdanie i fakty z Twoich danych', family: 'hero',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const t = ctx.therapist;
       return {
-        type: ctx.layout?.display === 'poster' ? 'hero-poster' : 'hero',
-        eyebrow: str(b.eyebrow) || t.headline || t.locations[0]?.city || '',
-        heading: str(b.heading) || t.display_name,
-        lead: str(b.lead) || firstSentence(t.bio),
+        type: 'hero',
+        eyebrow: t.headline || t.locations[0]?.city || '',
+        heading: t.display_name,
+        lead: firstSentence(t.bio),
         buttons: bookButtons(ctx),
         stats: facts(t),
         media: photo(t),
@@ -263,40 +272,40 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis i zdjęcie obok siebie',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
-      return { type: 'media-text', eyebrow: str(b.eyebrow) || 'Jak pracuję', heading: str(b.heading) || 'Tak wygląda praca ze mną', body: t.bio, media: photo(t) };
+      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body: t.bio, media: photo(t) };
     },
   },
   dane: {
     label: 'Podstawowe informacje', hint: 'Cena, długość sesji, forma, najbliższy termin', tone: 'narrow',
     fields: OWN,
-    resolve: (b, ctx) => ({ type: 'stats', heading: str(b.heading), items: facts(ctx.therapist) }),
+    resolve: (ctx) => ({ type: 'stats', items: facts(ctx.therapist) }),
   },
   topics: {
     label: 'Z czym przychodzą', hint: 'Obszary i nurty z Twoich danych', tone: 'alt',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const t = ctx.therapist;
       const items = [
         ...t.topics.map((x) => ({ title: x.name, body: 'obszar pracy' })),
         ...t.modalities.map((x) => ({ title: x.name, body: 'nurt' })),
       ].slice(0, 6);
-      return items.length === 0 ? null : { type: 'features', eyebrow: str(b.eyebrow) || 'Obszary', heading: str(b.heading) || 'Z czym możesz przyjść', items };
+      return items.length === 0 ? null : { type: 'features', eyebrow: 'Obszary', heading: 'Z czym możesz przyjść', items };
     },
   },
   offers: {
     label: 'Oferta', hint: 'Sesje i ceny z zakładki Oferta', family: 'oferta',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.offers.length === 0) return null;
       return {
-        type: 'pricing', eyebrow: str(b.eyebrow) || 'Oferta', heading: str(b.heading) || 'Sesje i ceny',
+        type: 'pricing', eyebrow: 'Oferta', heading: 'Sesje i ceny',
         items: t.offers.slice(0, 4).map((o) => ({
           name: o.title, price: formatPrice(o.price_minor, o.currency), per: `${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'w gabinecie'}`,
-          cta_label: has(ctx, 'terminy') ? 'Zobacz terminy' : '', cta_href: '#terminy',
+          cta_label: 'Zobacz terminy', cta_href: '#terminy',
         })),
       };
     },
@@ -304,7 +313,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
   slots: {
     label: 'Wolne terminy', hint: 'Kalendarz z zakładki Dostępność, z zasadami odwołania', tone: 'alt', anchor: 'terminy',
     fields: [T('heading', 'Nagłówek', 'puste = domyślny')],
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const table = slotsByDay(ctx.slots);
       if (table === '') return null;
       const t = ctx.therapist;
@@ -312,56 +321,82 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
         ? escapeHtml(t.cancellation_policy)
         : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
       return {
-        ...b,
-        html: `<div class="slots-wrap"><p class="lp-kicker">Najbliższe wolne terminy</p><h2>${escapeHtml(str(b.heading) || 'Kiedy możemy się spotkać')}</h2>${table}
+        type: 'html',
+        eyebrow: 'Najbliższe wolne terminy',
+        heading: 'Kiedy możemy się spotkać',
+        html: `<div class="slots-wrap">${table}
 <div class="slot-foot"><p>Rezerwacja odbywa się przez asystenta ChatGPT.</p><p>${policy}</p>${pluginCta(ctx.env)}</div></div>`,
       };
     },
-    render: (b) => (typeof b.html === 'string' ? b.html : ''),
   },
   zestawienie: {
-    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi z zakładki O mnie', tone: 'alt',
+    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi z zakładki O mnie', tone: 'alt', anchor: 'steps',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
       const items = [
         { title: 'Jak wygląda pierwsze spotkanie', body: m.course },
         { title: 'Jak się przygotować', body: m.prep },
         { title: 'Co potem', body: m.decision },
       ].filter((x) => x.body.trim() !== '');
-      return items.length === 0 ? null : { type: 'steps', eyebrow: str(b.eyebrow) || 'Pierwsze spotkanie', heading: str(b.heading) || 'Jak to wygląda na początku', items };
+      return items.length === 0 ? null : { type: 'steps', eyebrow: 'Pierwsze spotkanie', heading: 'Jak to wygląda na początku', items };
     },
   },
   'faq-profil': {
     label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt',
     fields: OWN,
-    resolve: (b, ctx) =>
+    resolve: (ctx) =>
       ctx.faq.length === 0
         ? null
-        : { type: 'faq', eyebrow: str(b.eyebrow) || 'Pytania i odpowiedzi', heading: str(b.heading) || 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
+        : { type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
   },
   credentials: {
     label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const c = ctx.therapist.credentials;
       return c.length === 0
         ? null
-        : { type: 'features', eyebrow: str(b.eyebrow) || 'Kwalifikacje', heading: str(b.heading) || 'Skąd mam do tego przygotowanie',
+        : { type: 'features', eyebrow: 'Kwalifikacje', heading: 'Skąd mam do tego przygotowanie',
             items: c.slice(0, 6).map((x) => ({ title: x.title, body: [x.issuer, x.year, x.verified ? 'zweryfikowane' : ''].filter(Boolean).join(' · ') })) };
     },
   },
   zaproszenie: {
     label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark',
     fields: OWN,
-    resolve: (b, ctx) => {
+    resolve: (ctx) => {
       const t = ctx.therapist;
       return {
         type: 'cta',
-        heading: str(b.heading) || (t.accepting_new_clients ? 'Umów pierwszą rozmowę' : 'Zapisz się na listę oczekujących'),
-        lead: str(b.lead) || 'Rezerwacja przez asystenta ChatGPT, bez telefonów i bez pisania w nocy.',
+        heading: t.accepting_new_clients ? 'Umów pierwszą rozmowę' : 'Zapisz się na listę oczekujących',
+        lead: 'Rezerwacja przez asystenta ChatGPT, bez telefonów i bez pisania w nocy.',
         buttons: bookButtons(ctx),
       };
     },
   },
 };
+
+/** The declaration the service keeps: everything but the code. */
+export const HOST_BLOCK_DEFS: Record<string, Omit<HostDef, 'resolve'>> = Object.fromEntries(
+  Object.entries(HOST_SECTIONS).map(([type, { resolve: _resolve, ...def }]) => [type, def]),
+);
+
+/** Her data for every host block, keyed by type - what a render and an edit session send. */
+export function resolveAll(ctx: SectionCtx): Record<string, Block | null> {
+  return Object.fromEntries(Object.entries(HOST_SECTIONS).map(([type, def]) => [type, def.resolve(ctx)]));
+}
+
+/** One line per host block for the editor's list: what it holds today, or that it would not show. */
+export function summarize(resolved: Record<string, Block | null>): Record<string, { text: string; empty?: true }> {
+  return Object.fromEntries(
+    Object.entries(HOST_SECTIONS).map(([type, def]) => [
+      type,
+      resolved[type] ? { text: def.hint } : { text: `${def.hint} — brak danych`, empty: true as const },
+    ]),
+  );
+}
+
+/** The default spine of a profile that has never been arranged. */
+export const DEFAULT_PROFILE = [
+  'hero-profil', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'faq-profil', 'credentials', 'zaproszenie',
+];

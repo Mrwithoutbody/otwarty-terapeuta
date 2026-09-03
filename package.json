@@ -22,12 +22,12 @@
     "db:reset:local": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed:local",
     "cf-typegen": "wrangler types",
     "test:e2e": "playwright test",
-    "test:all": "npm run test && npm run test:e2e"
+    "test:all": "npm run test && npm run test:e2e",
+    "pages:migrate": "node scripts/pages-migrate.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
     "hono": "4.13.3",
-    "x402-landings": "file:../../x402Landings",
     "zod": "4.4.3"
   },
   "devDependencies": {
@@ -45,6 +45,7 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.67.0",
     "vitest": "4.1.11",
-    "wrangler": "4.124.0"
+    "wrangler": "4.124.0",
+    "x402-landings": "file:../../x402Landings"
   }
 }

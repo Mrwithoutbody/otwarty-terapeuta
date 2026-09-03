@@ -39,26 +39,6 @@ function saveProfile(who: Actor, pairs: Array<[string, string]>): Promise<Respon
   });
 }
 
-/** Posts the page-layout form, which saves on its own endpoint. */
-function saveSections(who: Actor, pairs: Array<[string, string]>): Promise<Response> {
-  const body = new URLSearchParams();
-  body.append('csrf', who.csrf);
-  for (const [key, value] of pairs) body.append(key, value);
-  return SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/sekcje`, {
-    method: 'POST',
-    headers: { cookie: who.cookie, 'content-type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-    redirect: 'manual',
-  });
-}
-
-async function storedSections(): Promise<Array<Record<string, unknown>>> {
-  const row = await env.DB.prepare(`SELECT sections_json FROM therapists WHERE id = ?`)
-    .bind(ANNA)
-    .first<{ sections_json: string }>();
-  return JSON.parse(row?.sections_json ?? '[]') as Array<Record<string, unknown>>;
-}
-
 function editorHtml(who: Actor): Promise<string> {
   return SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, {
     headers: { cookie: who.cookie },
@@ -164,33 +144,6 @@ describe('licznik odsłon w panelu', () => {
 
     expect(html).toContain('Odsłony (30 dni)');
     expect(html).toContain('strona 7');
-  });
-});
-
-describe('the way the page is presented', () => {
-  let admin: Actor;
-
-  beforeAll(async () => {
-    admin = await actor('layout-admin@example.invalid', 'admin');
-  });
-
-
-  it('stores what the selects posted and drops a value it does not know', async () => {
-    const response = await saveSections(admin, [
-      ['layout_theme', 'amber'],
-      ['layout_rhythm', 'tight'],
-      ['layout_bands', 'stripes'],
-      ['layout_nav', 'anchors'],
-      ['layout_hero', 'onclick=1'],
-    ]);
-    expect(response.status).toBe(302);
-
-    const row = await env.DB.prepare(`SELECT layout_json FROM therapists WHERE id = ?`)
-      .bind(ANNA)
-      .first<{ layout_json: string }>();
-    expect(JSON.parse(row?.layout_json ?? '{}')).toEqual({
-      theme: 'amber', rhythm: 'tight', display: '', bands: 'stripes', hero: '', nav: 'anchors',
-    });
   });
 });
 
@@ -395,50 +348,4 @@ describe('slot hours come from the hour chips', () => {
     expect(await localHours()).toEqual(before);
   });
 
-});
-
-// The layout lives in its own tab and its own endpoint. It used to ride along
-// with the profile form, so appending one empty section rewrote the whole
-// profile - relations included, which are replaced wholesale.
-describe('page layout saves on its own', () => {
-  let admin: Actor;
-
-  beforeAll(async () => {
-    admin = await actor('layout-admin@example.invalid', 'admin');
-  });
-
-  it('stores the sections in the posted order', async () => {
-    await saveSections(admin, [
-      ['sec_0_type', 'intro'], ['sec_0_pos', '2'],
-      ['sec_1_type', 'quote'], ['sec_1_pos', '1'], ['sec_1_body', 'Jedno zdanie.'],
-    ]);
-
-    const sections = await storedSections();
-    expect(sections.map((section) => section.type)).toEqual(['quote', 'intro']);
-  });
-
-  it('keeps the layout when the profile form is saved', async () => {
-    await saveSections(admin, [['sec_0_type', 'quote'], ['sec_0_pos', '1'], ['sec_0_body', 'Zostaje.']]);
-    await saveProfile(admin, [['headline', 'Nowy nagłówek.']]);
-
-    const sections = await storedSections();
-    expect(sections).toHaveLength(1);
-    expect(sections[0]?.body).toBe('Zostaje.');
-  });
-
-  it('drops a section marked for removal and appends the one being added', async () => {
-    await saveSections(admin, [
-      ['sec_0_type', 'quote'], ['sec_0_pos', '1'], ['sec_0_body', 'Do usunięcia.'], ['sec_0_del', '1'],
-      ['sec_1_type', 'intro'], ['sec_1_pos', '2'],
-      ['action', 'add_section'], ['add_section', 'cta'],
-    ]);
-
-    expect((await storedSections()).map((section) => section.type)).toEqual(['intro', 'cta']);
-  });
-
-  it('refuses a therapist reaching for someone else\'s layout', async () => {
-    const stranger = await actor('layout-stranger@example.invalid', 'therapist', 'th_1e07b8d3629af45c0d2e7a91');
-    const response = await saveSections(stranger, [['sec_0_type', 'intro'], ['sec_0_pos', '1']]);
-    expect(response.status).toBe(403);
-  });
 });

@@ -674,7 +674,10 @@ export const ADMIN_CSS = String.raw`
 .crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
 .crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
 
-/* --- profile composer: the editor itself is the engine's (lp-editor.css) ---- */
+/* --- pages: the editor is the pages service's, framed ---- */
+.pages-editor { width: 100%; height: min(88vh, 1100px); border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fff; }
+.notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
+/* --- profile composer (legacy layout, kept for the photo cropper) ---- */
 .composer .hint { max-width: 62ch; }
 .composer-split { display: grid; grid-template-columns: minmax(18rem, 27rem) minmax(0, 1fr);
   gap: 1.5rem; align-items: start; }

@@ -28,29 +28,12 @@ import {
 } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
-import { assetUrls, htmlResponse, renderPage } from './layout';
-import {
-  applyPreset,
-  getPageById,
-  heroFor,
-  listPages,
-  LP_DOC_CSS,
-  lpParseLayout,
-  parseBlocks,
-  presetLook,
-  PRESETS,
-  profileBlocks,
-  profileLayout,
-  readEditor,
-  renderTemplatePicker,
-  pageDocument,
-  profileDocument,
-  renderTherapistDocument,
-  slugify,
-  type PageRow,
-} from './lp';
+import { htmlResponse, renderPage } from './layout';
+import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './lp';
+import { createPage, getPage, listPages, listPresets, type PageInfo, type PresetInfo } from './pages-client';
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
+import type { SectionCtx } from './host-blocks';
 
 /**
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
@@ -450,7 +433,10 @@ interface EditorContext {
   offers: OfferRow[];
   faq: FaqRow[];
   media: Array<{ id: string; url: string }>;
-  pages: PageRow[];
+  pages: PageInfo[];
+  presets: PresetInfo[];
+  /** The hosted editor for her profile page, or the reason there is none. */
+  profileEditor: { url: string } | { error: string };
 }
 
 const SESSION_TYPE_LABELS: RefTag[] = [
@@ -465,6 +451,20 @@ const AGE_GROUP_LABELS: RefTag[] = [
   { slug: 'children', name_pl: 'dzieci' },
   { slug: 'seniors', name_pl: 'seniorzy' },
 ];
+
+const PAGES_DOWN = 'Edytor stron jest chwilowo niedostępny. Twoje dane i strona publiczna działają; spróbuj za chwilę.';
+
+/** Her data as the editor's preview needs it; null before the profile is published. */
+async function previewContext(env: Env, therapistId: string): Promise<SectionCtx | null> {
+  const t = await getTherapist(env, { therapist_id: therapistId });
+  return t ? profileContext(env, t) : null;
+}
+
+async function profileEditorUrl(env: Env, therapistId: string): Promise<string> {
+  const row = await getTherapistRowForAdmin(env, therapistId);
+  const [page, ctx] = await Promise.all([ensureProfilePage(env, therapistId, row?.display_name ?? 'Profil'), previewContext(env, therapistId)]);
+  return editorUrl(env, page, ctx);
+}
 
 async function loadEditorContext(env: Env, therapistId: string | null): Promise<EditorContext> {
   const [languages, specialties, modalities] = await Promise.all([
@@ -486,9 +486,23 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     faq: [],
     media: [],
     pages: [],
+    presets: [],
+    profileEditor: { error: 'Najpierw zapisz profil.' },
   };
   if (!therapistId) return context;
-  context.pages = await listPages(env, therapistId, false);
+  try {
+    const [pages, presets, editor] = await Promise.all([
+      listPages(env, therapistId),
+      listPresets(env),
+      profileEditorUrl(env, therapistId),
+    ]);
+    context.pages = pages.filter((p) => p.slug !== PROFILE_SLUG);
+    context.presets = presets;
+    context.profileEditor = { url: editor };
+  } catch (err) {
+    if (!(err instanceof PagesUnavailable)) throw err;
+    context.profileEditor = { error: PAGES_DOWN };
+  }
 
   const [chosenLanguages, chosenTopics, chosenModalities, location, offers, faq, media] = await Promise.all([
     env.DB.prepare(`SELECT language_code FROM therapist_languages WHERE therapist_id = ?`)
@@ -926,18 +940,12 @@ ${
 
 <section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
 <h2>Wygląd strony</h2>
-<p class="panel-lead">Jeden wybór: szablon. Po prawej widzisz swoją stronę; najedź na szablon, żeby
-zobaczyć ją w tym wyglądzie, kliknij, żeby go wybrać.</p>
-<div class="composer-split">
-<form method="post" action="/admin/terapeuci/${id}/sekcje" class="composer" data-composer>
-  ${csrfField(session)}
-  ${renderTemplatePicker(`/admin/terapeuci/${id}/podglad`, profileLayout(row.layout_json))}
-</form>
-<aside class="composer-preview">
-  <p class="hint"><span data-preview-label>Twoja strona teraz</span> — <a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
-  <iframe src="/admin/terapeuci/${id}/podglad" data-preview-frame title="Podgląd Twojej strony profilowej"></iframe>
-</aside>
-</div>
+<p class="panel-lead">Szablon, kolejność bloków i własne teksty. Po prawej widzisz swoją stronę;
+najedź na szablon, żeby zobaczyć ją w tym wyglądzie, kliknij, żeby go wybrać.
+<a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Otwórz stronę w nowej karcie ↗</a></p>
+${'url' in context.profileEditor
+    ? `<iframe class="pages-editor" src="${escapeHtml(context.profileEditor.url)}" title="Edytor Twojej strony"></iframe>`
+    : `<p class="notice">${escapeHtml(context.profileEditor.error)}</p>`}
 </section>
 
 <section data-tab-panel data-tab-label="Podstrony" id="panel-strony">
@@ -957,17 +965,17 @@ ${
         )
         .join('')}</tbody></table></div>`
 }
-<form method="post" action="/admin/terapeuci/${id}/strony">
+${'url' in context.profileEditor ? `<form method="post" action="/admin/terapeuci/${id}/strony">
   ${csrfField(session)}
   <div class="field"><label for="page_title">Tytuł nowej podstrony</label>
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
   <div class="field"><label for="page_preset">Szablon</label>
-    <select id="page_preset" name="preset">${Object.entries(PRESETS)
-      .map(([key, p]) => `<option value="${escapeHtml(key)}">${escapeHtml(p.label)} — ${escapeHtml(p.hint)}</option>`)
+    <select id="page_preset" name="preset">${context.presets
+      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.label)} — ${escapeHtml(p.hint)}</option>`)
       .join('')}</select>
     <p class="hint">Szablon ustawia motyw, układ i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
   <button class="btn" type="submit">Utwórz podstronę</button>
-</form>
+</form>` : ''}
 </section>
 
 </div>`;
@@ -1267,43 +1275,13 @@ const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 /** Thumbnail side, and the suffix that pairs it with its master key. */
 const PHOTO_THUMB_SUFFIX = '160';
 
-/**
- * The page layout saves on its own, separately from the profile form. Adding a
- * section used to submit the whole profile - relations included, which are
- * replaced wholesale - just to append one empty section.
- */
-adminApp.post('/terapeuci/:id/sekcje', async (c) => {
-  const body = await formValues(c.req.raw);
-  const g = await guard(c, body, ['admin', 'therapist']);
-  if ('response' in g) return g.response;
-  const id = c.req.param('id');
-  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-
-  const current = await getTherapistRowForAdmin(c.env, id);
-  const edited = readEditor(body, { heroFor, blocks: profileBlocks(current?.sections_json ?? null) });
-  const sections = JSON.stringify(edited.blocks);
-  await c.env.DB.prepare(`UPDATE therapists SET sections_json=?, layout_json=?, updated_at=? WHERE id=?`)
-    .bind(sections, JSON.stringify(edited.layout), nowIso(), id)
-    .run();
-
-  await audit(c.env, {
-    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
-    actorId: g.session.user.id,
-    action: 'therapist.sections_updated',
-    subjectType: 'therapist',
-    subjectId: id,
-    meta: { count: JSON.parse(sections).length },
-  });
-  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}#panel-strona` } });
-});
-
 // ---------------------------------------------------------------- podstrony ---
 
-/** Session, ownership and the page itself. A posted body means CSRF is checked too. */
-async function ownedPage(
+/** Session and ownership. A posted body means CSRF is checked too. */
+async function ownedTherapist(
   c: { env: Env; req: { raw: Request; param(name: string): string } },
   body: URLSearchParams | null,
-): Promise<{ session: AdminSession; row: PageRow; therapist: TherapistRow } | { response: Response }> {
+): Promise<{ session: AdminSession; therapist: TherapistRow } | { response: Response }> {
   let session: AdminSession;
   if (body) {
     const g = await guard(c, body, ['admin', 'therapist']);
@@ -1318,170 +1296,70 @@ async function ownedPage(
   if (!ownsTherapist(session.user, id)) {
     return { response: page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403) };
   }
-  const [therapist, row] = await Promise.all([getTherapistRowForAdmin(c.env, id), getPageById(c.env, id, c.req.param('pid'))]);
-  if (!therapist || !row) return { response: page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono podstrony</h1>', 404) };
-  return { session, row, therapist };
+  const therapist = await getTherapistRowForAdmin(c.env, id);
+  if (!therapist) return { response: page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404) };
+  return { session, therapist };
 }
 
-/** A free slug under her profile: the title, and a counter when she reuses one. */
-async function freePageSlug(env: Env, therapistId: string, title: string): Promise<string> {
-  const base = slugify(title).slice(0, 48) || 'strona';
-  const taken = new Set(
-    (await env.DB.prepare(`SELECT slug FROM therapist_pages WHERE therapist_id = ?`).bind(therapistId).all<{ slug: string }>())
-      .results.map((r) => r.slug),
-  );
-  if (!taken.has(base)) return base;
-  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
-}
-
+/** A new subpage in the service, from a template; the editor opens on it. */
 adminApp.post('/terapeuci/:id/strony', async (c) => {
   const body = await formValues(c.req.raw);
-  const g = await guard(c, body, ['admin', 'therapist']);
+  const g = await ownedTherapist(c, body);
   if ('response' in g) return g.response;
-  const id = c.req.param('id');
-  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  const id = g.therapist.id;
 
   const title = sanitizeLine(body.get('title') ?? '', 140);
   if (title === '') return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
-  const pid = randomId('pg');
-  const at = nowIso();
-  const preset = applyPreset(body.get('preset') ?? '', title);
-  await c.env.DB.prepare(
-    `INSERT INTO therapist_pages (id, therapist_id, slug, title, status, blocks_json, layout_json, position, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'draft', ?, ?, 0, ?, ?)`,
-  )
-    .bind(pid, id, await freePageSlug(c.env, id, title), title, JSON.stringify(preset.blocks), JSON.stringify(preset.layout), at, at)
-    .run();
+  let made: PageInfo | 'slug_taken';
+  try {
+    made = await createPage(c.env, { owner: id, title, preset: body.get('preset') ?? '' });
+    // The title's slug is hers already: number it rather than refuse a second workshop.
+    for (let n = 2; made === 'slug_taken' && n < 50; n++) {
+      made = await createPage(c.env, { owner: id, title, slug: `${slugOf(title)}-${n}`, preset: body.get('preset') ?? '' });
+    }
+  } catch (err) {
+    if (!(err instanceof PagesUnavailable)) throw err;
+    return page(c.env, 'Edytor niedostępny', `<h1>Edytor niedostępny</h1><p>${PAGES_DOWN}</p>`, 503);
+  }
+  if (made === 'slug_taken') return page(c.env, 'Adres zajęty', '<h1>Adres zajęty</h1><p>Masz już wiele podstron o tym tytule.</p>', 409);
   await audit(c.env, {
     actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
     actorId: g.session.user.id,
     action: 'therapist.page_created',
     subjectType: 'therapist',
     subjectId: id,
-    meta: { page: pid },
+    meta: { page: made.id },
   });
-  return c.redirect(`/admin/terapeuci/${id}/strony/${pid}`, 303);
+  return c.redirect(`/admin/terapeuci/${id}/strony/${made.id}`, 303);
 });
 
-function pageEditor(session: AdminSession, therapist: TherapistRow, row: PageRow): string {
-  const id = escapeHtml(therapist.id);
-  const pid = escapeHtml(row.id);
-  const preview = `/admin/terapeuci/${id}/strony/${pid}/podglad`;
-
-  return `<p><a href="/admin/terapeuci/${id}#panel-strony">← Profil: ${escapeHtml(therapist.display_name)}</a></p>
-<h1>Podstrona: ${escapeHtml(row.title)}</h1>
-<div class="composer-split">
-<form method="post" action="/admin/terapeuci/${id}/strony/${pid}" class="composer" data-composer>
-  ${csrfField(session)}
-  <div class="field"><label for="page_title">Tytuł</label>
-    <input id="page_title" name="title" required maxlength="140" value="${escapeHtml(row.title)}"></div>
-  <div class="field"><label for="page_slug">Adres</label>
-    <input id="page_slug" name="slug" required maxlength="64" pattern="[a-z0-9-]{1,64}" value="${escapeHtml(row.slug)}">
-    <p class="hint">/terapeuci/${escapeHtml(therapist.slug)}/<strong>${escapeHtml(row.slug)}</strong> — małe litery, cyfry i myślniki.</p></div>
-  <div class="field"><label for="page_status">Widoczność</label>
-    <select id="page_status" name="status">
-      <option value="draft"${row.status === 'draft' ? ' selected' : ''}>Szkic — widzisz tylko Ty</option>
-      <option value="published"${row.status === 'published' ? ' selected' : ''}>Opublikowana — link na profilu</option>
-    </select></div>
-  <p class="sec-save"><button class="btn" type="submit">Zapisz podstronę</button></p>
-  ${renderTemplatePicker(preview, lpParseLayout(row.layout_json))}
-</form>
-<aside class="composer-preview">
-  <p class="hint"><span data-preview-label>Podstrona teraz</span> — <a href="${preview}" target="_blank" rel="noopener">otwórz w nowej karcie ↗</a></p>
-  <iframe src="${preview}" data-preview-frame title="Podgląd podstrony"></iframe>
-</aside>
-</div>
-<form method="post" action="/admin/terapeuci/${id}/strony/${pid}/usun" class="inline-form"
-      data-confirm="Usunąć podstronę „${escapeHtml(row.title)}"? Tego nie da się cofnąć.">
-  ${csrfField(session)}
-  <button class="btn secondary" type="submit">Usuń podstronę</button>
-</form>`;
+function slugOf(title: string): string {
+  return title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'strona';
 }
 
+/** The hosted editor for one of her subpages, framed. Owner only, so drafts stay private. */
 adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
-  const g = await ownedPage(c, null);
+  const g = await ownedTherapist(c, null);
   if ('response' in g) return g.response;
-  return page(c.env, g.row.title, pageEditor(g.session, g.therapist, g.row));
-});
-
-adminApp.post('/terapeuci/:id/strony/:pid', async (c) => {
-  const body = await formValues(c.req.raw);
-  const g = await ownedPage(c, body);
-  if ('response' in g) return g.response;
-  const { row, therapist } = g;
-
-  const title = sanitizeLine(body.get('title') ?? '', 140) || row.title;
-  const slug = (body.get('slug') ?? '').trim().toLowerCase();
-  const status = body.get('status') === 'published' ? 'published' : 'draft';
-  if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
-    return page(c.env, 'Zły adres', '<h1>Zły adres</h1><p>Adres to małe litery, cyfry i myślniki.</p>', 400);
-  }
-  const edited = readEditor(body, { heroFor, blocks: parseBlocks(row.blocks_json) });
-  const blocks = JSON.stringify(edited.blocks);
-  const layout = JSON.stringify(edited.layout);
+  const id = g.therapist.id;
   try {
-    await c.env.DB.prepare(
-      `UPDATE therapist_pages SET title=?, slug=?, status=?, blocks_json=?, layout_json=?, updated_at=? WHERE id=? AND therapist_id=?`,
-    )
-      .bind(title, slug, status, blocks, layout, nowIso(), row.id, therapist.id)
-      .run();
+    const row = await getPage(c.env, c.req.param('pid'));
+    if (!row || row.owner !== id) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono podstrony</h1>', 404);
+    const url = await editorUrl(c.env, row, await previewContext(c.env, id));
+    return page(
+      c.env,
+      row.title,
+      `<p><a href="/admin/terapeuci/${escapeHtml(id)}#panel-strony">← Profil: ${escapeHtml(g.therapist.display_name)}</a></p>
+<h1>Podstrona: ${escapeHtml(row.title)}</h1>
+<p class="hint">Adres: <a href="/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)}" target="_blank" rel="noopener">/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)} ↗</a>
+ — ${row.status === 'published' ? 'opublikowana' : 'szkic, widzisz ją tylko Ty'}. Usuwanie i publikacja są w edytorze poniżej.</p>
+<iframe class="pages-editor" src="${escapeHtml(url)}" title="Edytor podstrony"></iframe>`,
+    );
   } catch (err) {
-    if (!String(err).includes('UNIQUE')) throw err;
-    return page(c.env, 'Adres zajęty', `<h1>Adres zajęty</h1><p>Masz już podstronę pod adresem /${escapeHtml(slug)}. Wybierz inny.</p>`, 409);
+    if (!(err instanceof PagesUnavailable)) throw err;
+    return page(c.env, 'Edytor niedostępny', `<h1>Edytor niedostępny</h1><p>${PAGES_DOWN}</p>`, 503);
   }
-  await audit(c.env, {
-    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
-    actorId: g.session.user.id,
-    action: 'therapist.page_updated',
-    subjectType: 'therapist',
-    subjectId: therapist.id,
-    meta: { page: row.id, status, count: JSON.parse(blocks).length },
-  });
-  return c.redirect(`/admin/terapeuci/${therapist.id}/strony/${row.id}`, 303);
-});
-
-adminApp.post('/terapeuci/:id/strony/:pid/usun', async (c) => {
-  const body = await formValues(c.req.raw);
-  const g = await ownedPage(c, body);
-  if ('response' in g) return g.response;
-  await c.env.DB.prepare(`DELETE FROM therapist_pages WHERE id = ? AND therapist_id = ?`).bind(g.row.id, g.therapist.id).run();
-  await audit(c.env, {
-    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
-    actorId: g.session.user.id,
-    action: 'therapist.page_deleted',
-    subjectType: 'therapist',
-    subjectId: g.therapist.id,
-    meta: { page: g.row.id },
-  });
-  return c.redirect(`/admin/terapeuci/${g.therapist.id}#panel-strony`, 303);
-});
-
-/** The draft as the public would see it once published. Owner only, so drafts stay private. */
-adminApp.get('/terapeuci/:id/strony/:pid/podglad', async (c) => {
-  const g = await ownedPage(c, null);
-  if ('response' in g) return g.response;
-  const t = await getTherapist(c.env, { therapist_id: g.therapist.id });
-  if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc podstrony nie da się jeszcze pokazać.</p>', 404);
-  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-  const chosen = c.req.query('preset');
-  const doc = pageDocument(g.row, t);
-  if (chosen && chosen in PRESETS) Object.assign(doc, presetLook(chosen, doc.blocks));
-  return htmlResponse(c.env, await renderTherapistDocument({ ...doc, noindex: true }, ctx, t, pages, assetUrls(LP_DOC_CSS)));
-});
-
-/** Her profile as the public sees it, or as it would look in a template she has not chosen yet. */
-adminApp.get('/terapeuci/:id/podglad', async (c) => {
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
-  const id = c.req.param('id');
-  if (!ownsTherapist(session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-  const t = await getTherapist(c.env, { therapist_id: id });
-  if (!t) return page(c.env, 'Podgląd', '<h1>Podgląd</h1><p>Profil nie jest opublikowany, więc nie da się go jeszcze pokazać.</p>', 404);
-  const chosen = c.req.query('preset');
-  const doc = profileDocument(t, true);
-  if (chosen && chosen in PRESETS) Object.assign(doc, presetLook(chosen, doc.blocks));
-  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-  return htmlResponse(c.env, await renderTherapistDocument(doc, ctx, t, pages, assetUrls(LP_DOC_CSS)));
 });
 
 adminApp.post('/terapeuci/:id/zdjecie', async (c) => {

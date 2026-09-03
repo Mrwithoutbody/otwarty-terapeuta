@@ -158,3 +158,17 @@ padają z „not authorized [code: 7403]" (2026-09-02: zalogowane było tylko AN
 Wtedy poproś o `! npx wrangler login` na właściwym koncie — `CLOUDFLARE_ACCOUNT_ID` bez
 dostępu do konta nic nie da. Kolejność na produkcji: migracja → `npm run build:widget &&
 npx wrangler deploy --env production`.
+
+## Strony terapeutek żyją w usłudze stron (2026-09-03)
+
+Profil i podstrony to strony w `x402landings.space` (repo `x402Landings`), nie
+w D1 ot-02. ot-02 tylko przysyła dane bloków (`host-blocks.ts`) i osadza edytor
+usługi w iframie. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
+
+- Nowy blok danych = wpis w `HOST_SECTIONS`; usługa dowiaduje się o nim sama
+  (`PUT /v1/site/blocks` przed każdą sesją edycji). Żadnego skryptu po deployu.
+- Produkcja wymaga sekretu `PAGES_API_KEY` (klucz site'u `ot-02` w usłudze;
+  `npm run site:create` po stronie x402Landings). Bez niego `assertConfig` odmawia.
+- Kolejność zmian w kontrakcie: najpierw usługa (testy + deploy), potem ot-02.
+- Awaria usługi nie zdejmuje profili: kopia w R2, nagłówek `x-pages-stale: 1`.
+

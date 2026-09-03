@@ -17,8 +17,8 @@ import { formatDateTime, formatPrice, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
-import { assetUrls, htmlResponse, renderPage } from './layout';
-import { getPage, listPages, LP_DOC_CSS, pageDocument, profileDocument, profileLayout, renderTherapistDocument, type SectionCtx } from './lp';
+import { hostCssUrl, htmlResponse, renderPage } from './layout';
+import { LP_HOST_CSS, PROFILE_SLUG, serveTherapistPage, unavailablePage, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
 
 /**
@@ -55,10 +55,7 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
     .filter(Boolean)
     .join(', ');
 
-  // Her page's theme, as one hairline on the card. The catalogue stays one
-  // list; the colour is a signature, not a second design.
-  const theme = profileLayout(t.layout).theme;
-  return `<li class="card therapist-card${theme === 'sage' ? '' : ` therapist-card--theme-${escapeHtml(theme)}`}">
+  return `<li class="card therapist-card">
   <div style="display:flex;gap:0.9rem;align-items:flex-start">
     ${
       t.photo_url
@@ -398,28 +395,34 @@ export async function profileContext(env: Env, t: PublicTherapist): Promise<Sect
   return { env, therapist: t, faq, slots };
 }
 
-siteApp.get('/terapeuci/:slug', async (c) => {
-  const slug = c.req.param('slug');
+/**
+ * One of her pages: the profile, or a subpage by its slug. Rendered by the
+ * pages service with her data of this minute; when the service is down, the
+ * last good copy from R2, marked stale; failing that, a page that still
+ * carries the crisis numbers.
+ */
+async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise<unknown>): void } }, slug: string, pageSlug: string): Promise<Response> {
   const t = await getTherapist(c.env, { slug });
   if (!t) return notFoundProfile(c.env);
+  const ctx = await profileContext(c.env, t);
+  if (pageSlug === PROFILE_SLUG) {
+    // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
+    c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
+  }
+  try {
+    const served = await serveTherapistPage(c.env, t, ctx, pageSlug, { drafts: false, hostCss: hostCssUrl(LP_HOST_CSS) });
+    if (!served) return notFoundProfile(c.env);
+    return htmlResponse(c.env, served.html, served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
+  } catch {
+    return htmlResponse(c.env, renderPage(c.env, { title: t.display_name, path: '/terapeuci', body: unavailablePage(t), noindex: true }), {
+      status: 503,
+      headers: { 'retry-after': '60' },
+    });
+  }
+}
 
-  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-
-  // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
-  c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
-
-  return htmlResponse(c.env, await renderTherapistDocument(profileDocument(t), ctx, t, pages, assetUrls(LP_DOC_CSS)));
-});
-
-/** A therapist's subpage: her own landing, group, workshop or camp, on the engine. */
-siteApp.get('/terapeuci/:slug/:page', async (c) => {
-  const t = await getTherapist(c.env, { slug: c.req.param('slug') });
-  const row = t ? await getPage(c.env, t.therapist_id, c.req.param('page')) : null;
-  if (!t || !row || row.status !== 'published') return notFoundProfile(c.env);
-
-  const [ctx, pages] = await Promise.all([profileContext(c.env, t), listPages(c.env, t.therapist_id, true)]);
-  return htmlResponse(c.env, await renderTherapistDocument(pageDocument(row, t), ctx, t, pages, assetUrls(LP_DOC_CSS)));
-});
+siteApp.get('/terapeuci/:slug', (c) => therapistPage(c, c.req.param('slug'), PROFILE_SLUG));
+siteApp.get('/terapeuci/:slug/:page', (c) => therapistPage(c, c.req.param('slug'), c.req.param('page')));
 
 // ------------------------------------------------------------ static pages ---
 

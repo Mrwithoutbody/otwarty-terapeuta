@@ -21,7 +21,9 @@
     "PRIVACY_VERSION": "2026-08-24",
     // Turnstile "always passes" TEST key - safe to commit, never used in prod.
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
-    "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
+    "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl",
+    // The pages service, run locally from ../../x402Landings: `PORT=8788 npm run dev`.
+    "PAGES_URL": "http://localhost:8788"
   },
 
   "d1_databases": [
@@ -67,7 +69,8 @@
         // Replace with a real Turnstile site key before letting anyone but the
         // team near this environment.
         "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
-        "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
+        "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl",
+        "PAGES_URL": "https://x402landings.space"
       },
       "d1_databases": [
         {
@@ -109,7 +112,8 @@
         "TERMS_VERSION": "2026-08-24",
         "PRIVACY_VERSION": "2026-08-24",
         "TURNSTILE_SITE_KEY": "0x4AAAAAAEWXHmpKhU2Qq-rI",
-        "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl"
+        "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl",
+        "PAGES_URL": "https://x402landings.space"
       },
       "routes": [
         { "pattern": "otwartyterapeuta.pl", "custom_domain": true },
