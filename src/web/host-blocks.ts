@@ -219,7 +219,11 @@ export interface Field {
 // Bez podpowiedzi o dziedziczeniu: usługa dokłada ją sama pod tym polem, pod
 // które `resolve` faktycznie coś przysłał. Wpisana tutaj wisiała pod każdym
 // polem każdego bloku i obiecywała treść tam, gdzie jej nie ma.
-const OWN = [T('eyebrow', 'Nadtytuł'), T('heading', 'Nagłówek'), T('lead', 'Podtytuł')];
+const OWN = [
+  T('eyebrow', 'Nadtytuł sekcji'),
+  T('heading', 'Nagłówek sekcji'),
+  T('lead', 'Podtytuł sekcji'),
+];
 
 /** The numbers under the hero: price, length, next free slot. Words are not numbers; they go to the fact sheet. */
 function facts(t: PublicTherapist): Values[] {
@@ -294,13 +298,12 @@ export interface HostDef {
 const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
     label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
-    // Każde z trzech pól ma swoje miejsce w panelu: nagłówek zawodowy, imię i opis.
+    // Bez pól „własnymi słowami": nadtytuł to nagłówek zawodowy, tytuł to imię,
+    // podtytuł to pierwsze zdanie opisu. Dwa pola na tę samą rzecz - jedno
+    // wypełnione, drugie z tą samą treścią jako podpowiedź - nie dawały się czytać.
     fields: [
       D('display_name', 'Imię i nazwisko'),
-      D('headline', 'Nagłówek zawodowy', 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.'),
-      T('eyebrow', 'Nadtytuł (własnymi słowami)', 'Puste = nagłówek zawodowy powyżej.'),
-      T('heading', 'Tytuł (własnymi słowami)', 'Puste = imię i nazwisko powyżej.'),
-      T('lead', 'Podtytuł (własnymi słowami)', 'Puste = pierwsze zdanie opisu.'),
+      D('headline', 'Nadtytuł: nagłówek zawodowy', 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.'),
     ],
     resolve: (ctx) => {
       const t = ctx.therapist;
