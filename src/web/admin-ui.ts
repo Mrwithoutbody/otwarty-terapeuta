@@ -538,19 +538,34 @@ export const ADMIN_JS = String.raw`(function () {
 export const ADMIN_CSS = String.raw`
 /* Admin panel only. Loaded on top of app.css, never on public pages. */
 
-.tabs { max-width: 56rem; }
-/* The hosted editor lays its form and preview side by side from 1100px; the page-look tab takes the whole column. */
-.tabs:has(> #panel-strona:not([hidden])) { max-width: none; }
+/* Panel czyta się jak aplikacja, nie jak artykuł: zakładki stoją z boku,
+   treść bierze resztę okna. Kolumna 76 rem zostaje stronom publicznym. */
+main > .wrap:has(.tabs) { max-width: none; }
+.tabs {
+  display: grid; grid-template-columns: 12.5rem minmax(0, 1fr);
+  gap: 0 2rem; align-items: start;
+}
+[data-tab-panel] { grid-column: 2; }
 .panel-lead { max-width: 64ch; margin: 0 0 1.4rem; color: var(--text-muted, #6a7360); font-size: 0.95rem; }
 .tablist {
-  display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.5rem;
-  border-bottom: 1px solid var(--border-strong); padding-bottom: 0.6rem;
+  display: flex; flex-direction: column; gap: 0.2rem; margin: 0;
+  position: sticky; top: 5.5rem;
+  border-right: 1px solid var(--border-strong); padding-right: 0.7rem;
 }
 .tab {
-  font: inherit; font-weight: 600; cursor: pointer;
-  min-height: 2.5rem; padding: 0.5rem 1.1rem;
-  border: 1px solid transparent; border-radius: 999px;
+  font: inherit; font-weight: 600; cursor: pointer; text-align: left;
+  min-height: 2.5rem; padding: 0.5rem 0.9rem;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
   background: transparent; color: var(--text-muted);
+}
+@media (max-width: 60rem) {
+  .tabs { grid-template-columns: minmax(0, 1fr); }
+  [data-tab-panel] { grid-column: 1; }
+  .tablist {
+    flex-direction: row; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.5rem; position: static;
+    border-right: 0; border-bottom: 1px solid var(--border-strong); padding: 0 0 0.6rem;
+  }
+  .tab { border-radius: 999px; }
 }
 .tab:hover { background: var(--surface-alt); color: var(--text); }
 .tab[aria-selected="true"] {
