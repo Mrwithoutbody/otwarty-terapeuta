@@ -1011,7 +1011,9 @@ adminApp.get('/terapeuci/:id', async (c) => {
   return page(
     c.env,
     row.display_name,
-    `<h1>Profil: ${escapeHtml(row.display_name)}</h1>${therapistTabs(session, row, context)}`,
+    // Bez nagłówka nad zakładkami: imię i tak stoi w tytule karty, a wąska
+    // linijka nad edytorem na całą szerokość okna wyglądała jak pomyłka.
+    therapistTabs(session, row, context),
   );
 });
 
