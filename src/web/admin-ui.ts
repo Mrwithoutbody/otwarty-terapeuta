@@ -21,6 +21,26 @@ export const ADMIN_JS = String.raw`(function () {
   // the no-JS path keeps working untouched.
   // ------------------------------------------------------------------ tabs ---
 
+  /* Edytor stron w oknie dialogowym: iframe wstawiany przy pierwszym otwarciu,
+     żeby zamknięty panel nie ładował cudzej strony. */
+  function initEditorDialog(box) {
+    var dialog = document.querySelector('[data-editor-dialog]');
+    var open = box.querySelector('[data-editor-open]');
+    var url = box.getAttribute('data-page-editor');
+    if (!dialog || !open || !url || typeof dialog.showModal !== 'function') return;
+    open.addEventListener('click', function () {
+      if (!dialog.querySelector('iframe')) {
+        var frame = document.createElement('iframe');
+        frame.src = url;
+        frame.title = 'Edytor strony';
+        dialog.appendChild(frame);
+      }
+      dialog.showModal();
+    });
+    var close = dialog.querySelector('[data-editor-close]');
+    if (close) close.addEventListener('click', function () { dialog.close(); });
+  }
+
   function initTabs(root) {
     var panels = Array.prototype.slice.call(root.querySelectorAll('[data-tab-panel]'));
     if (panels.length < 2) return;
@@ -515,6 +535,7 @@ export const ADMIN_JS = String.raw`(function () {
 
   function boot() {
     document.querySelectorAll('[data-tabs]').forEach(initTabs);
+    document.querySelectorAll('[data-page-editor]').forEach(initEditorDialog);
     document.querySelectorAll('[data-editor]').forEach(initEditor);
     document.querySelectorAll('[data-repeat]').forEach(initRepeat);
     document.querySelectorAll('[data-crop]').forEach(initCrop);
@@ -690,6 +711,13 @@ main > .wrap:has(.tabs) { max-width: none; }
 .crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
 .crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
 
+/* Edytor stron w modalu: ramka w kolumnie panelu była za wąska, a nowa karta
+   na każde kliknięcie mnożyła karty. Okno dialogowe daje prawie całe okno. */
+.editor-dialog { width: 96vw; max-width: none; height: 94dvh; padding: 0; border: 0; border-radius: 14px;
+  background: var(--surface-solid, #fff); overflow: hidden; }
+.editor-dialog::backdrop { background: rgba(24, 28, 12, 0.55); }
+.editor-dialog iframe { display: block; width: 100%; height: 100%; border: 0; }
+.editor-close { position: absolute; top: 0.6rem; right: 0.9rem; z-index: 2; }
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
 /* --- profile composer (legacy layout, kept for the photo cropper) ---- */
 .composer .hint { max-width: 62ch; }

@@ -55,7 +55,7 @@ describe('a profile she has not published yet', () => {
       await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(id, user.id).run();
       const { cookie } = await createAdminSession(env, user.id);
       const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${id}`, { headers: { cookie } })).text();
-      const editorUrl = /<a class="btn" href="([^"]+)" target="_blank"/.exec(panel)![1]!;
+      const editorUrl = /data-page-editor="([^"]+)"/.exec(panel)![1]!;
       const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
       expect(form).toContain('name="sec_0_type" value="hero-profil"');
     // Znak ogniwa przy bloku danych prowadzi do zakładki panelu, w której ta treść powstaje.
@@ -78,10 +78,12 @@ describe('templates in the panel', () => {
     const session = await loadAdminSession(env, new Request('https://localhost/admin', { headers: { cookie } }));
 
     const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-    const editorUrl = /<a class="btn" href="([^"]+)" target="_blank"/.exec(panel)![1]!;
+    const editorUrl = /data-page-editor="([^"]+)"/.exec(panel)![1]!;
     expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\//);
-    // The editor opens in its own tab on the service, never framed here.
+    // Edytor otwiera się w oknie dialogowym; ramka wstawia się dopiero po kliknięciu,
+    // więc sam panel jej nie niesie.
     expect(panel).not.toContain('<iframe');
+    expect(panel).toContain('data-editor-dialog');
 
     const path = new URL(editorUrl).pathname;
     const editor = await pagesFetch(env, path);

@@ -42,7 +42,7 @@ function postEditor(editorUrl: string, pairs: Array<[string, string]>): Promise<
   });
 }
 
-const editorSrc = (html: string): string => /<a class="btn" href="(https:[^"]+)" target="_blank"/.exec(html)![1]!;
+const editorSrc = (html: string): string => /data-page-editor="(https:[^"]+)"/.exec(html)![1]!;
 
 /** The whole life of one subpage: created, arranged in the service's editor, published, deleted. */
 describe('podstrony terapeutki', () => {
