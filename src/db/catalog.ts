@@ -377,12 +377,15 @@ export async function findCandidates(
 export async function getTherapist(
   env: Env,
   ref: { therapist_id?: string; slug?: string },
+  /** Her own panel builds a preview of a profile she has not published yet. */
+  opts: { drafts?: boolean } = {},
 ): Promise<PublicTherapist | null> {
   const column = ref.therapist_id ? 't.id' : 't.slug';
   const value = ref.therapist_id ?? ref.slug;
   if (!value) return null;
 
-  const row = await env.DB.prepare(`SELECT t.* FROM therapists t WHERE ${column} = ? AND ${PUBLISHED}`)
+  const visible = opts.drafts === true ? 't.deleted_at IS NULL' : PUBLISHED;
+  const row = await env.DB.prepare(`SELECT t.* FROM therapists t WHERE ${column} = ? AND ${visible}`)
     .bind(value)
     .first<TherapistRow>();
   if (!row) return null;

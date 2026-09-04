@@ -456,7 +456,9 @@ const PAGES_DOWN = 'Edytor stron jest chwilowo niedostępny. Twoje dane i strona
 
 /** Her data as the editor's preview needs it; null before the profile is published. */
 async function previewContext(env: Env, therapistId: string): Promise<SectionCtx | null> {
-  const t = await getTherapist(env, { therapist_id: therapistId });
+  // Szkic też: bez tego edytor nieopublikowanego profilu dostaje pustą treść
+  // i pokazuje stronę bez ani jednego bloku.
+  const t = await getTherapist(env, { therapist_id: therapistId }, { drafts: true });
   return t ? profileContext(env, t) : null;
 }
 

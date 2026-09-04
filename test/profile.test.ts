@@ -40,6 +40,34 @@ describe('the profile page on the pages service', () => {
   });
 });
 
+describe('a profile she has not published yet', () => {
+  it('still fills the editor: the panel preview reads drafts, the catalogue does not', async () => {
+    // Jej własny szkic nie przechodzi przez zapytanie publiczne, więc sesja
+    // edycji szła z pustym `resolved` i edytor pokazywał stronę bez bloków.
+    const id = 'th_4f1a9c72e5b83d016a7c2e40';
+    await env.DB.prepare(`UPDATE therapists SET status = 'draft' WHERE id = ?`).bind(id).run();
+    try {
+      expect(await getTherapist(env, { therapist_id: id })).toBeNull();
+      const draft = await getTherapist(env, { therapist_id: id }, { drafts: true });
+      expect(draft?.display_name).toContain('Anna');
+
+      const user = await findOrCreateUserByEmail(env, 'anna-draft@example.invalid');
+      await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(id, user.id).run();
+      const { cookie } = await createAdminSession(env, user.id);
+      const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${id}`, { headers: { cookie } })).text();
+      const editorUrl = /<a class="btn" href="([^"]+)" target="_blank"/.exec(panel)![1]!;
+      const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
+      expect(form).toContain('name="sec_0_type" value="hero-profil"');
+      const preview = await (await pagesFetch(env, `${new URL(editorUrl).pathname}/preview`)).text();
+      // Nie tytuł strony - on jest w <title> nawet bez danych. Bloki.
+      expect(preview).toContain('data-block="0"');
+      expect(preview).toContain('lp-hero');
+    } finally {
+      await env.DB.prepare(`UPDATE therapists SET status = 'published' WHERE id = ?`).bind(id).run();
+    }
+  });
+});
+
 describe('templates in the panel', () => {
   it('links to the service\'s editor for her profile and applies a template without losing her words', async () => {
     const user = await findOrCreateUserByEmail(env, 'anna-tpl@example.invalid');
