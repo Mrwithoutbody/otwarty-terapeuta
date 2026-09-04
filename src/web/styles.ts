@@ -580,15 +580,16 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
   border: 0; border-radius: 0; background: #232943; color: #c8cde4;
 }
-/* One of the illustrations as texture, not as a picture: the file is 96 px
+/* One of the illustrations as texture, not as a picture: the file is 360 px
    wide, so the browser's own upscaling is the blur and the page pays no
-   filter at paint time. The wash over it is measured, not guessed - at 0.88
-   the lightest point of the blur still leaves 4.80 under the lead text and
-   7.59 under the headline. */
+   filter at paint time. Narrower than this and the drawing turns to soup -
+   at 96 px nothing of it was left to see. The wash over it is measured, not
+   guessed: at 0.82 the lightest point still leaves 5.13 under the lead text
+   and 7.83 under the headline. */
 .home-hero::before {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background:
-    linear-gradient(rgba(35, 41, 67, 0.86), rgba(35, 41, 67, 0.86)),
+    linear-gradient(rgba(35, 41, 67, 0.82), rgba(35, 41, 67, 0.82)),
     url("/illustrations/hero-texture.webp") center / cover no-repeat;
 }
 .home-hero > * { position: relative; z-index: 1; }
