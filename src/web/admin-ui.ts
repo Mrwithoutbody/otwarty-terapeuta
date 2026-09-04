@@ -43,7 +43,16 @@ export const ADMIN_JS = String.raw`(function () {
        melduje go wiadomością. Tylko z origin usługi, tylko przy otwartym oknie. */
     var origin = new URL(url, location.href).origin;
     window.addEventListener('message', function (event) {
-      if (event.origin === origin && event.data && event.data.kind === 'close-editor') dialog.close();
+      if (event.origin !== origin || !event.data) return;
+      if (event.data.kind === 'close-editor') dialog.close();
+      /* Odnośnik "edytuj dane" z wnętrza edytora: zamykamy okno i przełączamy
+         zakładkę u siebie. Nowa karta z ramki cudzego originu i tak by się
+         mnożyła, bo nazwany cel nie przechodzi przez tę granicę. */
+      if (event.data.kind === 'goto-panel') {
+        dialog.close();
+        var tab = document.getElementById(String(event.data.anchor || '') + '-tab');
+        if (tab) tab.click();
+      }
     });
   }
 
