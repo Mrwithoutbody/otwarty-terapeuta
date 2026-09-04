@@ -581,6 +581,13 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   border: 0; border-radius: 0; background: var(--dark); color: #d7e0c4;
 }
 .hero-copy { max-width: 34rem; }
+/* What the site is, above the promise - the one line of label the hero keeps. */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 0.5rem; margin: 0 0 1.1rem;
+  padding: 0.35rem 0.7rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
+  background: rgba(255,255,255,0.08); color: #cbd7b3; font-size: 0.8rem; font-weight: 550;
+}
+.eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #c7da4f; }
 .home-hero .btn { background: #fff; border-color: #fff; color: #2f3a22; box-shadow: none; }
 .home-hero .btn:hover { background: #eef2e0; border-color: #eef2e0; }
 .home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #e7edd6; }
@@ -618,6 +625,9 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .preview-note p { margin: 0; color: var(--text-muted); font-size: 0.63rem; line-height: 1.45; }
 .preview-note strong { color: var(--text); }
 .home-section { margin-top: clamp(3rem, 6vw, 4.75rem); }
+/* A label that names the thing, not a slogan above every heading: the hero
+   badge and this one are what is left of the kickers. */
+.kicker { margin: 0 0 0.6rem; color: var(--text-muted); font-size: 0.8rem; font-weight: 550; }
 .section-heading { max-width: 34rem; }
 .section-heading.centered { margin-inline: auto; text-align: center; }
 .section-heading h2, .assistant-copy h2, .safety-copy h2 { font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); line-height: 1.2; letter-spacing: -0.02em; }
@@ -678,6 +688,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .safety-list article > span { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--accent-strong); background: rgba(255,255,255,0.45); font-size: 0.7rem; font-weight: 800; }
 .safety-list h3 { margin: 0 0 0.35rem; font-size: 1rem; }
 .safety-list p { margin: 0; color: var(--text-muted); font-size: 0.79rem; line-height: 1.55; }
+/* The three illustrations are the only warm thing on the page: measured on
+   their pixels, 96.6-98.7% of their colour sits between 15 and 60 degrees,
+   peaking at 45 (amber, sand). Everything else here is the service green. */
+.for-you-section .section-heading { max-width: 45rem; }
+.audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
+.audience-grid article { overflow: hidden; padding: 0 1.25rem 1.5rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-solid); box-shadow: var(--shadow-sm); }
+.audience-art { display: block; width: calc(100% + 2.5rem); max-width: none; height: 11rem; margin: 0 -1.25rem 1.4rem; border-bottom: 1px solid var(--border); object-fit: cover; background: #f3f5ea; }
+.audience-art-first { object-position: 50% 48%; }
+.audience-art-choice { object-position: 50% 43%; }
+.audience-art-transparency { object-position: 50% 44%; }
+.audience-grid h3 { margin: 0 0 0.6rem; font-size: 1.08rem; }
+.audience-grid p { margin: 0; color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
 .home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(3rem, 6vw, 4.75rem); padding: clamp(2rem, 5vw, 3.25rem); border: 1px solid var(--border-strong); border-radius: 16px; background: var(--accent-soft); }
 .home-cta h2 { max-width: 22ch; margin: 0; font-size: clamp(1.6rem, 1.4rem + 0.9vw, 2.25rem); line-height: 1.18; letter-spacing: -0.02em; }
 .home-cta > div:last-child { display: grid; justify-items: start; gap: 0.9rem; }
@@ -698,6 +720,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .assistant-section, .safety-section, .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
 .section-heading, .assistant-copy { max-width: 42rem; }
 .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.audience-grid { grid-template-columns: 1fr; }
+.audience-art { height: clamp(10rem, 48vw, 13rem); }
 .crisis-hero { grid-template-columns: 1fr; }
 .emergency-panel { width: min(100%, 32rem); }
 }

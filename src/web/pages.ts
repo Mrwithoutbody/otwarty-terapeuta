@@ -120,6 +120,7 @@ siteApp.get('/', async (c) => {
 <div class="home">
   <section class="home-hero" aria-labelledby="home-title">
     <div class="hero-copy">
+      <p class="eyebrow"><span aria-hidden="true"></span> Katalog psychoterapeutów i rezerwacja wizyt</p>
       <h1 id="home-title">Znajdź psychoterapeutę na swoich warunkach.</h1>
       <p class="lead">Porównaj profile po tym, co naprawdę ma znaczenie: formie spotkań, języku, cenie, nurcie pracy i najbliższym wolnym terminie. Zarezerwuj wizytę bezpośrednio — także w rozmowie z ChatGPT.</p>
       <div class="hero-actions">
@@ -180,6 +181,7 @@ siteApp.get('/', async (c) => {
       </div>
     </div>
     <div class="assistant-copy">
+      <p class="kicker">Otwarty Terapeuta w ChatGPT</p>
       <h2 id="assistant-title">Zapytaj po swojemu. Porównaj. Zarezerwuj.</h2>
       <p>Nie musisz przeklikiwać wielu stron. W rozmowie podajesz ważne dla Ciebie kryteria, a ChatGPT korzysta z naszego katalogu i pokazuje wyniki w interaktywnym widżecie.</p>
       <ol class="chat-steps"><li><span>1</span><p><strong>Opisz praktyczne kryteria</strong><small>Na przykład forma spotkań, budżet i dogodna pora.</small></p></li><li><span>2</span><p><strong>Porównaj profile w rozmowie</strong><small>Zobacz cenę, dostępność i powody dopasowania.</small></p></li><li><span>3</span><p><strong>Potwierdź wybrany termin</strong><small>Przed rezerwacją zobaczysz kompletne podsumowanie.</small></p></li></ol>
@@ -194,6 +196,15 @@ siteApp.get('/', async (c) => {
       <article><span aria-hidden="true">✓</span><div><h3>Minimum danych</h3><p>Nie prosimy o opis objawów ani historię zdrowia podczas przeglądania.</p></div></article>
       <article><span aria-hidden="true">✓</span><div><h3>Jawne zasady</h3><p>Wyjaśniamy, jak działa dopasowanie i co dzieje się z rezerwacją.</p></div></article>
       <article><span aria-hidden="true">✓</span><div><h3>Pomoc w kryzysie</h3><p>Serwis nie zastępuje interwencji kryzysowej. Ważne numery są zawsze dostępne.</p></div></article>
+    </div>
+  </section>
+
+  <section class="home-section for-you-section" aria-labelledby="for-you-title">
+    <div class="section-heading centered"><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
+    <div class="audience-grid">
+      <article><img class="audience-art audience-art-first" src="/illustrations/audience-first-step.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
+      <article><img class="audience-art audience-art-choice" src="/illustrations/audience-conscious-choice.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
+      <article><img class="audience-art audience-art-transparency" src="/illustrations/audience-transparency.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
     </div>
   </section>
 
