@@ -93,6 +93,11 @@ describe('templates in the panel', () => {
     expect((form.match(/data-theme="default"/g) ?? []).length).toBe(8);
     expect(form).toContain('name="sec_0_type" value="hero-profil"');
     expect(form).not.toContain('name="slug"'); // the profile's address and visibility are the host's
+    // Kafel bloku mówi, co ten blok dziś pokazuje - nie powtarza podpowiedzi z definicji.
+    // Intl wstawia twardą spację przed walutą - stąd \u00a0 w oczekiwanym napisie.
+    expect(form).toContain('<span>Anna Kowalczyk (DEMO) \u00b7 od 220\u00a0z\u0142 \u00b7 50 min');
+    expect(form).toContain('Forma: online i w gabinecie · Miasto: Warszawa');
+    expect(form).toContain('dni z terminami');
 
     // The preview shows her data in a template she has not chosen yet.
     const preview = await (await pagesFetch(env, `${path}/preview?theme=default&variant=ink`)).text();

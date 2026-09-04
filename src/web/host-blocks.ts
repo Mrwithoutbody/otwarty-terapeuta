@@ -422,13 +422,53 @@ export function resolveAll(ctx: SectionCtx): Record<string, Block | null> {
   return Object.fromEntries(Object.entries(HOST_SECTIONS).map(([type, def]) => [type, def.resolve(ctx)]));
 }
 
+const str = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+
+/** One row of a resolved block, as a person would read it aloud. */
+function rowLabel(row: Values): string {
+  const pair = str(row.label) && str(row.value) ? `${str(row.label)}: ${str(row.value)}` : '';
+  return str(row.title) || str(row.name) || str(row.q) || pair || str(row.label) || str(row.value);
+}
+
+const arr = (value: unknown): Values[] => (Array.isArray(value) ? (value as Values[]) : []);
+
+/**
+ * Co ten blok pokazuje dzisiaj, jednym zdaniem — na kaflu w edytorze.
+ *
+ * Kafel przedtem powtarzał podpowiedź z definicji („Forma, miasto, nurt…"),
+ * więc lista jedenastu bloków wyglądała u każdej terapeutki tak samo, choć
+ * podgląd obok był pełen jej danych. Czytamy więc treść, która i tak leci do
+ * usługi w `resolved`: liczby pod nagłówkiem, wiersze, dni z terminami.
+ */
+function digest(block: Block): string {
+  const bits: string[] = [];
+  if (block.type === 'hero') bits.push(str(block.heading));
+  bits.push(...arr(block.stats).map((s) => str(s.value)));
+
+  const items = arr(block.items);
+  bits.push(...items.slice(0, 3).map(rowLabel).filter(Boolean));
+  if (items.length > 3) bits.push(`+${items.length - 3}`);
+
+  const days = arr(block.days).filter((d) => str(d.times) !== '');
+  const first = days[0];
+  if (first) {
+    bits.push(`najbliżej: ${str(first.name)} ${str(first.times).split('\n')[0] ?? ''}`.trim());
+    bits.push(`${days.length} ${days.length === 1 ? 'dzień' : 'dni'} z terminami`);
+  }
+
+  if (bits.length === 0) bits.push(str(block.body) || str(block.lead));
+  const line = bits.filter(Boolean).join(' · ');
+  return line.length > 160 ? `${line.slice(0, 159).trimEnd()}…` : line;
+}
+
 /** One line per host block for the editor's list: what it holds today, or that it would not show. */
 export function summarize(resolved: Record<string, Block | null>): Record<string, { text: string; empty?: true }> {
   return Object.fromEntries(
-    Object.entries(HOST_SECTIONS).map(([type, def]) => [
-      type,
-      resolved[type] ? { text: def.hint } : { text: `${def.hint} — brak danych`, empty: true as const },
-    ]),
+    Object.entries(HOST_SECTIONS).map(([type, def]) => {
+      const block = resolved[type];
+      if (!block) return [type, { text: `${def.hint} — brak danych`, empty: true as const }];
+      return [type, { text: digest(block) || def.hint }];
+    }),
   );
 }
 
