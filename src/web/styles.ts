@@ -461,11 +461,13 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .crisis-hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr); gap: clamp(2rem, 5vw, 4rem); align-items: center; padding: clamp(2rem, 4.5vw, 3.25rem); border-radius: 16px; background: var(--surface-alt); border: 1px solid var(--border); }
 .crisis-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); line-height: 1.15; letter-spacing: -0.025em; }
 .crisis-hero .lead { max-width: 52ch; margin: 0; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
-.emergency-panel { display: grid; justify-items: start; padding: clamp(1.75rem, 4vw, 2.75rem); border-radius: 14px; background: #45503d; color: #fff; box-shadow: var(--shadow); }
-.emergency-panel p { margin: 0; color: #e7eadf; font-size: 0.75rem; font-weight: 700; }
+/* The same deep blue as the home band. The number has to be the loudest
+   thing on the page: white on this ground reads 16.25. */
+.emergency-panel { display: grid; justify-items: start; padding: clamp(1.75rem, 4vw, 2.75rem); border-radius: 14px; background: #1b1f34; color: #fff; box-shadow: var(--shadow); }
+.emergency-panel p { margin: 0; color: #dfe3f2; font-size: 0.75rem; font-weight: 700; }
 .emergency-panel .emergency-warning { margin-bottom: 1.4rem; padding-bottom: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.18); color: #fff; font-size: 0.78rem; line-height: 1.5; }
-.emergency-panel a { margin: 0.4rem 0; color: #f4f5ce; font: 600 clamp(2.8rem, 5.5vw, 4.2rem)/1 var(--sans); letter-spacing: -0.04em; text-decoration: none; }
-.emergency-panel span { color: #cdd4c6; font-size: 0.75rem; }
+.emergency-panel a { margin: 0.4rem 0; color: #eef1ff; font: 600 clamp(2.8rem, 5.5vw, 4.2rem)/1 var(--sans); letter-spacing: -0.04em; text-decoration: none; }
+.emergency-panel span { color: #b6bcd6; font-size: 0.75rem; }
 .resource-heading { max-width: 48rem; margin-bottom: 2.5rem; }
 .resource-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0; list-style: none; }
 .resource-card { display: flex; flex-direction: column; min-height: 0; margin: 0; padding: clamp(1.6rem, 3vw, 2.3rem); border: 1px solid var(--border); border-radius: 14px; background: #fff; box-shadow: var(--shadow-sm); }
