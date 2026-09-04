@@ -187,8 +187,10 @@ const T = (name: string, label: string, hint?: string): { kind: 'text'; name: st
   ({ kind: 'text', name, label, hint, max: 160 });
 
 /** Fields the person may fill to override what the data would say. */
-const HINT = 'Zostaw puste, a weźmie się z Twoich danych. Wpiszesz coś — Twoje słowa wygrywają.';
-const OWN = [T('eyebrow', 'Nadtytuł', HINT), T('heading', 'Nagłówek', HINT), T('lead', 'Podtytuł', HINT)];
+// Bez podpowiedzi o dziedziczeniu: usługa dokłada ją sama pod tym polem, pod
+// które `resolve` faktycznie coś przysłał. Wpisana tutaj wisiała pod każdym
+// polem każdego bloku i obiecywała treść tam, gdzie jej nie ma.
+const OWN = [T('eyebrow', 'Nadtytuł'), T('heading', 'Nagłówek'), T('lead', 'Podtytuł')];
 
 /** The numbers under the hero: price, length, next free slot. Words are not numbers; they go to the fact sheet. */
 function facts(t: PublicTherapist): Values[] {
