@@ -187,7 +187,8 @@ const T = (name: string, label: string, hint?: string): { kind: 'text'; name: st
   ({ kind: 'text', name, label, hint, max: 160 });
 
 /** Fields the person may fill to override what the data would say. */
-const OWN = [T('eyebrow', 'Nadtytuł', 'puste = z danych'), T('heading', 'Nagłówek', 'puste = z danych'), T('lead', 'Podtytuł', 'puste = z danych')];
+const HINT = 'Zostaw puste, a weźmie się z Twoich danych. Wpiszesz coś — Twoje słowa wygrywają.';
+const OWN = [T('eyebrow', 'Nadtytuł', HINT), T('heading', 'Nagłówek', HINT), T('lead', 'Podtytuł', HINT)];
 
 /** The numbers under the hero: price, length, next free slot. Words are not numbers; they go to the fact sheet. */
 function facts(t: PublicTherapist): Values[] {
@@ -321,7 +322,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
   },
   slots: {
     label: 'Wolne terminy', hint: 'Kalendarz z zakładki Dostępność, z zasadami odwołania', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
-    fields: [T('heading', 'Nagłówek', 'puste = domyślny')],
+    fields: [T('heading', 'Nagłówek', 'Zostaw puste, a zostanie domyślny.')],
     resolve: (ctx) => {
       const cal = calendarDays(ctx.slots);
       if (!cal) return null;
