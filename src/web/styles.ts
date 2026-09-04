@@ -585,11 +585,11 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    time. It carries no colour of its own - grey, with its tonal range squeezed
    into 70-185 - so the hue on the band comes from the wash alone and the
    drawing reads as shape rather than as a photograph under a filter. Wash at
-   0.76: in the lightest point 8.34 under the headline, 5.46 under the lead. */
+   0.72: in the lightest point 7.72 under the headline, 5.05 under the lead. */
 .home-hero::before {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background:
-    linear-gradient(rgba(35, 41, 67, 0.76), rgba(35, 41, 67, 0.76)),
+    linear-gradient(rgba(35, 41, 67, 0.72), rgba(35, 41, 67, 0.72)),
     url("/illustrations/hero-texture.webp") center / cover no-repeat;
 }
 .home-hero > * { position: relative; z-index: 1; }
