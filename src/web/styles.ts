@@ -412,12 +412,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .subpage { display: grid; gap: clamp(3rem, 6vw, 4.75rem); }
 .subpage > *, .subpage h2, .subpage h3, .document-page h2 { margin-top: 0; }
 .subpage p { max-width: none; }
-.subpage-hero {
-  display: flex; flex-direction: column; align-items: flex-start;
-  padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border);
-}
-.subpage-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); line-height: 1.15; letter-spacing: -0.025em; }
-.subpage-hero .lead { max-width: 58ch; margin: 0 0 1.5rem; color: var(--text-muted); font-size: 1rem; line-height: 1.7; }
+/* The header of every page: the title, and at most one thing beside it. Four
+   classes used to do this, each with its own kicker, lead and rule. */
+.page-head { display: flex; flex-direction: column; align-items: flex-start; }
+.page-head h1 { max-width: 22ch; margin: 0; }
+.page-head > * + * { margin-top: 1rem; }
+.catalogue-facts, .page-head .lead { max-width: none; margin: 0; color: var(--text-muted); font-size: 0.92rem; }
+/* On the dark band the muted ink is unreadable; the hero has its own. */
+.home-hero .catalogue-facts { color: #c6d1b1; }
 .subpage-heading { max-width: 45rem; margin-bottom: 2.5rem; }
 .subpage-heading h2, .resource-heading h2 { margin: 0 0 0.8rem; font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); letter-spacing: -0.02em; }
 .subpage-heading > p:last-child, .resource-heading > p:last-child { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; }
@@ -473,9 +475,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .source-note { max-width: 54rem; margin: -2rem auto 0; text-align: center; }
 .source-note p { margin: 0; color: var(--text-muted); font-size: 0.72rem; line-height: 1.6; }
 .document-page { display: grid; gap: clamp(4rem, 8vw, 6rem); }
-.document-hero { padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
-.document-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); letter-spacing: -0.025em; }
-.document-hero .lead { max-width: 58ch; margin: 0; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
 .document-version { display: inline-flex; margin: 1.5rem 0 0; padding: 0.4rem 0.7rem; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text-muted); background: rgba(255,255,255,0.55); font-size: 0.7rem; }
 .document-content { width: min(100%, 52rem); margin-inline: auto; }
 .document-content section { padding: clamp(2rem, 5vw, 3.5rem) 0; border-bottom: 1px solid var(--border); }
@@ -485,9 +484,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .document-content p, .document-content li { color: #5f6758; font-size: 0.92rem; line-height: 1.8; }
 .document-content ul { display: grid; gap: 0.8rem; padding-left: 1.3rem; }
 .directory-page { display: grid; gap: clamp(2.5rem, 5vw, 3.5rem); }
-.directory-hero { padding: 0; }
-.catalogue-facts { max-width: none; margin: 0; color: var(--text-muted); font-size: 0.92rem; }
-.directory-hero h1 { max-width: 20ch; margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); letter-spacing: -0.025em; }
 /* The catalogue's filters are a bar, not a page: a search box, a city, an
    area of work and the button. The other seven controls live in a fold that
    opens itself whenever one of them is on, so nothing applied is ever
@@ -544,9 +540,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 
 
 .signup-page { width: 100%; }
-.signup-intro { margin-bottom: 2.5rem; padding: 0 0 clamp(1.75rem, 3.5vw, 2.5rem); border-bottom: 1px solid var(--border); }
-.signup-intro h1 { margin: 0 0 1rem; font-size: clamp(1.9rem, 1.55rem + 1.5vw, 2.75rem); }
-.signup-intro p:last-child { max-width: 58ch; margin: 0; color: var(--text-muted); }
 /* The shared card rule is scoped to a form that is a direct child of .wrap,
    and this one is a grandchild - so it was never boxed, never spaced, and sat
    glued to the text above it. The !important pair here fought a rule that
@@ -567,7 +560,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The band runs the full width of the window, the way a catalogue's does:
    the page sits in .wrap, so it is pulled back out with the usual full-bleed
    margin and given the gutter back as padding. */
-.home-hero, .trust-strip {
+.home-hero {
   margin-inline: calc(50% - 50vw); width: 100vw;
   padding-inline: max(clamp(1rem, 3vw, 2.5rem), calc((100vw - var(--maxw)) / 2 + clamp(1rem, 3vw, 2.5rem)));
 }
@@ -579,25 +572,16 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   border: 0; border-radius: 0; background: var(--dark); color: #d7e0c4;
 }
 .hero-copy { max-width: 34rem; }
-.eyebrow, .kicker {
-  color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; font-weight: 550;
-}
-.eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.7rem; margin-bottom: 1.1rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-solid); }
-.home-hero .eyebrow { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #cbd7b3; }
 .home-hero .btn { background: #fff; border-color: #fff; color: #2f3a22; box-shadow: none; }
 .home-hero .btn:hover { background: #eef2e0; border-color: #eef2e0; }
 .home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #e7edd6; }
 .home-hero .btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
-.eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: var(--accent); }
 .home-hero h1 { max-width: 20ch; margin: 0 0 1rem; color: var(--dark-head); font-size: clamp(1.95rem, 1.6rem + 1.6vw, 2.85rem); line-height: 1.14; letter-spacing: -0.025em; }
 .home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c6d1b1; font-size: 1rem; line-height: 1.65; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
 .hero-actions .btn { min-width: 11.5rem; }
 .hero-availability { display: flex; align-items: center; gap: 0.4rem; margin: 0.85rem 0 0; color: #a8b394; font-size: 0.72rem; }
 .hero-availability > span { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #d99b35; }
-.hero-assurances { display: flex; flex-wrap: wrap; gap: 0.55rem 1.4rem; margin: 1.3rem 0 0; padding: 0; list-style: none; color: #b3bfa0; font-size: 0.8rem; }
-.hero-assurances li { margin: 0; }
-.hero-assurances li::before { content: "✓"; margin-right: 0.35rem; color: #c7da4f; font-weight: 700; }
 .finder-preview {
   position: relative; width: 100%; padding: 1rem;
   border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
@@ -624,25 +608,11 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .preview-note > span { display: grid; place-items: center; flex: 0 0 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.7rem; font-weight: 800; }
 .preview-note p { margin: 0; color: var(--text-muted); font-size: 0.63rem; line-height: 1.45; }
 .preview-note strong { color: var(--text); }
-.trust-strip { display: grid; grid-template-columns: repeat(4, 1fr); padding-block: 1.15rem; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
-.trust-strip p { margin: 0; padding: 0.2rem 1rem; border-right: 1px solid var(--border-strong); font-size: 0.78rem; line-height: 1.4; }
-.trust-strip p:last-child { border-right: 0; }
-.trust-strip strong, .trust-strip span { display: block; }
-.trust-strip strong { color: var(--text); font-size: 0.78rem; }
-.trust-strip span { margin-top: 0.15rem; color: var(--text-muted); font-size: 0.7rem; }
 .home-section { margin-top: clamp(3rem, 6vw, 4.75rem); }
 .section-heading { max-width: 34rem; }
 .section-heading.centered { margin-inline: auto; text-align: center; }
 .section-heading h2, .assistant-copy h2, .safety-copy h2 { font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); line-height: 1.2; letter-spacing: -0.02em; }
 .section-heading > p:last-child, .assistant-copy > p, .safety-copy > p { color: var(--text-muted); line-height: 1.7; }
-.kicker { margin-bottom: 0.85rem; }
-.value-section { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: clamp(3rem, 8vw, 8rem); align-items: start; }
-.value-list { display: grid; }
-.value-list article { display: grid; grid-template-columns: auto 1fr; gap: 1rem; padding: 1.7rem 0; border-bottom: 1px solid var(--border); }
-.value-list article:first-child { padding-top: 0; }
-.feature-icon { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border: 1px solid var(--border-strong); border-radius: 0.75rem; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.67rem; font-weight: 800; }
-.value-list h3 { margin: 0 0 0.5rem; font-size: 1.18rem; }
-.value-list p { margin: 0; color: var(--text-muted); font-size: 0.88rem; line-height: 1.65; }
 .steps-section { padding: clamp(2rem, 5vw, 3.5rem); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-alt); }
 .steps-section .section-heading { max-width: 40rem; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 2rem 0; padding: 0; list-style: none; background: var(--border-strong); }
@@ -691,15 +661,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .launch-note > span { display: inline-block; width: 0.48rem; height: 0.48rem; margin-right: 0.4rem; border-radius: 50%; background: #d99b35; }
 .launch-note strong { color: var(--text); }
 .assistant-copy > a, .safety-copy > a { font-size: 0.82rem; font-weight: 750; text-decoration: none; }
-.for-you-section .section-heading { max-width: 45rem; }
-.audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
-.audience-grid article { overflow: hidden; padding: 0 1.25rem 1.5rem; border: 1px solid var(--border); border-radius: 1rem; background: #fff; box-shadow: var(--shadow-sm); }
-.audience-art { display: block; width: calc(100% + 2.5rem); max-width: none; height: 11rem; margin: 0 -1.25rem 1.4rem; border-bottom: 1px solid var(--border); object-fit: cover; background: #f3f5ea; }
-.audience-art-first { object-position: 50% 48%; }
-.audience-art-choice { object-position: 50% 43%; }
-.audience-art-transparency { object-position: 50% 44%; }
-.audience-grid h3 { margin: 0 0 0.6rem; font-size: 1.08rem; }
-.audience-grid p { margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.6; }
 .safety-section { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: clamp(2.5rem, 6vw, 5rem); padding: clamp(2rem, 5vw, 3.5rem); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-alt); }
 .safety-copy { align-self: center; }
 .safety-list { display: grid; }
@@ -725,7 +686,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .mobile-nav li { margin: 0; }
 .mobile-nav a { display: block; padding: 0.65rem 0.75rem; border-radius: 0.55rem; color: var(--text); font-size: 0.82rem; text-decoration: none; }
 .mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
-.value-section, .assistant-section, .safety-section, .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
+.assistant-section, .safety-section, .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
 .section-heading, .assistant-copy { max-width: 42rem; }
 .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .crisis-hero { grid-template-columns: 1fr; }
@@ -744,7 +705,6 @@ main { padding-block: 1rem 3.5rem; }
 .home-hero h1 { max-width: 12ch; font-size: clamp(2.6rem, 12vw, 3.65rem); }
 .home-hero .lead { font-size: 0.93rem; line-height: 1.65; }
 .hero-actions { width: 100%; }
-.hero-assurances { gap: 0.35rem 0.8rem; font-size: 0.67rem; }
 .finder-preview { width: calc(100% + 0.5rem); margin-top: 2rem; padding: 0.7rem; border-radius: 1rem 1rem 0 0; }
 .preview-toolbar > span:nth-child(2) { max-width: 10rem; }
 .preview-filters { overflow-x: auto; }
@@ -756,13 +716,8 @@ main { padding-block: 1rem 3.5rem; }
 .preview-slots { display: grid; grid-template-columns: repeat(2, 1fr); }
 .preview-slots p, .preview-slots a { grid-column: 1 / -1; }
 .preview-note { display: none; }
-.trust-strip { grid-template-columns: repeat(2, 1fr); padding: 0.65rem; border-radius: 0 0 1rem 1rem; }
-.trust-strip p { padding: 0.65rem; }
-.trust-strip p:nth-child(2) { border-right: 0; }
-.trust-strip p:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
 .home-section { margin-top: 4.5rem; }
 .section-heading h2, .assistant-copy h2, .safety-copy h2 { font-size: 2.45rem; }
-.value-list article { padding: 1.35rem 0; }
 .steps-section { padding: 2.5rem 1rem; border-radius: 1rem; }
 .steps { grid-template-columns: 1fr; margin-top: 2rem; }
 .steps li { display: grid; grid-template-columns: auto 1fr; column-gap: 0.85rem; padding: 1.2rem 0.85rem; }
@@ -773,8 +728,6 @@ main { padding-block: 1rem 3.5rem; }
 .chat-thread { padding: 0.8rem; }
 .chat-widget { margin-left: 0; }
 .chat-caption { margin-left: 0; }
-.audience-grid { grid-template-columns: 1fr; }
-.audience-art { height: clamp(10rem, 48vw, 13rem); }
 .safety-section { padding: 2.5rem 1.25rem; border-radius: 1rem; }
 .home-cta { grid-template-columns: 1fr; padding: 2.5rem 1.25rem; border-radius: 1rem; }
 .home-cta > div:last-child { justify-items: stretch; }
@@ -783,7 +736,6 @@ main { padding-block: 1rem 3.5rem; }
 .crisis-inline a { justify-self: start; }
 .subpage { gap: 4rem; }
 .crisis-hero { min-height: 0; padding: 1.75rem 1.25rem; border-radius: 14px; }
-.subpage-hero h1, .crisis-hero h1, .document-hero h1 { font-size: clamp(1.75rem, 7vw, 2.3rem); }
 .process-grid, .principles-panel, .info-card-grid, .data-panel, .resource-grid { grid-template-columns: 1fr; }
 .process-grid li { min-height: 0; padding: 1.5rem; }
 .process-grid li::before { margin-bottom: 2rem; }
@@ -798,7 +750,6 @@ main { padding-block: 1rem 3.5rem; }
 .minor-resources { margin-inline: -0.25rem; padding: 2.5rem 0.75rem; border-radius: 1rem; }
 .document-content section { padding-block: 2.5rem; }
 .directory-page { gap: 3rem; }
-.directory-hero h1, .signup-intro h1 { font-size: clamp(1.75rem, 7vw, 2.3rem); }
 footer.site .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
 .footer-links { max-width: 24rem; }
 .footer-legal { display: grid; gap: 0.8rem; }

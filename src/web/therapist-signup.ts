@@ -10,6 +10,7 @@ import { nowIso } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { htmlResponse, renderPage } from './layout';
+import { pageHead } from './pages';
 
 export const therapistSignupApp = new Hono<{ Bindings: Env }>();
 
@@ -44,8 +45,7 @@ async function formValues(request: Request): Promise<URLSearchParams> {
 function signupForm(env: Env, error?: string): string {
   return `
 <div class="signup-page">
-<header class="signup-intro"><p class="kicker">Dla psychoterapeutów</p><h1>Dołącz jako terapeuta</h1>
-<p>Utwórz profil roboczy i uzupełnij go później w swoim panelu. Zgłoszenie nie pojawi się publicznie, dopóki administrator go nie przejrzy i nie opublikuje.</p></header>
+${pageHead('Dołącz jako terapeuta')}
 
 <!-- Co terapeutka z tego ma. Do tej pory ta strona pokazywała wyłącznie
      formularz, czyli koszt bez powodu. -->
@@ -101,8 +101,8 @@ ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 
 function codeForm(challengeId: string, error?: string): string {
   return `
-<div class="signup-page"><header class="signup-intro"><p class="kicker">Ostatni krok</p><h1>Potwierdź adres e-mail</h1>
-<p>Wysłaliśmy sześciocyfrowy kod. Jest ważny 15 minut.</p></header>
+<div class="signup-page">${pageHead('Potwierdź adres e-mail')}
+<p>Wysłaliśmy sześciocyfrowy kod. Jest ważny 15 minut.</p>
 ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 <form method="post" action="/dla-terapeutow/potwierdz">
   <input type="hidden" name="challenge_id" value="${escapeHtml(challengeId)}">

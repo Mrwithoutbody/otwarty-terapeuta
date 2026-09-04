@@ -96,10 +96,20 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
 </li>`;
 }
 
+/**
+ * The header of a page: its title, and whatever real content belongs next to
+ * it - a button, a document version. No kicker above it and no reassuring
+ * sentence under it; four near-identical headers used to carry both.
+ */
+export function pageHead(title: string, extra = ''): string {
+  return `<header class="page-head"><h1>${escapeHtml(title)}</h1>${extra}</header>`;
+}
+
 // ------------------------------------------------------------------- home ---
 
-siteApp.get('/', (c) =>
-  htmlResponse(
+siteApp.get('/', async (c) => {
+  const facts = catalogueFacts(await findCandidates(c.env, {}));
+  return htmlResponse(
     c.env,
     renderPage(c.env, {
       title: 'Znajdź psychoterapeutę',
@@ -110,7 +120,6 @@ siteApp.get('/', (c) =>
 <div class="home">
   <section class="home-hero" aria-labelledby="home-title">
     <div class="hero-copy">
-      <p class="eyebrow"><span aria-hidden="true"></span> Katalog psychoterapeutów i rezerwacja wizyt</p>
       <h1 id="home-title">Znajdź psychoterapeutę na swoich warunkach.</h1>
       <p class="lead">Porównaj profile po tym, co naprawdę ma znaczenie: formie spotkań, języku, cenie, nurcie pracy i najbliższym wolnym terminie. Zarezerwuj wizytę bezpośrednio — także w rozmowie z ChatGPT.</p>
       <div class="hero-actions">
@@ -118,9 +127,7 @@ siteApp.get('/', (c) =>
         ${pluginCta(c.env)}
       </div>
       ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : '<p class="hero-availability"><span aria-hidden="true"></span> Integracja z ChatGPT jest w przygotowaniu do publikacji.</p>'}
-      <ul class="hero-assurances" aria-label="Najważniejsze zasady serwisu">
-        <li>Jawne ceny</li><li>Zweryfikowane profile</li><li>Bez opłat za wyszukiwanie</li>
-      </ul>
+      ${facts ? `<p class="catalogue-facts">${escapeHtml(facts)}</p>` : ''}
     </div>
 
     <div class="finder-preview" aria-label="Przykładowy widok wyszukiwarki terapeutów">
@@ -140,29 +147,8 @@ siteApp.get('/', (c) =>
     </div>
   </section>
 
-  <div class="trust-strip" aria-label="Zasady platformy">
-    <p><strong>Przejrzysty wybór</strong><span>każdy wynik ma uzasadnienie</span></p>
-    <p><strong>Bez płatnych pozycji</strong><span>kolejność wynika z kryteriów</span></p>
-    <p><strong>Twoja prywatność</strong><span>nie pytamy o diagnozę</span></p>
-    <p><strong>Prosta rezerwacja</strong><span>termin i zasady w jednym miejscu</span></p>
-  </div>
-
-  <section class="home-section value-section" aria-labelledby="value-title">
-    <div class="section-heading">
-      <p class="kicker">Wszystko w jednym miejscu</p>
-      <h2 id="value-title">Mniej szukania.<br>Więcej pewności.</h2>
-      <p>Dobry wybór zaczyna się od konkretnych informacji. Dlatego pokazujemy to, co naprawdę pomaga podjąć decyzję.</p>
-    </div>
-    <div class="value-list">
-      <article><span class="feature-icon" aria-hidden="true">01</span><div><h3>Profile, które da się porównać</h3><p>Kwalifikacje, obszary pracy, języki, forma spotkań i cena zapisane w czytelny sposób.</p></div></article>
-      <article><span class="feature-icon" aria-hidden="true">02</span><div><h3>Wolne terminy bez telefonowania</h3><p>Sprawdź dostępność i przejdź do rezerwacji bez wymiany wielu wiadomości.</p></div></article>
-      <article><span class="feature-icon" aria-hidden="true">03</span><div><h3>Jasne powody dopasowania</h3><p>Przy profilu widzisz, które z Twoich kryteriów spełnia — bez tajemniczego wyniku procentowego.</p></div></article>
-    </div>
-  </section>
-
   <section class="home-section steps-section" aria-labelledby="steps-title">
     <div class="section-heading centered">
-      <p class="kicker">Prosty początek</p>
       <h2 id="steps-title">Od kryteriów do spotkania</h2>
       <p>Nie musisz wiedzieć wszystkiego o psychoterapii. Zacznij od tego, co jest dla Ciebie ważne.</p>
     </div>
@@ -193,7 +179,6 @@ siteApp.get('/', (c) =>
       </div>
     </div>
     <div class="assistant-copy">
-      <p class="kicker">Otwarty Terapeuta w ChatGPT</p>
       <h2 id="assistant-title">Zapytaj po swojemu. Porównaj. Zarezerwuj.</h2>
       <p>Nie musisz przeklikiwać wielu stron. W rozmowie podajesz ważne dla Ciebie kryteria, a ChatGPT korzysta z naszego katalogu i pokazuje wyniki w interaktywnym widżecie.</p>
       <ol class="chat-steps"><li><span>1</span><p><strong>Opisz praktyczne kryteria</strong><small>Na przykład forma spotkań, budżet i dogodna pora.</small></p></li><li><span>2</span><p><strong>Porównaj profile w rozmowie</strong><small>Zobacz cenę, dostępność i powody dopasowania.</small></p></li><li><span>3</span><p><strong>Potwierdź wybrany termin</strong><small>Przed rezerwacją zobaczysz kompletne podsumowanie.</small></p></li></ol>
@@ -202,17 +187,8 @@ siteApp.get('/', (c) =>
     </div>
   </section>
 
-  <section class="home-section for-you-section" aria-labelledby="for-you-title">
-    <div class="section-heading centered"><p class="kicker">Na różnych etapach</p><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
-    <div class="audience-grid">
-      <article><img class="audience-art audience-art-first" src="/illustrations/audience-first-step.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
-      <article><img class="audience-art audience-art-choice" src="/illustrations/audience-conscious-choice.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
-      <article><img class="audience-art audience-art-transparency" src="/illustrations/audience-transparency.webp" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
-    </div>
-  </section>
-
   <section class="home-section safety-section" aria-labelledby="safety-title">
-    <div class="safety-copy"><p class="kicker">Bezpieczeństwo i granice</p><h2 id="safety-title">Twoje dane.<br>Twoja decyzja.</h2><p>Projektujemy serwis tak, aby do znalezienia terapeuty wystarczało minimum informacji.</p><a href="/bezpieczenstwo">Jak chronimy dane →</a></div>
+    <div class="safety-copy"><h2 id="safety-title">Twoje dane.<br>Twoja decyzja.</h2><p>Projektujemy serwis tak, aby do znalezienia terapeuty wystarczało minimum informacji.</p><a href="/bezpieczenstwo">Jak chronimy dane →</a></div>
     <div class="safety-list">
       <article><span aria-hidden="true">✓</span><div><h3>Minimum danych</h3><p>Nie prosimy o opis objawów ani historię zdrowia podczas przeglądania.</p></div></article>
       <article><span aria-hidden="true">✓</span><div><h3>Jawne zasady</h3><p>Wyjaśniamy, jak działa dopasowanie i co dzieje się z rezerwacją.</p></div></article>
@@ -221,15 +197,15 @@ siteApp.get('/', (c) =>
   </section>
 
   <section class="home-cta" aria-labelledby="cta-title">
-    <div><p class="kicker">Pierwszy krok może być prosty</p><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
+    <div><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
     <div><a class="btn" href="/terapeuci">Przeglądaj terapeutów <span aria-hidden="true">→</span></a><a href="/pomoc-w-kryzysie">Potrzebuję pilnej pomocy</a></div>
   </section>
 
   <aside class="crisis-inline" aria-label="Pomoc w nagłym zagrożeniu"><p><strong>Nie jest usługą terapeutyczną ani pomocą kryzysową.</strong> W bezpośrednim zagrożeniu życia lub zdrowia zadzwoń pod <strong>112</strong>. Całodobowe wsparcie emocjonalne dla dorosłych: <strong>116 123</strong>.</p><a href="/pomoc-w-kryzysie">Wszystkie numery pomocy</a></aside>
 </div>`,
     }),
-  ),
-);
+  );
+});
 
 // -------------------------------------------------------------- catalogue ---
 
@@ -331,8 +307,7 @@ siteApp.get('/terapeuci', async (c) => {
       path: '/terapeuci',
       body: `
 <div class="directory-page">
-<header class="directory-hero"><h1>Katalog terapeutów</h1>
-${facts ? `<p class="catalogue-facts">${escapeHtml(facts)}</p>` : ''}</header>
+${pageHead('Katalog terapeutów', facts ? `<p class="catalogue-facts">${escapeHtml(facts)}</p>` : '')}
 
 <form class="filters" method="get" action="/terapeuci" aria-label="Filtry katalogu">
   <div class="filter-bar">
@@ -496,15 +471,10 @@ siteApp.get('/jak-to-dziala', (c) =>
       path: '/jak-to-dziala',
       body: `
 <div class="subpage how-page">
-  <header class="subpage-hero">
-    <p class="kicker">Prosto i bez presji</p>
-    <h1>Od pierwszego kryterium do rezerwacji</h1>
-    <p class="lead">Ty określasz, co jest dla Ciebie ważne. My pokazujemy jawne informacje i prowadzimy przez kolejne kroki — bez diagnozowania i bez ukrytego rankingu.</p>
-    <a class="btn" href="/terapeuci">Przejdź do katalogu <span aria-hidden="true">→</span></a>
-  </header>
+  ${pageHead('Od pierwszego kryterium do rezerwacji', '<a class="btn" href="/terapeuci">Przejdź do katalogu <span aria-hidden="true">→</span></a>')}
 
   <section class="subpage-section" aria-labelledby="process-title">
-    <div class="subpage-heading"><p class="kicker">Cały proces</p><h2 id="process-title">Sześć spokojnych kroków</h2><p>Na każdym etapie widzisz tylko informacje potrzebne do podjęcia następnej decyzji.</p></div>
+    <div class="subpage-heading"><h2 id="process-title">Sześć spokojnych kroków</h2><p>Na każdym etapie widzisz tylko informacje potrzebne do podjęcia następnej decyzji.</p></div>
     <ol class="process-grid">
       <li><h3>Mówisz, czego szukasz</h3><p>Forma spotkań, miejscowość, język, budżet, dostępność, grupa wiekowa i obszary pracy. Nie musisz opisywać swojej sytuacji ani objawów.</p></li>
       <li><h3>Otrzymujesz dopasowane profile</h3><p>Dostajesz 3–5 profili pasujących do kryteriów, wraz z jasnym powodem dopasowania.</p></li>
@@ -516,12 +486,10 @@ siteApp.get('/jak-to-dziala', (c) =>
   </section>
 
   <section class="principles-panel" aria-label="Zasady serwisu">
-    <article>
-      <p class="kicker">Jasne granice</p><h2>Czego nie robimy</h2>
+    <article><h2>Czego nie robimy</h2>
       <ul class="calm-list"><li>Nie zapisujemy Twoich rozmów z ChatGPT.</li><li>Nie zapisujemy powodów, dla których szukasz terapii.</li><li>Nie stawiamy diagnoz i nie kwalifikujemy do leczenia.</li><li>Nie sprzedajemy pozycji w wynikach i nie prowadzimy profilowania reklamowego.</li></ul>
     </article>
-    <article>
-      <p class="kicker">Jawne źródła</p><h2>Skąd biorą się dane</h2>
+    <article><h2>Skąd biorą się dane</h2>
       <p>Dane wprowadza terapeuta. Część z nich weryfikujemy — wtedy profil ma oznaczenie „profil zweryfikowany” z datą weryfikacji.</p><p>Pozostałe dane są oznaczone jako deklarowane przez terapeutę. Profile demonstracyjne są zawsze wyraźnie opisane.</p>
     </article>
   </section>
@@ -538,11 +506,7 @@ siteApp.get('/bezpieczenstwo', (c) =>
       path: '/bezpieczenstwo',
       body: `
 <div class="subpage safety-page">
-  <header class="subpage-hero">
-    <p class="kicker">Bezpieczeństwo i granice</p>
-    <h1>Twoje dane. Twoja decyzja.</h1>
-    <p class="lead">Serwis pomaga znaleźć terapeutę i zarezerwować termin. Nie diagnozuje, nie prowadzi terapii i zbiera tylko informacje niezbędne do wykonania wybranej czynności.</p>
-  </header>
+  ${pageHead('Twoje dane. Twoja decyzja.')}
 
   <section class="info-card-grid" aria-label="Najważniejsze zasady bezpieczeństwa">
     <article class="info-card"><span class="info-index">01</span><h2>Granice kliniczne</h2><p>Otwarty Terapeuta jest katalogiem i systemem rezerwacji. Nie prowadzimy terapii, nie stawiamy diagnoz, nie prowadzimy interwencji kryzysowej i nie kwalifikujemy nikogo do leczenia.</p><p>Asystent ChatGPT może jedynie pokazać dane z katalogu i odpowiedzi napisane przez terapeutów.</p></article>
@@ -552,11 +516,11 @@ siteApp.get('/bezpieczenstwo', (c) =>
   </section>
 
   <section class="data-panel" aria-labelledby="data-title">
-    <div><p class="kicker">Minimum informacji</p><h2 id="data-title">Jak chronimy dane</h2><p>Projektujemy każdą operację tak, aby ograniczyć zakres danych i możliwość ich niepotrzebnego użycia.</p></div>
+    <div><h2 id="data-title">Jak chronimy dane</h2><p>Projektujemy każdą operację tak, aby ograniczyć zakres danych i możliwość ich niepotrzebnego użycia.</p></div>
     <ul class="calm-list"><li>Nie zapisujemy treści rozmów ani powodów szukania terapii.</li><li>Dane kontaktowe są szyfrowane kluczem aplikacyjnym.</li><li>Adresy e-mail wyszukujemy po nieodwracalnym skrócie.</li><li>Logi i telemetria są filtrowane z danych osobowych i tokenów.</li><li>Operacje zapisu wymagają autoryzacji, walidacji i trafiają do audytu.</li><li>Nie stosujemy trackerów reklamowych ani zewnętrznych skryptów analitycznych.</li></ul>
   </section>
 
-  <section class="contact-panel"><div><p class="kicker">Kontakt</p><h2>Zgłaszanie problemów</h2><p>Nieprawidłowości w profilu, podejrzenie nadużycia lub incydent bezpieczeństwa zgłoś na <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p></div></section>
+  <section class="contact-panel"><div><h2>Zgłaszanie problemów</h2><p>Nieprawidłowości w profilu, podejrzenie nadużycia lub incydent bezpieczeństwa zgłoś na <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p></div></section>
 </div>`,
     }),
   ),
@@ -593,13 +557,13 @@ siteApp.get('/pomoc-w-kryzysie', async (c) => {
       body: `
 <div class="subpage crisis-page">
   <header class="crisis-hero">
-    <div><p class="kicker">Sprawdzone miejsca pomocy</p><h1>Nie musisz zostawać z tym samodzielnie.</h1><p class="lead">Jeśli sytuacja nie jest bezpośrednim zagrożeniem, poniżej znajdziesz bezpłatne telefony i miejsca wsparcia.</p></div>
+    <div><h1>Nie musisz zostawać z tym samodzielnie.</h1><p class="lead">Jeśli sytuacja nie jest bezpośrednim zagrożeniem, poniżej znajdziesz bezpłatne telefony i miejsca wsparcia.</p></div>
     <aside class="emergency-panel" aria-label="Pomoc w bezpośrednim zagrożeniu"><p class="emergency-warning">Rezerwacja wizyty nie jest pomocą w nagłym zagrożeniu.</p><p>Bezpośrednie zagrożenie życia lub zdrowia</p><a href="tel:112">112</a><span>lub 999 · numery alarmowe</span></aside>
   </header>
 
-  <section class="resource-section" aria-labelledby="adult-title"><div class="resource-heading"><p class="kicker">Pomoc dla pełnoletnich</p><h2 id="adult-title">Osoby dorosłe</h2><p>Telefony zaufania i publiczne miejsca pomocy dostępne bez skierowania.</p></div>${renderList(adult)}</section>
+  <section class="resource-section" aria-labelledby="adult-title"><div class="resource-heading"><h2 id="adult-title">Osoby dorosłe</h2><p>Telefony zaufania i publiczne miejsca pomocy dostępne bez skierowania.</p></div>${renderList(adult)}</section>
 
-  <section class="resource-section minor-resources" aria-labelledby="minor-title"><div class="resource-heading"><p class="kicker">Pomoc dla dzieci i młodzieży</p><h2 id="minor-title">Osoby poniżej 18 roku życia</h2><p>Anonimowe telefony wsparcia oraz osobna ścieżka pomocy dla młodszych osób.</p></div>${renderList(minor)}</section>
+  <section class="resource-section minor-resources" aria-labelledby="minor-title"><div class="resource-heading"><h2 id="minor-title">Osoby poniżej 18 roku życia</h2><p>Anonimowe telefony wsparcia oraz osobna ścieżka pomocy dla młodszych osób.</p></div>${renderList(minor)}</section>
 
   <aside class="source-note"><p>Dane utrzymujemy ręcznie i okresowo weryfikujemy względem oficjalnych źródeł (pacjent.gov.pl, gov.pl). Jeśli zauważysz nieaktualną informację, napisz na <a href="mailto:${escapeHtml(c.env.SUPPORT_EMAIL)}">${escapeHtml(c.env.SUPPORT_EMAIL)}</a>.</p></aside>
 </div>`,
@@ -615,7 +579,7 @@ siteApp.get('/polityka-prywatnosci', (c) =>
       path: '/polityka-prywatnosci',
       body: `
 <div class="document-page">
-<header class="document-hero"><p class="kicker">Dokumenty i zasady</p><h1>Polityka prywatności</h1><p class="lead">Przejrzyste wyjaśnienie, jakie dane są potrzebne do działania katalogu i rezerwacji oraz czego świadomie nie zbieramy.</p><p class="document-version">Wersja ${escapeHtml(c.env.PRIVACY_VERSION)}</p></header>
+${pageHead('Polityka prywatności', `<p class="document-version">Wersja ${escapeHtml(c.env.PRIVACY_VERSION)}</p>`)}
 <div class="document-content">
 <section><h2>Administrator danych</h2>
 <p>Administratorem danych osobowych przetwarzanych w serwisie Otwarty Terapeuta jest:</p>
@@ -736,7 +700,7 @@ siteApp.get('/regulamin', (c) =>
       path: '/regulamin',
       body: `
 <div class="document-page">
-<header class="document-hero"><p class="kicker">Dokumenty i zasady</p><h1>Regulamin</h1><p class="lead">Najważniejsze zasady korzystania z katalogu i rezerwacji, opisane możliwie prostym językiem.</p><p class="document-version">Wersja ${escapeHtml(c.env.TERMS_VERSION)}</p></header>
+${pageHead('Regulamin', `<p class="document-version">Wersja ${escapeHtml(c.env.TERMS_VERSION)}</p>`)}
 <div class="document-content">
 <section><h2>1. Kto prowadzi serwis</h2>
 <p>Usługodawcą i operatorem serwisu Otwarty Terapeuta jest:</p>
