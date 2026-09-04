@@ -279,7 +279,10 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
       // No portrait here: the hero already shows it, and the service never repeats a photograph on a page.
-      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body: t.bio };
+      // Pojedynczy enter w opisie to u niej akapit, nie łamanie wiersza: bez tego
+      // silnik skleja całą biografię w jeden blok tekstu przedzielony <br>.
+      const body = t.bio.trim().split(/\n+/).join('\n\n');
+      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body };
     },
   },
   dane: {
