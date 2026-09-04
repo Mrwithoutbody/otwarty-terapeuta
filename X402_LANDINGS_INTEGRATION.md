@@ -61,6 +61,14 @@ Portret idzie z adresem bezwzględnym, bo podgląd w edytorze żyje na domenie u
 - **`glyph`** w `HOST_BLOCK_DEFS`: kształt, który paleta edytora rysuje na kaflu
   bloku (`calendar` dla terminów, `pricing` dla oferty). Silnik zna tylko typy
   rdzenia — nazwy naszych bloków nie mają w nim siedzieć.
+- **`was: ['stara-nazwa']`**, kiedy przemianowujesz blok w `HOST_SECTIONS`.
+  Zapisane strony trzymają nazwę sprzed zmiany; bez aliasu blok znika ze
+  wszystkich. Usługa podmienia nazwę przy odczycie, strona prostuje się przy
+  najbliższym zapisie.
+
+Kolejność wdrożeń nie jest już zobowiązaniem: usługa narysuje blok, dla którego
+przyszła treść, nawet jeśli nie zna jeszcze jego definicji. Host wdrożony
+pierwszy traci na chwilę **formularz w edytorze**, nigdy stronę.
 
 ## Migracja danych (jednorazowo)
 
