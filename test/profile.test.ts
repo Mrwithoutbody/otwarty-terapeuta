@@ -58,6 +58,8 @@ describe('a profile she has not published yet', () => {
       const editorUrl = /<a class="btn" href="([^"]+)" target="_blank"/.exec(panel)![1]!;
       const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
       expect(form).toContain('name="sec_0_type" value="hero-profil"');
+    // Znak ogniwa przy bloku danych prowadzi do zakładki panelu, w której ta treść powstaje.
+    expect(form).toContain(`${env.PUBLIC_BASE_URL}/admin/terapeuci/${ANNA}#panel-profil`);
       const preview = await (await pagesFetch(env, `${new URL(editorUrl).pathname}/preview`)).text();
       // Nie tytuł strony - on jest w <title> nawet bez danych. Bloki.
       expect(preview).toContain('data-block="0"');

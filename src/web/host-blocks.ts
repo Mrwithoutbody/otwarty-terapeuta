@@ -256,13 +256,15 @@ export interface HostDef {
   anchor?: string;
   /** Kształt, który paleta edytora rysuje na kaflu tego bloku. */
   glyph?: string;
+  /** Zakładka panelu, w której powstaje treść tego bloku; edytor linkuje tam znak ogniwa. */
+  edit?: string;
   /** Her data as a core block of the service, or null when there is nothing to show. */
   resolve(ctx: SectionCtx): Block | null;
 }
 
 export const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
-    label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', family: 'hero', glyph: 'hero',
+    label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -278,7 +280,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   intro: {
-    label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', glyph: 'split',
+    label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', edit: 'panel-profil', glyph: 'split',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -291,12 +293,12 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   dane: {
-    label: 'Podstawowe informacje', hint: 'Forma, miasto, nurt, języki — z zakładki Dane w panelu', tone: 'narrow', anchor: 'informacje', glyph: 'contact',
+    label: 'Podstawowe informacje', hint: 'Forma, miasto, nurt, języki — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'narrow', anchor: 'informacje', glyph: 'contact',
     fields: OWN,
     resolve: (ctx) => ({ type: 'contact', eyebrow: 'W skrócie', heading: 'Podstawowe informacje', items: factSheet(ctx.therapist) }),
   },
   topics: {
-    label: 'Z czym przychodzą', hint: 'Obszary i nurty — z zakładki Dane w panelu', tone: 'alt', glyph: 'grid',
+    label: 'Z czym przychodzą', hint: 'Obszary i nurty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -308,7 +310,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   offers: {
-    label: 'Oferta', hint: 'Sesje i ceny — z zakładki Oferta w panelu', family: 'oferta', glyph: 'pricing',
+    label: 'Oferta', hint: 'Sesje i ceny — z zakładki Oferta w panelu', edit: 'panel-oferta', family: 'oferta', glyph: 'pricing',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -323,7 +325,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   slots: {
-    label: 'Wolne terminy', hint: 'Kalendarz i zasady odwołania — z zakładki Dostępność w panelu', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
+    label: 'Wolne terminy', hint: 'Kalendarz i zasady odwołania — z zakładki Dostępność w panelu', edit: 'panel-terminy', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
     fields: [T('heading', 'Nagłówek')],
     resolve: (ctx) => {
       const cal = calendarDays(ctx.slots);
@@ -344,7 +346,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   gabinet: {
-    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu i forma sesji — z zakładki Dane w panelu', tone: 'narrow', anchor: 'gabinet', glyph: 'contact',
+    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu i forma sesji — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'narrow', anchor: 'gabinet', glyph: 'contact',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -358,7 +360,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   zestawienie: {
-    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — z zakładki Dane w panelu', tone: 'alt', anchor: 'steps', glyph: 'steps',
+    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', anchor: 'steps', glyph: 'steps',
     fields: OWN,
     resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
@@ -371,7 +373,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   'faq-profil': {
-    label: 'Pytania i odpowiedzi', hint: 'Pytania i odpowiedzi — z zakładki FAQ w panelu', tone: 'alt', glyph: 'faq',
+    label: 'Pytania i odpowiedzi', hint: 'Pytania i odpowiedzi — z zakładki FAQ w panelu', edit: 'panel-faq', tone: 'alt', glyph: 'faq',
     fields: OWN,
     resolve: (ctx) =>
       ctx.faq.length === 0
@@ -379,7 +381,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
         : { type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
   },
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — z zakładki Dane w panelu', tone: 'alt', glyph: 'grid',
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
     fields: OWN,
     resolve: (ctx) => {
       const c = ctx.therapist.credentials;

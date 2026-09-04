@@ -123,5 +123,8 @@ export async function editorUrl(env: Env, page: PageInfo, ctx: SectionCtx | null
     resolved,
     summary: ctx ? summarize(resolved) : {},
     fixed: page.slug === PROFILE_SLUG,
+    // Adres jej panelu: edytor robi z niego odnośnik przy każdym bloku danych,
+    // prosto do zakładki, w której ta treść powstaje.
+    panelUrl: `${env.PUBLIC_BASE_URL}/admin/terapeuci/${page.owner}`,
   });
 }

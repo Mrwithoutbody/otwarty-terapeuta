@@ -163,6 +163,8 @@ export interface EditSessionInput {
   summary: Record<string, { text: string; empty?: true }>;
   /** The host owns title, address and visibility (her profile). */
   fixed: boolean;
+  /** Her panel; a block's `edit` anchor points into it. */
+  panelUrl: string;
 }
 
 /** A link into the hosted editor, good for two hours. */
