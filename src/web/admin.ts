@@ -790,10 +790,6 @@ function therapistTabs(session: AdminSession, row: TherapistRow, context: Editor
   const id = escapeHtml(row.id);
 
   return `
-<p class="tabs-lead">Tu są dane, z których korzysta katalog i rezerwacja: kim jesteś, co oferujesz,
-kiedy masz czas. Treść strony układasz w ChatGPT; w zakładce <strong>Wygląd strony</strong>
-wybierasz szablon.</p>
-
 <div class="tabs" data-tabs="terapeuta-v3">
 
 <section data-tab-panel data-tab-label="Dane" id="panel-profil">
@@ -939,10 +935,7 @@ ${
 </section>
 
 <section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
-<h2>Wygląd strony</h2>
-<p class="panel-lead">Szablon, kolejność bloków i własne teksty. Po prawej widzisz swoją stronę;
-najedź na szablon, żeby zobaczyć ją w tym wyglądzie, kliknij, żeby go wybrać.
-<a href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Otwórz stronę w nowej karcie ↗</a></p>
+<h2 class="visually-hidden">Wygląd strony</h2>
 ${'url' in context.profileEditor
     ? `<iframe class="pages-editor" src="${escapeHtml(context.profileEditor.url)}" title="Edytor Twojej strony"></iframe>`
     : `<p class="notice">${escapeHtml(context.profileEditor.error)}</p>`}
