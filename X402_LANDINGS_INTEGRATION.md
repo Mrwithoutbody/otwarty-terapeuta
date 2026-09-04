@@ -39,6 +39,25 @@ Profil = strona o slugu `profil`, `owner` = id terapeutki; tworzona przy pierwsz
 wyświetleniu (`ensureProfilePage`) ze szkieletem `DEFAULT_PROFILE`. Podstrony =
 własne slugi. Jedno wywołanie na wyświetlenie strony.
 
+## Pola danych: edytor pisze do bazy hosta
+
+Pole bloku z `data: true` nie należy do strony, tylko do hosta:
+
+- formularz bloku pokazuje w nim aktualną wartość z `resolved` (repeater dla
+  listy, `kind: 'hidden'` przenosi identyfikator wiersza),
+- przy zapisie usługa wyjmuje te wartości z bloku i POST-uje je pod adres,
+  który host podał w `write` przy `edit-session`: `{token, data: {blok: {pole}}}`,
+- host odpowiada świeżym `{resolved, summary}`; usługa podmienia nimi migawkę
+  sesji, więc kafle i podgląd nie kłamią zaraz po zapisie.
+
+W ot-02: pola deklaruje `host-blocks.ts` (`D`, `DAREA`, `DLIST`, `HID`), zapis
+przyjmuje `src/web/host-write.ts` pod `POST /api/host-blocks`, a token to HMAC
+`hostwrite:<id>.<exp>` z `TOKEN_SIGNING_KEY`, ważny dwie godziny.
+
+Zasada: cena istnieje w jednym miejscu — w D1. Strona trzyma tylko własne słowa
+terapeutki (nadtytuł, tytuł, podtytuł), nigdy kopii danych. Zapis z formularza,
+który danego pola nie niósł, niczego nie kasuje.
+
 ## Awaria usługi
 
 Po udanym renderze HTML idzie do R2 `pages-html/<owner>/<slug>.html`. Gdy usługa

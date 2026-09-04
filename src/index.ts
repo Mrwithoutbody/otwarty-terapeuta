@@ -16,6 +16,7 @@ import { D1TokenVerifier } from './auth/verifier';
 import { createServerFactory } from './mcp/server';
 import { addToolSecuritySchemes, isOAuthToolName } from './mcp/security';
 import { adminApp } from './web/admin';
+import { hostWriteApp } from './web/host-write';
 import { therapistSignupApp } from './web/therapist-signup';
 import { siteApp } from './web/pages';
 import { htmlResponse, renderPage, securityHeaders } from './web/layout';
@@ -132,6 +133,7 @@ app.get('/media/:key{.+}', async (c) => {
 
 app.route('/oauth', oauthApp);
 app.route('/admin', adminApp);
+app.route('/api', hostWriteApp);
 app.route('/dla-terapeutow', therapistSignupApp);
 app.route('/', siteApp);
 

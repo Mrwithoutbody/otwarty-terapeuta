@@ -165,6 +165,8 @@ export interface EditSessionInput {
   fixed: boolean;
   /** Her panel; a block's `edit` anchor points into it. */
   panelUrl: string;
+  /** Gdzie usługa odeśle wartości pól danych po zapisie, i czym się przy tym wylegitymuje. */
+  write: { url: string; token: string };
 }
 
 /** A link into the hosted editor, good for two hours. */

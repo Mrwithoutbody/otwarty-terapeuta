@@ -15,6 +15,7 @@ import type { PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
 import { createPage, editSession, listPages, PagesUnavailable, renderPage, type PageInfo } from './pages-client';
 import { DEFAULT_PROFILE, resolveAll, summarize, type SectionCtx } from './host-blocks';
+import { writeToken } from './host-write';
 
 export { PagesUnavailable };
 export type { SectionCtx };
@@ -126,5 +127,8 @@ export async function editorUrl(env: Env, page: PageInfo, ctx: SectionCtx | null
     // Adres jej panelu: edytor robi z niego odnośnik przy każdym bloku danych,
     // prosto do zakładki, w której ta treść powstaje.
     panelUrl: `${env.PUBLIC_BASE_URL}/admin/terapeuci/${page.owner}`,
+    // Pola danych bloku wracają tutaj: usługa odsyła je pod ten adres z tym
+    // tokenem, a zapisuje je ta baza. Bez tego edytor mógłby je tylko pokazać.
+    write: { url: `${env.PUBLIC_BASE_URL}/api/host-blocks`, token: await writeToken(env, page.owner) },
   });
 }

@@ -187,6 +187,34 @@ const T = (name: string, label: string, hint?: string, edit?: string):
   { kind: 'text'; name: string; label: string; hint?: string; edit?: string; max: number } =>
   ({ kind: 'text', name, label, hint, edit, max: 160 });
 
+/**
+ * Pole danych: to, co wpiszesz, wraca do tej bazy, a nie do JSON-a strony.
+ * Usługa pokazuje w nim aktualną wartość z `resolve` i odsyła ją przy zapisie
+ * (`POST /api/host-blocks`), więc cena widnieje w jednym miejscu — tutaj.
+ */
+const D = (name: string, label: string, hint?: string, max = 200): Field =>
+  ({ kind: 'text', name, label, hint, max, data: true });
+
+const DAREA = (name: string, label: string, hint?: string, max = 4000): Field =>
+  ({ kind: 'textarea', name, label, hint, max, data: true });
+
+const DLIST = (name: string, label: string, of: Field[], max: number, hint?: string): Field =>
+  ({ kind: 'list', name, label, hint, max, of, data: true });
+
+const HID = (name: string): Field => ({ kind: 'hidden', name, label: name });
+
+export interface Field {
+  kind: 'text' | 'textarea' | 'url' | 'select' | 'list' | 'media' | 'hidden';
+  name: string;
+  label: string;
+  hint?: string;
+  max?: number;
+  edit?: string;
+  data?: boolean;
+  options?: Array<[string, string]>;
+  of?: Field[];
+}
+
 /** Fields the person may fill to override what the data would say. */
 // Bez podpowiedzi o dziedziczeniu: usługa dokłada ją sama pod tym polem, pod
 // które `resolve` faktycznie coś przysłał. Wpisana tutaj wisiała pod każdym
@@ -251,7 +279,7 @@ const photo = (ctx: SectionCtx): Values => {
 export interface HostDef {
   label: string;
   hint: string;
-  fields?: Array<{ kind: 'text'; name: string; label: string; hint?: string; max: number }>;
+  fields?: Field[];
   tone?: 'alt' | 'dark' | 'narrow';
   family?: string;
   anchor?: string;
@@ -268,14 +296,18 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
     // Każde z trzech pól ma swoje miejsce w panelu: nagłówek zawodowy, imię i opis.
     fields: [
-      T('eyebrow', 'Nadtytuł', undefined, 'panel-profil:headline'),
-      T('heading', 'Nagłówek', undefined, 'panel-profil:display_name'),
-      T('lead', 'Podtytuł', undefined, 'panel-profil:bio'),
+      D('display_name', 'Imię i nazwisko'),
+      D('headline', 'Nagłówek zawodowy', 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.'),
+      T('eyebrow', 'Nadtytuł (własnymi słowami)', 'Puste = nagłówek zawodowy powyżej.'),
+      T('heading', 'Tytuł (własnymi słowami)', 'Puste = imię i nazwisko powyżej.'),
+      T('lead', 'Podtytuł (własnymi słowami)', 'Puste = pierwsze zdanie opisu.'),
     ],
     resolve: (ctx) => {
       const t = ctx.therapist;
       return {
         type: 'hero',
+        display_name: t.display_name,
+        headline: t.headline,
         eyebrow: t.headline || t.locations[0]?.city || '',
         heading: t.display_name,
         lead: firstSentence(t.bio),
@@ -287,7 +319,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', edit: 'panel-profil:bio', glyph: 'split',
-    fields: OWN,
+    fields: [DAREA('bio', 'Opis: jak pracujesz', 'Pusta linia zaczyna nowy akapit.'), ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
@@ -295,7 +327,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       // Pojedynczy enter w opisie to u niej akapit, nie łamanie wiersza: bez tego
       // silnik skleja całą biografię w jeden blok tekstu przedzielony <br>.
       const body = t.bio.trim().split(/\n+/).join('\n\n');
-      return { type: 'media-text', eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body };
+      return { type: 'media-text', bio: t.bio, eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body };
     },
   },
   dane: {
@@ -317,12 +349,24 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   offers: {
     label: 'Oferta', hint: 'Sesje i ceny — z zakładki Oferta w panelu', edit: 'panel-oferta', family: 'oferta', glyph: 'pricing',
-    fields: OWN,
+    fields: [
+      DLIST('offer_rows', 'Sesje i ceny', [
+        HID('id'),
+        { kind: 'text', name: 'title', label: 'Nazwa', max: 120 },
+        { kind: 'text', name: 'price', label: 'Cena (zł)', max: 10 },
+        { kind: 'text', name: 'minutes', label: 'Czas (min)', max: 4 },
+        { kind: 'select', name: 'mode', label: 'Forma', options: [['online', 'online'], ['in_person', 'w gabinecie']] },
+      ], 4, 'Wyczyszczona nazwa wyłącza ofertę — jej terminy zostają w bazie.'),
+      ...OWN,
+    ],
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.offers.length === 0) return null;
       return {
         type: 'pricing', eyebrow: 'Oferta', heading: 'Sesje i ceny',
+        offer_rows: t.offers.slice(0, 4).map((o) => ({
+          id: o.offer_id, title: o.title, price: String(o.price_minor / 100), minutes: String(o.duration_minutes), mode: o.mode,
+        })),
         items: t.offers.slice(0, 4).map((o) => ({
           name: o.title, price: formatPrice(o.price_minor, o.currency), per: `${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'w gabinecie'}`,
           cta_label: 'Zobacz terminy', cta_href: '#terminy',
@@ -367,7 +411,12 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   zestawienie: {
     label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — z zakładki Dane w panelu', edit: 'panel-profil:first_meeting_course', tone: 'alt', anchor: 'steps', glyph: 'steps',
-    fields: OWN,
+    fields: [
+      DAREA('first_meeting_course', 'Jak wygląda pierwsze spotkanie', undefined, 400),
+      DAREA('first_meeting_prep', 'Jak się przygotować', undefined, 400),
+      DAREA('first_meeting_decision', 'Co potem', undefined, 400),
+      ...OWN,
+    ],
     resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
       const items = [
@@ -375,25 +424,47 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         { title: 'Jak się przygotować', body: m.prep },
         { title: 'Co potem', body: m.decision },
       ].filter((x) => x.body.trim() !== '');
-      return items.length === 0 ? null : { type: 'steps', eyebrow: 'Pierwsze spotkanie', heading: 'Jak to wygląda na początku', items };
+      return {
+        type: 'steps', eyebrow: 'Pierwsze spotkanie', heading: 'Jak to wygląda na początku', items,
+        first_meeting_course: m.course, first_meeting_prep: m.prep, first_meeting_decision: m.decision,
+      };
     },
   },
   'faq-profil': {
     label: 'Pytania i odpowiedzi', hint: 'Pytania i odpowiedzi — z zakładki FAQ w panelu', edit: 'panel-faq', tone: 'alt', glyph: 'faq',
-    fields: OWN,
+    fields: [
+      DLIST('faq_rows', 'Pytania i odpowiedzi', [
+        HID('id'),
+        { kind: 'text', name: 'q', label: 'Pytanie', max: 200 },
+        { kind: 'textarea', name: 'a', label: 'Odpowiedź', max: 2000 },
+      ], 10, 'Wyczyszczone pytanie usuwa wpis.'),
+      ...OWN,
+    ],
     resolve: (ctx) =>
       ctx.faq.length === 0
         ? null
-        : { type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
+        : {
+            type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej',
+            faq_rows: ctx.faq.slice(0, 10).map((f) => ({ id: f.faq_id, q: f.question, a: f.answer })),
+            items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })),
+          },
   },
   credentials: {
     label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
-    fields: OWN,
+    fields: [
+      DLIST('credential_rows', 'Dyplomy i certyfikaty', [
+        { kind: 'text', name: 'title', label: 'Nazwa', max: 160 },
+        { kind: 'text', name: 'issuer', label: 'Wydający', max: 160 },
+        { kind: 'text', name: 'year', label: 'Rok', max: 4 },
+      ], 6, 'Wyczyszczona nazwa usuwa wpis. Weryfikacja zostaje po stronie administratora.'),
+      ...OWN,
+    ],
     resolve: (ctx) => {
       const c = ctx.therapist.credentials;
       return c.length === 0
         ? null
         : { type: 'features', eyebrow: 'Kwalifikacje', heading: 'Skąd mam do tego przygotowanie',
+            credential_rows: c.slice(0, 6).map((x) => ({ title: x.title, issuer: x.issuer ?? '', year: x.year === null ? '' : String(x.year) })),
             items: c.slice(0, 6).map((x) => ({ title: x.title, body: [x.issuer, x.year, x.verified ? 'zweryfikowane' : ''].filter(Boolean).join(' · ') })) };
     },
   },
@@ -427,7 +498,9 @@ const str = (value: unknown): string => (typeof value === 'string' ? value.trim(
 /** One row of a resolved block, as a person would read it aloud. */
 function rowLabel(row: Values): string {
   const pair = str(row.label) && str(row.value) ? `${str(row.label)}: ${str(row.value)}` : '';
-  return str(row.title) || str(row.name) || str(row.q) || pair || str(row.label) || str(row.value);
+  // Cennik bez ceny to sama nazwa sesji - kafel ma pokazać obie liczby.
+  const priced = str(row.name) && str(row.price) ? `${str(row.name)} — ${str(row.price)}` : '';
+  return priced || str(row.title) || str(row.name) || str(row.q) || pair || str(row.label) || str(row.value);
 }
 
 const arr = (value: unknown): Values[] => (Array.isArray(value) ? (value as Values[]) : []);
