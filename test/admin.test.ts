@@ -55,6 +55,14 @@ function localHour(iso: string, timeZone: string): string {
   );
 }
 
+describe('logowanie do panelu', () => {
+  it('informuje o możliwym opóźnieniu wiadomości z kodem', async () => {
+    const response = await SELF.fetch('https://localhost/admin');
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('Wiadomość może czasem dotrzeć z opóźnieniem');
+  });
+});
+
 describe('slot generation through the admin panel', () => {
   let admin: Actor;
 

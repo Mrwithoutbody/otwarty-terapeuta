@@ -92,7 +92,7 @@ ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
   <div class="field">
     <label for="email">Adres e-mail</label>
     <input id="email" name="email" type="email" autocomplete="email" required maxlength="254">
-    <p class="hint">Wyślemy jednorazowy kod. Panel nie używa haseł.</p>
+    <p class="hint">Wyślemy jednorazowy kod. Panel nie używa haseł. Wiadomość może czasem dotrzeć z opóźnieniem — sprawdź też folder Spam.</p>
   </div>
   <div class="cf-turnstile" data-sitekey="${escapeHtml(env.TURNSTILE_SITE_KEY)}" data-theme="auto"></div>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>

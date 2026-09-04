@@ -256,3 +256,11 @@ describe('CSP: no inline style attributes', () => {
     });
   }
 });
+
+describe('stopka serwisu', () => {
+  it('zawiera link logowania do panelu', async () => {
+    const res = await SELF.fetch('https://example.com/');
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('<a href="https://otwartyterapeuta.pl/admin">Logowanie</a>');
+  });
+});

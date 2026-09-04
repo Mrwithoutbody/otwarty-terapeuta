@@ -182,6 +182,7 @@ ${options.body}
         <li><a href="/terapeuci">Terapeuci</a></li>
         <li><a href="/jak-to-dziala">Jak to działa</a></li>
         <li><a href="/dla-terapeutow">Dla terapeutów</a></li>
+        <li><a href="https://otwartyterapeuta.pl/admin">Logowanie</a></li>
       </ul></div>
       <div><h2>Informacje</h2><ul>
         <li><a href="/regulamin">Regulamin</a></li>
