@@ -937,7 +937,7 @@ ${
 <section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
 <h2 class="visually-hidden">Wygląd strony</h2>
 ${'url' in context.profileEditor
-    ? `<p class="editor-open">
+    ? `<p class="seg">
   <a class="btn" href="${escapeHtml(context.profileEditor.url)}" target="_blank" rel="noopener">Otwórz edytor ↗</a>
   <a class="btn secondary" href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Zobacz stronę ↗</a>
 </p>
@@ -1354,8 +1354,7 @@ adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
 <h1>Podstrona: ${escapeHtml(row.title)}</h1>
 <p class="hint">Adres: <a href="/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)}" target="_blank" rel="noopener">/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)} ↗</a>
  — ${row.status === 'published' ? 'opublikowana' : 'szkic, widzisz ją tylko Ty'}. Usuwanie i publikacja są w edytorze.</p>
-<p class="editor-open"><a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Otwórz edytor ↗</a></p>
-<p class="hint">Edytor otwiera się w nowej karcie. Link jest ważny dwie godziny.</p>`,
+<p class="seg"><a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Otwórz edytor ↗</a></p>`,
     );
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;

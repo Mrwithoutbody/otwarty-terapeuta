@@ -169,10 +169,6 @@ export function addCivilDays(date: CivilDate, days: number): CivilDate {
 export function formatPrice(minor: number, currency: string, locale = 'pl-PL'): string {
   // Pełne złote bez groszy: cennik gabinetu to okrągłe kwoty, a "250,00 zł"
   // w wielkim kroju szablonu czyta się jak faktura.
-  const cents = minor % 100 !== 0;
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: cents ? 2 : 0,
-  }).format(minor / 100);
+  const fraction = minor % 100 === 0 ? 0 : 2;
+  return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: fraction }).format(minor / 100);
 }

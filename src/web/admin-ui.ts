@@ -675,8 +675,6 @@ export const ADMIN_CSS = String.raw`
 .crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
 .crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
 
-/* --- pages: the editor lives on the service, opened in its own tab ---- */
-.editor-open { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 0.6rem; }
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
 /* --- profile composer (legacy layout, kept for the photo cropper) ---- */
 .composer .hint { max-width: 62ch; }
