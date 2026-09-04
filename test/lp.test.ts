@@ -42,7 +42,7 @@ function postEditor(editorUrl: string, pairs: Array<[string, string]>): Promise<
   });
 }
 
-const editorSrc = (html: string): string => /<iframe class="pages-editor" src="([^"]+)"/.exec(html)![1]!;
+const editorSrc = (html: string): string => /<a class="btn" href="(https:[^"]+)" target="_blank"/.exec(html)![1]!;
 
 /** The whole life of one subpage: created, arranged in the service's editor, published, deleted. */
 describe('podstrony terapeutki', () => {
@@ -54,7 +54,7 @@ describe('podstrony terapeutki', () => {
     const editor = created.headers.get('location')!;
     expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/[a-z0-9]+$`));
 
-    // The panel frames the service's editor; the editor is the template picker, the block list, one preview.
+    // The panel links out to the service's editor; the editor is the template picker, the block list, one preview.
     const shell = await (await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: anna.cookie } })).text();
     const editorUrl = editorSrc(shell);
     expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\/[a-z0-9]+\/[a-z0-9]+\.\d+\.[\w-]+$/);

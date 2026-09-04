@@ -39,7 +39,9 @@ function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string 
   const script = withTurnstile
     ? `script-src 'self' https://challenges.cloudflare.com`
     : `script-src 'self'`;
-  const frame = [`frame-src 'self'`, withTurnstile ? 'https://challenges.cloudflare.com' : '', pages ?? '']
+  // Edytor usługi otwiera się we własnej karcie, nie w ramce - w frame-src
+  // zostaje tylko Turnstile.
+  const frame = [`frame-src 'self'`, withTurnstile ? 'https://challenges.cloudflare.com' : '']
     .filter(Boolean)
     .join(' ');
   const own = pages ? `'self' ${pages}` : `'self'`;

@@ -41,16 +41,17 @@ describe('the profile page on the pages service', () => {
 });
 
 describe('templates in the panel', () => {
-  it('frames the service\'s editor for her profile and applies a template without losing her words', async () => {
+  it('links to the service\'s editor for her profile and applies a template without losing her words', async () => {
     const user = await findOrCreateUserByEmail(env, 'anna-tpl@example.invalid');
     await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
     const { cookie } = await createAdminSession(env, user.id);
     const session = await loadAdminSession(env, new Request('https://localhost/admin', { headers: { cookie } }));
 
     const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-    const editorUrl = /<iframe class="pages-editor" src="([^"]+)" title="Edytor Twojej strony"/.exec(panel)![1]!;
+    const editorUrl = /<a class="btn" href="([^"]+)" target="_blank"/.exec(panel)![1]!;
     expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\//);
-    expect(panel).toContain('class="pages-editor"');
+    // The editor opens in its own tab on the service, never framed here.
+    expect(panel).not.toContain('<iframe');
 
     const path = new URL(editorUrl).pathname;
     const editor = await pagesFetch(env, path);

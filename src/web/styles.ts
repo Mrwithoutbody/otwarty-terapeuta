@@ -156,7 +156,6 @@ code { background: var(--surface-alt); border-radius: 6px; padding: 0.08em 0.32e
   border-radius: 0 0 var(--radius-sm) var(--radius-sm); transition: top 0.18s ease;
 }
 .skip-link:focus { top: 0; }
-html { overflow-x: clip; }
 .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding-inline: clamp(1rem, 3vw, 2.5rem); }
 header.site {
   position: sticky; top: 0; z-index: 20;

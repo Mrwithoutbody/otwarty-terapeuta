@@ -937,7 +937,11 @@ ${
 <section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
 <h2 class="visually-hidden">Wygląd strony</h2>
 ${'url' in context.profileEditor
-    ? `<iframe class="pages-editor" src="${escapeHtml(context.profileEditor.url)}" title="Edytor Twojej strony"></iframe>`
+    ? `<p class="editor-open">
+  <a class="btn" href="${escapeHtml(context.profileEditor.url)}" target="_blank" rel="noopener">Otwórz edytor ↗</a>
+  <a class="btn secondary" href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Zobacz stronę ↗</a>
+</p>
+<p class="hint">Edytor otwiera się w nowej karcie, na całą szerokość ekranu. Link jest ważny dwie godziny — po tym czasie wróć tutaj po nowy.</p>`
     : `<p class="notice">${escapeHtml(context.profileEditor.error)}</p>`}
 </section>
 
@@ -1349,8 +1353,9 @@ adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
       `<p><a href="/admin/terapeuci/${escapeHtml(id)}#panel-strony">← Profil: ${escapeHtml(g.therapist.display_name)}</a></p>
 <h1>Podstrona: ${escapeHtml(row.title)}</h1>
 <p class="hint">Adres: <a href="/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)}" target="_blank" rel="noopener">/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)} ↗</a>
- — ${row.status === 'published' ? 'opublikowana' : 'szkic, widzisz ją tylko Ty'}. Usuwanie i publikacja są w edytorze poniżej.</p>
-<iframe class="pages-editor" src="${escapeHtml(url)}" title="Edytor podstrony"></iframe>`,
+ — ${row.status === 'published' ? 'opublikowana' : 'szkic, widzisz ją tylko Ty'}. Usuwanie i publikacja są w edytorze.</p>
+<p class="editor-open"><a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Otwórz edytor ↗</a></p>
+<p class="hint">Edytor otwiera się w nowej karcie. Link jest ważny dwie godziny.</p>`,
     );
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;
