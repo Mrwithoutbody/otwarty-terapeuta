@@ -209,7 +209,9 @@ const HID = (name: string): Field => ({ kind: 'hidden', name, label: name });
  * („Zobacz wolne terminy", „Jak wygląda pierwsze spotkanie").
  */
 const BUTTONS: Field = {
-  kind: 'list', name: 'buttons', label: 'Przyciski', max: 2,
+  // Cztery, bo dwa to była decyzja projektowa przebrana za ograniczenie
+  // techniczne: repeater rośnie do `max` i tyle wierszy pokazuje formularz.
+  kind: 'list', name: 'buttons', label: 'Przyciski', max: 4,
   hint: 'Puste = przyciski domyślne: terminy i pierwsze spotkanie.',
   of: [
     { kind: 'text', name: 'label', label: 'Napis', max: 40 },
