@@ -92,7 +92,6 @@ export interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/terapeuci', label: 'Terapeuci' },
-  { href: '/dla-terapeutow', label: 'Dla terapeutów' },
   { href: '/jak-to-dziala', label: 'Jak to działa' },
   { href: '/bezpieczenstwo', label: 'Bezpieczeństwo' },
   { href: '/pomoc-w-kryzysie', label: 'Pomoc w kryzysie' },
