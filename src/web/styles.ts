@@ -580,7 +580,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
   border: 0; border-radius: 0; background: #232943; color: #c8cde4;
 }
-/* One of the illustrations as texture, not as a picture: 200 px wide, so the
+/* One of the illustrations as texture, not as a picture: 140 px wide, so the
    browser's own upscaling is the blur and the page pays no filter at paint
    time. It carries no colour of its own - grey, with its tonal range squeezed
    into 70-185 - so the hue on the band comes from the wash alone and the
