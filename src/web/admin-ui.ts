@@ -39,6 +39,12 @@ export const ADMIN_JS = String.raw`(function () {
     });
     var close = dialog.querySelector('[data-editor-close]');
     if (close) close.addEventListener('click', function () { dialog.close(); });
+    /* Esc naciśnięty w ramce: klawisz trafia do jej dokumentu, więc edytor
+       melduje go wiadomością. Tylko z origin usługi, tylko przy otwartym oknie. */
+    var origin = new URL(url, location.href).origin;
+    window.addEventListener('message', function (event) {
+      if (event.origin === origin && event.data && event.data.kind === 'close-editor') dialog.close();
+    });
   }
 
   function initTabs(root) {
