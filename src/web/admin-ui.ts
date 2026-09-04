@@ -713,6 +713,12 @@ main > .wrap:has(.tabs) { max-width: none; }
   letter-spacing: 0.06em; text-align: center; }
 .media-gallery form { margin: 0; display: contents; }
 .media-gallery .btn { font-size: 0.75rem; padding: 0.3rem 0.5rem; min-height: 0; }
+/* Adres pliku pod miniaturą: klik zaznacza całość, żeby dało się go wkleić
+   w polu „Zdjęcie" bloku w edytorze strony. */
+.media-address input {
+  width: 100%; font-size: 0.6875rem; padding: 0.25rem 0.35rem; min-height: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-muted);
+}
 .photo-preview {
   width: 7rem; height: 7rem; border-radius: 50%; object-fit: cover;
   border: 1px solid var(--border-strong); background: var(--surface-alt);

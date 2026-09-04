@@ -639,12 +639,15 @@ function mediaGallery(
     <input type="hidden" name="csrf" value="${escapeHtml(session.csrfToken)}">
     <button class="btn secondary danger" type="submit">Usuń</button>
   </form>
+  <label class="media-address"><span class="visually-hidden">Adres tej grafiki</span>
+    <input value="${escapeHtml(m.url)}" readonly onfocus="this.select()"></label>
 </li>`;
     })
     .join('');
   return `<fieldset class="media-gallery">
   <legend>Grafiki profilu</legend>
-  <p class="hint">Każdy wgrany plik zostaje tutaj. Portret to jedna z grafik — podmiana nic nie kasuje.</p>
+  <p class="hint">Każdy wgrany plik zostaje tutaj. Portret to jedna z grafik — podmiana nic nie kasuje.
+  Adres pod zdjęciem wklejasz w edytorze strony, w polu „Zdjęcie” bloku.</p>
   <ul>${items}</ul>
 </fieldset>`;
 }

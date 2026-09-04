@@ -203,6 +203,27 @@ const DLIST = (name: string, label: string, of: Field[], max: number, hint?: str
 
 const HID = (name: string): Field => ({ kind: 'hidden', name, label: name });
 
+/**
+ * Przyciski bloku. Napisy i adresy są prezentacją strony, nie danymi z bazy,
+ * więc mieszkają w JSON-ie strony; puste = te, które host podpowiada
+ * („Zobacz wolne terminy", „Jak wygląda pierwsze spotkanie").
+ */
+const BUTTONS: Field = {
+  kind: 'list', name: 'buttons', label: 'Przyciski', max: 2,
+  hint: 'Puste = przyciski domyślne: terminy i pierwsze spotkanie.',
+  of: [
+    { kind: 'text', name: 'label', label: 'Napis', max: 40 },
+    { kind: 'url', name: 'href', label: 'Adres', max: 500, hint: '#terminy, #steps albo pełny adres.' },
+    { kind: 'select', name: 'style', label: 'Styl', options: [['primary', 'Główny'], ['ghost', 'Drugorzędny']] },
+  ],
+};
+
+/** Zdjęcie bloku. Adres z galerii w panelu; puste = zdjęcie z katalogu branży. */
+const MEDIA: Field = {
+  kind: 'media', name: 'media', label: 'Zdjęcie',
+  hint: 'Adres z galerii w panelu (zakładka Dane). Puste = zdjęcie z katalogu.',
+};
+
 export interface Field {
   kind: 'text' | 'textarea' | 'url' | 'select' | 'list' | 'media' | 'hidden';
   name: string;
@@ -304,6 +325,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     fields: [
       D('display_name', 'Imię i nazwisko'),
       D('headline', 'Nadtytuł: nagłówek zawodowy', 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.'),
+      BUTTONS,
     ],
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -322,7 +344,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', edit: 'panel-profil:bio', glyph: 'split',
-    fields: [DAREA('bio', 'Opis: jak pracujesz', 'Pusta linia zaczyna nowy akapit.'), ...OWN],
+    fields: [DAREA('bio', 'Opis: jak pracujesz', 'Pusta linia zaczyna nowy akapit.'), MEDIA, ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
@@ -379,7 +401,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   slots: {
     label: 'Wolne terminy', hint: 'Kalendarz i zasady odwołania — z zakładki Dostępność w panelu', edit: 'panel-terminy', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
-    fields: [T('heading', 'Nagłówek')],
+    fields: [T('heading', 'Nagłówek sekcji'), BUTTONS],
     resolve: (ctx) => {
       const cal = calendarDays(ctx.slots);
       if (!cal) return null;
@@ -473,7 +495,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   zaproszenie: {
     label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', glyph: 'cta',
-    fields: OWN,
+    fields: [BUTTONS, ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
       return {

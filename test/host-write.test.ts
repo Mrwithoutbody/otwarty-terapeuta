@@ -72,3 +72,39 @@ describe('pola danych bloku wracają do bazy', () => {
     expect(t.bio).not.toBe('nie');
   });
 });
+
+describe('przyciski i zdjęcie w bloku', () => {
+  it('edytor pokazuje pola przycisków i zdjęcia, a wpisany napis wygrywa nad domyślnym', async () => {
+    const user = await findOrCreateUserByEmail(env, 'anna-guziki@example.invalid');
+    await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
+    const { cookie } = await createAdminSession(env, user.id);
+    const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
+    const path = new URL(/data-page-editor="([^"]+)"/.exec(panel)![1]!).pathname;
+    const form = await (await pagesFetch(env, path)).text();
+
+    // Hero: napis i adres każdego przycisku do poprawienia.
+    expect(form).toMatch(/name="sec_0_buttons_0_label"/);
+    expect(form).toMatch(/name="sec_0_buttons_0_href"/);
+    // „Jak pracuję": pole na adres zdjęcia.
+    expect(form).toMatch(/name="sec_\d+_media"/);
+
+    const token = path.split('/').pop()!;
+    const body = new URLSearchParams([['csrf', token]]);
+    for (const [index, type] of ['hero-profil', 'intro'].entries()) {
+      body.append(`sec_${index}_type`, type);
+      body.append(`sec_${index}_pos`, String(index + 1));
+    }
+    body.append('sec_0_buttons_0_label', 'Napisz do mnie');
+    // Adres pełny, nie kotwica: usługa wyrzuca przycisk celujący w sekcję,
+    // której na stronie nie ma - a ta strona ma tylko dwa bloki.
+    body.append('sec_0_buttons_0_href', 'https://otwartyterapeuta.pl/jak-to-dziala');
+    body.append('sec_0_buttons_0_style', 'primary');
+    expect((await pagesFetch(env, path, {
+      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString(),
+    })).status).toBe(303);
+
+    const html = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
+    expect(html).toContain('Napisz do mnie');
+    expect(html).not.toContain('Zobacz wolne terminy');
+  });
+});
