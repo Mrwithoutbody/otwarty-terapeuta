@@ -324,7 +324,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
   },
   slots: {
     label: 'Wolne terminy', hint: 'Kalendarz z zakładki Dostępność, z zasadami odwołania', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
-    fields: [T('heading', 'Nagłówek', 'Zostaw puste, a zostanie domyślny.')],
+    fields: [T('heading', 'Nagłówek')],
     resolve: (ctx) => {
       const cal = calendarDays(ctx.slots);
       if (!cal) return null;
