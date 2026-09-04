@@ -6,8 +6,8 @@ edytor i render. ot-02 jest jej klientem — dostarcza dane terapeutki i ramę s
 
 Decyzja 2026-09-03 (właściciel): „jak WordPress, w wersji uproszczonej" — jedna
 usługa dla ot-02, agregatora trenerów, landingów pod Google Ads. Panel edycji
-w usłudze, osadzony w hoście przez iframe. Profile pod domeną hosta, landingi
-reklamowe hostuje usługa.
+w usłudze, otwierany z panelu hosta w nowej karcie (2026-09-04; wcześniej iframe).
+Profile pod domeną hosta, landingi reklamowe hostuje usługa.
 
 ## Podział
 
@@ -30,8 +30,8 @@ w procesie na sklepie w pamięci (testy). Wywołania:
 
 ```
 PUT  /v1/site/blocks              HOST_BLOCK_DEFS — przed każdym utworzeniem strony i sesją edycji
-POST /v1/render/page              {owner, slug, resolved, chrome} → HTML dokumentu
-POST /v1/pages/:id/edit-session   {resolved, summary, fixed} → {url} do iframe
+POST /v1/render/page              {owner, slug, resolved, chrome, industry} → HTML dokumentu
+POST /v1/pages/:id/edit-session   {resolved, summary, fixed, industry} → {url} edytora (nowa karta)
 GET  /v1/pages?owner=  POST /v1/pages {owner, title, theme, variant}  GET /v1/pages/:id  GET /v1/themes
 ```
 
@@ -43,16 +43,24 @@ własne slugi. Jedno wywołanie na wyświetlenie strony.
 
 Po udanym renderze HTML idzie do R2 `pages-html/<owner>/<slug>.html`. Gdy usługa
 nie odpowiada: kopia z R2 + nagłówek `x-pages-stale: 1`; bez kopii — 503 z numerami
-kryzysowymi. Panel pokazuje wtedy komunikat zamiast iframe; dane i strona publiczna
-działają.
+kryzysowymi. Panel pokazuje wtedy komunikat zamiast przycisku „Otwórz edytor";
+dane i strona publiczna działają.
 
 ## CSS i CSP
 
 Dokument linkuje jeden arkusz: `style.css` motywu, z usługi (`/themes/<id>/style.css`); usługa linkuje go sama.
-CSP dokłada origin usługi do `style-src`, `font-src` (fonty motywów idą z usługi)
-i `frame-src` (edytor w panelu). Edytor usługi odpowiada `frame-ancestors
-<origin site'u>`. Portret idzie z adresem bezwzględnym, bo podgląd w edytorze
-żyje na domenie usługi.
+CSP dokłada origin usługi do `style-src` i `font-src` (fonty motywów idą z usługi).
+`frame-src` już nie — edytor otwiera się we własnej karcie, host niczego nie osadza.
+Portret idzie z adresem bezwzględnym, bo podgląd w edytorze żyje na domenie usługi.
+
+## Czego usługa nie wie, a musi dostać
+
+- **`industry`** przy renderze i sesji edycji: puste pole na zdjęcie bierze
+  fotografię tej branży, nie branży motywu. Bez tego terapeutka w motywie `wdech`
+  dostawała na profilu zdjęcie zajęć jogi. ot-02 wysyła `psychotherapy`.
+- **`glyph`** w `HOST_BLOCK_DEFS`: kształt, który paleta edytora rysuje na kaflu
+  bloku (`calendar` dla terminów, `pricing` dla oferty). Silnik zna tylko typy
+  rdzenia — nazwy naszych bloków nie mają w nim siedzieć.
 
 ## Migracja danych (jednorazowo)
 
