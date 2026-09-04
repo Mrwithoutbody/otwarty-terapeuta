@@ -348,4 +348,35 @@ describe('slot hours come from the hour chips', () => {
     expect(await localHours()).toEqual(before);
   });
 
+  it('saves the description, the first meeting and the qualifications', async () => {
+    // Wypadły z formularza we wrześniu, a kolumny zostały: zapis przepisywał
+    // stare wartości w kółko i nie było gdzie ich zmienić.
+    const res = await saveProfile(admin, [
+      ['bio', 'Pracuję z osobami dorosłymi.\n\nDrugi akapit.'],
+      ['first_meeting_course', 'Rozmawiamy o tym, z czym przychodzisz.'],
+      ['first_meeting_prep', 'Nie trzeba nic przygotowywać.'],
+      ['first_meeting_decision', 'Po dwóch spotkaniach decydujemy oboje.'],
+      ['cred_title_0', 'Certyfikat psychoterapeuty'],
+      ['cred_issuer_0', 'PTP'],
+      ['cred_year_0', '2019'],
+      ['cred_verified_0', '1'],
+    ]);
+    expect(res.status).toBe(302);
+
+    const row = await env.DB.prepare('SELECT bio, first_meeting_course, first_meeting_prep, first_meeting_decision, credentials FROM therapists WHERE id = ?')
+      .bind(ANNA).first<{ bio: string; first_meeting_course: string; first_meeting_prep: string; first_meeting_decision: string; credentials: string }>();
+    expect(row?.bio).toContain('Drugi akapit');
+    expect(row?.first_meeting_course).toContain('z czym przychodzisz');
+    expect(row?.first_meeting_prep).toContain('Nie trzeba');
+    expect(row?.first_meeting_decision).toContain('decydujemy oboje');
+    expect(JSON.parse(row?.credentials ?? '[]')).toEqual([
+      { title: 'Certyfikat psychoterapeuty', issuer: 'PTP', year: 2019, verified: true },
+    ]);
+
+    // I wracają do formularza, a nie tylko do bazy.
+    const html = await editorHtml(admin);
+    expect(html).toContain('Drugi akapit');
+    expect(html).toContain('Certyfikat psychoterapeuty');
+    expect(html).toContain('id="first_meeting_course"');
+  });
 });

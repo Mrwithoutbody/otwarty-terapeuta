@@ -430,6 +430,7 @@ interface EditorContext {
   chosenModalities: Set<string>;
   city: string;
   addressLine: string;
+  credentials: CredentialInput[];
   offers: OfferRow[];
   faq: FaqRow[];
   media: Array<{ id: string; url: string }>;
@@ -484,6 +485,7 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     chosenModalities: new Set(),
     city: '',
     addressLine: '',
+    credentials: [],
     offers: [],
     faq: [],
     media: [],
@@ -747,6 +749,43 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   <fieldset><legend>Nurty</legend>
     ${checkboxGrid('modalities', context.modalities, context.chosenModalities)}</fieldset>
 
+  <div class="field" data-editor data-editor-label="bio-label">
+    <label id="bio-label" for="bio">Opis doświadczenia i sposobu pracy</label>
+    <textarea id="bio" name="bio" rows="10" maxlength="4000" data-editor-value>${v('bio')}</textarea>
+    <p class="hint">Blok „Jak pracuję” na Twojej stronie. Pusta linia zaczyna nowy akapit.</p>
+  </div>
+
+  <fieldset>
+    <legend>Pierwsze spotkanie</legend>
+    <div class="field">
+      <label for="first_meeting_course">Jak wygląda pierwsze spotkanie?</label>
+      <textarea id="first_meeting_course" name="first_meeting_course" rows="2" maxlength="400"
+        placeholder="np. Rozmawiamy o tym, z czym przychodzisz. Opowiadam, jak pracuję.">${escapeHtml(row?.first_meeting_course ?? '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="first_meeting_prep">Czy trzeba się przygotować?</label>
+      <textarea id="first_meeting_prep" name="first_meeting_prep" rows="2" maxlength="400"
+        placeholder="np. Nie. Nie musisz wiedzieć, czego potrzebujesz — to jest materiał na pierwsze spotkania.">${escapeHtml(row?.first_meeting_prep ?? '')}</textarea>
+    </div>
+    <div class="field">
+      <label for="first_meeting_decision">Kiedy decydujecie o dalszej pracy?</label>
+      <textarea id="first_meeting_decision" name="first_meeting_decision" rows="2" maxlength="400"
+        placeholder="np. Po dwóch–trzech spotkaniach decydujemy oboje, czy zaczynamy regularną terapię.">${escapeHtml(row?.first_meeting_decision ?? '')}</textarea>
+    </div>
+  </fieldset>
+
+  <fieldset data-repeat>
+    <legend>Kwalifikacje</legend>
+    <div data-repeat-body>${[...context.credentials, { title: '', issuer: '', year: '', verified: false }]
+      .map((entry, index) => credentialRow(entry, index, isAdmin))
+      .join('')}</div>
+    <template>${credentialRow(null, 0, isAdmin)}</template>
+    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
+    ${isAdmin
+      ? ''
+      : '<p class="hint">Oznaczenie „zweryfikowane” nadaje wyłącznie zespół po sprawdzeniu dokumentu.</p>'}
+  </fieldset>
+
   <div class="field-row two">
     <div class="field"><label for="cancellation_policy">Zasady odwołania</label>
       <input id="cancellation_policy" name="cancellation_policy" maxlength="500" value="${v('cancellation_policy')}"></div>
@@ -787,6 +826,94 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
  * Profile, FAQ, offers and availability, one tab each. Without JavaScript the
  * four sections render stacked, in this order.
  */
+interface CredentialInput {
+  title: string;
+  issuer: string;
+  year: string;
+  verified: boolean;
+}
+
+
+function credentialKey(title: string, issuer: string): string {
+  return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
+}
+
+
+function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
+  const suffix = entry ? `_${index}` : '';
+  const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
+  return `<div class="repeat-row" data-repeat-row>
+  <div class="field">
+    <label data-label-for="cred_title"${entry ? ` for="cred_title${suffix}"` : ''}>Nazwa</label>
+    <input data-name="cred_title"${nameAttr('cred_title')} maxlength="120" value="${escapeHtml(entry?.title ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="cred_issuer"${entry ? ` for="cred_issuer${suffix}"` : ''}>Wydający</label>
+    <input data-name="cred_issuer"${nameAttr('cred_issuer')} maxlength="120" value="${escapeHtml(entry?.issuer ?? '')}">
+  </div>
+  <div class="field">
+    <label data-label-for="cred_year"${entry ? ` for="cred_year${suffix}"` : ''}>Rok</label>
+    <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${escapeHtml(entry?.year ?? '')}">
+  </div>
+  ${
+    isAdmin
+      ? `<div class="checkbox">
+    <input type="checkbox" value="1" data-name="cred_verified"${nameAttr('cred_verified')}${entry?.verified ? ' checked' : ''}>
+    <label data-label-for="cred_verified"${entry ? ` for="cred_verified${suffix}"` : ''}>zweryfikowane</label>
+  </div>`
+      : `<p class="hint">${entry?.verified ? 'zweryfikowane przez zespół' : 'deklarowane'}</p>`
+  }
+  <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
+</div>`;
+}
+
+
+function parseStoredCredentials(value: string | null): CredentialInput[] {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
+      .slice(0, 20)
+      .map((entry) => ({
+        title: typeof entry.title === 'string' ? entry.title : '',
+        issuer: typeof entry.issuer === 'string' ? entry.issuer : '',
+        year:
+          typeof entry.year === 'number' && Number.isFinite(entry.year)
+            ? String(Math.trunc(entry.year))
+            : typeof entry.year === 'string'
+              ? entry.year
+              : '',
+        verified: entry.verified === true,
+      }))
+      .filter((entry) => entry.title !== '');
+  } catch {
+    return [];
+  }
+}
+
+
+function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: CredentialInput[]): string {
+  const alreadyVerified = new Set(
+    previous.filter((entry) => entry.verified).map((entry) => credentialKey(entry.title, entry.issuer)),
+  );
+  const out: Array<{ title: string; issuer: string; year: number | null; verified: boolean }> = [];
+
+  for (let index = 0; index < 50 && out.length < 20; index++) {
+    const title = sanitizeLine(body.get(`cred_title_${index}`) ?? '', 120);
+    if (!title) continue;
+    const issuer = sanitizeLine(body.get(`cred_issuer_${index}`) ?? '', 120);
+    const parsedYear = Number(body.get(`cred_year_${index}`) ?? '');
+    const year = Number.isInteger(parsedYear) && parsedYear >= 1950 && parsedYear <= 2100 ? parsedYear : null;
+    const verified = isAdmin
+      ? body.get(`cred_verified_${index}`) === '1'
+      : alreadyVerified.has(credentialKey(title, issuer));
+    out.push({ title, issuer, year, verified });
+  }
+  return JSON.stringify(out);
+}
+
+
 function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
   const activeOffers = context.offers.filter((offer) => offer.active === 1);
   const id = escapeHtml(row.id);
@@ -1010,6 +1137,7 @@ adminApp.get('/terapeuci/:id', async (c) => {
   if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
 
   const context = await loadEditorContext(c.env, id);
+  context.credentials = parseStoredCredentials(row.credentials);
 
   return page(
     c.env,
@@ -1071,8 +1199,6 @@ adminApp.post('/terapeuci/:id', async (c) => {
     slug,
     display_name: sanitizeLine(body.get('display_name') ?? '', 120),
     headline: sanitizeLine(body.get('headline') ?? '', 200),
-    // The page's words live in her blocks now (edited in ChatGPT); the columns stay as they are.
-    bio: existing?.bio ?? '',
     photo_url: sanitizeLine(body.get('photo_url') ?? '', 500),
     offers_online: body.get('offers_online') === '1' ? 1 : 0,
     offers_in_person: body.get('offers_in_person') === '1' ? 1 : 0,
@@ -1099,11 +1225,14 @@ adminApp.post('/terapeuci/:id', async (c) => {
           ? (body.get('status') as string)
           : 'draft')
       : (existing?.status ?? 'draft'),
-    credentials: existing?.credentials ?? '[]',
+    // Opis, pierwsze spotkanie i kwalifikacje wróciły do formularza (2026-09-04);
+    // przedtem kolumny przepisywały się w kółko, bo pól nie było gdzie wpisać.
+    bio: sanitizeRichText(body.get('bio') ?? '', 4000),
+    credentials: collectCredentials(body, session.user.role === 'admin', parseStoredCredentials(existing?.credentials ?? null)),
     links: existing?.links ?? '[]',
-    first_meeting_course: existing?.first_meeting_course ?? '',
-    first_meeting_prep: existing?.first_meeting_prep ?? '',
-    first_meeting_decision: existing?.first_meeting_decision ?? '',
+    first_meeting_course: sanitizeLine(body.get('first_meeting_course') ?? '', 400),
+    first_meeting_prep: sanitizeLine(body.get('first_meeting_prep') ?? '', 400),
+    first_meeting_decision: sanitizeLine(body.get('first_meeting_decision') ?? '', 400),
   };
   const verifiedAt =
     values.verification_status === 'verified'

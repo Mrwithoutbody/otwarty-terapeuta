@@ -266,12 +266,11 @@ export interface HostDef {
 export const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
     label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
-    // Nadtytuł to jej nagłówek zawodowy, tytuł to imię — obydwa mają pole w panelu.
-    // Podtytuł bierze się z opisu, którego w panelu nie ma; zostaje bez odnośnika.
+    // Każde z trzech pól ma swoje miejsce w panelu: nagłówek zawodowy, imię i opis.
     fields: [
       T('eyebrow', 'Nadtytuł', undefined, 'panel-profil:headline'),
       T('heading', 'Nagłówek', undefined, 'panel-profil:display_name'),
-      T('lead', 'Podtytuł'),
+      T('lead', 'Podtytuł', undefined, 'panel-profil:bio'),
     ],
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -287,7 +286,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   intro: {
-    label: 'Jak pracuję', hint: 'Twój opis — dziś tylko z bazy, formularza w panelu jeszcze nie ma', glyph: 'split',
+    label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', edit: 'panel-profil:bio', glyph: 'split',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -367,7 +366,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   zestawienie: {
-    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — dziś tylko z bazy, formularza w panelu jeszcze nie ma', tone: 'alt', anchor: 'steps', glyph: 'steps',
+    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — z zakładki Dane w panelu', edit: 'panel-profil:first_meeting_course', tone: 'alt', anchor: 'steps', glyph: 'steps',
     fields: OWN,
     resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
@@ -388,7 +387,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
         : { type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
   },
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — dziś tylko z bazy, formularza w panelu jeszcze nie ma', tone: 'alt', glyph: 'grid',
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
     fields: OWN,
     resolve: (ctx) => {
       const c = ctx.therapist.credentials;
