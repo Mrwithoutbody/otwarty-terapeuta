@@ -173,7 +173,7 @@ header.site .wrap {
   font-family: var(--serif); font-size: 1.06rem; font-weight: 550;
   letter-spacing: -0.025em; text-decoration: none; margin-right: auto; white-space: nowrap;
 }
-.brand img { width: 2rem; height: 2rem; padding: 0.42rem; border-radius: 9px; color: var(--accent-strong); background: var(--accent-soft); }
+.brand img { width: 2.55rem; height: 2.55rem; padding: 0.55rem; border-radius: 11px; color: var(--accent-strong); background: var(--accent-soft); }
 .brand span { color: var(--text); }
 nav.site ul {
   list-style: none; display: flex; flex-wrap: wrap; align-items: center;
@@ -745,7 +745,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 @media (max-width: 45rem) {header.site { position: sticky; }
 header.site .wrap { min-height: 4.1rem; padding-block: 0.5rem; }
 .brand { font-size: 0.94rem; }
-.brand img { width: 1.8rem; height: 1.8rem; }
+.brand img { width: 2.1rem; height: 2.1rem; padding: 0.45rem; }
 main { padding-block: 1rem 3.5rem; }
 .hero { min-height: 30rem; border-radius: var(--radius); padding-inline: var(--space-6); }
 .hero h1 { font-size: clamp(2.25rem, 10vw, 3rem); }
