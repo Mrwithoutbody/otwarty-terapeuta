@@ -578,18 +578,20 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-top: calc(clamp(2rem, 4vw, 3rem) * -1);
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr); gap: clamp(2rem, 4vw, 3.5rem);
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
-  border: 0; border-radius: 0; background: #232943; color: #c8cde4;
+  border: 0; border-radius: 0; background: #1b1f34; color: #c8cde4;
 }
 /* One of the illustrations as texture, not as a picture: 140 px wide, so the
    browser's own upscaling is the blur and the page pays no filter at paint
    time. It carries no colour of its own - grey, with its tonal range squeezed
    into 70-185 - so the hue on the band comes from the wash alone and the
    drawing reads as shape rather than as a photograph under a filter. Wash at
-   0.72: in the lightest point 7.72 under the headline, 5.05 under the lead. */
+   0.76 over a darker ground: the band runs from 20% to 29% lightness, so it
+   reads dark and the blur still has ten points of range to show. Contrast in
+   the lightest point: 9.48 under the headline, 6.20 under the lead. */
 .home-hero::before {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background:
-    linear-gradient(rgba(35, 41, 67, 0.72), rgba(35, 41, 67, 0.72)),
+    linear-gradient(rgba(27, 31, 52, 0.76), rgba(27, 31, 52, 0.76)),
     url("/illustrations/hero-texture.webp") center / cover no-repeat;
 }
 .home-hero > * { position: relative; z-index: 1; }
@@ -601,7 +603,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   background: rgba(255,255,255,0.08); color: #ccd2ea; font-size: 0.8rem; font-weight: 550;
 }
 .eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #c7da4f; }
-.home-hero .btn { background: #fff; border-color: #fff; color: #232943; box-shadow: none; }
+.home-hero .btn { background: #fff; border-color: #fff; color: #1b1f34; box-shadow: none; }
 .home-hero .btn:hover { background: #e6e9f5; border-color: #e6e9f5; }
 .home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #dfe3f2; }
 .home-hero .btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
