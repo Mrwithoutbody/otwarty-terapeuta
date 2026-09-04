@@ -224,3 +224,81 @@ describe('admin panel authorisation', () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe('zapis terapeutki jednym UPSERT-em', () => {
+  it('zakłada wiersz, a przy edycji nie rusza is_demo, timezone ani created_at', async () => {
+    const admin = await actor('admin-upsert@example.invalid', 'admin');
+
+    const created = await SELF.fetch(
+      'https://localhost/admin/terapeuci/nowy',
+      form(admin, {
+        slug: 'nowa-osoba-upsert',
+        display_name: 'Nowa Osoba',
+        headline: 'psychoterapeutka',
+        bio: 'Pracuję krótko.',
+        status: 'published',
+        verification_status: 'verified',
+        offers_online: '1',
+        cancellation_cutoff_h: '48',
+      }),
+    );
+    expect(created.status).toBe(302);
+
+    const row = await env.DB.prepare(
+      `SELECT id, display_name, is_demo, timezone, created_at, updated_at, cancellation_cutoff_h
+         FROM therapists WHERE slug = ?`,
+    )
+      .bind('nowa-osoba-upsert')
+      .first<{
+        id: string;
+        display_name: string;
+        is_demo: number;
+        timezone: string;
+        created_at: string;
+        updated_at: string;
+        cancellation_cutoff_h: number;
+      }>();
+    expect(row).not.toBeNull();
+    expect(row!.display_name).toBe('Nowa Osoba');
+    expect(row!.is_demo).toBe(0);
+    expect(row!.timezone).toBe('Europe/Warsaw');
+
+    // Wiersz wygląda jak zaimportowany: demo, inna strefa. Edycja ma to zostawić.
+    await env.DB.prepare(`UPDATE therapists SET is_demo = 1, timezone = 'Europe/Berlin' WHERE id = ?`)
+      .bind(row!.id)
+      .run();
+
+    const updated = await SELF.fetch(
+      `https://localhost/admin/terapeuci/${row!.id}`,
+      form(admin, {
+        slug: 'nowa-osoba-upsert',
+        display_name: 'Nowa Osoba (po edycji)',
+        headline: 'psychoterapeutka',
+        bio: 'Pracuję krótko.',
+        status: 'published',
+        verification_status: 'verified',
+        offers_online: '1',
+        cancellation_cutoff_h: '72',
+      }),
+    );
+    expect(updated.status).toBe(302);
+
+    const after = await env.DB.prepare(
+      `SELECT display_name, is_demo, timezone, created_at, cancellation_cutoff_h
+         FROM therapists WHERE id = ?`,
+    )
+      .bind(row!.id)
+      .first<{
+        display_name: string;
+        is_demo: number;
+        timezone: string;
+        created_at: string;
+        cancellation_cutoff_h: number;
+      }>();
+    expect(after!.display_name).toBe('Nowa Osoba (po edycji)');
+    expect(after!.cancellation_cutoff_h).toBe(72);
+    expect(after!.is_demo).toBe(1);
+    expect(after!.timezone).toBe('Europe/Berlin');
+    expect(after!.created_at).toBe(row!.created_at);
+  });
+});

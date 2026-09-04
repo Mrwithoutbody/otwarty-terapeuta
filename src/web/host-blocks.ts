@@ -53,7 +53,7 @@ type Block = Values & { type: string };
 
 
 
-export function labelList(values: string[], empty: string): string {
+function labelList(values: string[], empty: string): string {
   return values.map((value) => PUBLIC_LABELS[value] ?? value).join(', ') || empty;
 }
 
@@ -156,7 +156,7 @@ function calendarDays(slots: PublicSlot[]): { days: Values[]; more: string } | n
 }
 
 /** Days read better than hours: nobody plans in units of 48. */
-export function cutoffLabel(hours: number): string {
+function cutoffLabel(hours: number): string {
   if (hours % 24 === 0 && hours >= 24) {
     const days = hours / 24;
     return days === 1 ? '1 dzień' : `${days} dni`;
@@ -263,7 +263,7 @@ export interface HostDef {
   resolve(ctx: SectionCtx): Block | null;
 }
 
-export const HOST_SECTIONS: Record<string, HostDef> = {
+const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
     label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
     // Każde z trzech pól ma swoje miejsce w panelu: nagłówek zawodowy, imię i opis.

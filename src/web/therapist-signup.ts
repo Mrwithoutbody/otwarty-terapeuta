@@ -9,7 +9,7 @@ import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText
 import { nowIso } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
-import { htmlResponse, renderPage } from './layout';
+import { formValues, htmlResponse, renderPage } from './layout';
 import { pageHead } from './pages';
 
 export const therapistSignupApp = new Hono<{ Bindings: Env }>();
@@ -31,15 +31,6 @@ function page(env: Env, title: string, body: string, status = 200, turnstile = f
     { status, headers: { 'cache-control': 'no-store' } },
     turnstile,
   );
-}
-
-async function formValues(request: Request): Promise<URLSearchParams> {
-  const form = await request.formData();
-  const params = new URLSearchParams();
-  for (const [key, value] of form.entries()) {
-    if (typeof value === 'string') params.append(key, value);
-  }
-  return params;
 }
 
 function signupForm(env: Env, error?: string): string {

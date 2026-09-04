@@ -205,6 +205,15 @@ ${options.body}
 </html>`;
 }
 
+/**
+ * Pola formularza jako `URLSearchParams`. Wysyłki paneli są tekstowe; plik
+ * (upload zdjęcia) czytany jest osobno z `formData`, więc tutaj odpada.
+ */
+export async function formValues(request: Request): Promise<URLSearchParams> {
+  const form = await request.formData();
+  return new URLSearchParams([...form].filter((e): e is [string, string] => typeof e[1] === 'string'));
+}
+
 export function htmlResponse(
   env: Env,
   html: string,

@@ -68,45 +68,6 @@ export function sanitizeLine(value: string, maxLength = 200): string {
     .trim();
 }
 
-/**
- * Renders the plain-text body format the admin editor writes: a blank line
- * starts a new paragraph, `**text**` is bold, and `\*` is a literal asterisk.
- *
- * The text is HTML-escaped FIRST, so the only tags that can ever appear in the
- * result are the `<p>`, `<br>` and `<strong>` added here. Storage stays plain
- * text, which is what the MCP tools and the widget read.
- */
-export function renderBodyText(value: string | null | undefined): string {
-  return String(value ?? '')
-    .split(/\n{2,}/)
-    .map((block) => renderInlineMarks(escapeHtml(block).replace(/\n/g, '<br>')))
-    .filter((block) => block.trim() !== '')
-    .map((block) => `<p>${block}</p>`)
-    .join('');
-}
-
-function renderInlineMarks(escaped: string): string {
-  let out = '';
-  let bold = false;
-  let index = 0;
-  while (index < escaped.length) {
-    if (escaped[index] === '\\' && escaped[index + 1] === '*') {
-      out += '*';
-      index += 2;
-      continue;
-    }
-    if (escaped[index] === '*' && escaped[index + 1] === '*') {
-      out += bold ? '</strong>' : '<strong>';
-      bold = !bold;
-      index += 2;
-      continue;
-    }
-    out += escaped[index];
-    index += 1;
-  }
-  return bold ? `${out}</strong>` : out;
-}
-
 /** Lowercase, diacritics folded - used for city matching. */
 export function normalizeForSearch(value: string): string {
   return String(value ?? '')

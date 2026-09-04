@@ -282,6 +282,16 @@ async function parseAuthorizeParams(
   };
 }
 
+/** The columns every token lookup reads out of `oauth_tokens`. */
+export interface OAuthTokenRow {
+  client_id: string;
+  user_id: string;
+  scope: string;
+  resource: string;
+  expires_at: string;
+  revoked_at: string | null;
+}
+
 export const oauthApp = new Hono<{ Bindings: Env }>();
 
 /** RFC 7591 dynamic client registration. Public (PKCE-only) clients only. */
@@ -728,14 +738,7 @@ oauthApp.post('/token', async (c) => {
       `SELECT * FROM oauth_tokens WHERE token_hash = ? AND kind = 'refresh'`,
     )
       .bind(hash)
-      .first<{
-        client_id: string;
-        user_id: string;
-        scope: string;
-        resource: string;
-        expires_at: string;
-        revoked_at: string | null;
-      }>();
+      .first<OAuthTokenRow>();
 
     if (!row || row.revoked_at !== null) return jsonError(400, 'invalid_grant', 'Token odświeżania jest nieprawidłowy.');
     if (Date.parse(row.expires_at) < Date.now()) return jsonError(400, 'invalid_grant', 'Token odświeżania wygasł.');

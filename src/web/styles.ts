@@ -57,7 +57,6 @@ export const APP_CSS = `
   --surface: rgba(255, 255, 252, 0.94);
   --surface-solid: #fffefa;
   --surface-alt: #f2f3e9;
-  --band: #f1ecdb;
   --border: #e2e5d8;
   --border-strong: #d1d8c1;
   --text: #344125;
@@ -74,40 +73,6 @@ export const APP_CSS = `
   --shadow: 0 16px 42px rgba(62, 76, 31, 0.075);
   --maxw: 76rem;
   --serif: "Lora Variable", Lora, Georgia, "Times New Roman", serif;
-  /* The profile page reads these; a theme redefines them on .profile-page and
-     nothing else in the service moves. Hard-coded hexes here were what made
-     "one palette for everyone" a fact rather than a default. */
-  --dark: #344125;
-  --dark-ink: #f0f3d6;
-  --dark-mute: #d5dcc2;
-  --dark-head: #fffefa;
-  --wash-a: #faf9eb;
-  --wash-b: #eef4e8;
-  --panel-tint: #f3f6ec;
-  --glow: rgba(238, 244, 145, 0.42);
-  --prose: #596250;
-  /* Air between the bands. The rhythm axis multiplies it - the same sections
-     read as a catalogue entry at 0.7 and as a practice's own site at 1.4. */
-  --rhythm: 1;
-  /* Multiplier on the profile's own headings; 1 is the catalogue voice. */
-  --display: 1;
-  /* The accent of each theme, named once. The theme reads it, and so does the
-     catalogue card of a therapist who chose that theme - a card must not take
-     the whole palette (a list of six palettes is a rainbow, not a catalogue),
-     but one hairline of her colour carries across. */
-  --acc-bursztyn: #a9762a;
-  --acc-glina: #a4553a;
-  --acc-grafit: #40566e;
-  --acc-las: #2f6d4f;
-  --acc-atrament: #b98f33;
-  --acc-papier: #2b2b2a;
-  /* The second channel of every theme: the complementary accent (~180deg from
-     the primary, measured in HSL, contrast >= 4.5 on the theme's ground).
-     A theme sets ONE --accent-2 and everything downstream inherits: the quote
-     rule, the step numbers, the labels of the practical grid. A template
-     system - later driven over MCP - changes the pair (--accent-strong,
-     --accent-2) and the whole page follows; nothing else needs touching. */
-  --accent-2: #5b4a80;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -116,7 +81,6 @@ export const APP_CSS = `
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-12: 3rem;
-  --space-16: 4rem;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; overflow-x: clip;
@@ -286,7 +250,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .grid { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); list-style: none; padding: 0; margin: 0; }
 .grid > li { margin-top: 0; }
 @media (min-width: 46rem) {.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 64rem) {.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .card {
   position: relative; min-width: 0; padding: clamp(1.25rem, 2.5vw, 1.5rem);
   display: flex; flex-direction: column; gap: var(--space-3);

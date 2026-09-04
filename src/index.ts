@@ -101,22 +101,6 @@ app.get('/.well-known/openai-apps-challenge', (c) => {
   });
 });
 
-/**
- * Placeholder avatar for the demo profiles: a neutral abstract shape, no stock
- * photography, nothing that could be mistaken for a real person. `currentColor`
- * lets the stylesheet tint it per card instead of the server baking in a palette.
- *
- * The filename is matched whole and parsed here: a Hono param with a regex
- * followed by a literal suffix in the same segment does not match.
- */
-/**
- * The stand-in for a therapist who has not uploaded a photograph yet.
- *
- * Drawn at 4:5 because that is the crop every profile block uses - the previous
- * one was square, and stretching it to portrait produced a giant forehead. A
- * neutral figure: this stands in for anyone, so no hair, no clothing detail and
- * no colour that reads as a gender.
- */
 /** Therapist photos uploaded by an administrator live in R2, when it is bound. */
 app.get('/media/:key{.+}', async (c) => {
   if (!c.env.MEDIA) return new Response('Not found', { status: 404 });

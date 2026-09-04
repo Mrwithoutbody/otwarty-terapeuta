@@ -70,17 +70,11 @@ Kolejność wdrożeń nie jest już zobowiązaniem: usługa narysuje blok, dla k
 przyszła treść, nawet jeśli nie zna jeszcze jego definicji. Host wdrożony
 pierwszy traci na chwilę **formularz w edytorze**, nigdy stronę.
 
-## Migracja danych (jednorazowo)
+## Migracja danych — zrobiona
 
-```bash
-node scripts/pages-migrate.mjs --selftest                       # translator starych typów
-PAGES_URL=https://x402landings.space PAGES_API_KEY=… node scripts/pages-migrate.mjs --env preview
-PAGES_URL=https://x402landings.space PAGES_API_KEY=… node scripts/pages-migrate.mjs --env production
-```
-
-Idempotentna (po `owner+slug`). Dopiero po weryfikacji na produkcji: migracja
-kasująca `therapist_pages` i kolumny `sections_json`/`layout_json` oraz odpowiednie
-`UPDATE` w `seed/seed.sql`.
+Stare strony przeniesione do usługi 2026-09-03; migracja `0017_pages_service.sql`
+skasowała `therapist_pages` oraz kolumny `sections_json`/`layout_json`. Skrypt
+przenoszący usunięty — nie ma już czego czytać.
 
 ## Lokalnie
 

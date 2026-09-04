@@ -126,7 +126,7 @@ export async function getPage(env: Env, id: string): Promise<PageInfo | null> {
 }
 
 /** Her blocks as the service should know them. Idempotent; called before an editor opens. */
-export async function syncBlocks(env: Env): Promise<void> {
+async function syncBlocks(env: Env): Promise<void> {
   await pagesFetch(env, '/v1/site/blocks', { method: 'PUT', json: { blocks: HOST_BLOCK_DEFS } });
 }
 

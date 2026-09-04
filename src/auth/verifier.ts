@@ -1,6 +1,7 @@
 import type { AuthInfo, OAuthTokenVerifier } from '@modelcontextprotocol/server';
 import { OAuthError } from '@modelcontextprotocol/server';
 import type { Env } from '../env';
+import type { OAuthTokenRow } from './oauth';
 import { hmacHex } from '../lib/crypto';
 
 /**
@@ -27,14 +28,7 @@ export class D1TokenVerifier implements OAuthTokenVerifier {
          FROM oauth_tokens WHERE token_hash = ? AND kind = 'access'`,
     )
       .bind(hash)
-      .first<{
-        client_id: string;
-        user_id: string;
-        scope: string;
-        resource: string;
-        expires_at: string;
-        revoked_at: string | null;
-      }>();
+      .first<OAuthTokenRow>();
 
     if (!row || row.revoked_at !== null) {
       throw new OAuthError('invalid_token', 'Token dostępu jest nieprawidłowy lub został unieważniony.');

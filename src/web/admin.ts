@@ -28,7 +28,7 @@ import {
 } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
-import { htmlResponse, renderPage } from './layout';
+import { formValues, htmlResponse, renderPage } from './layout';
 import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './lp';
 import { createPage, getPage, listPages, listThemeChoices, type PageInfo, type ThemeChoice } from './pages-client';
 import { getTherapist } from '../db/catalog';
@@ -63,15 +63,6 @@ function csrfField(session: AdminSession): string {
 function signingKey(env: Env): string {
   if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
   return env.TOKEN_SIGNING_KEY;
-}
-
-async function formValues(request: Request): Promise<URLSearchParams> {
-  const form = await request.formData();
-  const params = new URLSearchParams();
-  for (const [key, value] of form.entries()) {
-    if (typeof value === 'string') params.append(key, value);
-  }
-  return params;
 }
 
 /** Every mutating admin route starts here: session + CSRF + role. */
@@ -1240,77 +1231,54 @@ adminApp.post('/terapeuci/:id', async (c) => {
       : null;
 
 
-  if (isNew) {
-    await c.env.DB.prepare(
-      `INSERT INTO therapists (id, slug, display_name, headline, bio, photo_url, offers_online, offers_in_person,
-                               accepting_new_clients, age_groups, session_types, credentials, links,
-                               first_meeting_course, first_meeting_prep, first_meeting_decision,
-                               verification_status, verified_at, verification_notes, status, is_demo, timezone,
-                               cancellation_policy, cancellation_cutoff_h, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)`,
+  // Jeden zapis dla obu przypadków: SQLite scala po kluczu głównym. `is_demo`,
+  // `timezone` i `created_at` należą do wiersza, nie do formularza, więc przy
+  // aktualizacji nie ma ich w `DO UPDATE` i zostają takie, jakie były.
+  await c.env.DB.prepare(
+    `INSERT INTO therapists (id, slug, display_name, headline, bio, photo_url, offers_online, offers_in_person,
+                             accepting_new_clients, age_groups, session_types, credentials, links,
+                             first_meeting_course, first_meeting_prep, first_meeting_decision,
+                             verification_status, verified_at, verification_notes, status, is_demo, timezone,
+                             cancellation_policy, cancellation_cutoff_h, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)
+     ON CONFLICT(id) DO UPDATE SET
+       slug=excluded.slug, display_name=excluded.display_name, headline=excluded.headline, bio=excluded.bio,
+       photo_url=excluded.photo_url, offers_online=excluded.offers_online, offers_in_person=excluded.offers_in_person,
+       accepting_new_clients=excluded.accepting_new_clients, age_groups=excluded.age_groups,
+       session_types=excluded.session_types, credentials=excluded.credentials, links=excluded.links,
+       first_meeting_course=excluded.first_meeting_course, first_meeting_prep=excluded.first_meeting_prep,
+       first_meeting_decision=excluded.first_meeting_decision, verification_status=excluded.verification_status,
+       verified_at=excluded.verified_at, verification_notes=excluded.verification_notes, status=excluded.status,
+       cancellation_policy=excluded.cancellation_policy, cancellation_cutoff_h=excluded.cancellation_cutoff_h,
+       updated_at=excluded.updated_at`,
+  )
+    .bind(
+      therapistIdValue,
+      values.slug,
+      values.display_name,
+      values.headline,
+      values.bio,
+      values.photo_url || null,
+      values.offers_online,
+      values.offers_in_person,
+      values.accepting_new_clients,
+      values.age_groups,
+      values.session_types,
+      values.credentials,
+      values.links,
+      values.first_meeting_course,
+      values.first_meeting_prep,
+      values.first_meeting_decision,
+      values.verification_status,
+      verifiedAt,
+      values.verification_notes,
+      values.status,
+      values.cancellation_policy,
+      values.cancellation_cutoff_h,
+      at,
+      at,
     )
-      .bind(
-        therapistIdValue,
-        values.slug,
-        values.display_name,
-        values.headline,
-        values.bio,
-        values.photo_url || null,
-        values.offers_online,
-        values.offers_in_person,
-        values.accepting_new_clients,
-        values.age_groups,
-        values.session_types,
-        values.credentials,
-        values.links,
-        values.first_meeting_course,
-        values.first_meeting_prep,
-        values.first_meeting_decision,
-        values.verification_status,
-        verifiedAt,
-        values.verification_notes,
-        values.status,
-        values.cancellation_policy,
-        values.cancellation_cutoff_h,
-        at,
-        at,
-      )
-      .run();
-  } else {
-    await c.env.DB.prepare(
-      `UPDATE therapists SET slug=?, display_name=?, headline=?, bio=?, photo_url=?, offers_online=?,
-              offers_in_person=?, accepting_new_clients=?, age_groups=?, session_types=?, credentials=?, links=?,
-              first_meeting_course=?, first_meeting_prep=?, first_meeting_decision=?,
-              verification_status=?, verified_at=?, verification_notes=?, status=?, cancellation_policy=?,
-              cancellation_cutoff_h=?, updated_at=? WHERE id=?`,
-    )
-      .bind(
-        values.slug,
-        values.display_name,
-        values.headline,
-        values.bio,
-        values.photo_url || null,
-        values.offers_online,
-        values.offers_in_person,
-        values.accepting_new_clients,
-        values.age_groups,
-        values.session_types,
-        values.credentials,
-        values.links,
-        values.first_meeting_course,
-        values.first_meeting_prep,
-        values.first_meeting_decision,
-        values.verification_status,
-        verifiedAt,
-        values.verification_notes,
-        values.status,
-        values.cancellation_policy,
-        values.cancellation_cutoff_h,
-        at,
-        therapistIdValue,
-      )
-      .run();
-  }
+    .run();
 
   // Relations are replaced wholesale - simpler and always consistent. The form
   // renders the current selection as checked boxes, so "replaced wholesale"
