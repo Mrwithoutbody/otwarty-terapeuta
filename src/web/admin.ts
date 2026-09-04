@@ -905,6 +905,45 @@ function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: C
 }
 
 
+/**
+ * Istniejąca oferta do poprawienia. Cena i czas z pierwszej oferty stoją
+ * w nagłówku profilu, więc bez tego formularza „150 zł · 50 min" dawało się
+ * zmienić tylko przez dodanie drugiej oferty.
+ */
+function offerForm(session: AdminSession, therapistId: string, offer: OfferRow): string {
+  const oid = escapeHtml(offer.id);
+  const option = (value: string, label: string, current: string): string =>
+    `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`;
+  return `<form class="offer-row" method="post" action="/admin/terapeuci/${therapistId}/oferta/${oid}">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="o_${oid}_title">Nazwa</label>
+      <input id="o_${oid}_title" name="title" required maxlength="120" value="${escapeHtml(offer.title)}"></div>
+    <div class="field"><label for="o_${oid}_type">Typ</label>
+      <select id="o_${oid}_type" name="session_type">
+        ${option('individual', 'indywidualna', offer.session_type)}${option('couples', 'para', offer.session_type)}${option('family', 'rodzina', offer.session_type)}
+      </select></div>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label for="o_${oid}_mode">Forma</label>
+      <select id="o_${oid}_mode" name="mode">
+        ${option('online', 'online', offer.mode)}${option('in_person', 'stacjonarnie', offer.mode)}
+      </select></div>
+    <div class="field"><label for="o_${oid}_dur">Czas (min)</label>
+      <input id="o_${oid}_dur" name="duration_minutes" type="number" min="15" max="240" value="${offer.duration_minutes}"></div>
+  </div>
+  <div class="field-row two">
+    <div class="field"><label for="o_${oid}_price">Cena (zł)</label>
+      <input id="o_${oid}_price" name="price" type="number" min="0" max="5000" step="10" value="${offer.price_minor / 100}"></div>
+    <div class="field">
+      <div class="checkbox"><input id="o_${oid}_active" name="active" type="checkbox" value="1"${offer.active ? ' checked' : ''}>
+        <label for="o_${oid}_active">aktywna</label></div>
+      <p class="hint">Wyłączona znika z profilu i z wyszukiwarki; jej terminy zostają w bazie.</p></div>
+  </div>
+  <p><button class="btn secondary" type="submit">Zapisz ofertę</button></p>
+</form>`;
+}
+
 function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
   const activeOffers = context.offers.filter((offer) => offer.active === 1);
   const id = escapeHtml(row.id);
@@ -946,19 +985,7 @@ u góry profilu i w wynikach wyszukiwania.</p>
 ${
   context.offers.length === 0
     ? '<p class="hint">Ten profil nie ma jeszcze żadnej oferty.</p>'
-    : `<div class="table-scroll"><table>
-<thead><tr><th scope="col">Nazwa</th><th scope="col">Forma</th><th scope="col">Czas</th>
-<th scope="col">Cena</th><th scope="col">Aktywna</th></tr></thead>
-<tbody>${context.offers
-        .map(
-          (offer) =>
-            `<tr><td>${escapeHtml(offer.title)}</td>
-             <td>${escapeHtml(offer.mode)} / ${escapeHtml(offer.session_type)}</td>
-             <td>${offer.duration_minutes} min</td>
-             <td>${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</td>
-             <td>${offer.active ? 'tak' : 'nie'}</td></tr>`,
-        )
-        .join('')}</tbody></table></div>`
+    : context.offers.map((offer) => offerForm(session, id, offer)).join('')
 }
 </section>
 
@@ -1692,6 +1719,24 @@ adminApp.post('/faq/:id/status', async (c) => {
   return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${row.therapist_id}` } });
 });
 
+/** Pola oferty z formularza - te same przy dodawaniu i przy poprawianiu. */
+function offerValues(body: URLSearchParams): {
+  title: string;
+  session_type: string;
+  mode: string;
+  duration_minutes: number;
+  price_minor: number;
+} {
+  const type = body.get('session_type') ?? '';
+  return {
+    title: sanitizeLine(body.get('title') ?? 'Sesja', 120),
+    session_type: ['individual', 'couples', 'family'].includes(type) ? type : 'individual',
+    mode: body.get('mode') === 'in_person' ? 'in_person' : 'online',
+    duration_minutes: Math.min(Math.max(Number(body.get('duration_minutes') ?? 50) || 50, 15), 240),
+    price_minor: Math.round(Math.min(Math.max(Number(body.get('price') ?? 0) || 0, 0), 5000) * 100),
+  };
+}
+
 adminApp.post('/terapeuci/:id/oferta', async (c) => {
   const body = await formValues(c.req.raw);
   const g = await guard(c, body, ['admin', 'therapist']);
@@ -1701,22 +1746,12 @@ adminApp.post('/terapeuci/:id/oferta', async (c) => {
 
   const at = nowIso();
   const offerId = randomId('of');
-  const price = Math.round(Math.min(Math.max(Number(body.get('price') ?? 0) || 0, 0), 5000) * 100);
+  const values = offerValues(body);
   await c.env.DB.prepare(
     `INSERT INTO session_offers (id, therapist_id, title, session_type, mode, duration_minutes, price_minor, currency, active, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'PLN', 1, ?, ?)`,
   )
-    .bind(
-      offerId,
-      id,
-      sanitizeLine(body.get('title') ?? 'Sesja', 120),
-      ['individual', 'couples', 'family'].includes(body.get('session_type') ?? '') ? body.get('session_type') : 'individual',
-      body.get('mode') === 'in_person' ? 'in_person' : 'online',
-      Math.min(Math.max(Number(body.get('duration_minutes') ?? 50) || 50, 15), 240),
-      price,
-      at,
-      at,
-    )
+    .bind(offerId, id, values.title, values.session_type, values.mode, values.duration_minutes, values.price_minor, at, at)
     .run();
 
   await audit(c.env, {
@@ -1725,9 +1760,38 @@ adminApp.post('/terapeuci/:id/oferta', async (c) => {
     action: 'offer.created',
     subjectType: 'session_offer',
     subjectId: offerId,
-    meta: { price_minor: price, currency: 'PLN' },
+    meta: { price_minor: values.price_minor, currency: 'PLN' },
   });
   return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+});
+
+adminApp.post('/terapeuci/:id/oferta/:offerId', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await guard(c, body, ['admin', 'therapist']);
+  if ('response' in g) return g.response;
+  const id = c.req.param('id');
+  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+
+  const offerId = c.req.param('offerId');
+  const values = offerValues(body);
+  const active = body.get('active') === '1' ? 1 : 0;
+  const changed = await c.env.DB.prepare(
+    `UPDATE session_offers SET title=?, session_type=?, mode=?, duration_minutes=?, price_minor=?, active=?, updated_at=?
+       WHERE id = ? AND therapist_id = ?`,
+  )
+    .bind(values.title, values.session_type, values.mode, values.duration_minutes, values.price_minor, active, nowIso(), offerId, id)
+    .run();
+  if (changed.meta.changes === 0) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono oferty</h1>', 404);
+
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'offer.updated',
+    subjectType: 'session_offer',
+    subjectId: offerId,
+    meta: { price_minor: values.price_minor, currency: 'PLN', status: active ? 'active' : 'inactive' },
+  });
+  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}#panel-oferta` } });
 });
 
 adminApp.post('/terapeuci/:id/terminy', async (c) => {

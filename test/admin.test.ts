@@ -310,3 +310,51 @@ describe('zapis terapeutki jednym UPSERT-em', () => {
     expect(after!.created_at).toBe(row!.created_at);
   });
 });
+
+describe('edycja istniejącej oferty', () => {
+  it('zmienia cenę i czas, i potrafi ofertę wyłączyć', async () => {
+    const admin = await actor('admin-oferta@example.invalid', 'admin');
+    const offer = await env.DB.prepare(
+      `SELECT id, title, duration_minutes, price_minor FROM session_offers WHERE therapist_id = ? AND active = 1 LIMIT 1`,
+    )
+      .bind(ANNA)
+      .first<{ id: string; title: string; duration_minutes: number; price_minor: number }>();
+    expect(offer).not.toBeNull();
+
+    const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie: admin.cookie } })).text();
+    // Istniejąca oferta jest formularzem, nie wierszem tabeli.
+    expect(panel).toContain(`action="/admin/terapeuci/${ANNA}/oferta/${offer!.id}"`);
+    expect(panel).toContain(`value="${offer!.price_minor / 100}"`);
+
+    const saved = await SELF.fetch(
+      `https://localhost/admin/terapeuci/${ANNA}/oferta/${offer!.id}`,
+      form(admin, {
+        title: 'Sesja indywidualna online',
+        session_type: 'individual',
+        mode: 'online',
+        duration_minutes: '60',
+        price: '190',
+        active: '1',
+      }),
+    );
+    expect(saved.status).toBe(302);
+
+    const after = await env.DB.prepare(`SELECT duration_minutes, price_minor, active FROM session_offers WHERE id = ?`)
+      .bind(offer!.id)
+      .first<{ duration_minutes: number; price_minor: number; active: number }>();
+    expect(after).toEqual({ duration_minutes: 60, price_minor: 19_000, active: 1 });
+
+    // Bez zaznaczonego pola oferta znika z profilu, ale zostaje w bazie.
+    await SELF.fetch(
+      `https://localhost/admin/terapeuci/${ANNA}/oferta/${offer!.id}`,
+      form(admin, { title: offer!.title, session_type: 'individual', mode: 'online', duration_minutes: '60', price: '190' }),
+    );
+    const off = await env.DB.prepare(`SELECT active FROM session_offers WHERE id = ?`).bind(offer!.id).first<{ active: number }>();
+    expect(off!.active).toBe(0);
+
+    // Sprzątanie: kolejne testy w tym pliku liczą na aktywną ofertę Anny.
+    await env.DB.prepare(`UPDATE session_offers SET active = 1, duration_minutes = ?, price_minor = ? WHERE id = ?`)
+      .bind(offer!.duration_minutes, offer!.price_minor, offer!.id)
+      .run();
+  });
+});
