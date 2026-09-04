@@ -9,7 +9,7 @@
  * in-memory store, so the suite exercises the real contract with no network.
  */
 import type { Env } from '../env';
-import { HOST_BLOCK_DEFS } from './host-blocks';
+import { hostBlockDefs } from './host-blocks';
 
 export interface PageInfo {
   id: string;
@@ -125,9 +125,21 @@ export async function getPage(env: Env, id: string): Promise<PageInfo | null> {
   return res.ok ? ((await res.json()) as PageInfo) : null;
 }
 
-/** Her blocks as the service should know them. Idempotent; called before an editor opens. */
+/**
+ * Her blocks as the service should know them. Idempotent; called before an
+ * editor opens. Obszary i nurty wchodzą w opcje pól prosto z bazy, więc edytor
+ * zna nowy obszar bez deployu.
+ */
 async function syncBlocks(env: Env): Promise<void> {
-  await pagesFetch(env, '/v1/site/blocks', { method: 'PUT', json: { blocks: HOST_BLOCK_DEFS } });
+  const [topics, modalities] = await Promise.all([
+    env.DB.prepare(`SELECT slug, name_pl AS name FROM specialties ORDER BY name_pl`).all<{ slug: string; name: string }>(),
+    env.DB.prepare(`SELECT slug, name_pl AS name FROM modalities ORDER BY name_pl`).all<{ slug: string; name: string }>(),
+  ]);
+  const dict = {
+    topics: topics.results.map((r) => [r.slug, r.name] as [string, string]),
+    modalities: modalities.results.map((r) => [r.slug, r.name] as [string, string]),
+  };
+  await pagesFetch(env, '/v1/site/blocks', { method: 'PUT', json: { blocks: hostBlockDefs(dict) } });
 }
 
 /** The trade of this catalogue: which photographs fill a slot the therapist left empty. */

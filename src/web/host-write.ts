@@ -15,8 +15,8 @@ import type { Env } from '../env';
 import { getTherapist } from '../db/catalog';
 import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
-import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { nowIso } from '../lib/time';
+import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatTime, isValidTimezone, nowIso, weekdayIn, zonedTimeToUtc } from '../lib/time';
 import { resolveAll, summarize } from './host-blocks';
 import { patchesFor } from './data-fields';
 import { profileContext } from './pages';
@@ -84,7 +84,73 @@ async function writeFields(env: Env, id: string, data: Record<string, Values>): 
     await env.DB.batch(statements);
   }
 
-  return [...columns.map((p) => p.column), ...relations.map((p) => p.relation)];
+  for (const patch of patches) {
+    if ('location' in patch) await writeLocation(env, id, patch.location);
+    if ('slots' in patch) await writeSlots(env, id, patch.slots);
+  }
+
+  return [
+    ...columns.map((p) => p.column),
+    ...relations.map((p) => p.relation),
+    ...patches.flatMap((p) => ('location' in p ? ['location'] : 'slots' in p ? ['slots'] : [])),
+  ];
+}
+
+/** Jeden gabinet: puste miasto zdejmuje adres z profilu, tak jak w panelu. */
+async function writeLocation(env: Env, id: string, loc: { city: string; address: string }): Promise<void> {
+  const statements = [env.DB.prepare(`DELETE FROM therapist_locations WHERE therapist_id = ?`).bind(id)];
+  if (loc.city !== '') {
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, address_line, is_primary)
+         VALUES (?, ?, ?, ?, 'PL', ?, 1)`,
+      ).bind(randomId('loc'), id, loc.city, normalizeForSearch(loc.city), loc.address),
+    );
+  }
+  await env.DB.batch(statements);
+}
+
+/**
+ * Kalendarz z bloku: zaznaczone godziny dostają wolne terminy w dni robocze
+ * na N dni do przodu (te same wiersze co generator w panelu; unikalność
+ * `(therapist_id, starts_at_utc)` czyni to idempotentnym), a odznaczona
+ * godzina traci swoje przyszłe WOLNE terminy. Zarezerwowane zostają.
+ */
+async function writeSlots(env: Env, id: string, plan: { hours: number[]; days: number }): Promise<void> {
+  const t = await env.DB.prepare(`SELECT timezone FROM therapists WHERE id = ?`).bind(id).first<{ timezone: string | null }>();
+  const offer = await env.DB.prepare(
+    `SELECT id, duration_minutes FROM session_offers WHERE therapist_id = ? AND active = 1 ORDER BY created_at LIMIT 1`,
+  ).bind(id).first<{ id: string; duration_minutes: number }>();
+  if (!offer) return; // bez oferty nie ma czego zaplanować - blok mówi to w podpowiedzi
+  const timezone = t?.timezone && isValidTimezone(t.timezone) ? t.timezone : DEFAULT_TIMEZONE;
+  const at = nowIso();
+
+  const { results: open } = await env.DB.prepare(
+    `SELECT id, starts_at_utc FROM appointment_slots WHERE therapist_id = ? AND status = 'open' AND starts_at_utc > ?`,
+  ).bind(id, at).all<{ id: string; starts_at_utc: string }>();
+  const keep = new Set(plan.hours);
+  const statements = open
+    .filter((s) => !keep.has(Number(formatTime(s.starts_at_utc, timezone).split(':')[0])))
+    .map((s) => env.DB.prepare(`DELETE FROM appointment_slots WHERE id = ? AND status = 'open'`).bind(s.id));
+
+  const today = civilDateIn(timezone, new Date());
+  for (let d = 1; d <= plan.days; d++) {
+    const day = addCivilDays(today, d);
+    const weekday = weekdayIn(timezone, day);
+    if (weekday === 0 || weekday === 6) continue;
+    for (const hour of plan.hours) {
+      const start = zonedTimeToUtc(day, hour, 0, timezone);
+      const end = new Date(start.getTime() + offer.duration_minutes * 60_000);
+      statements.push(
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO appointment_slots
+             (id, therapist_id, offer_id, starts_at_utc, ends_at_utc, timezone, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+        ).bind(randomId('sl'), id, offer.id, start.toISOString().replace(/\.\d{3}Z$/, 'Z'), end.toISOString().replace(/\.\d{3}Z$/, 'Z'), timezone, at, at),
+      );
+    }
+  }
+  if (statements.length > 0) await env.DB.batch(statements);
 }
 
 /** Tabele wiążące dla wyborów wielokrotnych; słownik pilnuje, co wolno wstawić. */

@@ -14,11 +14,12 @@
  * Listy powtarzalne (oferty, FAQ, kwalifikacje) mają własne `apply`, bo
  * wiersz odpowiada rekordowi w tabeli, a nie kolumnie.
  */
-import type { PublicTherapist, SessionType, AgeGroup } from '../db/types';
+import type { PublicSlot, PublicTherapist, SessionType, AgeGroup } from '../db/types';
+import { formatPrice, formatTime, formatDateTime } from '../lib/time';
 import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 
 export interface Field {
-  kind: 'text' | 'textarea' | 'url' | 'select' | 'multiselect' | 'list' | 'media' | 'hidden';
+  kind: 'text' | 'textarea' | 'url' | 'select' | 'multiselect' | 'list' | 'media' | 'hidden' | 'computed';
   name: string;
   label: string;
   hint?: string;
@@ -30,17 +31,29 @@ export interface Field {
   of?: Field[];
 }
 
-/** Co zapis ma zrobić z wartością: kolumna profilu albo tabela wiążąca. */
+/** Co zapis ma zrobić z wartością: kolumna profilu, tabela wiążąca, adres gabinetu, kalendarz. */
 export type Patch =
   | { column: string; value: string | number }
-  | { relation: 'languages' | 'topics' | 'modalities'; values: string[] };
+  | { relation: 'languages' | 'topics' | 'modalities'; values: string[] }
+  | { location: { city: string; address: string } }
+  | { slots: { hours: number[]; days: number } };
+
+/** Listy zamknięte, które żyją w bazie (obszary, nurty) - wczytane przy synchronizacji bloków. */
+export type Dictionaries = Record<'topics' | 'modalities', Array<[string, string]>>;
 
 export interface DataField {
   field: Field;
+  /** Opcje pola z bazy zamiast z kodu; `fieldsOf` je wstawia. */
+  optionsFrom?: keyof Dictionaries;
   /** Wartość dla formularza i podglądu, z tego, co widzi katalog. */
-  read(t: PublicTherapist): unknown;
+  read(t: PublicTherapist, ctx: ReadCtx): unknown;
   /** Co zapisać, gdy formularz przyśle tę wartość. Pusta lista = nic. */
   write(value: unknown): Patch[];
+}
+
+/** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy. */
+export interface ReadCtx {
+  slots: PublicSlot[];
 }
 
 // ------------------------------------------------------------- słowniki ---
@@ -91,23 +104,38 @@ function col(
 function picks(
   name: string,
   label: string,
-  options: Array<[string, string]>,
+  options: Array<[string, string]> | keyof Dictionaries,
   read: (t: PublicTherapist) => string[],
   target: 'languages' | 'topics' | 'modalities' | { column: string },
   hint?: string,
 ): DataField {
+  const fixed = typeof options === 'string' ? [] : options;
   return {
-    field: { kind: 'multiselect', name, label, hint, options, data: true },
+    field: { kind: 'multiselect', name, label, hint, options: fixed, data: true },
+    ...(typeof options === 'string' ? { optionsFrom: options } : {}),
     read,
     write: (value) => {
-      const allowed = new Set(options.map(([v]) => v));
-      const picked = list(value).filter((v) => allowed.has(v));
+      // Słownik z bazy sprawdza zapis (`INSERT … SELECT … WHERE slug = ?`); listę
+      // z kodu sprawdzamy tutaj.
+      const picked = typeof options === 'string'
+        ? list(value).map((v) => v.slice(0, 80)).slice(0, 24)
+        : list(value).filter((v) => fixed.some(([o]) => o === v));
       return typeof target === 'string'
         ? [{ relation: target, values: picked }]
         : [{ column: target.column, value: JSON.stringify(picked) }];
     },
   };
 }
+
+/** Wartość wyliczona z innych danych: pokazana, podpisana źródłem, nie do wpisania. */
+function computed(name: string, label: string, from: string, read: (t: PublicTherapist, ctx: ReadCtx) => string): DataField {
+  return { field: { kind: 'computed', name, label, hint: `z: ${from}` }, read, write: () => [] };
+}
+
+const HOUR_OPTIONS: Array<[string, string]> = Array.from({ length: 15 }, (_, i) => {
+  const h = i + 7;
+  return [String(h), `${String(h).padStart(2, '0')}:00`];
+});
 
 /** Tak/nie jako kolumna 0/1. */
 function flag(name: string, label: string, read: (t: PublicTherapist) => boolean, hint?: string): DataField {
@@ -151,13 +179,19 @@ export const FIELDS: Record<string, DataField[]> = {
     }),
     {
       field: { kind: 'media', name: 'photo_url', label: 'Zdjęcie profilowe', data: true,
-        hint: 'Adres z galerii w panelu (zakładka Dane). Puste = rysunek zastępczy.' },
+        hint: 'Adres pliku z galerii w panelu — plik wgrywa się tam, bo tam jest magazyn. Puste = rysunek zastępczy.' },
       read: (t) => t.photo_url ?? '',
       write: (value) => {
         const raw = typeof value === 'object' && value !== null ? String((value as { url?: unknown }).url ?? '') : String(value ?? '');
         return [{ column: 'photo_url', value: str(raw, 500) }];
       },
     },
+    computed('stat_price', 'Cena pod nagłówkiem', 'Oferta → najniższa cena aktywnej oferty', (t) =>
+      t.price_min_minor === null ? '' : (t.price_min_minor === t.price_max_minor ? formatPrice(t.price_min_minor, t.currency) : `od ${formatPrice(t.price_min_minor, t.currency)}`)),
+    computed('stat_duration', 'Czas sesji pod nagłówkiem', 'Oferta → czas pierwszej oferty', (t) =>
+      t.offers[0] ? `${t.offers[0].duration_minutes} min` : ''),
+    computed('stat_next', 'Najbliższy termin pod nagłówkiem', 'Wolne terminy → pierwszy wolny', (t) =>
+      t.next_available_slot_utc ? formatDateTime(t.next_available_slot_utc, t.timezone) : ''),
   ],
 
   intro: [col('bio', 'Opis: jak pracujesz', (t) => t.bio, { area: true, max: 4000, hint: 'Pusta linia zaczyna nowy akapit.' })],
@@ -171,6 +205,40 @@ export const FIELDS: Record<string, DataField[]> = {
     picks('languages', 'Języki', LANGUAGE_OPTIONS, (t) => t.languages, 'languages'),
     number('cancellation_cutoff_h', 'Bezpłatne odwołanie (godziny przed sesją)', (t) => t.cancellation_cutoff_hours, [0, 168]),
     col('cancellation_policy', 'Zasady odwołania', (t) => t.cancellation_policy, { max: 500 }),
+    computed('city_shown', 'Miasto', 'Gdzie się spotykamy → miasto', (t) => t.locations[0]?.city ?? ''),
+    computed('modalities_shown', 'Nurt', 'Z czym przychodzą → nurty', (t) => t.modalities.map((m) => m.name).join(', ')),
+  ],
+
+  topics: [
+    picks('topics', 'Obszary pracy', 'topics', (t) => t.topics.map((x) => x.slug), 'topics'),
+    picks('modalities', 'Nurty', 'modalities', (t) => t.modalities.map((x) => x.slug), 'modalities'),
+  ],
+
+  gabinet: [
+    {
+      field: { kind: 'text', name: 'city', label: 'Miasto', max: 80, data: true, hint: 'Puste = bez gabinetu, tylko online.' },
+      read: (t) => t.locations[0]?.city ?? '',
+      write: () => [],
+    },
+    {
+      field: { kind: 'text', name: 'address_line', label: 'Adres gabinetu', max: 200, data: true },
+      read: (t) => t.locations[0]?.address_line ?? '',
+      write: () => [],
+    },
+  ],
+
+  slots: [
+    {
+      field: { kind: 'multiselect', name: 'slot_hours', label: 'Godziny rozpoczęcia sesji', options: HOUR_OPTIONS, data: true,
+        hint: 'Zaznaczone godziny w dni robocze dostają wolne terminy; odznaczona godzina usuwa swoje wolne terminy. Zarezerwowanych nie rusza.' },
+      read: (_t, ctx) => [...new Set(ctx.slots.map(localHour))].sort((a, b) => Number(a) - Number(b)),
+      write: () => [],
+    },
+    {
+      field: { kind: 'text', name: 'slot_days', label: 'Na ile dni do przodu', max: 3, data: true, hint: 'Dni robocze, licząc od jutra. 1–60.' },
+      read: () => '14',
+      write: () => [],
+    },
   ],
 
   // Kwalifikacje siedzą w kolumnie JSON, więc cała lista jest jedną wartością -
@@ -211,15 +279,32 @@ export const FIELDS: Record<string, DataField[]> = {
   ],
 };
 
-/** Pola danych bloku jako deklaracje dla usługi. */
-export const fieldsOf = (type: string): Field[] => (FIELDS[type] ?? []).map((f) => f.field);
+/** Pola danych bloku jako deklaracje dla usługi; listy z bazy wstawione w opcje. */
+export const fieldsOf = (type: string, dict?: Dictionaries): Field[] =>
+  (FIELDS[type] ?? []).map((f) => (f.optionsFrom && dict ? { ...f.field, options: dict[f.optionsFrom] } : f.field));
 
 /** Wartości pól danych bloku - to, co zobaczy formularz w edytorze. */
-export function valuesOf(type: string, t: PublicTherapist): Record<string, unknown> {
-  return Object.fromEntries((FIELDS[type] ?? []).map((f) => [f.field.name, f.read(t)]));
+export function valuesOf(type: string, t: PublicTherapist, ctx: ReadCtx = { slots: [] }): Record<string, unknown> {
+  return Object.fromEntries((FIELDS[type] ?? []).map((f) => [f.field.name, f.read(t, ctx)]));
 }
 
 /** Co zapisać dla jednego bloku, z tego, co przysłał edytor. */
 export function patchesFor(type: string, sent: Record<string, unknown>): Patch[] {
-  return (FIELDS[type] ?? []).flatMap((f) => (f.field.name in sent ? f.write(sent[f.field.name]) : []));
+  const out = (FIELDS[type] ?? []).flatMap((f) => (f.field.name in sent ? f.write(sent[f.field.name]) : []));
+  // Dwa pola, jeden rekord: adres gabinetu i kalendarz składają się z pary
+  // wartości, więc łatka powstaje z całego bloku, nie z pojedynczego pola.
+  if (type === 'gabinet' && ('city' in sent || 'address_line' in sent)) {
+    out.push({ location: { city: str(sent.city, 80), address: str(sent.address_line, 200) } });
+  }
+  if (type === 'slots' && 'slot_hours' in sent) {
+    const hours = list(sent.slot_hours).map(Number).filter((h) => Number.isInteger(h) && h >= 0 && h <= 23);
+    const days = Math.min(Math.max(Number(String(sent.slot_days ?? '14').replace(/\D/g, '')) || 14, 1), 60);
+    out.push({ slots: { hours, days } });
+  }
+  return out;
+}
+
+/** Godzina lokalna terminu, jako napis - klucz do porównania z opcjami. */
+function localHour(slot: PublicSlot): string {
+  return String(Number(formatTime(slot.starts_at_utc, slot.timezone).split(':')[0]));
 }

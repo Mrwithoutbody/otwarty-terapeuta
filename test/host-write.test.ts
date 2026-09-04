@@ -143,8 +143,58 @@ describe('blok "Podstawowe informacje" jest edytowalny', () => {
       for (const f of fields) {
         expect(typeof f.read, `${type}.${f.field.name}`).toBe('function');
         expect(typeof f.write, `${type}.${f.field.name}`).toBe('function');
-        expect(f.field.data, `${type}.${f.field.name}`).toBe(true);
+        // Pole wyliczone jest tylko do odczytu i mówi, skąd się bierze; reszta jest związana z bazą.
+        if (f.field.kind === 'computed') expect(f.field.hint, `${type}.${f.field.name}`).toMatch(/^z: /);
+        else expect(f.field.data, `${type}.${f.field.name}`).toBe(true);
       }
     }
+  });
+});
+
+describe('związania, których brakowało', () => {
+  it('obszary i nurty: opcje z bazy w definicji, zapis do tabel wiążących', async () => {
+    const { hostBlockDefs } = await import('../src/web/host-blocks');
+    const defs = hostBlockDefs({ topics: [['lek', 'lęk i niepokój']], modalities: [['cbt', 'CBT']] });
+    const topics = defs.topics!.fields!.find((f) => f.name === 'topics')!;
+    expect(topics.kind).toBe('multiselect');
+    expect(topics.options).toEqual([['lek', 'lęk i niepokój']]);
+
+    const res = await write({ topics: { topics: ['zaloba', 'lek'], modalities: ['psychodynamiczna'] } });
+    expect(res.status).toBe(200);
+    const t = (await getTherapist(env, { therapist_id: ANNA }, { drafts: true }))!;
+    expect(t.topics.map((x) => x.slug).sort()).toEqual(['lek', 'zaloba']);
+    expect(t.modalities.map((x) => x.slug)).toEqual(['psychodynamiczna']);
+  });
+
+  it('gabinet: miasto i adres to jeden rekord, puste miasto go zdejmuje', async () => {
+    expect((await write({ gabinet: { city: 'Kraków', address_line: 'ul. Długa 5' } })).status).toBe(200);
+    let t = (await getTherapist(env, { therapist_id: ANNA }, { drafts: true }))!;
+    expect(t.locations[0]).toMatchObject({ city: 'Kraków', address_line: 'ul. Długa 5' });
+
+    expect((await write({ gabinet: { city: '', address_line: 'ul. Długa 5' } })).status).toBe(200);
+    t = (await getTherapist(env, { therapist_id: ANNA }, { drafts: true }))!;
+    expect(t.locations).toEqual([]);
+  });
+
+  it('kalendarz: zaznaczone godziny dostają wolne terminy, odznaczone je tracą', async () => {
+    expect((await write({ slots: { slot_hours: ['9', '15'], slot_days: '5' } })).status).toBe(200);
+    const hours = async () => {
+      const { results } = await env.DB.prepare(
+        `SELECT starts_at_utc, timezone FROM appointment_slots WHERE therapist_id = ? AND status = 'open' AND starts_at_utc > ?`,
+      ).bind(ANNA, new Date().toISOString()).all<{ starts_at_utc: string; timezone: string }>();
+      const { formatTime } = await import('../src/lib/time');
+      return [...new Set(results.map((r) => Number(formatTime(r.starts_at_utc, r.timezone).split(':')[0])))].sort((a, b) => a - b);
+    };
+    expect(await hours()).toEqual([9, 15]);
+
+    expect((await write({ slots: { slot_hours: ['15'], slot_days: '5' } })).status).toBe(200);
+    expect(await hours()).toEqual([15]);
+  });
+
+  it('liczby pod nagłówkiem są zadeklarowane jako wyliczone, ze źródłem', async () => {
+    const { HOST_BLOCK_DEFS } = await import('../src/web/host-blocks');
+    const stat = HOST_BLOCK_DEFS['hero-profil']!.fields!.find((f) => f.name === 'stat_price')!;
+    expect(stat.kind).toBe('computed');
+    expect(stat.hint).toContain('Oferta');
   });
 });

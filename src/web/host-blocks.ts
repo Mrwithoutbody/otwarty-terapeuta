@@ -20,7 +20,7 @@ import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
-import { fieldsOf, valuesOf, type Field } from './data-fields';
+import { fieldsOf, valuesOf, type Dictionaries, type Field } from './data-fields';
 
 export type { Field };
 
@@ -186,9 +186,7 @@ function pluginButton(env: Env): Values {
 
 // -------------------------------------------------------------- providers ---
 
-const T = (name: string, label: string, hint?: string, edit?: string):
-  { kind: 'text'; name: string; label: string; hint?: string; edit?: string; max: number } =>
-  ({ kind: 'text', name, label, hint, edit, max: 160 });
+const T = (name: string, label: string, hint?: string): Field => ({ kind: 'text', name, label, hint, max: 160 });
 
 const DLIST = (name: string, label: string, item: string, of: Field[], max: number, hint?: string): Field =>
   ({ kind: 'list', name, label, item, hint, max, of, data: true });
@@ -292,15 +290,13 @@ export interface HostDef {
   anchor?: string;
   /** Kształt, który paleta edytora rysuje na kaflu tego bloku. */
   glyph?: string;
-  /** Zakładka panelu, w której powstaje treść tego bloku; edytor linkuje tam znak ogniwa. */
-  edit?: string;
   /** Her data as a core block of the service, or null when there is nothing to show. */
   resolve(ctx: SectionCtx): Block | null;
 }
 
 const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
-    label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
+    label: 'Nagłówek profilu', hint: 'Imię, nagłówek zawodowy, zdjęcie i liczby', family: 'hero', glyph: 'hero',
     // Bez pól „własnymi słowami": nadtytuł to nagłówek zawodowy, tytuł to imię,
     // podtytuł to pierwsze zdanie opisu. Dwa pola na tę samą rzecz - jedno
     // wypełnione, drugie z tą samą treścią jako podpowiedź - nie dawały się czytać.
@@ -309,7 +305,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       const t = ctx.therapist;
       return {
         type: 'hero',
-        ...valuesOf('hero-profil', t),
+        ...valuesOf('hero-profil', t, { slots: ctx.slots }),
         eyebrow: t.headline || t.locations[0]?.city || '',
         heading: t.display_name,
         lead: firstSentence(t.bio),
@@ -320,7 +316,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   intro: {
-    label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', edit: 'panel-profil:bio', glyph: 'split',
+    label: 'Jak pracuję', hint: 'Twój opis i zdjęcie do niego', glyph: 'split',
     fields: [...fieldsOf('intro'), MEDIA, ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -333,7 +329,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   dane: {
-    label: 'Podstawowe informacje', hint: 'Forma, miasto, nurt, języki — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'narrow', anchor: 'informacje', glyph: 'contact',
+    label: 'Podstawowe informacje', hint: 'Forma, dla kogo, języki, zasady odwołania', tone: 'narrow', anchor: 'informacje', glyph: 'contact',
     fields: [...fieldsOf('dane'), ...OWN],
     resolve: (ctx) => ({
       type: 'contact', ...valuesOf('dane', ctx.therapist),
@@ -341,19 +337,19 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     }),
   },
   topics: {
-    label: 'Z czym przychodzą', hint: 'Obszary i nurty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
-    fields: OWN,
+    label: 'Z czym przychodzą', hint: 'Obszary pracy i nurty', tone: 'alt', glyph: 'grid',
+    fields: [...fieldsOf('topics'), ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
       const items = [
         ...t.topics.map((x) => ({ title: x.name })),
         ...t.modalities.map((x) => ({ title: x.name })),
       ].slice(0, 6);
-      return items.length === 0 ? null : { type: 'features', eyebrow: 'Obszary', heading: 'Z czym możesz przyjść', items };
+      return items.length === 0 ? null : { type: 'features', ...valuesOf('topics', t), eyebrow: 'Obszary', heading: 'Z czym możesz przyjść', items };
     },
   },
   offers: {
-    label: 'Oferta', hint: 'Sesje i ceny — z zakładki Oferta w panelu', edit: 'panel-oferta', family: 'oferta', glyph: 'pricing',
+    label: 'Oferta', hint: 'Sesje i ceny', family: 'oferta', glyph: 'pricing',
     fields: [
       DLIST('offer_rows', 'Sesje i ceny', 'Sesja', [
         HID('id'),
@@ -361,7 +357,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         { kind: 'text', name: 'price', label: 'Cena (zł)', max: 10 },
         { kind: 'text', name: 'minutes', label: 'Czas (min)', max: 4 },
         { kind: 'select', name: 'mode', label: 'Forma', options: [['online', 'online'], ['in_person', 'w gabinecie']] },
-      ], 4, 'Wyczyszczona nazwa wyłącza ofertę — jej terminy zostają w bazie.'),
+      ], 8, 'Wyłączona oferta znika z profilu, jej terminy zostają w bazie.'),
       ...OWN,
     ],
     resolve: (ctx) => {
@@ -380,8 +376,8 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   slots: {
-    label: 'Wolne terminy', hint: 'Kalendarz i zasady odwołania — z zakładki Dostępność w panelu', edit: 'panel-terminy', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
-    fields: [T('heading', 'Nagłówek sekcji'), BUTTONS],
+    label: 'Wolne terminy', hint: 'Kalendarz wolnych terminów', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
+    fields: [...fieldsOf('slots'), T('heading', 'Nagłówek sekcji'), BUTTONS],
     resolve: (ctx) => {
       const cal = calendarDays(ctx.slots);
       if (!cal) return null;
@@ -391,6 +387,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
       return {
         type: 'calendar',
+        ...valuesOf('slots', t, { slots: ctx.slots }),
         eyebrow: 'Najbliższe wolne terminy',
         heading: 'Kiedy możemy się spotkać',
         days: cal.days,
@@ -401,8 +398,8 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   gabinet: {
-    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu i forma sesji — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'narrow', anchor: 'gabinet', glyph: 'contact',
-    fields: OWN,
+    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu i sesje online', tone: 'narrow', anchor: 'gabinet', glyph: 'contact',
+    fields: [...fieldsOf('gabinet'), ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
       const items: Values[] = [];
@@ -411,11 +408,11 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       if (t.offers_online) items.push({ label: 'Online', value: 'sesje przez wideo, z dowolnego miejsca' });
       if (items.length === 0) return null;
       items.push({ label: 'Rezerwacja', value: 'przez asystenta ChatGPT', href: `${base(ctx.env)}/jak-to-dziala` });
-      return { type: 'contact', eyebrow: 'Gdzie się spotykamy', heading: 'Gabinet i online', items };
+      return { type: 'contact', ...valuesOf('gabinet', t), eyebrow: 'Gdzie się spotykamy', heading: 'Gabinet i online', items };
     },
   },
   zestawienie: {
-    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — z zakładki Dane w panelu', edit: 'panel-profil:first_meeting_course', tone: 'alt', anchor: 'steps', glyph: 'steps',
+    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi o pierwszym spotkaniu', tone: 'alt', anchor: 'steps', glyph: 'steps',
     fields: [...fieldsOf('zestawienie'), ...OWN],
     resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
@@ -431,13 +428,13 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   'faq-profil': {
-    label: 'Pytania i odpowiedzi', hint: 'Pytania i odpowiedzi — z zakładki FAQ w panelu', edit: 'panel-faq', tone: 'alt', glyph: 'faq',
+    label: 'Pytania i odpowiedzi', hint: 'Pytania i odpowiedzi', tone: 'alt', glyph: 'faq',
     fields: [
       DLIST('faq_rows', 'Pytania i odpowiedzi', 'Pytanie', [
         HID('id'),
         { kind: 'text', name: 'q', label: 'Pytanie', max: 200 },
         { kind: 'textarea', name: 'a', label: 'Odpowiedź', max: 2000 },
-      ], 10, 'Wyczyszczone pytanie usuwa wpis.'),
+      ], 20, 'Usunięte pytanie trafia do archiwum.'),
       ...OWN,
     ],
     resolve: (ctx) =>
@@ -450,7 +447,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
           },
   },
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', glyph: 'grid',
     fields: [...fieldsOf('credentials'), ...OWN],
     resolve: (ctx) => {
       const c = ctx.therapist.credentials;
@@ -476,10 +473,28 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
 };
 
-/** The declaration the service keeps: everything but the code. */
-export const HOST_BLOCK_DEFS: Record<string, Omit<HostDef, 'resolve'>> = Object.fromEntries(
-  Object.entries(HOST_SECTIONS).map(([type, { resolve: _resolve, ...def }]) => [type, def]),
-);
+/**
+ * The declaration the service keeps: everything but the code. Listy z bazy
+ * (obszary, nurty) wchodzą w opcje pól przy każdej synchronizacji, więc nowy
+ * obszar w katalogu pojawia się w edytorze bez deployu.
+ */
+export function hostBlockDefs(dict?: Dictionaries): Record<string, Omit<HostDef, 'resolve'>> {
+  return Object.fromEntries(
+    Object.entries(HOST_SECTIONS).map(([type, { resolve: _resolve, ...def }]) => [
+      type,
+      { ...def, fields: def.fields?.map((f) => (dict && f.kind === 'multiselect' && f.options?.length === 0 ? withOptions(type, f, dict) : f)) },
+    ]),
+  );
+}
+
+/** Opcje pola wielokrotnego z tabeli pól, gdy definicja ma je puste. */
+function withOptions(type: string, field: Field, dict: Dictionaries): Field {
+  const fromTable = fieldsOf(type, dict).find((f) => f.name === field.name);
+  return fromTable ?? field;
+}
+
+/** Bez słowników: to, co zna kod. Testy i schemat. */
+export const HOST_BLOCK_DEFS = hostBlockDefs();
 
 /** Her data for every host block, keyed by type - what a render and an edit session send. */
 export function resolveAll(ctx: SectionCtx): Record<string, Block | null> {
