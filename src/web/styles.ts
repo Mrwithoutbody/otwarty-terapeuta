@@ -580,6 +580,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
   border: 0; border-radius: 0; background: var(--dark); color: #d7e0c4;
 }
+/* One of the illustrations as texture, not as a picture: the file is 96 px
+   wide, so the browser's own upscaling is the blur and the page pays no
+   filter at paint time. The wash over it is measured, not guessed - at 0.88
+   the lightest point of the blur still leaves 4.80 under the lead text and
+   7.59 under the headline. */
+.home-hero::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    linear-gradient(rgba(52, 65, 37, 0.88), rgba(52, 65, 37, 0.88)),
+    url("/illustrations/hero-texture.webp") center / cover no-repeat;
+}
+.home-hero > * { position: relative; z-index: 1; }
 .hero-copy { max-width: 34rem; }
 /* What the site is, above the promise - the one line of label the hero keeps. */
 .eyebrow {
