@@ -20,6 +20,9 @@ import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
+import { fieldsOf, valuesOf, type Field } from './data-fields';
+
+export type { Field };
 
 /** Public names for the enum codes the catalogue stores. */
 const PUBLIC_LABELS: Record<string, string> = {
@@ -187,19 +190,8 @@ const T = (name: string, label: string, hint?: string, edit?: string):
   { kind: 'text'; name: string; label: string; hint?: string; edit?: string; max: number } =>
   ({ kind: 'text', name, label, hint, edit, max: 160 });
 
-/**
- * Pole danych: to, co wpiszesz, wraca do tej bazy, a nie do JSON-a strony.
- * Usługa pokazuje w nim aktualną wartość z `resolve` i odsyła ją przy zapisie
- * (`POST /api/host-blocks`), więc cena widnieje w jednym miejscu — tutaj.
- */
-const D = (name: string, label: string, hint?: string, max = 200): Field =>
-  ({ kind: 'text', name, label, hint, max, data: true });
-
-const DAREA = (name: string, label: string, hint?: string, max = 4000): Field =>
-  ({ kind: 'textarea', name, label, hint, max, data: true });
-
-const DLIST = (name: string, label: string, of: Field[], max: number, hint?: string): Field =>
-  ({ kind: 'list', name, label, hint, max, of, data: true });
+const DLIST = (name: string, label: string, item: string, of: Field[], max: number, hint?: string): Field =>
+  ({ kind: 'list', name, label, item, hint, max, of, data: true });
 
 const HID = (name: string): Field => ({ kind: 'hidden', name, label: name });
 
@@ -211,7 +203,7 @@ const HID = (name: string): Field => ({ kind: 'hidden', name, label: name });
 const BUTTONS: Field = {
   // Cztery, bo dwa to była decyzja projektowa przebrana za ograniczenie
   // techniczne: repeater rośnie do `max` i tyle wierszy pokazuje formularz.
-  kind: 'list', name: 'buttons', label: 'Przyciski', max: 4,
+  kind: 'list', name: 'buttons', label: 'Przyciski', item: 'Przycisk', max: 4,
   hint: 'Puste = przyciski domyślne: terminy i pierwsze spotkanie.',
   of: [
     { kind: 'text', name: 'label', label: 'Napis', max: 40 },
@@ -225,18 +217,6 @@ const MEDIA: Field = {
   kind: 'media', name: 'media', label: 'Zdjęcie',
   hint: 'Adres z galerii w panelu (zakładka Dane). Puste = zdjęcie z katalogu.',
 };
-
-export interface Field {
-  kind: 'text' | 'textarea' | 'url' | 'select' | 'list' | 'media' | 'hidden';
-  name: string;
-  label: string;
-  hint?: string;
-  max?: number;
-  edit?: string;
-  data?: boolean;
-  options?: Array<[string, string]>;
-  of?: Field[];
-}
 
 /** Fields the person may fill to override what the data would say. */
 // Bez podpowiedzi o dziedziczeniu: usługa dokłada ją sama pod tym polem, pod
@@ -324,17 +304,12 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     // Bez pól „własnymi słowami": nadtytuł to nagłówek zawodowy, tytuł to imię,
     // podtytuł to pierwsze zdanie opisu. Dwa pola na tę samą rzecz - jedno
     // wypełnione, drugie z tą samą treścią jako podpowiedź - nie dawały się czytać.
-    fields: [
-      D('display_name', 'Imię i nazwisko'),
-      D('headline', 'Nadtytuł: nagłówek zawodowy', 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.'),
-      BUTTONS,
-    ],
+    fields: [...fieldsOf('hero-profil'), BUTTONS],
     resolve: (ctx) => {
       const t = ctx.therapist;
       return {
         type: 'hero',
-        display_name: t.display_name,
-        headline: t.headline,
+        ...valuesOf('hero-profil', t),
         eyebrow: t.headline || t.locations[0]?.city || '',
         heading: t.display_name,
         lead: firstSentence(t.bio),
@@ -346,7 +321,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   intro: {
     label: 'Jak pracuję', hint: 'Twój opis — z zakładki Dane w panelu', edit: 'panel-profil:bio', glyph: 'split',
-    fields: [DAREA('bio', 'Opis: jak pracujesz', 'Pusta linia zaczyna nowy akapit.'), MEDIA, ...OWN],
+    fields: [...fieldsOf('intro'), MEDIA, ...OWN],
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (t.bio.trim() === '') return null;
@@ -354,13 +329,16 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       // Pojedynczy enter w opisie to u niej akapit, nie łamanie wiersza: bez tego
       // silnik skleja całą biografię w jeden blok tekstu przedzielony <br>.
       const body = t.bio.trim().split(/\n+/).join('\n\n');
-      return { type: 'media-text', bio: t.bio, eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body };
+      return { type: 'media-text', ...valuesOf('intro', t), eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body };
     },
   },
   dane: {
     label: 'Podstawowe informacje', hint: 'Forma, miasto, nurt, języki — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'narrow', anchor: 'informacje', glyph: 'contact',
-    fields: OWN,
-    resolve: (ctx) => ({ type: 'contact', eyebrow: 'W skrócie', heading: 'Podstawowe informacje', items: factSheet(ctx.therapist) }),
+    fields: [...fieldsOf('dane'), ...OWN],
+    resolve: (ctx) => ({
+      type: 'contact', ...valuesOf('dane', ctx.therapist),
+      eyebrow: 'W skrócie', heading: 'Podstawowe informacje', items: factSheet(ctx.therapist),
+    }),
   },
   topics: {
     label: 'Z czym przychodzą', hint: 'Obszary i nurty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
@@ -377,7 +355,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   offers: {
     label: 'Oferta', hint: 'Sesje i ceny — z zakładki Oferta w panelu', edit: 'panel-oferta', family: 'oferta', glyph: 'pricing',
     fields: [
-      DLIST('offer_rows', 'Sesje i ceny', [
+      DLIST('offer_rows', 'Sesje i ceny', 'Sesja', [
         HID('id'),
         { kind: 'text', name: 'title', label: 'Nazwa', max: 120 },
         { kind: 'text', name: 'price', label: 'Cena (zł)', max: 10 },
@@ -438,12 +416,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   zestawienie: {
     label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi — z zakładki Dane w panelu', edit: 'panel-profil:first_meeting_course', tone: 'alt', anchor: 'steps', glyph: 'steps',
-    fields: [
-      DAREA('first_meeting_course', 'Jak wygląda pierwsze spotkanie', undefined, 400),
-      DAREA('first_meeting_prep', 'Jak się przygotować', undefined, 400),
-      DAREA('first_meeting_decision', 'Co potem', undefined, 400),
-      ...OWN,
-    ],
+    fields: [...fieldsOf('zestawienie'), ...OWN],
     resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
       const items = [
@@ -452,15 +425,15 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         { title: 'Co potem', body: m.decision },
       ].filter((x) => x.body.trim() !== '');
       return {
-        type: 'steps', eyebrow: 'Pierwsze spotkanie', heading: 'Jak to wygląda na początku', items,
-        first_meeting_course: m.course, first_meeting_prep: m.prep, first_meeting_decision: m.decision,
+        type: 'steps', ...valuesOf('zestawienie', ctx.therapist),
+        eyebrow: 'Pierwsze spotkanie', heading: 'Jak to wygląda na początku', items,
       };
     },
   },
   'faq-profil': {
     label: 'Pytania i odpowiedzi', hint: 'Pytania i odpowiedzi — z zakładki FAQ w panelu', edit: 'panel-faq', tone: 'alt', glyph: 'faq',
     fields: [
-      DLIST('faq_rows', 'Pytania i odpowiedzi', [
+      DLIST('faq_rows', 'Pytania i odpowiedzi', 'Pytanie', [
         HID('id'),
         { kind: 'text', name: 'q', label: 'Pytanie', max: 200 },
         { kind: 'textarea', name: 'a', label: 'Odpowiedź', max: 2000 },
@@ -478,20 +451,13 @@ const HOST_SECTIONS: Record<string, HostDef> = {
   },
   credentials: {
     label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty — z zakładki Dane w panelu', edit: 'panel-profil', tone: 'alt', glyph: 'grid',
-    fields: [
-      DLIST('credential_rows', 'Dyplomy i certyfikaty', [
-        { kind: 'text', name: 'title', label: 'Nazwa', max: 160 },
-        { kind: 'text', name: 'issuer', label: 'Wydający', max: 160 },
-        { kind: 'text', name: 'year', label: 'Rok', max: 4 },
-      ], 6, 'Wyczyszczona nazwa usuwa wpis. Weryfikacja zostaje po stronie administratora.'),
-      ...OWN,
-    ],
+    fields: [...fieldsOf('credentials'), ...OWN],
     resolve: (ctx) => {
       const c = ctx.therapist.credentials;
       return c.length === 0
         ? null
         : { type: 'features', eyebrow: 'Kwalifikacje', heading: 'Skąd mam do tego przygotowanie',
-            credential_rows: c.slice(0, 6).map((x) => ({ title: x.title, issuer: x.issuer ?? '', year: x.year === null ? '' : String(x.year) })),
+            ...valuesOf('credentials', ctx.therapist),
             items: c.slice(0, 6).map((x) => ({ title: x.title, body: [x.issuer, x.year, x.verified ? 'zweryfikowane' : ''].filter(Boolean).join(' · ') })) };
     },
   },

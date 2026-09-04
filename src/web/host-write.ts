@@ -18,6 +18,7 @@ import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
 import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
 import { resolveAll, summarize } from './host-blocks';
+import { patchesFor } from './data-fields';
 import { profileContext } from './pages';
 
 /** Ile żyje prawo do zapisu. Tyle, ile sesja edycji po stronie usługi. */
@@ -53,46 +54,45 @@ const str = (value: unknown, max: number): string => (typeof value === 'string' 
 const rows = (value: unknown): Values[] => (Array.isArray(value) ? (value as Values[]) : []);
 
 /**
- * Kolumny profilu, jedno zapytanie. Pole nieprzysłane zostaje bez zmian: edytor
- * pokazuje jeden blok naraz, a zapis niesie tylko pola tego bloku.
+ * Wartości z bloków w bazie. Co gdzie idzie, mówi `FIELDS` w `data-fields.ts`
+ * - tutaj nie ma ani jednej nazwy kolumny, więc nowe pole nie wymaga zmiany
+ * w tym pliku.
  */
-async function writeProfile(env: Env, id: string, data: Record<string, Values>): Promise<string[]> {
-  const set: Array<[string, string]> = [];
-  const hero = data['hero-profil'];
-  if (hero && 'display_name' in hero) {
-    const name = sanitizeLine(String(hero.display_name ?? ''), 120);
-    // Imię jest tym, po czym ktoś ją znajduje; puste zostawiłoby kartę bez nazwy.
-    if (name !== '') set.push(['display_name', name]);
+async function writeFields(env: Env, id: string, data: Record<string, Values>): Promise<string[]> {
+  const patches = Object.entries(data).flatMap(([type, sent]) => patchesFor(type, sent));
+  const columns = patches.filter((p): p is { column: string; value: string | number } => 'column' in p);
+  const relations = patches.filter((p): p is { relation: 'languages' | 'topics' | 'modalities'; values: string[] } => 'relation' in p);
+
+  if (columns.length > 0) {
+    await env.DB.prepare(
+      `UPDATE therapists SET ${columns.map((p) => `${p.column}=?`).join(', ')}, updated_at=? WHERE id = ?`,
+    )
+      .bind(...columns.map((p) => p.value), nowIso(), id)
+      .run();
   }
-  if (hero && 'headline' in hero) set.push(['headline', sanitizeLine(String(hero.headline ?? ''), 200)]);
-  const intro = data.intro;
-  if (intro && 'bio' in intro) set.push(['bio', sanitizeRichText(String(intro.bio ?? ''), 4000)]);
-  const first = data.zestawienie;
-  for (const field of ['first_meeting_course', 'first_meeting_prep', 'first_meeting_decision'] as const) {
-    if (first && field in first) set.push([field, sanitizeLine(String(first[field] ?? ''), 400)]);
+
+  for (const patch of relations) {
+    const { table, column, source, key } = RELATIONS[patch.relation];
+    const statements = [env.DB.prepare(`DELETE FROM ${table} WHERE therapist_id = ?`).bind(id)];
+    for (const value of patch.values) {
+      statements.push(
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO ${table} (therapist_id, ${column}) SELECT ?, ${key} FROM ${source} WHERE ${key} = ?`,
+        ).bind(id, value),
+      );
+    }
+    await env.DB.batch(statements);
   }
-  const creds = data.credentials;
-  if (creds && 'credential_rows' in creds) {
-    const list = rows(creds.credential_rows)
-      .map((row) => ({
-        title: sanitizeLine(String(row.title ?? ''), 160),
-        issuer: sanitizeLine(String(row.issuer ?? ''), 160),
-        year: Number(String(row.year ?? '').replace(/\D/g, '').slice(0, 4)) || null,
-        // Weryfikacja należy do administratora; edytor jej nie przyznaje.
-        verified: false,
-      }))
-      .filter((row) => row.title !== '')
-      .slice(0, 6);
-    set.push(['credentials', JSON.stringify(list)]);
-  }
-  if (set.length === 0) return [];
-  await env.DB.prepare(
-    `UPDATE therapists SET ${set.map(([column]) => `${column}=?`).join(', ')}, updated_at=? WHERE id = ?`,
-  )
-    .bind(...set.map(([, value]) => value), nowIso(), id)
-    .run();
-  return set.map(([column]) => column);
+
+  return [...columns.map((p) => p.column), ...relations.map((p) => p.relation)];
 }
+
+/** Tabele wiążące dla wyborów wielokrotnych; słownik pilnuje, co wolno wstawić. */
+const RELATIONS = {
+  languages: { table: 'therapist_languages', column: 'language_code', source: 'languages', key: 'code' },
+  topics: { table: 'therapist_specialties', column: 'specialty_slug', source: 'specialties', key: 'slug' },
+  modalities: { table: 'therapist_modalities', column: 'modality_slug', source: 'modalities', key: 'slug' },
+} as const;
 
 /**
  * Cennik. Wiersz z identyfikatorem poprawia ofertę, wiersz bez niego zakłada
@@ -194,7 +194,7 @@ hostWriteApp.post('/host-blocks', async (c) => {
   if (id === null) return c.json({ error: 'unauthorized' }, 401);
 
   const data = (typeof body.data === 'object' && body.data !== null ? body.data : {}) as Record<string, Values>;
-  const touched = await writeProfile(c.env, id, data);
+  const touched = await writeFields(c.env, id, data);
   if (data.offers && 'offer_rows' in data.offers) {
     if ((await writeOffers(c.env, id, rows(data.offers.offer_rows))) > 0) touched.push('offers');
   }

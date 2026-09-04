@@ -108,3 +108,43 @@ describe('przyciski i zdjęcie w bloku', () => {
     expect(html).not.toContain('Zobacz wolne terminy');
   });
 });
+
+describe('blok "Podstawowe informacje" jest edytowalny', () => {
+  it('zapisuje formę, dla kogo, języki i zasady odwołania', async () => {
+    const res = await write({
+      dane: {
+        offers_online: '1',
+        offers_in_person: '1',
+        accepting_new_clients: '0',
+        session_types: ['individual', 'couples'],
+        age_groups: ['adults', 'seniors'],
+        languages: ['pl', 'en'],
+        cancellation_cutoff_h: '36',
+        cancellation_policy: 'Odwołanie do 36 godzin przed sesją jest bezpłatne.',
+      },
+    });
+    expect(res.status).toBe(200);
+
+    const t = (await getTherapist(env, { therapist_id: ANNA }, { drafts: true }))!;
+    expect(t.offers_in_person).toBe(true);
+    expect(t.accepting_new_clients).toBe(false);
+    expect(t.session_types.sort()).toEqual(['couples', 'individual']);
+    expect(t.age_groups.sort()).toEqual(['adults', 'seniors']);
+    expect(t.languages.sort()).toEqual(['en', 'pl']);
+    expect(t.cancellation_cutoff_hours).toBe(36);
+    expect(t.cancellation_policy).toContain('36 godzin');
+  });
+
+  it('nowe pole nie wymaga zmiany w zapisie: wszystko idzie z jednej tabeli', async () => {
+    const { FIELDS } = await import('../src/web/data-fields');
+    // Każde pole danych umie i przeczytać, i zapisać - inaczej blok pokazywałby
+    // wartość, której nie da się tknąć (albo odwrotnie).
+    for (const [type, fields] of Object.entries(FIELDS)) {
+      for (const f of fields) {
+        expect(typeof f.read, `${type}.${f.field.name}`).toBe('function');
+        expect(typeof f.write, `${type}.${f.field.name}`).toBe('function');
+        expect(f.field.data, `${type}.${f.field.name}`).toBe(true);
+      }
+    }
+  });
+});
