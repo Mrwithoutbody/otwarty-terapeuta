@@ -57,7 +57,8 @@ describe('templates in the panel', () => {
     const editor = await pagesFetch(env, path);
     expect(editor.headers.get('content-security-policy')).toContain(`frame-ancestors 'self' ${env.PUBLIC_BASE_URL}`);
     const form = await editor.text();
-    expect((form.match(/data-theme="default"/g) ?? []).length).toBe(7);
+    // Jeden kafel szablonu i siedem próbek jego palet.
+    expect((form.match(/data-theme="default"/g) ?? []).length).toBe(8);
     expect(form).toContain('name="sec_0_type" value="hero-profil"');
     expect(form).not.toContain('name="slug"'); // the profile's address and visibility are the host's
 

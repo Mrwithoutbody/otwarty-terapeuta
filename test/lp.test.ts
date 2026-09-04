@@ -59,11 +59,13 @@ describe('podstrony terapeutki', () => {
     const editorUrl = editorSrc(shell);
     expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\/[a-z0-9]+\/[a-z0-9]+\.\d+\.[\w-]+$/);
     const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
-    expect((form.match(/data-theme="default"/g) ?? []).length).toBe(7);
-    expect(form).toContain('data-variant="ink" data-label="Domyślny — Atrament" aria-pressed="true"');
+    // Jeden kafel szablonu i siedem próbek jego palet.
+    expect((form.match(/data-theme="default"/g) ?? []).length).toBe(8);
+    expect(form).toContain('data-variant="ink" data-label="Atrament" aria-pressed="true"'); // wybrana paleta szablonu
     expect((form.match(/<iframe /g) ?? []).length).toBe(1);
     expect(form).toContain('name="sec_0_type" value="hero"');
-    expect(form).toContain('<optgroup label="Twoje dane">'); // her blocks are offered
+    expect(form).toContain('<div class="add-group"><h3>Twoje dane</h3>'); // her blocks lead the palette
+    expect(form).toContain('value="add_section:slots"'); // and each one is a tile, not a select option
 
     // A draft is invisible to the public, even with the right address.
     const slug = 'grupa-wsparcia-dla-rodzicow';

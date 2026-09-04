@@ -251,13 +251,15 @@ export interface HostDef {
   tone?: 'alt' | 'dark' | 'narrow';
   family?: string;
   anchor?: string;
+  /** Kształt, który paleta edytora rysuje na kaflu tego bloku. */
+  glyph?: string;
   /** Her data as a core block of the service, or null when there is nothing to show. */
   resolve(ctx: SectionCtx): Block | null;
 }
 
 export const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
-    label: 'Nagłówek profilu', hint: 'Imię, zdjęcie, jedno zdanie i fakty z Twoich danych', family: 'hero',
+    label: 'Nagłówek profilu', hint: 'Imię, zdjęcie, jedno zdanie i fakty z Twoich danych', family: 'hero', glyph: 'hero',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -273,7 +275,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   intro: {
-    label: 'Jak pracuję', hint: 'Twój opis i zdjęcie obok siebie',
+    label: 'Jak pracuję', hint: 'Twój opis i zdjęcie obok siebie', glyph: 'split',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -286,12 +288,12 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   dane: {
-    label: 'Podstawowe informacje', hint: 'Forma, miasto, dla kogo, nurt, języki, odwołanie', tone: 'narrow', anchor: 'informacje',
+    label: 'Podstawowe informacje', hint: 'Forma, miasto, dla kogo, nurt, języki, odwołanie', tone: 'narrow', anchor: 'informacje', glyph: 'contact',
     fields: OWN,
     resolve: (ctx) => ({ type: 'contact', eyebrow: 'W skrócie', heading: 'Podstawowe informacje', items: factSheet(ctx.therapist) }),
   },
   topics: {
-    label: 'Z czym przychodzą', hint: 'Obszary i nurty z Twoich danych', tone: 'alt',
+    label: 'Z czym przychodzą', hint: 'Obszary i nurty z Twoich danych', tone: 'alt', glyph: 'grid',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -303,7 +305,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   offers: {
-    label: 'Oferta', hint: 'Sesje i ceny z zakładki Oferta', family: 'oferta',
+    label: 'Oferta', hint: 'Sesje i ceny z zakładki Oferta', family: 'oferta', glyph: 'pricing',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -318,7 +320,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   slots: {
-    label: 'Wolne terminy', hint: 'Kalendarz z zakładki Dostępność, z zasadami odwołania', tone: 'alt', anchor: 'terminy',
+    label: 'Wolne terminy', hint: 'Kalendarz z zakładki Dostępność, z zasadami odwołania', tone: 'alt', anchor: 'terminy', glyph: 'calendar',
     fields: [T('heading', 'Nagłówek', 'puste = domyślny')],
     resolve: (ctx) => {
       const cal = calendarDays(ctx.slots);
@@ -339,7 +341,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   gabinet: {
-    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu, sesje online i zasady odwołania z Twoich danych', tone: 'narrow', anchor: 'gabinet',
+    label: 'Gdzie się spotykamy', hint: 'Adres gabinetu, sesje online i zasady odwołania z Twoich danych', tone: 'narrow', anchor: 'gabinet', glyph: 'contact',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
@@ -353,7 +355,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   zestawienie: {
-    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi z zakładki O mnie', tone: 'alt', anchor: 'steps',
+    label: 'Pierwsze spotkanie', hint: 'Trzy odpowiedzi z zakładki O mnie', tone: 'alt', anchor: 'steps', glyph: 'steps',
     fields: OWN,
     resolve: (ctx) => {
       const m = ctx.therapist.first_meeting;
@@ -366,7 +368,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   'faq-profil': {
-    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt',
+    label: 'Pytania i odpowiedzi', hint: 'Twoje odpowiedzi z zakładki FAQ', tone: 'alt', glyph: 'faq',
     fields: OWN,
     resolve: (ctx) =>
       ctx.faq.length === 0
@@ -374,7 +376,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
         : { type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej', items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })) },
   },
   credentials: {
-    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt',
+    label: 'Kwalifikacje', hint: 'Dyplomy i certyfikaty', tone: 'alt', glyph: 'grid',
     fields: OWN,
     resolve: (ctx) => {
       const c = ctx.therapist.credentials;
@@ -385,7 +387,7 @@ export const HOST_SECTIONS: Record<string, HostDef> = {
     },
   },
   zaproszenie: {
-    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark',
+    label: 'Zaproszenie na koniec', hint: 'Ciemny pas domykający stronę', tone: 'dark', glyph: 'cta',
     fields: OWN,
     resolve: (ctx) => {
       const t = ctx.therapist;
