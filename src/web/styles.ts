@@ -578,7 +578,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-top: calc(clamp(2rem, 4vw, 3rem) * -1);
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr); gap: clamp(2rem, 4vw, 3.5rem);
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
-  border: 0; border-radius: 0; background: var(--dark); color: #d7e0c4;
+  border: 0; border-radius: 0; background: #232943; color: #c8cde4;
 }
 /* One of the illustrations as texture, not as a picture: the file is 96 px
    wide, so the browser's own upscaling is the blur and the page pays no
@@ -588,7 +588,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero::before {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background:
-    linear-gradient(rgba(52, 65, 37, 0.88), rgba(52, 65, 37, 0.88)),
+    linear-gradient(rgba(35, 41, 67, 0.86), rgba(35, 41, 67, 0.86)),
     url("/illustrations/hero-texture.webp") center / cover no-repeat;
 }
 .home-hero > * { position: relative; z-index: 1; }
@@ -597,18 +597,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .eyebrow {
   display: inline-flex; align-items: center; gap: 0.5rem; margin: 0 0 1.1rem;
   padding: 0.35rem 0.7rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
-  background: rgba(255,255,255,0.08); color: #cbd7b3; font-size: 0.8rem; font-weight: 550;
+  background: rgba(255,255,255,0.08); color: #ccd2ea; font-size: 0.8rem; font-weight: 550;
 }
 .eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #c7da4f; }
-.home-hero .btn { background: #fff; border-color: #fff; color: #2f3a22; box-shadow: none; }
-.home-hero .btn:hover { background: #eef2e0; border-color: #eef2e0; }
-.home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #e7edd6; }
+.home-hero .btn { background: #fff; border-color: #fff; color: #232943; box-shadow: none; }
+.home-hero .btn:hover { background: #e6e9f5; border-color: #e6e9f5; }
+.home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #dfe3f2; }
 .home-hero .btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
-.home-hero h1 { max-width: 20ch; margin: 0 0 1rem; color: var(--dark-head); font-size: clamp(1.95rem, 1.6rem + 1.6vw, 2.85rem); line-height: 1.14; letter-spacing: -0.025em; }
-.home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c6d1b1; font-size: 1rem; line-height: 1.65; }
+.home-hero h1 { max-width: 20ch; margin: 0 0 1rem; color: #fbfbff; font-size: clamp(1.95rem, 1.6rem + 1.6vw, 2.85rem); line-height: 1.14; letter-spacing: -0.025em; }
+.home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c8cde4; font-size: 1rem; line-height: 1.65; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
 .hero-actions .btn { min-width: 11.5rem; }
-.hero-availability { display: flex; align-items: center; gap: 0.4rem; margin: 0.85rem 0 0; color: #a8b394; font-size: 0.72rem; }
+.hero-availability { display: flex; align-items: center; gap: 0.4rem; margin: 0.85rem 0 0; color: #a3abc6; font-size: 0.72rem; }
 .hero-availability > span { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #d99b35; }
 .finder-preview {
   position: relative; width: 100%; padding: 1rem;
