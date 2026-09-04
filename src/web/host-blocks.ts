@@ -183,8 +183,9 @@ function pluginButton(env: Env): Values {
 
 // -------------------------------------------------------------- providers ---
 
-const T = (name: string, label: string, hint?: string): { kind: 'text'; name: string; label: string; hint?: string; max: number } =>
-  ({ kind: 'text', name, label, hint, max: 160 });
+const T = (name: string, label: string, hint?: string, edit?: string):
+  { kind: 'text'; name: string; label: string; hint?: string; edit?: string; max: number } =>
+  ({ kind: 'text', name, label, hint, edit, max: 160 });
 
 /** Fields the person may fill to override what the data would say. */
 // Bez podpowiedzi o dziedziczeniu: usługa dokłada ją sama pod tym polem, pod
@@ -265,7 +266,13 @@ export interface HostDef {
 export const HOST_SECTIONS: Record<string, HostDef> = {
   'hero-profil': {
     label: 'Nagłówek profilu', hint: 'Imię, zdjęcie i fakty — z zakładki Dane w panelu', edit: 'panel-profil', family: 'hero', glyph: 'hero',
-    fields: OWN,
+    // Nadtytuł to jej nagłówek zawodowy, tytuł to imię — obydwa mają pole w panelu.
+    // Podtytuł bierze się z opisu, którego w panelu nie ma; zostaje bez odnośnika.
+    fields: [
+      T('eyebrow', 'Nadtytuł', undefined, 'panel-profil:headline'),
+      T('heading', 'Nagłówek', undefined, 'panel-profil:display_name'),
+      T('lead', 'Podtytuł'),
+    ],
     resolve: (ctx) => {
       const t = ctx.therapist;
       return {
