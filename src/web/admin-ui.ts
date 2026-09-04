@@ -50,8 +50,16 @@ export const ADMIN_JS = String.raw`(function () {
          mnożyła, bo nazwany cel nie przechodzi przez tę granicę. */
       if (event.data.kind === 'goto-panel') {
         dialog.close();
-        var tab = document.getElementById(String(event.data.anchor || '') + '-tab');
+        /* "sekcja" albo "sekcja:pole": otwieramy zakładkę, a jeśli host wskazał
+           pole, przewijamy do niego i stawiamy w nim kursor. */
+        var parts = String(event.data.anchor || '').split(':');
+        var tab = document.getElementById(parts[0] + '-tab');
         if (tab) tab.click();
+        var field = parts[1] ? document.getElementById(parts[1]) : null;
+        if (field) {
+          field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          field.focus({ preventScroll: true });
+        }
       }
     });
   }
