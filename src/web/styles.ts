@@ -417,9 +417,18 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .page-head { display: flex; flex-direction: column; align-items: flex-start; }
 .page-head h1 { max-width: 22ch; margin: 0; }
 .page-head > * + * { margin-top: 1rem; }
-.catalogue-facts, .page-head .lead { max-width: none; margin: 0; color: var(--text-muted); font-size: 0.92rem; }
-/* On the dark band the muted ink is unreadable; the hero has its own. */
-.home-hero .catalogue-facts { color: #c6d1b1; }
+.page-head .lead { max-width: none; margin: 0; color: var(--text-muted); font-size: 0.92rem; }
+
+/* The facts of the list, in the strip that used to hold four reassurances.
+   Same markup in both places: a band of its own under the home hero, a row
+   inside the page header of the catalogue. */
+.facts-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); margin: 0; }
+.page-head .facts-strip { align-self: stretch; }
+.facts-strip > div { padding: 0.2rem 1.25rem; border-left: 1px solid var(--border-strong); }
+.facts-strip > div:first-child { padding-left: 0; border-left: 0; }
+.facts-strip dt { color: var(--text-muted); font-size: 0.72rem; }
+.facts-strip dd { margin: 0.1rem 0 0; color: var(--text); font-size: 0.95rem; font-weight: 600; }
+.home .facts-strip { padding-block: 1.15rem; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
 .subpage-heading { max-width: 45rem; margin-bottom: 2.5rem; }
 .subpage-heading h2, .resource-heading h2 { margin: 0 0 0.8rem; font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); letter-spacing: -0.02em; }
 .subpage-heading > p:last-child, .resource-heading > p:last-child { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; }
@@ -560,7 +569,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The band runs the full width of the window, the way a catalogue's does:
    the page sits in .wrap, so it is pulled back out with the usual full-bleed
    margin and given the gutter back as padding. */
-.home-hero {
+.home-hero, .home .facts-strip {
   margin-inline: calc(50% - 50vw); width: 100vw;
   padding-inline: max(clamp(1rem, 3vw, 2.5rem), calc((100vw - var(--maxw)) / 2 + clamp(1rem, 3vw, 2.5rem)));
 }

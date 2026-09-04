@@ -127,7 +127,6 @@ siteApp.get('/', async (c) => {
         ${pluginCta(c.env)}
       </div>
       ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : '<p class="hero-availability"><span aria-hidden="true"></span> Integracja z ChatGPT jest w przygotowaniu do publikacji.</p>'}
-      ${facts ? `<p class="catalogue-facts">${escapeHtml(facts)}</p>` : ''}
     </div>
 
     <div class="finder-preview" aria-label="Przykładowy widok wyszukiwarki terapeutów">
@@ -146,6 +145,8 @@ siteApp.get('/', async (c) => {
       <div class="preview-note"><span aria-hidden="true">✓</span><p><strong>Dlaczego ten profil?</strong><br>Pasuje do wybranej formy spotkań, budżetu i dostępności.</p></div>
     </div>
   </section>
+
+  ${facts}
 
   <section class="home-section steps-section" aria-labelledby="steps-title">
     <div class="section-heading centered">
@@ -219,15 +220,6 @@ function parseListParam(value: string | undefined): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-/** „1 profil", „3 profile", „10 profili" - Polish counts three ways. */
-function plural(n: number, one: string, few: string, many: string): string {
-  const rest10 = n % 10;
-  const rest100 = n % 100;
-  if (n === 1) return `${n} ${one}`;
-  if (rest10 >= 2 && rest10 <= 4 && (rest100 < 12 || rest100 > 14)) return `${n} ${few}`;
-  return `${n} ${many}`;
-}
-
 /**
  * What the list below actually holds, in facts a person deciding can use:
  * how many profiles, in how many towns, the lowest price anyone charges and
@@ -236,27 +228,29 @@ function plural(n: number, one: string, few: string, many: string): string {
  */
 function catalogueFacts(entries: PublicTherapist[]): string {
   if (entries.length === 0) return '';
-  const facts = [plural(entries.length, 'profil', 'profile', 'profili')];
+  const facts: Array<[string, string]> = [
+    ['Profile w katalogu', String(entries.length)],
+  ];
 
   const cities = new Set(entries.flatMap((t) => t.locations.map((l) => l.city)));
-  if (cities.size > 0) facts.push(plural(cities.size, 'miasto', 'miasta', 'miast'));
-
-  const online = entries.filter((t) => t.offers_online).length;
-  if (online > 0) facts.push(`${online} online`);
+  if (cities.size > 0) facts.push(['Miejscowości', String(cities.size)]);
 
   const priced = entries.filter((t) => t.price_min_minor !== null);
   const cheapest = priced.reduce<PublicTherapist | null>(
     (best, t) => (best === null || t.price_min_minor! < best.price_min_minor! ? t : best),
     null,
   );
-  if (cheapest) facts.push(`od ${formatPrice(cheapest.price_min_minor!, cheapest.currency)} za sesję`);
+  if (cheapest) facts.push(['Sesja od', formatPrice(cheapest.price_min_minor!, cheapest.currency)]);
 
   const slots = entries.map((t) => t.next_available_slot_utc).filter((s): s is string => s !== null);
   if (slots.length > 0) {
     const soonest = slots.reduce((a, b) => (a < b ? a : b));
-    facts.push(`najbliższy termin ${formatDate(soonest)}, ${formatTime(soonest)}`);
+    facts.push(['Najbliższy wolny termin', `${formatDate(soonest)}, ${formatTime(soonest)}`]);
   }
-  return facts.join(' · ');
+
+  return `<dl class="facts-strip">${facts
+    .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`)
+    .join('')}</dl>`;
 }
 
 siteApp.get('/terapeuci', async (c) => {
@@ -307,7 +301,7 @@ siteApp.get('/terapeuci', async (c) => {
       path: '/terapeuci',
       body: `
 <div class="directory-page">
-${pageHead('Katalog terapeutów', facts ? `<p class="catalogue-facts">${escapeHtml(facts)}</p>` : '')}
+${pageHead('Katalog terapeutów', facts)}
 
 <form class="filters" method="get" action="/terapeuci" aria-label="Filtry katalogu">
   <div class="filter-bar">
