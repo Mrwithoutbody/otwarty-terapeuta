@@ -13,7 +13,7 @@ Profile pod domeną hosta, landingi reklamowe hostuje usługa.
 
 | kto | co |
 | --- | --- |
-| usługa | `sites`, `pages` (JSON), szablony i motywy (kod), edytor `/edit/:id/:token`, render, hosting `/p/:id` |
+| usługa | `sites`, `pages` (JSON), szablony i motywy jako pliki, edytor `/edit/:id/:token`, render, hosting `/p/:id` |
 | ot-02 | dane terapeutki jako bloki (`src/web/host-blocks.ts`), rama strony jako dane (`chrome`: katalog, numery kryzysowe), kopia zapasowa HTML w R2 |
 
 Usługa **nigdy nie woła hosta**. Host przy każdym renderze przysyła `resolved` —

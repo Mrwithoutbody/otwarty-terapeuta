@@ -133,36 +133,12 @@ przeniesienie punktacji do SQL — nie zmiana reguł.
 `match_reasons` powstają wyłącznie z pól obecnych w tej samej odpowiedzi, więc
 model może je zacytować, a użytkownik zweryfikować.
 
-### 4.1. Profil: sekcje i sposób podania
+### 4.1. Strony terapeutek
 
-Terapeutka układa swój profil sama, z sekcji. `src/web/sections.ts` jest jedynym
-źródłem: `SECTIONS_DEF` opisuje każdy typ bloku raz, a z tego opisu powstaje
-formularz w panelu, walidacja przy zapisie i renderowanie strony. Nowy typ bloku
-albo nowe pole dodaje się tam i nigdzie indziej.
-
-Dwa rodzaje bloków. **Automatyczny** renderuje dane, które i tak są w panelu —
-ofertę, kalendarz, FAQ, kwalifikacje — więc ten sam fakt nigdy nie jest wpisywany
-dwa razy, a narzędzia MCP serwują go niezależnie od tego, co pokazuje strona.
-**Pisany** niesie własny tekst i to on sprawia, że dwa profile złożone z tych
-samych bloków nie czytają się jak jedna strona.
-
-Aranżacja siedzi w `therapists.sections_json`, sposób podania w `layout_json`.
-Oba są czytane defensywnie (`parseSections`, `parseLayout`): nieznany typ, nieznane
-pole i za długi tekst wypadają przy odczycie, więc ręczna edycja kolumny nie
-potrafi zepsuć profilu. Pusta aranżacja oznacza domyślny kręgosłup strony
-(`DEFAULT_ORDER`), nie pustą stronę.
-
-`layout_json` to sześć zamkniętych osi (`LAYOUT_AXES`): motyw, rytm, skala
-nagłówków, sekcje barwne, nagłówek strony, pasek sekcji. Każda oś to lista
-opcji, której pierwszy wpis jest wartością domyślną — i tym, na co spada wartość
-nieznana. Motyw jest zestawem tokenów CSS nałożonych na `.profile-page`
-(`--band`, `--accent`, `--dark`, `--serif`), nie osobnym arkuszem: żaden motyw
-nie dodaje komponentu i nic z niego nie wycieka na resztę serwisu.
-
-Presety zamiast pipety do kolorów — wolna paleta produkuje nieczytelny kontrast
-i katalog, który przestaje wyglądać jak jeden serwis. Z tego samego powodu karta
-w katalogu bierze z motywu tylko włos akcentu i barwę odnośnika, nigdy całej
-palety.
+Profil i podstrony są stronami w usłudze `x402Landings`, a nie renderami tego
+Workera. `ot-02` przekazuje tam dane jako bloki i dane ramy strony; usługa
+przechowuje strony, edytor, hosting i motywy jako wgrywane pliki. Szczegóły,
+endpointy oraz zachowanie podczas awarii opisuje `X402_LANDINGS_INTEGRATION.md`.
 
 ### 4.2. Jedyna statystyka, jaką prowadzimy
 

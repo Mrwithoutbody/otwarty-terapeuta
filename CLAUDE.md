@@ -129,26 +129,12 @@ cofania.
 domysłów. Przy zmianie odcienia sprawdź, czy nowa wartość leży na osi serwisu
 (wszystkie powierzchnie: odcień 56–95, większość 64–70), zanim ją wdrożysz.
 
-## Kompozycja profili: reguły wymuszone rundami cofnięć (2026-08-25)
+## Aktualny system stron i motywów
 
-- **Jeden akcent typograficzny i najwyżej jeden dodatkowy ciemny blok na
-  stronę** (poza domyślnym ciemnym zamknięciem). Ciemne tło nigdy na tabeli
-  danych. Pasy+plakat+duża skala+ciemne naraz = odrzucone jako „katastrofa".
-- **Kalendarz slotów = tabela dni w kolumnach (wzór ZnanyLekarz). Nie
-  przerabiać.** Dwie próby redesignu (karty dni, wiersze z chipami) cofnięte
-  w całości; wolno poprawiać tylko stopkę i odstępy.
-- **Portret nie w plakatowym hero** — tam jest polem opcjonalnym, domyślnie
-  wyłączonym; zdjęcie mieszka w sekcji „Jak pracuję" (intro, psplit).
-- **Motyw = para akcentów**: `--accent-strong` + `--accent-2` (dopełniający
-  ~180° w HSL, kontrast ≥ 4.5 na tle motywu; papier celowo achromatyczny).
-  Konsumenci accent-2: kreska cytatu, numery kroków, etykiety siatki usług.
-  To jest kontrakt przyszłego MCP do zarządzania szablonami.
-- Krótka treść (np. zasady odwołania) → wąska taśma, nie pełny pas; zasady
-  odwołania renderuje stopka bloku kalendarza, nie osobny rozdział.
-- **Grafiki**: relacja `therapist_media`, portret to wskaźnik na jeden z
-  wierszy. Upload niczego nie kasuje z R2; pliki znikają tylko przez „Usuń"
-  w panelu. Seed przenosi zdjęcia i media dem przez reseed (tabele `_seed_*`)
-  — pełny seed na produkcji był raz skasował wgrane zdjęcie.
+Strony terapeutek i landingi renderuje `x402Landings`. Motyw jest tam folderem
+plików Mustache (`theme.json`, `layout.html`, `style.css`, bloki i partials),
+który można wgrać przez API. `ot-02` nie zawiera rendererów ani CSS-u tych stron;
+przekazuje dane bloków i korzysta z kontraktu w `X402_LANDINGS_INTEGRATION.md`.
 
 ## Deploy: produkcja leży na koncie Cloudflare `b1277ebcf49382e42bc5c111cd6adce3`
 
@@ -174,11 +160,4 @@ edytora usługi. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
   ramka zawsze była węższa od okna, a w środku dzieli się jeszcze na trzy kolumny.
   Panel ma przycisk „Otwórz edytor"; `frame-src` z originem usługi wypadł z CSP.
 - Awaria usługi nie zdejmuje profili: kopia w R2, nagłówek `x-pages-stale: 1`.
-
-## Szablon = artefakt projektantki, nie kod. Pięć prób poszło źle (2026-09-03)
-
-Zanim ruszysz cokolwiek przy szablonach/motywach, przeczytaj `SZABLONY_PROBY.md`.
-Test akceptacyjny: Ewelina wgrywa w panelu jedną stronę z `pp-02/arch/` jako
-szablon bez udziału programisty. Dopóki nowy szablon wymaga commitu i deployu,
-system szablonów nie istnieje, niezależnie od tego, jak dobry jest silnik.
 

@@ -31,7 +31,7 @@ nie kwalifikuje do leczenia i nie zastępuje pomocy w nagłym zagrożeniu życia
 | Publiczna strona WWW (PL, bez JS, ścisły CSP) | `src/web/pages.ts` |
 | Samodzielne zgłoszenie terapeuty (kod e-mail, szkic) | `src/web/therapist-signup.ts` |
 | Panel administratora (role: admin / therapist / support) | `src/web/admin.ts` |
-| Kreator profilu: sekcje, motywy, skala i rytm strony | `src/web/sections.ts` |
+| Dane profilu i integracja stron terapeutek | `src/web/host-blocks.ts`, `src/web/pages-client.ts` |
 | Serwer MCP (Streamable HTTP, stateless) pod `/mcp` | `src/mcp/server.ts` |
 | Widżet MCP Apps (React, samowystarczalny HTML) | `src/widget/` |
 | Serwer autoryzacji OAuth 2.1 (PKCE S256, DCR, RFC 8707) | `src/auth/oauth.ts` |
