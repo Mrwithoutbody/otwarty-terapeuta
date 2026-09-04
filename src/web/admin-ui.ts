@@ -677,7 +677,16 @@ export const ADMIN_CSS = String.raw`
 .crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
 
 /* --- pages: the editor is the pages service's, framed ---- */
-.pages-editor { width: 100%; height: min(88vh, 1100px); border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fff; }
+/* Edytor dostaje całą szerokość okna, nie kolumnę panelu: w środku siedzi
+   podgląd strony, a ten skalowany do 1/3 ekranu pokazuje układ telefonu.
+   Wyjście poza .wrap liczone z szerokości rodzica; overflow-x: clip na
+   dokumencie zdejmuje pasek, który 100vw dokłada za szerokość scrollbara. */
+.pages-editor {
+  width: 100vw; margin-inline: calc(50% - 50vw);
+  height: calc(100dvh - 5rem); min-height: 40rem;
+  border: 1px solid var(--border, #e3e6d8); border-inline: 0; background: #fff;
+}
+@media (max-width: 60rem) { .pages-editor { height: calc(100dvh - 8rem); min-height: 32rem; } }
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
 /* --- profile composer (legacy layout, kept for the photo cropper) ---- */
 .composer .hint { max-width: 62ch; }
