@@ -130,6 +130,9 @@ export async function syncBlocks(env: Env): Promise<void> {
   await pagesFetch(env, '/v1/site/blocks', { method: 'PUT', json: { blocks: HOST_BLOCK_DEFS } });
 }
 
+/** The trade of this catalogue: which photographs fill a slot the therapist left empty. */
+const INDUSTRY = 'psychotherapy';
+
 export interface RenderRequest {
   owner: string;
   slug: string;
@@ -145,7 +148,7 @@ export interface Rendered {
 
 /** The page with her data in it, or null when she has no such page. */
 export async function renderPage(env: Env, input: RenderRequest): Promise<Rendered | null> {
-  const res = await pagesFetch(env, '/v1/render/page', { method: 'POST', json: { ...input, document: true } });
+  const res = await pagesFetch(env, '/v1/render/page', { method: 'POST', json: { ...input, document: true, industry: INDUSTRY } });
   if (res.status === 404) return null;
   if (!res.ok) throw new PagesUnavailable(`render: ${res.status}`);
   return {
@@ -165,7 +168,7 @@ export interface EditSessionInput {
 /** A link into the hosted editor, good for two hours. */
 export async function editSession(env: Env, pageId: string, input: EditSessionInput): Promise<string> {
   await syncBlocks(env);
-  const res = await pagesFetch(env, `/v1/pages/${encodeURIComponent(pageId)}/edit-session`, { method: 'POST', json: input });
+  const res = await pagesFetch(env, `/v1/pages/${encodeURIComponent(pageId)}/edit-session`, { method: 'POST', json: { ...input, industry: INDUSTRY } });
   if (!res.ok) throw new PagesUnavailable(`edit session: ${res.status}`);
   return ((await res.json()) as { url: string }).url;
 }
