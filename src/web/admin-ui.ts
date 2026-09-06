@@ -713,11 +713,12 @@ main > .wrap:has(.tabs) { max-width: none; }
 }
 
 /* Jeden wiersz: tytuł bierze resztę szerokości, motyw i przycisk tyle, ile potrzebują. */
-.inline-form { display: grid; gap: 0.5rem 0.75rem; align-items: end; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; }
-.inline-form .field { margin: 0; }
-.inline-form .btn { margin: 0; }
+.form-row { display: grid; gap: 0.5rem 0.75rem; align-items: end; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; }
+[data-tab-panel] > form.form-row { max-width: none; }
+.form-row .field { margin: 0; }
+.form-row .btn { margin: 0; }
 @media (max-width: 720px) {
-  .inline-form { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
 }
 
 /* Photo picker + crop dialog */

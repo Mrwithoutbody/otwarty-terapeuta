@@ -1098,7 +1098,7 @@ ${
              <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td></tr>`;
         })
         .join('')}</tbody></table></div>
-<form method="post" action="/admin/terapeuci/${id}/strony" class="inline-form">
+<form method="post" action="/admin/terapeuci/${id}/strony" class="form-row">
   ${csrfField(session)}
   <div class="field"><label for="page_title">Tytuł nowej strony</label>
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
