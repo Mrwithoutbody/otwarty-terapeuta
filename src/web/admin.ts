@@ -1098,17 +1098,17 @@ ${
              <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td></tr>`;
         })
         .join('')}</tbody></table></div>
-<form method="post" action="/admin/terapeuci/${id}/strony">
+<form method="post" action="/admin/terapeuci/${id}/strony" class="inline-form">
   ${csrfField(session)}
   <div class="field"><label for="page_title">Tytuł nowej strony</label>
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
   <div class="field"><label for="page_look">Motyw</label>
     <select id="page_look" name="look">${context.looks
       .map((l) => `<option value="${escapeHtml(l.theme)}">${escapeHtml(l.label)} — ${escapeHtml(l.hint)}</option>`)
-      .join('')}</select>
-    <p class="hint">Motyw ustawia wygląd i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
+      .join('')}</select></div>
   <button class="btn" type="submit">Utwórz stronę</button>
 </form>
+<p class="hint">Motyw ustawia wygląd i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p>
 <p class="hint">Edytor otwiera się na tej stronie; zamkniesz go klawiszem Esc.</p>
 <dialog class="editor-dialog" data-editor-dialog data-editor-origin="${escapeHtml(context.editorOrigin)}" aria-label="Edytor strony">
   <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
