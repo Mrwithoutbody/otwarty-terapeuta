@@ -73,9 +73,6 @@ export const ADMIN_JS = String.raw`(function () {
       history.replaceState(null, '', opened.pathname + opened.search + opened.hash);
     }
   }
-      }
-    });
-  }
 
   function initTabs(root) {
     var panels = Array.prototype.slice.call(root.querySelectorAll('[data-tab-panel]'));

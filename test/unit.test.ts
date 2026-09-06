@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { escapeHtml, isEmail, isPhone, normalizeForSearch, safeUrl, sanitizeRichText } from '../src/lib/sanitize';
 import { signConfirmationToken, verifyConfirmationToken } from '../src/lib/tokens';
 import { rankTherapists } from '../src/matching/rank';
+import { ADMIN_JS } from '../src/web/admin-ui';
 import { redact } from '../src/lib/log';
 import { controllerDetails, controllerIsComplete } from '../src/web/controller';
 import { decryptPii, encryptPii, timingSafeEqual } from '../src/lib/crypto';
@@ -424,5 +425,11 @@ describe('tożsamość administratora danych', () => {
   it('mówi wprost, że inspektora nie powołano, zamiast milczeć', () => {
     expect(controllerDetails()).toContain('Nie powołaliśmy inspektora ochrony danych');
     expect(controllerIsComplete()).toBe(false);
+  });
+});
+
+describe('admin.js', () => {
+  it('parses: a stray brace in the template would blank the whole panel', () => {
+    expect(() => new Function(ADMIN_JS)).not.toThrow();
   });
 });
