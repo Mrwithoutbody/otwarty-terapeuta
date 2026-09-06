@@ -46,7 +46,7 @@ async function memoryService(env: Env) {
     // Ścieżka w zmiennej: `tsc` hosta nie sprawdza wtedy źródeł usługi (inne flagi ścisłości).
     const entry = 'x402l/src/index';
     const { app } = (await import(/* @vite-ignore */ entry)) as { app: { fetch(req: Request, env: unknown): Promise<Response> } };
-    const serviceEnv = { DB: undefined, TOKEN_SECRET: 'test', HOSTS: env.PUBLIC_BASE_URL };
+    const serviceEnv = { DB: undefined, TOKEN_SECRET: 'test' };
     return {
       fetch: async (req: Request) => {
         // An edit session needs the service's own D1; the tests need only its address.

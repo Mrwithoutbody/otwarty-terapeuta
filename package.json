@@ -23,7 +23,7 @@
     "cf-typegen": "wrangler types",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:e2e",
-    "deploy": "scripts/deploy.sh"
+    "deploy": "DB=DB ENV=${ENV:-production} ../../x402L/scripts/deploy.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
