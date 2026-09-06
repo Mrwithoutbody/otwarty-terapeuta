@@ -622,7 +622,7 @@ export const ADMIN_CSS = String.raw`
 /* app.css gives forms their card treatment through a direct-child selector on
    .wrap, which a form inside a tab panel no longer matches. Same look, one level down. */
 [data-tab-panel] > form {
-  max-width: 56rem; padding: clamp(1.2rem, 3vw, 2rem); margin-block: 1.3rem 2rem;
+  padding: clamp(1.2rem, 3vw, 2rem); margin-block: 1.3rem 2rem;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -703,8 +703,6 @@ export const ADMIN_CSS = String.raw`
 
 /* Jeden wiersz: tytuł bierze resztę szerokości, motyw i przycisk tyle, ile potrzebują. */
 .form-row { display: grid; gap: 0.5rem 0.75rem; align-items: end; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; }
-/* Tabela stron ma szerokość formularza pod nią: jeden kontener, jedna krawędź. */
-#panel-strony .table-wrap { max-width: 56rem; }
 .form-row .field, .form-row .btn { margin: 0; }
 @media (max-width: 720px) {
   .form-row { grid-template-columns: 1fr; }
