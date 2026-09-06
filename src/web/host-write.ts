@@ -20,6 +20,7 @@ import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatTime, isValidTimezon
 import { resolveAll, summarize } from './host-blocks';
 import { patchesFor } from './data-fields';
 import { profileContext } from './pages';
+import { savePageJson } from './pages-client';
 
 /** Ile żyje prawo do zapisu. Tyle, ile sesja edycji po stronie usługi. */
 const TOKEN_TTL_SECONDS = 2 * 60 * 60;
@@ -254,10 +255,20 @@ async function writeFaq(env: Env, id: string, list: Values[]): Promise<number> {
  * a nie te sprzed dwóch godzin z migawki sesji.
  */
 hostWriteApp.post('/host-blocks', async (c) => {
-  const body = (await c.req.json().catch(() => null)) as { token?: unknown; data?: unknown } | null;
+  const body = (await c.req.json().catch(() => null)) as { token?: unknown; data?: unknown; page?: unknown } | null;
   if (!body) return c.json({ error: 'invalid_json' }, 400);
   const id = await therapistFromToken(c.env, body.token);
   if (id === null) return c.json({ error: 'unauthorized' }, 401);
+
+  // Strona po edycji (motyw, kolejność, układ, poprawione pola) - własność tej bazy.
+  // Usługa stron jej nie trzyma; `?page=` mówi, o którą z jej stron chodzi.
+  if (typeof body.page === 'object' && body.page !== null && !Array.isArray(body.page)) {
+    const pageId = c.req.query('page') ?? '';
+    const raw = JSON.stringify(body.page);
+    if (raw.length > 200_000) return c.json({ error: 'page_too_large' }, 413);
+    if (!(await savePageJson(c.env, id, pageId, body.page as Record<string, unknown>))) return c.json({ error: 'not_found' }, 404);
+    await audit(c.env, { actorType: 'therapist', actorId: id, action: 'therapist.page_saved', subjectType: 'therapist', subjectId: id, meta: { page: pageId } });
+  }
 
   const data = (typeof body.data === 'object' && body.data !== null ? body.data : {}) as Record<string, Values>;
   const touched = await writeFields(c.env, id, data);

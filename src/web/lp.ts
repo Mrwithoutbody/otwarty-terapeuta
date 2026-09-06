@@ -1,10 +1,11 @@
 /**
- * The therapist's pages, served from the pages service.
+ * The therapist's pages, typeset by the pages service.
  *
- * Her profile and every subpage (a landing, a group, a workshop) are pages the
- * service stores and renders; this host brings what the service cannot know -
- * her data, as blocks (`host-blocks.ts`) - and the frame the page sits in:
- * the catalogue link and the crisis numbers. Not one line of markup or CSS.
+ * Her profile and every subpage (a landing, a group, a workshop) are rows in
+ * this database; the service renders them and offers the editor. This host
+ * brings her data, as blocks (`host-blocks.ts`), the page JSON the editor last
+ * saved, and the frame the page sits in: the catalogue link and the crisis
+ * numbers. Not one line of markup or CSS.
  *
  * Render is per request: her open slots change by the minute. The last good
  * HTML of every page is kept in R2, so the service being down cannot take her
@@ -14,7 +15,7 @@ import type { Env } from '../env';
 import type { PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
 import { createPage, editSession, listPages, PagesUnavailable, renderPage, type PageInfo } from './pages-client';
-import { DEFAULT_PROFILE, resolveAll, summarize, type SectionCtx } from './host-blocks';
+import { resolveAll, type SectionCtx } from './host-blocks';
 import { writeToken } from './host-write';
 
 export { PagesUnavailable };
@@ -22,17 +23,11 @@ export type { SectionCtx };
 
 export const PROFILE_SLUG = 'profil';
 
-/** Her profile page in the service, made on first need with the default spine. */
+/** Her profile page, made on first need; its blocks are her data, its look the service's default theme. */
 export async function ensureProfilePage(env: Env, therapistId: string, displayName: string): Promise<PageInfo> {
   const existing = (await listPages(env, therapistId)).find((p) => p.slug === PROFILE_SLUG);
   if (existing) return existing;
-  const made = await createPage(env, {
-    owner: therapistId,
-    slug: PROFILE_SLUG,
-    title: displayName,
-    status: 'published',
-    blocks: DEFAULT_PROFILE.map((type) => ({ type })),
-  });
+  const made = await createPage(env, { owner: therapistId, slug: PROFILE_SLUG, title: displayName, status: 'published' });
   if (made === 'slug_taken') {
     const again = (await listPages(env, therapistId)).find((p) => p.slug === PROFILE_SLUG);
     if (again) return again;
@@ -52,14 +47,16 @@ const CRISIS = {
   ],
 };
 
-function chromeFor(t: PublicTherapist): Record<string, unknown> {
+/** The frame: her name, the catalogue, her other pages (the service lists nothing itself), the crisis numbers. */
+export function chromeFor(t: PublicTherapist, pages: PageInfo[] = []): Record<string, unknown> {
   const profileHref = `/terapeuci/${t.slug}`;
   return {
     brand: { label: t.display_name, href: profileHref },
-    links: [{ label: 'Katalog', href: '/terapeuci' }],
-    siblings: { base: profileHref, profileLabel: 'Profil' },
+    links: [
+      { label: 'Katalog', href: '/terapeuci' },
+      ...pages.filter((p) => p.slug !== PROFILE_SLUG && p.status === 'published').map((p) => ({ label: p.title, href: `${profileHref}/${p.slug}` })),
+    ],
     footerNote: CRISIS,
-    navLabel: 'Strony terapeuty',
   };
 }
 
@@ -87,7 +84,7 @@ export async function serveTherapistPage(
     owner: t.therapist_id,
     slug,
     resolved: resolveAll(ctx),
-    chrome: chromeFor(t),
+    chrome: chromeFor(t, await listPages(env, t.therapist_id)),
   };
   try {
     let rendered = await renderPage(env, request);
@@ -119,16 +116,11 @@ export function unavailablePage(t: PublicTherapist): string {
 
 /** A link into the service's editor for one of her pages, with her data for the preview. */
 export async function editorUrl(env: Env, page: PageInfo, ctx: SectionCtx | null): Promise<string> {
-  const resolved = ctx ? resolveAll(ctx) : {};
-  return editSession(env, page.id, {
-    resolved,
-    summary: ctx ? summarize(resolved) : {},
-    fixed: page.slug === PROFILE_SLUG,
-    // Adres jej panelu: edytor robi z niego odnośnik przy każdym bloku danych,
-    // prosto do zakładki, w której ta treść powstaje.
-    panelUrl: `${env.PUBLIC_BASE_URL}/admin/terapeuci/${page.owner}`,
-    // Pola danych bloku wracają tutaj: usługa odsyła je pod ten adres z tym
-    // tokenem, a zapisuje je ta baza. Bez tego edytor mógłby je tylko pokazać.
-    write: { url: `${env.PUBLIC_BASE_URL}/api/host-blocks`, token: await writeToken(env, page.owner) },
+  return editSession(env, page, {
+    resolved: ctx ? resolveAll(ctx) : {},
+    chrome: ctx ? chromeFor(ctx.therapist) : {},
+    // Strona po edycji wraca tutaj: usługa odsyła ją pod ten adres z tym tokenem,
+    // a zapisuje ją ta baza. Usługa stron nie trzyma.
+    write: { url: `${env.PUBLIC_BASE_URL}/api/host-blocks?page=${encodeURIComponent(page.id)}`, token: await writeToken(env, page.owner) },
   });
 }

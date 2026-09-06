@@ -1,43 +1,45 @@
 # Strony terapeutek: usługa stron (x402landings.space)
 
-ot-02 nie renderuje stron terapeutek. Profil i podstrony są **stronami w usłudze**
-(repo `x402Landings`, domena `x402landings.space`): usługa trzyma ich JSON, szablony,
-edytor i render. ot-02 jest jej klientem — dostarcza dane terapeutki i ramę strony.
+Usługa stron (repo `x402L`, domena `x402landings.space`) **dystrybuuje motywy i
+składa strony** — jak repozytorium motywów WordPressa, nie jak WordPress.com.
+Stron nie trzyma. JSON strony (motyw, kolejność bloków, układ, poprawione pola)
+leży w tej bazie (`therapist_pages`, migracja `0018`) i idzie do usługi w każdym
+żądaniu obok danych terapeutki (`resolved`) i ramy (`chrome`).
 
-Decyzja 2026-09-03 (właściciel): „jak WordPress, w wersji uproszczonej" — jedna
-usługa dla ot-02, agregatora trenerów, landingów pod Google Ads. Panel edycji
-w usłudze, otwierany z panelu hosta w nowej karcie (2026-09-04; wcześniej iframe).
-Profile pod domeną hosta, landingi reklamowe hostuje usługa.
+Decyzja 2026-09-06 (właściciel): dane osobowe terapeutki nie mają drugiego miejsca
+przechowywania. Wcześniejszy model (2026-09-03, „usługa trzyma JSON") odwrócony.
 
 ## Podział
 
 | kto | co |
 | --- | --- |
-| usługa | `sites`, `pages` (JSON), szablony i motywy jako pliki, edytor `/edit/:id/:token`, render, hosting `/p/:id` |
-| ot-02 | dane terapeutki jako bloki (`src/web/host-blocks.ts`), rama strony jako dane (`chrome`: katalog, numery kryzysowe), kopia zapasowa HTML w R2 |
+| usługa | motywy i komponenty jako pliki, render, edytor `/edit/:token` (sesja na godzinę), zdjęcia branży |
+| ot-02 | `therapist_pages` (JSON strony), dane terapeutki jako bloki (`host-blocks.ts`), rama jako dane (`chrome`), kopia zapasowa HTML w R2 |
 
-Usługa **nigdy nie woła hosta**. Host przy każdym renderze przysyła `resolved` —
-treść swoich bloków jako bloki rdzenia usługi (`hero`, `pricing`, `faq`, `calendar`).
-Słowa wpisane przez terapeutkę w edytorze wygrywają z danymi; usługa scala.
-**ot-02 nie ma ani linii HTML ani CSS stron terapeutek** — kalendarz to blok
-`calendar` (dni, godziny, dopisek, przyciski jako JSON), stopka kryzysowa to
-`chrome.footerNote` (dane), a jedyny arkusz to arkusz usługi.
+Usługa **nigdy nie woła hosta** poza jednym: zapis z edytora. Host przy każdym
+renderze przysyła `resolved` — treść swoich bloków — i `page` — stronę po edycji.
+Blok nakłada się po `id` (= nazwa bloku hosta): kolejność, układ, ton i tylko te
+pola, które terapeutka zmieniła. Nowa cena z panelu trafia na stronę, poprawiony
+nagłówek zostaje.
 
 ## Klient: `src/web/pages-client.ts`
 
-`PAGES_URL` (var) + `PAGES_API_KEY` (sekret; lokalnie `dev`). `memory://` = usługa
-w procesie na sklepie w pamięci (testy). Wywołania:
+`PAGES_URL` (var). Bez klucza: usługa składa każdemu, a sesję edycji otwiera tylko
+hostom z listy `HOSTS` po jej stronie. `memory://` = x402L w procesie (testy).
 
 ```
-PUT  /v1/site/blocks              HOST_BLOCK_DEFS — przed każdym utworzeniem strony i sesją edycji
-POST /v1/render/page              {owner, slug, resolved, chrome, industry} → HTML dokumentu
-POST /v1/pages/:id/edit-session   {resolved, summary, fixed, industry} → {url} edytora (nowa karta)
-GET  /v1/pages?owner=  POST /v1/pages {owner, title, theme, variant}  GET /v1/pages/:id  GET /v1/themes
+POST /v1/render/page   {owner, slug, title, theme, variant, page, resolved, chrome, industry} → HTML
+POST /v1/edit-session  {…jak wyżej, write: {url, token}}                                    → {url} edytora, nowa karta
+GET  /v1/themes        → [{slug, label, hint, variants}]
+PUT  /v1/site/blocks   → 204
 ```
 
-Profil = strona o slugu `profil`, `owner` = id terapeutki; tworzona przy pierwszym
-wyświetleniu (`ensureProfilePage`) ze szkieletem `DEFAULT_PROFILE`. Podstrony =
-własne slugi. Jedno wywołanie na wyświetlenie strony.
+Profil = wiersz o slugu `profil`, tworzony przy pierwszym wyświetleniu
+(`ensureProfilePage`). Podstrony = własne slugi, tworzone w panelu.
+
+Zapis: usługa liczy różnicę względem strony z początku sesji i POST-uje
+`{token, page}` pod `write.url` = `/api/host-blocks?page=<id>`. Host zapisuje
+`page_json` i `theme`. Token: HMAC `hostwrite:<id>.<exp>` z `TOKEN_SIGNING_KEY`.
 
 ## Pola danych: pole w bloku deklaruje, co siedzi w bazie
 
@@ -70,8 +72,9 @@ dane i strona publiczna działają.
 
 ## CSS i CSP
 
-Dokument linkuje jeden arkusz: `style.css` motywu, z usługi (`/themes/<id>/style.css`); usługa linkuje go sama.
-CSP dokłada origin usługi do `style-src` i `font-src` (fonty motywów idą z usługi).
+Dokument linkuje arkusze usługi (`/base.css`, `/motyw/<id>.css`) i krój z Google Fonts.
+CSP dokłada origin usługi do `style-src`, `img-src`, `font-src` oraz
+`fonts.googleapis.com` / `fonts.gstatic.com`.
 `frame-src` już nie — edytor otwiera się we własnej karcie, host niczego nie osadza.
 Portret idzie z adresem bezwzględnym, bo podgląd w edytorze żyje na domenie usługi.
 
@@ -92,17 +95,17 @@ Kolejność wdrożeń nie jest już zobowiązaniem: usługa narysuje blok, dla k
 przyszła treść, nawet jeśli nie zna jeszcze jego definicji. Host wdrożony
 pierwszy traci na chwilę **formularz w edytorze**, nigdy stronę.
 
-## Migracja danych — zrobiona
+## Migracja danych
 
-Stare strony przeniesione do usługi 2026-09-03; migracja `0017_pages_service.sql`
-skasowała `therapist_pages` oraz kolumny `sections_json`/`layout_json`. Skrypt
-przenoszący usunięty — nie ma już czego czytać.
+2026-09-03 strony poszły do usługi (`0017`), 2026-09-06 wróciły (`0018`) w nowym
+kształcie (`page_json`). Strony z bazy starej usługi (`x402-landings`) nie były
+przenoszone: profil odtwarza się sam z danych, podstrony do założenia na nowo.
 
 ## Lokalnie
 
 ```bash
-cd ../../x402Landings && PORT=8788 npm run dev     # site "dev", klucz "dev"
+cd ../../x402L && PORT=8788 npm run dev            # usługa stron
 npm run dev                                         # ot-02, PAGES_URL=http://localhost:8788
 ```
 
-Reguły samej usługi: `x402Landings/CLAUDE.md`.
+Reguły samej usługi: `x402L/CLAUDE.md`, kontrakt: `x402L/README.md`.

@@ -1,14 +1,19 @@
 /**
- * The pages service, as this host talks to it.
+ * The pages service (x402L at `PAGES_URL`), as this host talks to it.
  *
- * Pages, templates, the editor and the render all live at `PAGES_URL`
- * (x402landings.space). This module is the only place that knows the wire
+ * The service distributes themes and typesets pages - like a WordPress theme
+ * repository, not like WordPress.com. It keeps no pages: the JSON of every page
+ * (theme, block order, layout, the words she corrected) lives in this database
+ * and travels to the service in every request, next to her data (`resolved`)
+ * and the frame (`chrome`). This module is the only place that knows the wire
  * shape; everything else asks for a page, an editor link or HTML.
  *
- * In tests `PAGES_URL` is `memory://`: the same service runs in-process on an
- * in-memory store, so the suite exercises the real contract with no network.
+ * In tests `PAGES_URL` is `memory://`: the service runs in-process, so the suite
+ * exercises the real render with no network.
  */
 import type { Env } from '../env';
+import { randomId } from '../lib/crypto';
+import { nowIso } from '../lib/time';
 import { hostBlockDefs } from './host-blocks';
 
 export interface PageInfo {
@@ -19,8 +24,8 @@ export interface PageInfo {
   status: 'draft' | 'published';
   theme: string;
   variant: string;
-  blocks: Array<Record<string, unknown> & { type: string }>;
-  version: number;
+  /** The page as the editor last saved it; `{}` until she opens the editor. */
+  page: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -41,24 +46,25 @@ export class PagesUnavailable extends Error {
 let memory: Promise<{ fetch(req: Request): Promise<Response> }> | null = null;
 async function memoryService(env: Env) {
   memory ??= (async () => {
-    const { app, memoryStore, sha256 } = await import('x402-landings/service');
-    const serviceEnv = {
-      STORE: memoryStore([{ id: 'ot-02', name: 'ot-02', origin: env.PUBLIC_BASE_URL, keyHash: await sha256(apiKey(env)) }]),
-      TOKEN_SECRET: 'test',
-      PUBLIC_URL: 'https://pages.test',
+    // Ścieżka w zmiennej: `tsc` hosta nie sprawdza wtedy źródeł usługi (inne flagi ścisłości).
+    const entry = 'x402l/src/index';
+    const { app } = (await import(/* @vite-ignore */ entry)) as { app: { fetch(req: Request, env: unknown): Promise<Response> } };
+    const serviceEnv = { DB: undefined, TOKEN_SECRET: 'test', HOSTS: env.PUBLIC_BASE_URL };
+    return {
+      fetch: async (req: Request) => {
+        // An edit session needs the service's own D1; the tests need only its address.
+        if (new URL(req.url).pathname === '/v1/edit-session') return Response.json({ url: 'https://pages.test/edit/test.0.0' });
+        return app.fetch(req, serviceEnv);
+      },
     };
-    return { fetch: async (req: Request) => app.fetch(req, serviceEnv) };
   })();
   return memory;
 }
-
-const apiKey = (env: Env): string => env.PAGES_API_KEY ?? 'dev';
 
 /** One call to the service. Network trouble becomes `PagesUnavailable`; an answer, any answer, is returned. */
 export async function pagesFetch(env: Env, path: string, init: RequestInit & { json?: unknown } = {}): Promise<Response> {
   const { json, ...rest } = init;
   const headers = new Headers(rest.headers);
-  headers.set('authorization', `Bearer ${apiKey(env)}`);
   if (json !== undefined) headers.set('content-type', 'application/json');
   const base = env.PAGES_URL.startsWith('memory://') ? 'https://pages.test' : env.PAGES_URL.replace(/\/$/, '');
   const request = new Request(`${base}${path}`, {
@@ -81,12 +87,45 @@ export async function pagesFetch(env: Env, path: string, init: RequestInit & { j
   }
 }
 
-export async function listPages(env: Env, owner: string): Promise<PageInfo[]> {
-  const res = await pagesFetch(env, `/v1/pages?owner=${encodeURIComponent(owner)}`);
-  return res.ok ? ((await res.json()) as PageInfo[]) : [];
+interface PageRow {
+  id: string;
+  therapist_id: string;
+  slug: string;
+  title: string;
+  status: 'draft' | 'published';
+  theme: string;
+  variant: string;
+  page_json: string;
+  created_at: string;
+  updated_at: string;
 }
 
-/** Every theme the service offers this site, one entry per palette. */
+function fromRow(r: PageRow): PageInfo {
+  let page: Record<string, unknown> = {};
+  try {
+    page = JSON.parse(r.page_json) as Record<string, unknown>;
+  } catch {
+    /* a page that does not parse is a page never edited */
+  }
+  return { id: r.id, owner: r.therapist_id, slug: r.slug, title: r.title, status: r.status, theme: r.theme, variant: r.variant, page, created_at: r.created_at, updated_at: r.updated_at };
+}
+
+export async function listPages(env: Env, owner: string): Promise<PageInfo[]> {
+  const { results } = await env.DB.prepare(`SELECT * FROM therapist_pages WHERE therapist_id = ? ORDER BY created_at`).bind(owner).all<PageRow>();
+  return results.map(fromRow);
+}
+
+export async function getPage(env: Env, id: string): Promise<PageInfo | null> {
+  const row = await env.DB.prepare(`SELECT * FROM therapist_pages WHERE id = ?`).bind(id).first<PageRow>();
+  return row ? fromRow(row) : null;
+}
+
+export async function findPage(env: Env, owner: string, slug: string): Promise<PageInfo | null> {
+  const row = await env.DB.prepare(`SELECT * FROM therapist_pages WHERE therapist_id = ? AND slug = ?`).bind(owner, slug).first<PageRow>();
+  return row ? fromRow(row) : null;
+}
+
+/** Every theme the service offers, one entry per palette. */
 export async function listThemeChoices(env: Env): Promise<ThemeChoice[]> {
   const res = await pagesFetch(env, '/v1/themes');
   if (!res.ok) return [];
@@ -104,25 +143,38 @@ export interface NewPage {
   owner: string;
   title: string;
   slug?: string;
-  /** The look; omitted means the service's default theme and its first palette. */
+  /** The look; omitted means the service's default theme. */
   theme?: string;
   variant?: string;
   status?: 'draft' | 'published';
-  blocks?: Array<{ type: string }>;
+}
+
+export function slugOf(title: string): string {
+  return title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'strona';
 }
 
 export async function createPage(env: Env, input: NewPage): Promise<PageInfo | 'slug_taken'> {
-  // The service must know her blocks before it can keep them on a page.
-  await syncBlocks(env);
-  const res = await pagesFetch(env, '/v1/pages', { method: 'POST', json: input });
-  if (res.status === 409) return 'slug_taken';
-  if (!res.ok) throw new PagesUnavailable(`create page: ${res.status}`);
-  return (await res.json()) as PageInfo;
+  const id = randomId('pg'), now = nowIso(), slug = input.slug ?? slugOf(input.title);
+  try {
+    await env.DB.prepare(
+      `INSERT INTO therapist_pages (id, therapist_id, slug, title, status, theme, variant, page_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)`,
+    ).bind(id, input.owner, slug, input.title, input.status ?? 'published', input.theme ?? '', input.variant ?? '', now, now).run();
+  } catch (err) {
+    if (/UNIQUE/.test((err as Error).message)) return 'slug_taken';
+    throw err;
+  }
+  return (await getPage(env, id))!;
 }
 
-export async function getPage(env: Env, id: string): Promise<PageInfo | null> {
-  const res = await pagesFetch(env, `/v1/pages/${encodeURIComponent(id)}`);
-  return res.ok ? ((await res.json()) as PageInfo) : null;
+/** The editor's page, back from the service: theme, order, layout and only the fields she changed. */
+export async function savePageJson(env: Env, owner: string, id: string, page: Record<string, unknown>): Promise<boolean> {
+  const theme = typeof page.theme === 'string' ? page.theme : '';
+  const title = typeof page.title === 'string' && page.title.trim() ? page.title.trim().slice(0, 140) : null;
+  const res = await env.DB.prepare(
+    `UPDATE therapist_pages SET page_json = ?, theme = ?, title = COALESCE(?, title), updated_at = ? WHERE id = ? AND therapist_id = ?`,
+  ).bind(JSON.stringify(page), theme, title, nowIso(), id, owner).run();
+  return (res.meta.changes ?? 0) > 0;
 }
 
 /**
@@ -160,36 +212,35 @@ export interface Rendered {
 
 /** The page with her data in it, or null when she has no such page. */
 export async function renderPage(env: Env, input: RenderRequest): Promise<Rendered | null> {
-  const res = await pagesFetch(env, '/v1/render/page', { method: 'POST', json: { ...input, document: true, industry: INDUSTRY } });
-  if (res.status === 404) return null;
+  const row = await findPage(env, input.owner, input.slug);
+  if (!row) return null;
+  const res = await pagesFetch(env, '/v1/render/page', {
+    method: 'POST',
+    json: { ...input, title: row.title, theme: row.theme, variant: row.variant, page: row.page, industry: INDUSTRY },
+  });
   if (!res.ok) throw new PagesUnavailable(`render: ${res.status}`);
-  return {
-    html: await res.text(),
-    status: res.headers.get('x-page-status') === 'published' ? 'published' : 'draft',
-    id: res.headers.get('x-page-id') ?? '',
-  };
+  return { html: await res.text(), status: row.status, id: row.id };
 }
 
 export interface EditSessionInput {
   resolved: Record<string, unknown>;
-  summary: Record<string, { text: string; empty?: true }>;
-  /** The host owns title, address and visibility (her profile). */
-  fixed: boolean;
-  /** Her panel; a block's `edit` anchor points into it. */
-  panelUrl: string;
-  /** Gdzie usługa odeśle wartości pól danych po zapisie, i czym się przy tym wylegitymuje. */
+  chrome: Record<string, unknown>;
+  /** Gdzie usługa odeśle stronę po zapisie, i czym się przy tym wylegitymuje. */
   write: { url: string; token: string };
 }
 
-/** A link into the hosted editor, good for two hours. */
-export async function editSession(env: Env, pageId: string, input: EditSessionInput): Promise<string> {
+/** A link into the hosted editor, good for an hour. */
+export async function editSession(env: Env, page: PageInfo, input: EditSessionInput): Promise<string> {
   await syncBlocks(env);
-  const res = await pagesFetch(env, `/v1/pages/${encodeURIComponent(pageId)}/edit-session`, { method: 'POST', json: { ...input, industry: INDUSTRY } });
+  const res = await pagesFetch(env, '/v1/edit-session', {
+    method: 'POST',
+    json: { ...input, title: page.title, theme: page.theme, variant: page.variant, page: page.page, industry: INDUSTRY },
+  });
   if (!res.ok) throw new PagesUnavailable(`edit session: ${res.status}`);
   return ((await res.json()) as { url: string }).url;
 }
 
-/** The service's origin, for the CSP of pages that frame its editor or link its stylesheet. */
+/** The service's origin, for the CSP of pages that link its stylesheet. */
 export function pagesOrigin(env: Env): string | null {
   if (env.PAGES_URL.startsWith('memory://')) return 'https://pages.test';
   try {

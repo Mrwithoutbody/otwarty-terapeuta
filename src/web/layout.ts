@@ -48,10 +48,11 @@ function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string 
   return [
     `default-src 'none'`,
     script,
-    `style-src ${own}`,
+    // Kroje motywów usługi idą z Google Fonts: arkusz z googleapis, pliki z gstatic.
+    `style-src ${own}${pages ? ' https://fonts.googleapis.com' : ''}`,
     // The service's themes bring their own photographs, served from its origin.
     `img-src ${own} data:`,
-    `font-src ${own}`,
+    `font-src ${own}${pages ? ' https://fonts.gstatic.com' : ''}`,
     `connect-src 'self'`,
     frame,
     // Browsers apply form-action to the WHOLE redirect chain, not just the action

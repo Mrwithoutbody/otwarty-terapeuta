@@ -30,7 +30,7 @@ import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
 import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './lp';
-import { createPage, getPage, listPages, listThemeChoices, type PageInfo, type ThemeChoice } from './pages-client';
+import { createPage, getPage, listPages, listThemeChoices, slugOf, type PageInfo, type ThemeChoice } from './pages-client';
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
 import type { SectionCtx } from './host-blocks';
@@ -1465,11 +1465,6 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
   });
   return c.redirect(`/admin/terapeuci/${id}/strony/${made.id}`, 303);
 });
-
-function slugOf(title: string): string {
-  return title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'strona';
-}
 
 /** The hosted editor for one of her subpages, framed. Owner only, so drafts stay private. */
 adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {

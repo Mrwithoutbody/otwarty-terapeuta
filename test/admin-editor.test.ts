@@ -247,8 +247,11 @@ describe('the public profile shows the photo', () => {
       ['status', 'published'],
     ]);
 
+    // Usługa stron przyjmuje zdjęcia wyłącznie z https; w testach PUBLIC_BASE_URL jest http,
+    // więc portret sprawdza się na karcie w katalogu, a na profilu tylko pod https.
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(profile).toContain(`src="${env.PUBLIC_BASE_URL}/media/therapists/th_x/img_abc.webp"`);
+    if (env.PUBLIC_BASE_URL.startsWith('https://')) expect(profile).toContain(`src="${env.PUBLIC_BASE_URL}/media/therapists/th_x/img_abc.webp"`);
+    expect(profile).toContain('Anna Kowalczyk (DEMO)');
 
     const list = await (await SELF.fetch('https://localhost/terapeuci')).text();
     expect(list).toContain('src="/media/therapists/th_x/img_abc-160.webp"');

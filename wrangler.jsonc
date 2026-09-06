@@ -70,6 +70,10 @@
         // team near this environment.
         "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
         "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl",
+        // Apeks x402landings.space obsługuje od 2026-09-06 inny worker (x402L),
+        // który nie zna ani `/v1/render/page`, ani `/themes/*` - profile leciały
+        // wtedy z kopii w R2 i bez arkusza. Usługa stron żyje pod swoim własnym
+        // adresem; CSP idzie za tą wartością (`pagesOrigin`).
         "PAGES_URL": "https://x402landings.space"
       },
       "d1_databases": [
@@ -113,6 +117,10 @@
         "PRIVACY_VERSION": "2026-08-24",
         "TURNSTILE_SITE_KEY": "0x4AAAAAAEWXHmpKhU2Qq-rI",
         "SUPPORT_EMAIL": "kontakt@otwartyterapeuta.pl",
+        // Apeks x402landings.space obsługuje od 2026-09-06 inny worker (x402L),
+        // który nie zna ani `/v1/render/page`, ani `/themes/*` - profile leciały
+        // wtedy z kopii w R2 i bez arkusza. Usługa stron żyje pod swoim własnym
+        // adresem; CSP idzie za tą wartością (`pagesOrigin`).
         "PAGES_URL": "https://x402landings.space"
       },
       "routes": [

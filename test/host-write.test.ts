@@ -1,10 +1,9 @@
 import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { createAdminSession } from '../src/auth/session';
-import { findOrCreateUserByEmail } from '../src/db/users';
 import { getTherapist } from '../src/db/catalog';
 import { writeToken } from '../src/web/host-write';
-import { pagesFetch } from '../src/web/pages-client';
+import { ensureProfilePage } from '../src/web/lp';
+import { getPage } from '../src/web/pages-client';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 
@@ -15,24 +14,45 @@ const write = async (data: Record<string, unknown>, token?: string) =>
     body: JSON.stringify({ token: token ?? (await writeToken(env, ANNA)), data }),
   });
 
-describe('pola danych bloku wracają do bazy', () => {
-  it('formularz bloku niesie jej cennik, FAQ i opis, nie same tytuły', async () => {
-    const user = await findOrCreateUserByEmail(env, 'anna-pola@example.invalid');
-    await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
-    const { cookie } = await createAdminSession(env, user.id);
-    const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-    const editorUrl = /data-page-editor="([^"]+)"/.exec(panel)![1]!;
-    const form = await (await pagesFetch(env, new URL(editorUrl).pathname)).text();
+describe('strona po edycji wraca do bazy', () => {
+  it('zapisuje JSON strony pod jej stroną, a poprawka wygrywa tylko w swoim polu', async () => {
+    const profile = await ensureProfilePage(env, ANNA, 'Anna Kowalczyk (DEMO)');
+    const page = {
+      theme: 'lex',
+      blocks: [
+        { id: 'hero-profil', type: 'hero', kind: 'siatka', layout: 'kolumny-2', tone: 'base', data: { heading: 'Anna, po prostu' } },
+        { id: 'offers', type: 'pricing', kind: 'siatka', layout: 'lista', tone: 'base', data: {} },
+      ],
+    };
+    const res = await SELF.fetch(`https://localhost/api/host-blocks?page=${profile.id}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: await writeToken(env, ANNA), page }),
+    });
+    expect(res.status).toBe(200);
+    const stored = (await getPage(env, profile.id))!;
+    expect(stored.theme).toBe('lex');
+    expect(stored.page).toEqual(page);
 
-    // Wiersz cennika: ukryty identyfikator oferty i jej liczby do poprawienia.
-    expect(form).toMatch(/<input type="hidden" name="sec_\d+_offer_rows_0_id" value="of_/);
-    expect(form).toContain('Sesja indywidualna online');
-    expect(form).toContain('name="sec_5_offer_rows_0_price"');
-    // FAQ i opis też są treścią, nie podpowiedzią.
-    expect(form).toMatch(/name="sec_\d+_faq_rows_0_q"/);
-    expect(form).toMatch(/name="sec_\d+_bio"/);
+    const html = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
+    expect(html).toContain('Anna, po prostu');
+    expect(html).toContain('data-t="lex"');
+    // Cennik liczy się świeżo z bazy, nie z zapisanej strony.
+    expect(html).toContain('Sesja indywidualna online');
+
+    // Cudza strona: token Anny nie zapisze strony Marka.
+    const marek = await ensureProfilePage(env, 'th_8b2d6e10f4a97c53d1e08b26', 'Marek');
+    const foreign = await SELF.fetch(`https://localhost/api/host-blocks?page=${marek.id}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: await writeToken(env, ANNA), page }),
+    });
+    expect(foreign.status).toBe(404);
+    expect((await getPage(env, marek.id))!.page).toEqual({});
   });
+});
 
+describe('pola danych bloku wracają do bazy', () => {
   it('zapisuje cennik, opis i FAQ, a wiersz bez nazwy wyłącza ofertę', async () => {
     const before = (await getTherapist(env, { therapist_id: ANNA }))!;
     const offerId = before.offers[0]!.offer_id;
@@ -70,42 +90,6 @@ describe('pola danych bloku wracają do bazy', () => {
     expect((await write({ intro: { bio: 'nie' } }, 'bzdura')).status).toBe(401);
     const t = (await getTherapist(env, { therapist_id: ANNA }))!;
     expect(t.bio).not.toBe('nie');
-  });
-});
-
-describe('przyciski i zdjęcie w bloku', () => {
-  it('edytor pokazuje pola przycisków i zdjęcia, a wpisany napis wygrywa nad domyślnym', async () => {
-    const user = await findOrCreateUserByEmail(env, 'anna-guziki@example.invalid');
-    await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
-    const { cookie } = await createAdminSession(env, user.id);
-    const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-    const path = new URL(/data-page-editor="([^"]+)"/.exec(panel)![1]!).pathname;
-    const form = await (await pagesFetch(env, path)).text();
-
-    // Hero: napis i adres każdego przycisku do poprawienia.
-    expect(form).toMatch(/name="sec_0_buttons_0_label"/);
-    expect(form).toMatch(/name="sec_0_buttons_0_href"/);
-    // „Jak pracuję": pole na adres zdjęcia.
-    expect(form).toMatch(/name="sec_\d+_media"/);
-
-    const token = path.split('/').pop()!;
-    const body = new URLSearchParams([['csrf', token]]);
-    for (const [index, type] of ['hero-profil', 'intro'].entries()) {
-      body.append(`sec_${index}_type`, type);
-      body.append(`sec_${index}_pos`, String(index + 1));
-    }
-    body.append('sec_0_buttons_0_label', 'Napisz do mnie');
-    // Adres pełny, nie kotwica: usługa wyrzuca przycisk celujący w sekcję,
-    // której na stronie nie ma - a ta strona ma tylko dwa bloki.
-    body.append('sec_0_buttons_0_href', 'https://otwartyterapeuta.pl/jak-to-dziala');
-    body.append('sec_0_buttons_0_style', 'primary');
-    expect((await pagesFetch(env, path, {
-      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString(),
-    })).status).toBe(303);
-
-    const html = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();
-    expect(html).toContain('Napisz do mnie');
-    expect(html).not.toContain('Zobacz wolne terminy');
   });
 });
 
