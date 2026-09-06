@@ -451,7 +451,7 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
     c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
   }
   try {
-    const served = await serveTherapistPage(c.env, t, ctx, pageSlug, { drafts: false });
+    const served = await serveTherapistPage(c.env, t, ctx, pageSlug);
     if (!served) return notFoundProfile(c.env);
     return htmlResponse(c.env, served.html, served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
   } catch (err) {

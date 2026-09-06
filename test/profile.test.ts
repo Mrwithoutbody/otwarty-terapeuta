@@ -35,12 +35,12 @@ describe('the profile page, typeset by the pages service', () => {
     const down = { ...env, PAGES_URL: 'memory://down' };
 
     await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo'); // writes the copy
-    const stale = await serveTherapistPage(down, t, ctx, 'profil', { drafts: false });
+    const stale = await serveTherapistPage(down, t, ctx, 'profil');
     expect(stale?.stale).toBe(true);
     expect(stale?.html).toContain('Anna Kowalczyk (DEMO)');
 
     await env.MEDIA!.delete(`pages-html/${ANNA}/profil.html`);
-    await expect(serveTherapistPage(down, t, ctx, 'profil', { drafts: false })).rejects.toThrow(/unreachable/);
+    await expect(serveTherapistPage(down, t, ctx, 'profil')).rejects.toThrow(/unreachable/);
   });
 });
 

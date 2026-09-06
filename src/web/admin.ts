@@ -1122,7 +1122,7 @@ ${'url' in context.profileEditor ? `<form method="post" action="/admin/terapeuci
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
   <div class="field"><label for="page_look">Motyw</label>
     <select id="page_look" name="look">${context.looks
-      .map((l) => `<option value="${escapeHtml(`${l.theme}:${l.variant}`)}">${escapeHtml(l.label)} — ${escapeHtml(l.hint)}</option>`)
+      .map((l) => `<option value="${escapeHtml(l.theme)}">${escapeHtml(l.label)} — ${escapeHtml(l.hint)}</option>`)
       .join('')}</select>
     <p class="hint">Motyw ustawia wygląd i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
   <button class="btn" type="submit">Utwórz podstronę</button>
@@ -1442,13 +1442,13 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
 
   const title = sanitizeLine(body.get('title') ?? '', 140);
   if (title === '') return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
-  const [theme = '', variant = ''] = (body.get('look') ?? '').split(':');
+  const theme = (body.get('look') ?? '').replace(/[^a-z0-9-]/g, '');
   let made: PageInfo | 'slug_taken';
   try {
-    made = await createPage(c.env, { owner: id, title, theme, variant });
+    made = await createPage(c.env, { owner: id, title, theme });
     // The title's slug is hers already: number it rather than refuse a second workshop.
     for (let n = 2; made === 'slug_taken' && n < 50; n++) {
-      made = await createPage(c.env, { owner: id, title, slug: `${slugOf(title)}-${n}`, theme, variant });
+      made = await createPage(c.env, { owner: id, title, slug: `${slugOf(title)}-${n}`, theme });
     }
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;

@@ -70,15 +70,13 @@ const copyKey = (therapistId: string, slug: string): string => `pages-html/${the
 
 /**
  * One of her pages, rendered now with her data - or, when the service is
- * down, the copy kept from the last time it was not. A draft is served only
- * when asked for (her own preview); a page she does not have is null.
+ * down, the copy kept from the last time it was not. A page she does not have is null.
  */
 export async function serveTherapistPage(
   env: Env,
   t: PublicTherapist,
   ctx: SectionCtx,
   slug: string,
-  opts: { drafts: boolean },
 ): Promise<ServedPage | null> {
   const request = {
     owner: t.therapist_id,
@@ -87,18 +85,17 @@ export async function serveTherapistPage(
     chrome: chromeFor(t, await listPages(env, t.therapist_id)),
   };
   try {
-    let rendered = await renderPage(env, request);
-    if (!rendered && slug === PROFILE_SLUG) {
+    let html = await renderPage(env, request);
+    if (!html && slug === PROFILE_SLUG) {
       await ensureProfilePage(env, t.therapist_id, t.display_name);
-      rendered = await renderPage(env, request);
+      html = await renderPage(env, request);
     }
-    if (!rendered) return null;
-    if (rendered.status !== 'published' && !opts.drafts) return null;
-    if (rendered.status === 'published' && env.MEDIA) {
+    if (!html) return null;
+    if (env.MEDIA) {
       // ponytail: one R2 write per view; throttle by version when views pass ~100k/day.
-      await env.MEDIA.put(copyKey(t.therapist_id, slug), rendered.html, { httpMetadata: { contentType: 'text/html; charset=utf-8' } });
+      await env.MEDIA.put(copyKey(t.therapist_id, slug), html, { httpMetadata: { contentType: 'text/html; charset=utf-8' } });
     }
-    return { html: rendered.html, stale: false };
+    return { html, stale: false };
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;
     const copy = env.MEDIA ? await env.MEDIA.get(copyKey(t.therapist_id, slug)) : null;

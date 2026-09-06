@@ -38,7 +38,7 @@ describe('podstrony terapeutki', () => {
   it('creates, saves the editor\'s page and lists a subpage', async () => {
     const anna = await actor('anna-pages@example.invalid', ANNA);
 
-    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['look', 'lex:']]);
+    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['look', 'lex']]);
     expect(created.status).toBe(303);
     const editor = created.headers.get('location')!;
     expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/pg_[a-f0-9]+$`));

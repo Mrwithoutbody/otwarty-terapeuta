@@ -264,8 +264,6 @@ hostWriteApp.post('/host-blocks', async (c) => {
   // Usługa stron jej nie trzyma; `?page=` mówi, o którą z jej stron chodzi.
   if (typeof body.page === 'object' && body.page !== null && !Array.isArray(body.page)) {
     const pageId = c.req.query('page') ?? '';
-    const raw = JSON.stringify(body.page);
-    if (raw.length > 200_000) return c.json({ error: 'page_too_large' }, 413);
     if (!(await savePageJson(c.env, id, pageId, body.page as Record<string, unknown>))) return c.json({ error: 'not_found' }, 404);
     await audit(c.env, { actorType: 'therapist', actorId: id, action: 'therapist.page_saved', subjectType: 'therapist', subjectId: id, meta: { page: pageId } });
   }
