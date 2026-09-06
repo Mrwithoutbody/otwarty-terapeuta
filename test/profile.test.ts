@@ -45,16 +45,19 @@ describe('the profile page, typeset by the pages service', () => {
 });
 
 describe('the editor link in the panel', () => {
-  it("opens the service's editor in a new tab; the panel frames nothing", async () => {
+  it('lists the profile first; its row opens the editor through this host, framed on demand', async () => {
     const user = await findOrCreateUserByEmail(env, 'anna-tpl@example.invalid');
     await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
     const { cookie } = await createAdminSession(env, user.id);
 
     const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
     const editorUrl = /data-page-editor="([^"]+)"/.exec(panel)![1]!;
-    expect(editorUrl).toMatch(/^https:\/\/pages\.test\/edit\//);
+    expect(editorUrl).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/pg_[a-f0-9]+$`));
     expect(panel).not.toContain('<iframe');
-    expect(panel).toContain('data-editor-dialog');
+    expect(panel).toContain('data-editor-dialog data-editor-origin="https://pages.test"');
+    const hop = await SELF.fetch(`https://localhost${editorUrl}`, { headers: { cookie }, redirect: 'manual' });
+    expect(hop.status).toBe(303);
+    expect(hop.headers.get('location')).toMatch(/^https:\/\/pages\.test\/edit\//);
   });
 
   it('still opens for a profile she has not published yet', async () => {
@@ -65,7 +68,10 @@ describe('the editor link in the panel', () => {
       await env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ? WHERE id = ?`).bind(ANNA, user.id).run();
       const { cookie } = await createAdminSession(env, user.id);
       const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
-      expect(panel).toMatch(/data-page-editor="https:\/\/pages\.test\/edit\//);
+      const editorUrl = /data-page-editor="([^"]+)"/.exec(panel)![1]!;
+      const hop = await SELF.fetch(`https://localhost${editorUrl}`, { headers: { cookie }, redirect: 'manual' });
+      expect(hop.status).toBe(303);
+      expect(hop.headers.get('location')).toMatch(/^https:\/\/pages\.test\/edit\//);
     } finally {
       await env.DB.prepare(`UPDATE therapists SET status = 'published' WHERE id = ?`).bind(ANNA).run();
     }

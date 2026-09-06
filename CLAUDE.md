@@ -156,8 +156,9 @@ edytora usługi. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
 - Produkcja wymaga sekretu `PAGES_API_KEY` (klucz site'u `ot-02` w usłudze;
   `npm run site:create` po stronie x402Landings). Bez niego `assertConfig` odmawia.
 - Kolejność zmian w kontrakcie: najpierw usługa (testy + deploy), potem ot-02.
-- Edytor otwiera się **w nowej karcie na domenie usługi**, nie w ramce (2026-09-04):
-  ramka zawsze była węższa od okna, a w środku dzieli się jeszcze na trzy kolumny.
-  Panel ma przycisk „Otwórz edytor"; `frame-src` z originem usługi wypadł z CSP.
+- Edytor otwiera się **w oknie dialogowym** na niemal całe okno panelu (2026-09-06):
+  zakładka „Strony" listuje profil i podstrony, klik w tytuł ładuje ramkę z własną
+  trasą `/admin/terapeuci/:id/strony/:pid`, która przekierowuje 303 do usługi.
+  Panel nie tworzy sesji edytora przy renderze — dopiero przy kliknięciu.
 - Awaria usługi nie zdejmuje profili: kopia w R2, nagłówek `x-pages-stale: 1`.
 

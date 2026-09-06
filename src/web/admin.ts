@@ -30,7 +30,7 @@ import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
 import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './lp';
-import { createPage, getPage, listPages, listThemeChoices, slugOf, type PageInfo, type ThemeChoice } from './pages-client';
+import { createPage, getPage, listPages, listThemeChoices, pagesOrigin, slugOf, type PageInfo, type ThemeChoice } from './pages-client';
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
 import type { SectionCtx } from './host-blocks';
@@ -427,8 +427,10 @@ interface EditorContext {
   media: Array<{ id: string; url: string }>;
   pages: PageInfo[];
   looks: ThemeChoice[];
-  /** The hosted editor for her profile page, or the reason there is none. */
-  profileEditor: { url: string } | { error: string };
+  /** Why there is no page list: the service is down, or the profile is not saved yet. */
+  pagesError: string | null;
+  /** Origin of the hosted editor, for the dialog's postMessage check. */
+  editorOrigin: string;
 }
 
 const SESSION_TYPE_LABELS: RefTag[] = [
@@ -454,12 +456,6 @@ async function previewContext(env: Env, therapistId: string): Promise<SectionCtx
   return t ? profileContext(env, t) : null;
 }
 
-async function profileEditorUrl(env: Env, therapistId: string): Promise<string> {
-  const row = await getTherapistRowForAdmin(env, therapistId);
-  const [page, ctx] = await Promise.all([ensureProfilePage(env, therapistId, row?.display_name ?? 'Profil'), previewContext(env, therapistId)]);
-  return editorUrl(env, page, ctx);
-}
-
 async function loadEditorContext(env: Env, therapistId: string | null): Promise<EditorContext> {
   const [languages, specialties, modalities] = await Promise.all([
     env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
@@ -482,21 +478,23 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     media: [],
     pages: [],
     looks: [],
-    profileEditor: { error: 'Najpierw zapisz profil.' },
+    pagesError: 'Najpierw zapisz profil.',
+    editorOrigin: pagesOrigin(env) ?? '',
   };
   if (!therapistId) return context;
   try {
-    const [pages, looks, editor] = await Promise.all([
+    const row = await getTherapistRowForAdmin(env, therapistId);
+    const [profile, pages, looks] = await Promise.all([
+      ensureProfilePage(env, therapistId, row?.display_name ?? 'Profil'),
       listPages(env, therapistId),
       listThemeChoices(env),
-      profileEditorUrl(env, therapistId),
     ]);
-    context.pages = pages.filter((p) => p.slug !== PROFILE_SLUG);
+    context.pages = [profile, ...pages.filter((p) => p.slug !== PROFILE_SLUG)];
     context.looks = looks;
-    context.profileEditor = { url: editor };
+    context.pagesError = null;
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;
-    context.profileEditor = { error: PAGES_DOWN };
+    context.pagesError = PAGES_DOWN;
   }
 
   const [chosenLanguages, chosenTopics, chosenModalities, location, offers, faq, media] = await Promise.all([
@@ -1084,49 +1082,38 @@ ${
 }
 </section>
 
-<section data-tab-panel data-tab-label="Wygląd strony" id="panel-strona">
-<h2 class="visually-hidden">Wygląd strony</h2>
-${'url' in context.profileEditor
-    ? `<p class="seg" data-page-editor="${escapeHtml(context.profileEditor.url)}">
-  <button class="btn" type="button" data-editor-open>Otwórz edytor</button>
-  <a class="btn secondary" href="/terapeuci/${escapeHtml(row.slug)}" target="ot-strona" rel="noopener">Zobacz stronę ↗</a>
-</p>
-<p class="hint">Edytor otwiera się na tej stronie; zamkniesz go klawiszem Esc.
-Link jest ważny dwie godziny — po tym czasie odśwież panel.</p>
-<dialog class="editor-dialog" data-editor-dialog aria-label="Edytor strony">
-  <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
-</dialog>`
-    : `<p class="notice">${escapeHtml(context.profileEditor.error)}</p>`}
-</section>
-
-<section data-tab-panel data-tab-label="Podstrony" id="panel-strony">
-<h2>Podstrony</h2>
-<p class="panel-lead">Osobne strony obok profilu: landing pod kampanię, terapia grupowa, warsztat,
-wyjazd. Każda ma własny adres pod Twoim profilem i własny układ; kalendarz, oferta i FAQ
-wchodzą na nią z Twoich danych.</p>
+<section data-tab-panel data-tab-label="Strony" id="panel-strony">
+<h2>Strony</h2>
+<p class="panel-lead">Profil i strony obok niego: landing pod kampanię, terapia grupowa, warsztat,
+wyjazd. Każda ma własny adres i własny układ; kalendarz, oferta i FAQ wchodzą na nią z Twoich danych.
+Kliknij tytuł, żeby otworzyć edytor.</p>
 ${
-  context.pages.length === 0
-    ? '<p class="hint">Nie masz jeszcze żadnej podstrony.</p>'
-    : `<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th><th></th></tr></thead><tbody>${context.pages
-        .map(
-          (p) => `<tr><td>${escapeHtml(p.title)}</td>
-             <td><a href="/terapeuci/${escapeHtml(row.slug)}/${escapeHtml(p.slug)}" target="_blank" rel="noopener">/${escapeHtml(p.slug)}</a></td>
-             <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td>
-             <td><a class="btn secondary" href="/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}">Edytuj</a></td></tr>`,
-        )
-        .join('')}</tbody></table></div>`
-}
-${'url' in context.profileEditor ? `<form method="post" action="/admin/terapeuci/${id}/strony">
+  context.pagesError
+    ? `<p class="notice">${escapeHtml(context.pagesError)}</p>`
+    : `<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th></tr></thead><tbody>${context.pages
+        .map((p) => {
+          const href = p.slug === PROFILE_SLUG ? `/terapeuci/${escapeHtml(row.slug)}` : `/terapeuci/${escapeHtml(row.slug)}/${escapeHtml(p.slug)}`;
+          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}">${escapeHtml(p.slug === PROFILE_SLUG ? 'Profil' : p.title)}</button></td>
+             <td><a href="${href}" target="_blank" rel="noopener">${href} ↗</a></td>
+             <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td></tr>`;
+        })
+        .join('')}</tbody></table></div>
+<form method="post" action="/admin/terapeuci/${id}/strony">
   ${csrfField(session)}
-  <div class="field"><label for="page_title">Tytuł nowej podstrony</label>
+  <div class="field"><label for="page_title">Tytuł nowej strony</label>
     <input id="page_title" name="title" required maxlength="140" placeholder="np. Grupa wsparcia dla rodziców"></div>
   <div class="field"><label for="page_look">Motyw</label>
     <select id="page_look" name="look">${context.looks
       .map((l) => `<option value="${escapeHtml(l.theme)}">${escapeHtml(l.label)} — ${escapeHtml(l.hint)}</option>`)
       .join('')}</select>
     <p class="hint">Motyw ustawia wygląd i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p></div>
-  <button class="btn" type="submit">Utwórz podstronę</button>
-</form>` : ''}
+  <button class="btn" type="submit">Utwórz stronę</button>
+</form>
+<p class="hint">Edytor otwiera się na tej stronie; zamkniesz go klawiszem Esc.</p>
+<dialog class="editor-dialog" data-editor-dialog data-editor-origin="${escapeHtml(context.editorOrigin)}" aria-label="Edytor strony">
+  <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
+</dialog>`
+}
 </section>
 
 </div>`;
@@ -1463,32 +1450,18 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
     subjectId: id,
     meta: { page: made.id },
   });
-  return c.redirect(`/admin/terapeuci/${id}/strony/${made.id}`, 303);
+  return c.redirect(`/admin/terapeuci/${id}?edytuj=${encodeURIComponent(made.id)}#panel-strony`, 303);
 });
 
-/** The hosted editor for one of her subpages, framed. Owner only, so drafts stay private. */
+/** Straight into the hosted editor for one of her pages. Owner only, so drafts stay private. */
 adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
   const g = await ownedTherapist(c, null);
   if ('response' in g) return g.response;
   const id = g.therapist.id;
   try {
     const row = await getPage(c.env, c.req.param('pid'));
-    if (!row || row.owner !== id) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono podstrony</h1>', 404);
-    const url = await editorUrl(c.env, row, await previewContext(c.env, id));
-    return page(
-      c.env,
-      row.title,
-      `<p><a href="/admin/terapeuci/${escapeHtml(id)}#panel-strony">← Profil: ${escapeHtml(g.therapist.display_name)}</a></p>
-<h1>Podstrona: ${escapeHtml(row.title)}</h1>
-<p class="hint">Adres: <a href="/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)}" target="_blank" rel="noopener">/terapeuci/${escapeHtml(g.therapist.slug)}/${escapeHtml(row.slug)} ↗</a>
- — ${row.status === 'published' ? 'opublikowana' : 'szkic, widzisz ją tylko Ty'}. Usuwanie i publikacja są w edytorze.</p>
-<p class="seg" data-page-editor="${escapeHtml(url)}">
-  <button class="btn" type="button" data-editor-open>Otwórz edytor</button>
-</p>
-<dialog class="editor-dialog" data-editor-dialog aria-label="Edytor podstrony">
-  <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
-</dialog>`,
-    );
+    if (!row || row.owner !== id) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono strony</h1>', 404);
+    return c.redirect(await editorUrl(c.env, row, await previewContext(c.env, id)), 303);
   } catch (err) {
     if (!(err instanceof PagesUnavailable)) throw err;
     return page(c.env, 'Edytor niedostępny', `<h1>Edytor niedostępny</h1><p>${PAGES_DOWN}</p>`, 503);

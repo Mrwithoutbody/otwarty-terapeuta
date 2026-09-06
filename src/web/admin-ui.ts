@@ -21,29 +21,31 @@ export const ADMIN_JS = String.raw`(function () {
   // the no-JS path keeps working untouched.
   // ------------------------------------------------------------------ tabs ---
 
-  /* Edytor stron w oknie dialogowym: iframe wstawiany przy pierwszym otwarciu,
-     żeby zamknięty panel nie ładował cudzej strony. */
-  function initEditorDialog(box) {
-    var dialog = document.querySelector('[data-editor-dialog]');
-    var open = box.querySelector('[data-editor-open]');
-    var url = box.getAttribute('data-page-editor');
-    if (!dialog || !open || !url || typeof dialog.showModal !== 'function') return;
-    open.addEventListener('click', function () {
-      if (!dialog.querySelector('iframe')) {
-        var frame = document.createElement('iframe');
-        frame.src = url;
+  /* Edytor stron w oknie dialogowym: jedno okno, ramka ładowana przy otwarciu
+     z adresem klikniętej strony (własna trasa, która przekierowuje do usługi). */
+  function initEditorDialog(dialog) {
+    if (typeof dialog.showModal !== 'function') return;
+    var origin = dialog.getAttribute('data-editor-origin') || '';
+    var opened = new URL(location.href);
+    function open(url) {
+      var frame = dialog.querySelector('iframe');
+      if (!frame) {
+        frame = document.createElement('iframe');
         frame.title = 'Edytor strony';
         dialog.appendChild(frame);
       }
+      if (frame.getAttribute('src') !== url) frame.src = url;
       dialog.showModal();
+    }
+    document.querySelectorAll('[data-editor-open][data-page-editor]').forEach(function (button) {
+      button.addEventListener('click', function () { open(button.getAttribute('data-page-editor')); });
     });
     var close = dialog.querySelector('[data-editor-close]');
     if (close) close.addEventListener('click', function () { dialog.close(); });
     /* Esc naciśnięty w ramce: klawisz trafia do jej dokumentu, więc edytor
        melduje go wiadomością. Tylko z origin usługi, tylko przy otwartym oknie. */
-    var origin = new URL(url, location.href).origin;
     window.addEventListener('message', function (event) {
-      if (event.origin !== origin || !event.data) return;
+      if (!origin || event.origin !== origin || !event.data) return;
       if (event.data.kind === 'close-editor') dialog.close();
       /* Odnośnik "edytuj dane" z wnętrza edytora: zamykamy okno i przełączamy
          zakładkę u siebie. Nowa karta z ramki cudzego originu i tak by się
@@ -60,6 +62,17 @@ export const ADMIN_JS = String.raw`(function () {
           field.scrollIntoView({ block: 'center', behavior: 'smooth' });
           field.focus({ preventScroll: true });
         }
+      }
+    });
+    /* Świeżo utworzona strona: panel wraca z ?edytuj=id, otwieramy ją od razu. */
+    var fresh = opened.searchParams.get('edytuj');
+    if (fresh) {
+      var button = document.querySelector('[data-page-editor$="/strony/' + fresh + '"]');
+      if (button) button.click();
+      opened.searchParams.delete('edytuj');
+      history.replaceState(null, '', opened.pathname + opened.search + opened.hash);
+    }
+  }
       }
     });
   }
@@ -120,6 +133,8 @@ export const ADMIN_JS = String.raw`(function () {
       var saved = Number(sessionStorage.getItem(storageKey));
       if (Number.isInteger(saved) && saved >= 0 && saved < tabs.length) start = saved;
     } catch (e) { /* private mode */ }
+    // A redirect back to one section (#panel-strony) beats the remembered tab.
+    for (var h = 0; h < panels.length; h++) if ('#' + panels[h].id === location.hash) start = h;
     select(start);
 
     // A validation error inside a hidden panel is invisible and the submit
@@ -558,7 +573,7 @@ export const ADMIN_JS = String.raw`(function () {
 
   function boot() {
     document.querySelectorAll('[data-tabs]').forEach(initTabs);
-    document.querySelectorAll('[data-page-editor]').forEach(initEditorDialog);
+    document.querySelectorAll('[data-editor-dialog]').forEach(initEditorDialog);
     document.querySelectorAll('[data-editor]').forEach(initEditor);
     document.querySelectorAll('[data-repeat]').forEach(initRepeat);
     document.querySelectorAll('[data-crop]').forEach(initCrop);
@@ -746,6 +761,7 @@ main > .wrap:has(.tabs) { max-width: none; }
   background: var(--surface-solid, #fff); overflow: hidden; }
 .editor-dialog::backdrop { background: rgba(24, 28, 12, 0.55); }
 .editor-dialog iframe { display: block; width: 100%; height: 100%; border: 0; }
+button.link { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--accent-strong); cursor: pointer; text-decoration: underline; }
 .editor-close { position: absolute; top: 0.6rem; right: 0.9rem; z-index: 2; }
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
 /* --- profile composer (legacy layout, kept for the photo cropper) ---- */

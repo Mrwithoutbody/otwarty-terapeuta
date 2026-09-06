@@ -31,8 +31,6 @@ function post(who: Actor, path: string, pairs: Array<[string, string]>): Promise
   });
 }
 
-const editorSrc = (html: string): string => /data-page-editor="(https:[^"]+)"/.exec(html)![1]!;
-
 /** The whole life of one subpage: created here, arranged in the service's editor, saved back here, served. */
 describe('podstrony terapeutki', () => {
   it('creates, saves the editor\'s page and lists a subpage', async () => {
@@ -40,13 +38,16 @@ describe('podstrony terapeutki', () => {
 
     const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['look', 'lex']]);
     expect(created.status).toBe(303);
-    const editor = created.headers.get('location')!;
-    expect(editor).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}/strony/pg_[a-f0-9]+$`));
-    const pid = editor.split('/').pop()!;
+    const back = created.headers.get('location')!;
+    expect(back).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}\\?edytuj=pg_[a-f0-9]+#panel-strony$`));
+    const pid = /edytuj=(pg_[a-f0-9]+)/.exec(back)![1]!;
 
-    // The panel links out to the service's editor, opened in its own tab.
-    const shell = await (await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: anna.cookie } })).text();
-    expect(editorSrc(shell)).toMatch(/^https:\/\/pages\.test\/edit\//);
+    // The panel lists it; its row opens the editor through this host, which sends her to the service.
+    const fresh = await (await SELF.fetch(`https://localhost${back}`, { headers: { cookie: anna.cookie } })).text();
+    expect(fresh).toContain(`data-page-editor="/admin/terapeuci/${ANNA}/strony/${pid}"`);
+    const hop = await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/strony/${pid}`, { headers: { cookie: anna.cookie }, redirect: 'manual' });
+    expect(hop.status).toBe(303);
+    expect(hop.headers.get('location')).toMatch(/^https:\/\/pages\.test\/edit\//);
 
     // Served at once, in the look she picked, with her calendar and the crisis numbers.
     const slug = 'grupa-wsparcia-dla-rodzicow';

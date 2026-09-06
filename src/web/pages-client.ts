@@ -41,7 +41,7 @@ export class PagesUnavailable extends Error {
 
 /** The in-process service for tests. Lives as long as the isolate. */
 let memory: Promise<{ fetch(req: Request): Promise<Response> }> | null = null;
-async function memoryService(env: Env) {
+async function memoryService() {
   memory ??= (async () => {
     // Ścieżka w zmiennej: `tsc` hosta nie sprawdza wtedy źródeł usługi (inne flagi ścisłości).
     const entry = 'x402l/src/index';
@@ -74,7 +74,7 @@ export async function pagesFetch(env: Env, path: string, init: RequestInit & { j
     // `memory://down` is the service that never answers - the outage tests use it,
     // because a refused socket makes workerd throw once more after the catch.
     if (env.PAGES_URL === 'memory://down') throw new PagesUnavailable('pages service unreachable: down');
-    if (env.PAGES_URL.startsWith('memory://')) return await (await memoryService(env)).fetch(request);
+    if (env.PAGES_URL.startsWith('memory://')) return await (await memoryService()).fetch(request);
     const res = await fetch(request);
     if (res.status >= 500) throw new PagesUnavailable(`pages service answered ${res.status}`);
     return res;
