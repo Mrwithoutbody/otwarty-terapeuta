@@ -585,9 +585,7 @@ export const ADMIN_JS = String.raw`(function () {
 export const ADMIN_CSS = String.raw`
 /* Admin panel only. Loaded on top of app.css, never on public pages. */
 
-/* Panel czyta się jak aplikacja, nie jak artykuł: zakładki stoją z boku,
-   treść bierze resztę okna. Kolumna 76 rem zostaje stronom publicznym. */
-main > .wrap:has(.tabs) { max-width: none; }
+/* Panel siedzi w tym samym kontenerze co nagłówek i stopka (76 rem, wyśrodkowany). */
 .tabs {
   display: grid; grid-template-columns: 12.5rem minmax(0, 1fr);
   gap: 0 2rem; align-items: start;
