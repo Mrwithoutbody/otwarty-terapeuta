@@ -39,12 +39,11 @@ describe('podstrony terapeutki', () => {
     const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['look', 'lex']]);
     expect(created.status).toBe(303);
     const back = created.headers.get('location')!;
-    expect(back).toMatch(new RegExp(`^/admin/terapeuci/${ANNA}\\?edytuj=pg_[a-f0-9]+#panel-strony$`));
-    const pid = /edytuj=(pg_[a-f0-9]+)/.exec(back)![1]!;
+    expect(back).toBe(`/admin/terapeuci/${ANNA}#panel-strony`);
 
     // The panel lists it; its row opens the editor through this host, which sends her to the service.
     const fresh = await (await SELF.fetch(`https://localhost${back}`, { headers: { cookie: anna.cookie } })).text();
-    expect(fresh).toContain(`data-page-editor="/admin/terapeuci/${ANNA}/strony/${pid}"`);
+    const pid = new RegExp(`data-page-editor="/admin/terapeuci/${ANNA}/strony/(pg_[a-f0-9]+)">Grupa wsparcia`).exec(fresh)![1]!;
     const hop = await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/strony/${pid}`, { headers: { cookie: anna.cookie }, redirect: 'manual' });
     expect(hop.status).toBe(303);
     expect(hop.headers.get('location')).toMatch(/^https:\/\/pages\.test\/edit\//);

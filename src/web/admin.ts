@@ -456,7 +456,7 @@ async function previewContext(env: Env, therapistId: string): Promise<SectionCtx
   return t ? profileContext(env, t) : null;
 }
 
-async function loadEditorContext(env: Env, therapistId: string | null): Promise<EditorContext> {
+async function loadEditorContext(env: Env, therapist: TherapistRow | null): Promise<EditorContext> {
   const [languages, specialties, modalities] = await Promise.all([
     env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
     env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<RefTag>(),
@@ -481,12 +481,11 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
     pagesError: 'Najpierw zapisz profil.',
     editorOrigin: pagesOrigin(env) ?? '',
   };
-  if (!therapistId) return context;
+  if (!therapist) return context;
   try {
-    const row = await getTherapistRowForAdmin(env, therapistId);
     const [profile, pages, looks] = await Promise.all([
-      ensureProfilePage(env, therapistId, row?.display_name ?? 'Profil'),
-      listPages(env, therapistId),
+      ensureProfilePage(env, therapist.id, therapist.display_name),
+      listPages(env, therapist.id),
       listThemeChoices(env),
     ]);
     context.pages = [profile, ...pages.filter((p) => p.slug !== PROFILE_SLUG)];
@@ -499,36 +498,36 @@ async function loadEditorContext(env: Env, therapistId: string | null): Promise<
 
   const [chosenLanguages, chosenTopics, chosenModalities, location, offers, faq, media] = await Promise.all([
     env.DB.prepare(`SELECT language_code FROM therapist_languages WHERE therapist_id = ?`)
-      .bind(therapistId)
+      .bind(therapist.id)
       .all<{ language_code: string }>(),
     env.DB.prepare(`SELECT specialty_slug FROM therapist_specialties WHERE therapist_id = ?`)
-      .bind(therapistId)
+      .bind(therapist.id)
       .all<{ specialty_slug: string }>(),
     env.DB.prepare(`SELECT modality_slug FROM therapist_modalities WHERE therapist_id = ?`)
-      .bind(therapistId)
+      .bind(therapist.id)
       .all<{ modality_slug: string }>(),
     env.DB.prepare(
       `SELECT city, address_line FROM therapist_locations WHERE therapist_id = ?
         ORDER BY is_primary DESC LIMIT 1`,
     )
-      .bind(therapistId)
+      .bind(therapist.id)
       .first<{ city: string; address_line: string | null }>(),
     env.DB.prepare(
       `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active
          FROM session_offers WHERE therapist_id = ? ORDER BY created_at`,
     )
-      .bind(therapistId)
+      .bind(therapist.id)
       .all<OfferRow>(),
     env.DB.prepare(
       `SELECT id, question, status, position, updated_at FROM faq_items
         WHERE therapist_id = ? ORDER BY position`,
     )
-      .bind(therapistId)
+      .bind(therapist.id)
       .all<FaqRow>(),
     env.DB.prepare(
       `SELECT id, url FROM therapist_media WHERE therapist_id = ? ORDER BY created_at DESC`,
     )
-      .bind(therapistId)
+      .bind(therapist.id)
       .all<{ id: string; url: string }>(),
   ]);
 
@@ -1092,8 +1091,9 @@ ${
     ? `<p class="notice">${escapeHtml(context.pagesError)}</p>`
     : `<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th></tr></thead><tbody>${context.pages
         .map((p) => {
-          const href = p.slug === PROFILE_SLUG ? `/terapeuci/${escapeHtml(row.slug)}` : `/terapeuci/${escapeHtml(row.slug)}/${escapeHtml(p.slug)}`;
-          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}">${escapeHtml(p.slug === PROFILE_SLUG ? 'Profil' : p.title)}</button></td>
+          const profile = p.slug === PROFILE_SLUG;
+          const href = `/terapeuci/${escapeHtml(row.slug)}${profile ? '' : `/${escapeHtml(p.slug)}`}`;
+          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}">${profile ? 'Profil' : escapeHtml(p.title)}</button></td>
              <td><a href="${href}" target="_blank" rel="noopener">${href} ↗</a></td>
              <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td></tr>`;
         })
@@ -1108,8 +1108,7 @@ ${
       .join('')}</select></div>
   <button class="btn" type="submit">Utwórz stronę</button>
 </form>
-<p class="hint">Motyw ustawia wygląd i szkielet bloków. Wszystko da się potem zmienić w edytorze.</p>
-<p class="hint">Edytor otwiera się na tej stronie; zamkniesz go klawiszem Esc.</p>
+<p class="hint">Motyw ustawia wygląd i szkielet bloków; wszystko da się potem zmienić w edytorze, który otwiera się na tej stronie i zamyka klawiszem Esc.</p>
 <dialog class="editor-dialog" data-editor-dialog data-editor-origin="${escapeHtml(context.editorOrigin)}" aria-label="Edytor strony">
   <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
 </dialog>`
@@ -1144,7 +1143,7 @@ adminApp.get('/terapeuci/:id', async (c) => {
   const row = await getTherapistRowForAdmin(c.env, id);
   if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
 
-  const context = await loadEditorContext(c.env, id);
+  const context = await loadEditorContext(c.env, row);
   context.credentials = parseStoredCredentials(row.credentials);
 
   return page(
@@ -1450,7 +1449,7 @@ adminApp.post('/terapeuci/:id/strony', async (c) => {
     subjectId: id,
     meta: { page: made.id },
   });
-  return c.redirect(`/admin/terapeuci/${id}?edytuj=${encodeURIComponent(made.id)}#panel-strony`, 303);
+  return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
 });
 
 /** Straight into the hosted editor for one of her pages. Owner only, so drafts stay private. */

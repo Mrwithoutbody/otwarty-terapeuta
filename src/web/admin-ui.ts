@@ -26,7 +26,6 @@ export const ADMIN_JS = String.raw`(function () {
   function initEditorDialog(dialog) {
     if (typeof dialog.showModal !== 'function') return;
     var origin = dialog.getAttribute('data-editor-origin') || '';
-    var opened = new URL(location.href);
     function open(url) {
       var frame = dialog.querySelector('iframe');
       if (!frame) {
@@ -64,14 +63,6 @@ export const ADMIN_JS = String.raw`(function () {
         }
       }
     });
-    /* Świeżo utworzona strona: panel wraca z ?edytuj=id, otwieramy ją od razu. */
-    var fresh = opened.searchParams.get('edytuj');
-    if (fresh) {
-      var button = document.querySelector('[data-page-editor$="/strony/' + fresh + '"]');
-      if (button) button.click();
-      opened.searchParams.delete('edytuj');
-      history.replaceState(null, '', opened.pathname + opened.search + opened.hash);
-    }
   }
 
   function initTabs(root) {
@@ -715,8 +706,7 @@ main > .wrap:has(.tabs) { max-width: none; }
 /* Jeden wiersz: tytuł bierze resztę szerokości, motyw i przycisk tyle, ile potrzebują. */
 .form-row { display: grid; gap: 0.5rem 0.75rem; align-items: end; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; }
 [data-tab-panel] > form.form-row { max-width: none; }
-.form-row .field { margin: 0; }
-.form-row .btn { margin: 0; }
+.form-row .field, .form-row .btn { margin: 0; }
 @media (max-width: 720px) {
   .form-row { grid-template-columns: 1fr; }
 }
