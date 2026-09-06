@@ -705,7 +705,8 @@ main > .wrap:has(.tabs) { max-width: none; }
 
 /* Jeden wiersz: tytuł bierze resztę szerokości, motyw i przycisk tyle, ile potrzebują. */
 .form-row { display: grid; gap: 0.5rem 0.75rem; align-items: end; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; }
-[data-tab-panel] > form.form-row { max-width: none; }
+/* Tabela stron ma szerokość formularza pod nią: jeden kontener, jedna krawędź. */
+#panel-strony .table-wrap { max-width: 56rem; }
 .form-row .field, .form-row .btn { margin: 0; }
 @media (max-width: 720px) {
   .form-row { grid-template-columns: 1fr; }
