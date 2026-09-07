@@ -44,6 +44,11 @@ export type ReserveResult =
   | { ok: true; bookingId: string; publicRef: string; replayed: boolean }
   | { ok: false; code: 'slot_unavailable' | 'price_changed' | 'conflict' | 'invalid_input'; message: string };
 
+// ponytail: `idx_bookings_one_active_per_slot` już pilnuje jedynej rezerwacji na
+// termin, a cały zapis idzie jednym `db.batch` — `catch` niżej na tym właśnie stoi.
+// Ten DO jest drugą blokadą: wiązanie w trzech środowiskach plus ten plik.
+// NIE zdejmować bez pomiaru pod współbieżnością: to ścieżka pieniędzy i indeks
+// może zostać jedyną blokadą tylko świadomie, nie przez przeoczenie.
 export class TherapistBookingCoordinator implements DurableObject {
   // ponytail: pojedynczy łańcuch obietnic serializuje WSZYSTKIE próby dla jednego
   // terapeuty; przy bardzo dużym ruchu na jednym profilu zamienić na kolejkę

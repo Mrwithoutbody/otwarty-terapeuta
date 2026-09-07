@@ -1,3 +1,7 @@
+// ponytail: React + react-dom to ~135 z 211 kB bundla widżetu, dla siedmiu
+// widoków, które renderują listę i jeden formularz w iframe bez sieci. Goły DOM
+// zszedłby do kilkunastu kB i zdjął cztery zależności (react, react-dom, oba
+// @types). To przepisanie widżetu, nie refaktor — brać osobno, z e2e w garści.
 import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { bridge } from './bridge';

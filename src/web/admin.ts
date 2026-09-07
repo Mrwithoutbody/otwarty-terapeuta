@@ -931,6 +931,11 @@ function offerForm(session: AdminSession, therapistId: string, offer: OfferRow):
 </form>`;
 }
 
+// ponytail: zakładki „Dane/Oferta/FAQ/Dostępność" piszą do tych samych kolumn co
+// edytor stron (`data-fields.ts` + `host-write.ts`) — dwa formularze nad jedną bazą,
+// ~750 wierszy. Osobne zostają tylko pola administracyjne: slug, timezone, status,
+// verification_status, is_demo, links. Zwinąć do tej szóstki, gdy padnie decyzja,
+// czy zakładki treści mają zostać drogą awaryjną na czas awarii usługi stron.
 function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
   const activeOffers = context.offers.filter((offer) => offer.active === 1);
   const id = escapeHtml(row.id);

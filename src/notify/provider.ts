@@ -60,6 +60,10 @@ export const sendViaBrevo =
  * drain so a misconfiguration fails fast rather than burning a retry on every
  * queued row.
  */
+// ponytail: dwaj dostawcy w pełni zaimplementowani, produkcja używa jednego
+// (`EMAIL_PROVIDER`, sekret Wranglera — z repo nie widać którego). Sprawdzić
+// `wrangler secret list --env production`, zostawić używanego, drugiego dopisać
+// wtedy, gdy pierwszy zawiedzie.
 export function createNotificationSender(env: Env): SendNotification {
   const provider = env.EMAIL_PROVIDER ?? 'console';
   if (provider === 'resend' || provider === 'brevo') {

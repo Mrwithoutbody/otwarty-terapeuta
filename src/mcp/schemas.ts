@@ -10,6 +10,12 @@ import { isIsoDate, isValidTimezone } from '../lib/time';
  *    therapy history, because the server must never receive or store one;
  *  - every string has a length cap and every category is an enum, so a model
  *    cannot smuggle a payload through a "free text" field.
+ *
+ * ponytail: schematy WEJŚCIOWE zarabiają na siebie — walidują to, co przysyła
+ * model. Wyjściowe (~250 wierszy) przepisują `db/types.ts` w zod i nikt ich nie
+ * używa do parsowania; da się je ściąć do kształtu wierzchniego. Zmiana wymaga
+ * u każdego, kto ma wtyczkę, `…` → Odłącz → Połącz (cache `_meta` narzędzia),
+ * więc opłaca się dopiero razem z inną zmianą kontraktu.
  */
 
 const SESSION_TYPE = z.enum(['individual', 'couples', 'family']);
