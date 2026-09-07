@@ -116,6 +116,20 @@ export async function decryptPii(base64Key: string, payload: string): Promise<st
   return dec.decode(pt);
 }
 
+/**
+ * FNV-1a, 32-bit. NOT cryptographic and never used as one: it exists so an
+ * asset URL changes when its bytes change, and so equally scoring profiles
+ * rotate in a reproducible order.
+ */
+export function fnv1a(value: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
 /** Stable, non-reversible lookup key for an e-mail address. */
 export async function emailLookupHash(secret: string, email: string): Promise<string> {
   return hmacHex(secret, `email:${email.trim().toLowerCase()}`);

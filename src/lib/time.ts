@@ -25,12 +25,17 @@ export function isValidTimezone(tz: string): boolean {
   }
 }
 
+/** Instant as this project stores it: ISO-8601 UTC without milliseconds. */
+export function isoOf(at: Date): string {
+  return at.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 export function nowIso(): string {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return isoOf(new Date());
 }
 
 export function isoPlusSeconds(seconds: number, from = new Date()): string {
-  return new Date(from.getTime() + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return isoOf(new Date(from.getTime() + seconds * 1000));
 }
 
 export function hoursBetween(fromIso: string, toIso: string): number {

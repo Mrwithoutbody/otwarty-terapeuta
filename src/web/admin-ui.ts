@@ -15,7 +15,6 @@ export const ADMIN_JS = String.raw`(function () {
   'use strict';
 
 
-  // ------------------------------------------------------- profile composer ---
   // Reordering by dragging. The position inputs stay the source of truth and are
   // renumbered after every drop, so the form posts the same thing either way and
   // the no-JS path keeps working untouched.
@@ -757,26 +756,5 @@ export const ADMIN_CSS = String.raw`
 button.link { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--accent-strong); cursor: pointer; text-decoration: underline; }
 .editor-close { position: absolute; top: 0.6rem; right: 0.9rem; z-index: 2; }
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
-/* --- profile composer (legacy layout, kept for the photo cropper) ---- */
-.composer .hint { max-width: 62ch; }
-.composer-split { display: grid; grid-template-columns: minmax(18rem, 27rem) minmax(0, 1fr);
-  gap: 1.5rem; align-items: start; }
-.composer-preview { position: sticky; top: 1rem; }
-.composer-preview .hint { margin: 0 0 0.5rem; }
-.composer-preview iframe { width: 100%; height: min(78vh, 900px); border: 1px solid var(--border, #e3e6d8);
-  border-radius: 12px; background: #fff; }
-@media (max-width: 68rem) {
-  .composer-split { grid-template-columns: 1fr; }
-  .composer-preview { position: static; }
-  .composer-preview iframe { height: 60vh; }
-}
-.sec-save { margin: 0.9rem 0 0; }
-
-.sec-hero { display: grid; gap: 0.5rem; margin-top: 1rem; padding: 0.9rem;
-  border: 1px solid var(--border, #e3e6d8); border-radius: 12px; background: #fbfcf7; }
-.sec-hero span { display: block; color: var(--text-muted, #6a7360); font-size: 0.86rem; }
-.sec-hero select { max-width: 32rem; }
-.sec-item.dragging { opacity: 0.45; }
-.sec-item.over { border-color: var(--accent-strong, #637200); }
 /* With drag available the numbers are redundant, so JS hides them. */
 `;

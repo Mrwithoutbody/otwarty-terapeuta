@@ -55,16 +55,6 @@ function modeLabel(mode: string): string {
   return mode === 'online' ? 'online' : 'stacjonarnie';
 }
 
-function requireSigningKey(env: Env): string {
-  if (!env.TOKEN_SIGNING_KEY) throw errors.internal('Brak konfiguracji podpisu tokenów.');
-  return env.TOKEN_SIGNING_KEY;
-}
-
-function requirePiiKey(env: Env): string {
-  if (!env.PII_ENC_KEY) throw errors.internal('Brak konfiguracji szyfrowania danych kontaktowych.');
-  return env.PII_ENC_KEY;
-}
-
 /**
  * Builds the full summary a user must see BEFORE anything is written, and
  * issues a short-lived signed token that binds this exact user, therapist,
@@ -115,7 +105,7 @@ export async function previewBooking(
   };
 
   const { token, expiresAt } = await signConfirmationToken(
-    requireSigningKey(env),
+    env.TOKEN_SIGNING_KEY,
     {
       uid: user.id,
       tid: therapist.therapist_id,
@@ -184,8 +174,8 @@ export async function createBooking(
     );
   }
 
-  const signingKey = requireSigningKey(env);
-  const piiKey = requirePiiKey(env);
+  const signingKey = env.TOKEN_SIGNING_KEY;
+  const piiKey = env.PII_ENC_KEY;
 
   const payload = await verifyConfirmationToken(signingKey, input.confirmation_token);
 

@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { fnv1a } from '../lib/crypto';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
@@ -14,16 +15,7 @@ import { APP_CSS } from './styles';
  * edit that keeps the byte count - `68rem` to `46rem` is the same size, so the
  * URL never changed and browsers kept serving the old stylesheet for an hour.
  */
-function fnv1a(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(36);
-}
-
-const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000'));
+const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000')).toString(36);
 
 const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
@@ -198,7 +190,7 @@ ${options.body}
       <!-- Bez kropki na końcu: nazwa spółki kończy się skrótem "o.o." i druga
            kropka wygląda jak literówka. -->
       <p>Operator serwisu i administrator danych: ${escapeHtml(CONTROLLER.name)}${
-        CONTROLLER.city.trim() === '' ? '' : `, ${escapeHtml(CONTROLLER.city)}`
+        CONTROLLER.address.trim() === '' ? '' : `, ${escapeHtml(CONTROLLER.address)}`
       }</p>
     </div>
   </div>

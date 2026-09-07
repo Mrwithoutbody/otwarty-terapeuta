@@ -38,7 +38,7 @@ export async function issueEmailCode(
     .bind(
       challengeId,
       await emailLookupHash(env.TOKEN_SIGNING_KEY, email),
-      await encryptPii(env.PII_ENC_KEY ?? '', email),
+      await encryptPii(env.PII_ENC_KEY, email),
       await hmacHex(env.TOKEN_SIGNING_KEY, `login:${challengeId}:${code}`),
       purpose,
       JSON.stringify(context),
@@ -93,7 +93,7 @@ export async function verifyEmailCode(
     return { ok: false, reason: 'mismatch' };
   }
 
-  return { ok: true, email: await decryptPii(env.PII_ENC_KEY ?? '', row.email_enc), context: row.context };
+  return { ok: true, email: await decryptPii(env.PII_ENC_KEY, row.email_enc), context: row.context };
 }
 
 /**

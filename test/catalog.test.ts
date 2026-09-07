@@ -1,5 +1,5 @@
 import { SELF, env } from 'cloudflare:test';
-import { profileViewStats, recordProfileView } from '../src/db/views';
+import { recordProfileView, viewsByTherapist } from '../src/db/views';
 import { describe, expect, it } from 'vitest';
 import {
   findCandidates,
@@ -211,14 +211,9 @@ describe('licznik odsłon profilu', () => {
     await recordProfileView(env, ANNA, 'web');
     await recordProfileView(env, ANNA, 'mcp');
 
-    const stats = await profileViewStats(env, ANNA);
-    expect(stats.web).toBe(2);
-    expect(stats.mcp).toBe(1);
-    expect(stats.last30).toBe(3);
-    expect(stats.last7).toBe(3);
-
-    const other = await profileViewStats(env, UNPUBLISHED);
-    expect(other.last30).toBe(0);
+    const views = await viewsByTherapist(env);
+    expect(views.get(ANNA)).toEqual({ web: 2, mcp: 1 });
+    expect(views.get(UNPUBLISHED)).toBeUndefined();
   });
 
   it('trzyma jeden wiersz na dzień i źródło, bez śladu po osobie', async () => {
@@ -233,10 +228,10 @@ describe('licznik odsłon profilu', () => {
   });
 
   it('otwarcie profilu na stronie zwiększa licznik', async () => {
-    const before = (await profileViewStats(env, ANNA)).web;
+    const before = (await viewsByTherapist(env)).get(ANNA)?.web ?? 0;
     const response = await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo');
     expect(response.status).toBe(200);
-    expect((await profileViewStats(env, ANNA)).web).toBeGreaterThan(before);
+    expect((await viewsByTherapist(env)).get(ANNA)?.web ?? 0).toBeGreaterThan(before);
   });
 });
 

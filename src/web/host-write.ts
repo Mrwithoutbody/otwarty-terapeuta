@@ -13,10 +13,11 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import { getTherapist } from '../db/catalog';
+import { slotStatements } from '../db/slots';
 import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
 import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatTime, isValidTimezone, nowIso, weekdayIn, zonedTimeToUtc } from '../lib/time';
+import { DEFAULT_TIMEZONE, formatTime, isValidTimezone, nowIso } from '../lib/time';
 import { resolveAll, summarize } from './host-blocks';
 import { patchesFor } from './data-fields';
 import { profileContext } from './pages';
@@ -29,16 +30,11 @@ type Values = Record<string, unknown>;
 
 export const hostWriteApp = new Hono<{ Bindings: Env }>();
 
-function signingKey(env: Env): string {
-  if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
-  return env.TOKEN_SIGNING_KEY;
-}
-
 /** Token dla jednej sesji edycji: `<id>.<exp>.<podpis>`. */
 export async function writeToken(env: Env, therapistId: string): Promise<string> {
   const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
   const body = `${therapistId}.${exp}`;
-  return `${body}.${await hmacBase64Url(signingKey(env), `hostwrite:${body}`)}`;
+  return `${body}.${await hmacBase64Url(env.TOKEN_SIGNING_KEY, `hostwrite:${body}`)}`;
 }
 
 /** Identyfikator terapeutki z tokenu, albo null - wygasł, podrobiony, obcy. */
@@ -47,7 +43,7 @@ async function therapistFromToken(env: Env, token: unknown): Promise<string | nu
   const [id, exp, signature] = token.split('.');
   if (!id || !exp || !signature) return null;
   if (!Number.isFinite(Number(exp)) || Number(exp) * 1000 < Date.now()) return null;
-  const expected = await hmacBase64Url(signingKey(env), `hostwrite:${id}.${exp}`);
+  const expected = await hmacBase64Url(env.TOKEN_SIGNING_KEY, `hostwrite:${id}.${exp}`);
   return timingSafeEqual(expected, signature) ? id : null;
 }
 
@@ -124,33 +120,24 @@ async function writeSlots(env: Env, id: string, plan: { hours: number[]; days: n
   ).bind(id).first<{ id: string; duration_minutes: number }>();
   if (!offer) return; // bez oferty nie ma czego zaplanować - blok mówi to w podpowiedzi
   const timezone = t?.timezone && isValidTimezone(t.timezone) ? t.timezone : DEFAULT_TIMEZONE;
-  const at = nowIso();
 
   const { results: open } = await env.DB.prepare(
     `SELECT id, starts_at_utc FROM appointment_slots WHERE therapist_id = ? AND status = 'open' AND starts_at_utc > ?`,
-  ).bind(id, at).all<{ id: string; starts_at_utc: string }>();
+  ).bind(id, nowIso()).all<{ id: string; starts_at_utc: string }>();
   const keep = new Set(plan.hours);
   const statements = open
     .filter((s) => !keep.has(Number(formatTime(s.starts_at_utc, timezone).split(':')[0])))
     .map((s) => env.DB.prepare(`DELETE FROM appointment_slots WHERE id = ? AND status = 'open'`).bind(s.id));
 
-  const today = civilDateIn(timezone, new Date());
-  for (let d = 1; d <= plan.days; d++) {
-    const day = addCivilDays(today, d);
-    const weekday = weekdayIn(timezone, day);
-    if (weekday === 0 || weekday === 6) continue;
-    for (const hour of plan.hours) {
-      const start = zonedTimeToUtc(day, hour, 0, timezone);
-      const end = new Date(start.getTime() + offer.duration_minutes * 60_000);
-      statements.push(
-        env.DB.prepare(
-          `INSERT OR IGNORE INTO appointment_slots
-             (id, therapist_id, offer_id, starts_at_utc, ends_at_utc, timezone, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-        ).bind(randomId('sl'), id, offer.id, start.toISOString().replace(/\.\d{3}Z$/, 'Z'), end.toISOString().replace(/\.\d{3}Z$/, 'Z'), timezone, at, at),
-      );
-    }
-  }
+  statements.push(
+    ...slotStatements(env, id, {
+      offerId: offer.id,
+      durationMinutes: offer.duration_minutes,
+      timezone,
+      hours: plan.hours,
+      days: plan.days,
+    }),
+  );
   if (statements.length > 0) await env.DB.batch(statements);
 }
 

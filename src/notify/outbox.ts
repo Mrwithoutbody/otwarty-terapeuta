@@ -21,7 +21,6 @@ export async function enqueueNotification(
   bookingId: string | null,
   message: NotificationMessage,
 ): Promise<void> {
-  if (!env.PII_ENC_KEY) throw new Error('Brak PII_ENC_KEY.');
   await env.DB.prepare(
     `INSERT INTO notification_outbox (id, kind, booking_id, payload_enc, status, attempts, next_retry_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?)`,
@@ -50,7 +49,6 @@ interface OutboxRow {
  * the scheduled handler, so a failed send is retried without the user waiting.
  */
 export async function drainOutbox(env: Env, limit = 20): Promise<{ sent: number; failed: number }> {
-  if (!env.PII_ENC_KEY) return { sent: 0, failed: 0 };
   const send = createNotificationSender(env);
 
   const { results } = await env.DB.prepare(

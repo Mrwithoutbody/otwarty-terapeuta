@@ -1,5 +1,6 @@
 import type { SearchFilters } from '../db/catalog';
 import type { PublicTherapist } from '../db/types';
+import { fnv1a } from '../lib/crypto';
 
 /**
  * Ranking rules, in the order the product specifies:
@@ -36,16 +37,6 @@ const WEIGHT = {
   verified: 80,
   availabilitySoon: 100,
 } as const;
-
-/** Stable 32-bit FNV-1a. Used only for the tie-breaker. */
-function hash32(value: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < value.length; i++) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
 
 /** "2026-08-19" in UTC - the rotation bucket for the tie-breaker. */
 export function dayKey(now = new Date()): string {
@@ -170,8 +161,8 @@ export function rankTherapists(
     }
 
     // 5. daily rotation, then id, so the order is total and reproducible.
-    const aHash = hash32(`${rotation}:${a.therapist.therapist_id}`);
-    const bHash = hash32(`${rotation}:${b.therapist.therapist_id}`);
+    const aHash = fnv1a(`${rotation}:${a.therapist.therapist_id}`);
+    const bHash = fnv1a(`${rotation}:${b.therapist.therapist_id}`);
     if (aHash !== bHash) return aHash - bHash;
     return a.therapist.therapist_id < b.therapist.therapist_id ? -1 : 1;
   });

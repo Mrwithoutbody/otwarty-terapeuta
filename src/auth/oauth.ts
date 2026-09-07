@@ -58,11 +58,6 @@ interface ClientRow {
   scope: string;
 }
 
-function signingKey(env: Env): string {
-  if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
-  return env.TOKEN_SIGNING_KEY;
-}
-
 export function authorizationServerMetadata(env: Env): Record<string, unknown> {
   const base = env.PUBLIC_BASE_URL;
   return {
@@ -401,7 +396,7 @@ oauthApp.post('/authorize/anonymous', async (c) => {
     return errorPage(env, 'Zbyt wiele prób. Spróbuj ponownie za minutę.');
   }
 
-  const key = signingKey(env);
+  const key = env.TOKEN_SIGNING_KEY;
   const anonymousId = randomId('usr');
   const authCode = randomSecret(32);
   const at = nowIso();
@@ -528,7 +523,7 @@ oauthApp.post('/authorize/confirm', async (c) => {
 
   const challengeId = source.get('challenge_id') ?? '';
   const submitted = (source.get('code') ?? '').trim();
-  const key = signingKey(env);
+  const key = env.TOKEN_SIGNING_KEY;
 
   const invalid = (message: string): Response =>
     htmlResponse(env, codePage(env, challengeId, parsed.params, message), { status: 400 }, false, redirectOrigin(parsed.params.redirect_uri));
@@ -550,7 +545,6 @@ oauthApp.post('/authorize/confirm', async (c) => {
   // form, so a tampered hidden field cannot redirect the code elsewhere.
   const stored = JSON.parse(verdict.context) as AuthorizeParams;
 
-  if (!env.PII_ENC_KEY) return errorPage(env, 'Serwer nie ma skonfigurowanego klucza szyfrowania.');
   const user = await findOrCreateUserByEmail(env, verdict.email);
 
   const authCode = randomSecret(32);
@@ -601,7 +595,7 @@ async function issueTokens(
   env: Env,
   input: { clientId: string; userId: string; scope: string; resource: string },
 ): Promise<Response> {
-  const key = signingKey(env);
+  const key = env.TOKEN_SIGNING_KEY;
   const accessToken = `ot_at_${randomSecret(32)}`;
   const refreshToken = `ot_rt_${randomSecret(32)}`;
   const at = nowIso();
@@ -647,7 +641,7 @@ async function issueTokens(
 
 oauthApp.post('/token', async (c) => {
   const env = c.env;
-  const key = signingKey(env);
+  const key = env.TOKEN_SIGNING_KEY;
   const form = await c.req.formData();
   const get = (name: string): string => {
     const value = form.get(name);
@@ -766,7 +760,7 @@ oauthApp.post('/revoke', async (c) => {
   const token = form.get('token');
   if (typeof token === 'string' && token.length > 0) {
     await env.DB.prepare(`UPDATE oauth_tokens SET revoked_at = ? WHERE token_hash = ?`)
-      .bind(nowIso(), await hmacHex(signingKey(env), `token:${token}`))
+      .bind(nowIso(), await hmacHex(env.TOKEN_SIGNING_KEY, `token:${token}`))
       .run();
   }
   // RFC 7009: always 200, so the endpoint cannot be used to probe token validity.

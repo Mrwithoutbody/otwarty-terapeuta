@@ -351,6 +351,9 @@ export default {
     ctx.waitUntil(
       (async () => {
         try {
+          // Cron też przechodzi przez `assertConfig`: reszta kodu traktuje
+          // sekrety jako obecne, a zadanie w tle nie ma jak o to zapytać.
+          assertConfig(env);
           const result = await drainOutbox(env, 50);
           await purgeExpiredAuthState(env);
           const purged = await purgeExpiredData(env);

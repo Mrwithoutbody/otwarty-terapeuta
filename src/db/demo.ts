@@ -1,6 +1,5 @@
 import type { Env } from '../env';
-import { addCivilDays, civilDateIn, nowIso, weekdayIn, zonedTimeToUtc } from '../lib/time';
-import { randomId } from '../lib/crypto';
+import { slotStatements } from './slots';
 
 /**
  * Keeps the demonstration profiles from going stale.
@@ -37,43 +36,21 @@ export async function topUpDemoSlots(env: Env): Promise<{ added: number }> {
       WHERE t.is_demo = 1 AND t.status = 'published' AND t.deleted_at IS NULL`,
   ).all<DemoRow>();
 
-  const statements = [];
-  const at = nowIso();
-
-  for (const row of results) {
-    if (!row.offer_id || (row.last_slot !== null && row.last_slot >= horizon)) continue;
-
-    const duration = row.duration_minutes ?? 50;
-    const today = civilDateIn(row.timezone, new Date());
-    for (let d = 1; d <= TOP_UP_TO_DAYS; d++) {
-      const day = addCivilDays(today, d);
-      const weekday = weekdayIn(row.timezone, day);
-      if (weekday === 0 || weekday === 6) continue;
-
-      for (const hour of HOURS) {
-        const start = zonedTimeToUtc(day, hour, 0, row.timezone);
-        // Already covered: the query above tells us where her calendar ends.
-        if (row.last_slot !== null && start.toISOString() <= row.last_slot) continue;
-        const end = new Date(start.getTime() + duration * 60_000);
-        statements.push(
-          env.DB.prepare(
-            `INSERT OR IGNORE INTO appointment_slots
-               (id, therapist_id, offer_id, starts_at_utc, ends_at_utc, timezone, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-          ).bind(
-            randomId('sl'),
-            row.id,
-            row.offer_id,
-            start.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-            end.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-            row.timezone,
-            at,
-            at,
-          ),
-        );
-      }
-    }
-  }
+  const statements = results.flatMap((row) =>
+    row.offer_id === null
+      ? []
+      : row.last_slot !== null && row.last_slot >= horizon
+        ? []
+        : slotStatements(env, row.id, {
+            offerId: row.offer_id,
+            durationMinutes: row.duration_minutes ?? 50,
+            timezone: row.timezone,
+            hours: HOURS,
+            days: TOP_UP_TO_DAYS,
+            // Already covered: the query above tells us where her calendar ends.
+            after: row.last_slot,
+          }),
+  );
 
   if (statements.length > 0) await env.DB.batch(statements);
   return { added: statements.length };

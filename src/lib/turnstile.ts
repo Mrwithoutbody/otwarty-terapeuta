@@ -8,7 +8,6 @@ const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
  * Fails closed: a network error or a missing secret means "not verified".
  */
 export async function verifyTurnstile(env: Env, token: string | null, ip: string | null): Promise<boolean> {
-  if (!env.TURNSTILE_SECRET_KEY) return false;
   if (!token || token.length > 4096) return false;
 
   const body = new FormData();

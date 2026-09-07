@@ -213,12 +213,12 @@ therapistSignupApp.post('/potwierdz', async (c) => {
       pending.bio,
       pending.offersOnline ? 1 : 0,
       pending.offersInPerson ? 1 : 0,
-      await encryptPii(c.env.PII_ENC_KEY ?? '', email),
+      await encryptPii(c.env.PII_ENC_KEY, email),
       at,
       at,
     ),
     c.env.DB.prepare(`UPDATE users SET role = 'therapist', therapist_id = ?, name_enc = ?, updated_at = ? WHERE id = ?`)
-      .bind(therapistId, await encryptPii(c.env.PII_ENC_KEY ?? '', pending.displayName), at, user.id),
+      .bind(therapistId, await encryptPii(c.env.PII_ENC_KEY, pending.displayName), at, user.id),
     c.env.DB.prepare(
       `INSERT INTO consent_records (id, user_id, kind, version, granted_at, source)
        VALUES (?, ?, 'terms', ?, ?, 'web:therapist_signup')`,

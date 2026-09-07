@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import { getTherapistRowForAdmin } from '../db/catalog';
+import { generateSlots } from '../db/slots';
+import { viewsByTherapist } from '../db/views';
 import type { TherapistRow } from '../db/types';
 import { eraseUserData, exportUserData, findOrCreateUserByEmail, type UserRow } from '../db/users';
 import {
@@ -15,17 +17,7 @@ import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/chall
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
 import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import {
-  addCivilDays,
-  civilDateIn,
-  DEFAULT_TIMEZONE,
-  formatDateTime,
-  formatPrice,
-  isValidTimezone,
-  nowIso,
-  weekdayIn,
-  zonedTimeToUtc,
-} from '../lib/time';
+import { DEFAULT_TIMEZONE, formatDateTime, formatPrice, isValidTimezone, nowIso } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
@@ -60,9 +52,20 @@ function csrfField(session: AdminSession): string {
   return `<input type="hidden" name="csrf" value="${escapeHtml(session.csrfToken)}">`;
 }
 
-function signingKey(env: Env): string {
-  if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
-  return env.TOKEN_SIGNING_KEY;
+/**
+ * Ekran panelu: sesja i rola. Trasy GET niczego nie zmieniają, więc CSRF ich
+ * nie dotyczy - dla nich to cała bramka. `roles` puste = każda rola panelu.
+ */
+async function screen(
+  c: { env: Env; req: { raw: Request } },
+  roles?: Array<UserRow['role']>,
+): Promise<{ session: AdminSession } | { response: Response }> {
+  const session = await loadAdminSession(c.env, c.req.raw);
+  if (!session) return { response: page(c.env, 'Zaloguj się', loginForm(c.env), 401, true) };
+  if (roles && !roles.includes(session.user.role)) {
+    return { response: page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403) };
+  }
+  return { session };
 }
 
 /** Every mutating admin route starts here: session + CSRF + role. */
@@ -128,7 +131,7 @@ adminApp.post('/login', async (c) => {
     return page(c.env, 'Zaloguj się', loginForm(c.env, 'Weryfikacja antyspamowa nie powiodła się.'), 400, true);
   }
 
-  const emailHash = await emailLookupHash(signingKey(c.env), email);
+  const emailHash = await emailLookupHash(c.env.TOKEN_SIGNING_KEY, email);
 
   // Only an existing account may receive a panel code. The response is
   // identical either way, so the form cannot be used to enumerate staff.
@@ -229,24 +232,10 @@ adminApp.get('/', async (c) => {
     accepting_new_clients: number;
   }>();
 
-  /**
-   * Odsłony profili z ostatnich 30 dni, jednym zapytaniem dla całej listy -
-   * nie po jednym na wiersz. Agregat dobowy, bez identyfikatora osoby: to
-   * odpowiedź na „ile razy oglądano", nie na „kto oglądał".
-   */
-  const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-  const viewRows = await c.env.DB.prepare(
-    `SELECT therapist_id, source, SUM(views) AS views FROM profile_views
-      WHERE day >= ? GROUP BY therapist_id, source`,
-  )
-    .bind(since)
-    .all<{ therapist_id: string; source: 'web' | 'mcp'; views: number }>();
-  const views = new Map<string, { web: number; mcp: number }>();
-  for (const row of viewRows.results) {
-    const entry = views.get(row.therapist_id) ?? { web: 0, mcp: 0 };
-    entry[row.source] += row.views;
-    views.set(row.therapist_id, entry);
-  }
+  // Odsłony profili z ostatnich 30 dni, jednym zapytaniem dla całej listy -
+  // nie po jednym na wiersz. Agregat dobowy, bez identyfikatora osoby: to
+  // odpowiedź na „ile razy oglądano", nie na „kto oglądał".
+  const views = await viewsByTherapist(c.env);
 
   const upcoming = await c.env.DB.prepare(
     `SELECT b.id, b.public_ref, b.status, b.starts_at_utc, b.timezone, b.price_minor, b.currency,
@@ -278,16 +267,14 @@ adminApp.get('/', async (c) => {
    * te kolumny i wiersz sam przestaje mieć co pokazać.
    */
   const contacts = new Map<string, string>();
-  if (c.env.PII_ENC_KEY) {
-    for (const b of upcoming.results) {
-      const parts = await Promise.all(
-        [b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc].map((value) =>
-          value ? decryptPii(c.env.PII_ENC_KEY as string, value) : Promise.resolve(null),
-        ),
-      );
-      const shown = parts.filter((part): part is string => part !== null && part !== '');
-      if (shown.length > 0) contacts.set(b.id, shown.join(' · '));
-    }
+  for (const b of upcoming.results) {
+    const parts = await Promise.all(
+      [b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc].map((value) =>
+        value ? decryptPii(c.env.PII_ENC_KEY, value) : Promise.resolve(null),
+      ),
+    );
+    const shown = parts.filter((part): part is string => part !== null && part !== '');
+    if (shown.length > 0) contacts.set(b.id, shown.join(' · '));
   }
 
   const pendingProfiles = therapists.results.filter(
@@ -1119,11 +1106,9 @@ ${
 }
 
 adminApp.get('/terapeuci/nowy', async (c) => {
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
-  if (session.user.role !== 'admin') {
-    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-  }
+  const g = await screen(c, ['admin']);
+  if ('response' in g) return g.response;
+  const session = g.session;
   const context = await loadEditorContext(c.env, null);
   // No tabs here: FAQ, offers and availability all need a saved profile first.
   return page(
@@ -1134,8 +1119,9 @@ adminApp.get('/terapeuci/nowy', async (c) => {
 });
 
 adminApp.get('/terapeuci/:id', async (c) => {
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
+  const g = await screen(c);
+  if ('response' in g) return g.response;
+  const session = g.session;
   const id = c.req.param('id');
   if (!ownsTherapist(session.user, id)) {
     return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1><p>Możesz edytować wyłącznie własny profil.</p>', 403);
@@ -1819,36 +1805,13 @@ adminApp.post('/terapeuci/:id/terminy', async (c) => {
   // UTC instant they denote. "10:00 in Europe/Warsaw" therefore stays 10:00 for
   // the therapist on both sides of a daylight-saving transition, even though the
   // stored UTC instant shifts by an hour.
-  const statements = [];
-  const today = civilDateIn(timezone, new Date());
-
-  for (let d = 1; d <= days; d++) {
-    const day = addCivilDays(today, d);
-    const weekday = weekdayIn(timezone, day);
-    if (weekday === 0 || weekday === 6) continue;
-
-    for (const hour of hours) {
-      const start = zonedTimeToUtc(day, hour, 0, timezone);
-      const end = new Date(start.getTime() + offer.duration_minutes * 60_000);
-      statements.push(
-        c.env.DB.prepare(
-          `INSERT OR IGNORE INTO appointment_slots
-             (id, therapist_id, offer_id, starts_at_utc, ends_at_utc, timezone, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-        ).bind(
-          randomId('sl'),
-          id,
-          offer.id,
-          start.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-          end.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-          timezone,
-          nowIso(),
-          nowIso(),
-        ),
-      );
-    }
-  }
-  if (statements.length > 0) await c.env.DB.batch(statements);
+  const added = await generateSlots(c.env, id, {
+    offerId: offer.id,
+    durationMinutes: offer.duration_minutes,
+    timezone,
+    hours,
+    days,
+  });
 
   await audit(c.env, {
     actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
@@ -1856,7 +1819,7 @@ adminApp.post('/terapeuci/:id/terminy', async (c) => {
     action: 'slots.generated',
     subjectType: 'therapist',
     subjectId: id,
-    meta: { count: statements.length, field: timezone },
+    meta: { count: added, field: timezone },
   });
   return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
 });
@@ -1930,7 +1893,7 @@ adminApp.post('/rezerwacje/:id/anuluj', async (c) => {
     const owner = await c.env.DB.prepare(`SELECT email_enc FROM users WHERE id = ?`)
       .bind(row.user_id)
       .first<{ email_enc: string }>();
-    if (owner && c.env.PII_ENC_KEY) {
+    if (owner) {
       await enqueueNotification(c.env, 'booking.cancelled_by_staff', row.id, {
         to: await decryptPii(c.env.PII_ENC_KEY, owner.email_enc),
         subject: `Rezerwacja ${row.public_ref} została odwołana`,
@@ -1954,9 +1917,9 @@ adminApp.post('/rezerwacje/:id/anuluj', async (c) => {
 // ------------------------------------------------------------ crisis data ---
 
 adminApp.get('/kryzys', async (c) => {
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
-  if (session.user.role !== 'admin') return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  const g = await screen(c, ['admin']);
+  if ('response' in g) return g.response;
+  const session = g.session;
 
   const { results } = await c.env.DB.prepare(
     `SELECT id, audience, title, phone, url, verified_at, version, active FROM crisis_resources
@@ -2049,9 +2012,9 @@ adminApp.post('/kryzys/:id', async (c) => {
 // ------------------------------------------------------------- user rights ---
 
 adminApp.get('/uzytkownicy', async (c) => {
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
-  if (session.user.role !== 'admin') return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  const g = await screen(c, ['admin']);
+  if ('response' in g) return g.response;
+  const session = g.session;
 
   return page(
     c.env,
@@ -2083,7 +2046,7 @@ pozostaje w formie pozbawionej danych identyfikujących, ponieważ jest potrzebn
 
 async function findUserIdByEmail(env: Env, email: string): Promise<string | null> {
   const row = await env.DB.prepare(`SELECT id FROM users WHERE email_hash = ? AND deleted_at IS NULL`)
-    .bind(await emailLookupHash(signingKey(env), email.trim().toLowerCase()))
+    .bind(await emailLookupHash(env.TOKEN_SIGNING_KEY, email.trim().toLowerCase()))
     .first<{ id: string }>();
   return row?.id ?? null;
 }
@@ -2136,9 +2099,8 @@ adminApp.post('/uzytkownicy/usun', async (c) => {
 // ------------------------------------------------------------------ audit ---
 
 adminApp.get('/audyt', async (c) => {
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 401, true);
-  if (session.user.role !== 'admin') return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  const g = await screen(c, ['admin']);
+  if ('response' in g) return g.response;
 
   const { results } = await c.env.DB.prepare(
     `SELECT at, actor_type, actor_id, action, subject_type, subject_id, meta_json

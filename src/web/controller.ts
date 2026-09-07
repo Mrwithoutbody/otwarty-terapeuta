@@ -5,59 +5,41 @@ import { escapeHtml } from '../lib/sanitize';
  * wyjść identycznie w polityce prywatności, w regulaminie i w stopce — a trzy
  * kopie rozjeżdżają się przy pierwszej zmianie adresu.
  *
- * Dane rejestrowe są faktem z KRS, nie tekstem marketingowym: pola zostają
- * puste, dopóki nie zostaną potwierdzone przez zarząd spółki. Pusta wartość
- * nie renderuje wiersza, więc strona nigdy nie pokazuje wymyślonego numeru.
+ * Dane rejestrowe są faktem z KRS, nie tekstem marketingowym. Wiersz bez
+ * wartości nie powstaje, więc dopóki zarząd nie potwierdzi numerów, strona
+ * pokazuje samą nazwę i adres kontaktowy zamiast pustych rubryk albo — co
+ * gorsza — wartości zmyślonych. Numer dopisujesz tutaj, jednym polem.
  */
-export interface Controller {
-  /** Pełna nazwa z rejestru. */
-  name: string;
-  /** Ulica i numer. */
-  street: string;
-  /** Kod pocztowy i miejscowość. */
-  city: string;
-  krs: string;
-  nip: string;
-  regon: string;
-  /** Sąd rejestrowy prowadzący akta spółki. */
-  court: string;
-  /** Adres do spraw danych osobowych. */
-  email: string;
-  /** Inspektor ochrony danych — pusty ciąg, jeżeli nie powołano. */
-  dpo: string;
-}
-
-export const CONTROLLER: Controller = {
+export const CONTROLLER = {
   name: 'Blockbox sp. z o.o.',
-  street: '',
-  city: '',
+  email: 'kontakt@otwartyterapeuta.pl',
+  /** Ulica, numer, kod pocztowy i miejscowość — jedną linią, jak na pieczątce. */
+  address: '',
   krs: '',
   nip: '',
   regon: '',
+  /** Sąd rejestrowy prowadzący akta spółki. */
   court: '',
-  email: 'kontakt@otwartyterapeuta.pl',
+  /** Inspektor ochrony danych — pusty ciąg, jeżeli nie powołano. */
   dpo: '',
 };
 
-/** Czy mamy komplet danych rejestrowych, czy tylko samą nazwę. */
-export function controllerIsComplete(c: Controller = CONTROLLER): boolean {
-  return [c.street, c.city, c.krs, c.nip, c.regon].every((value) => value.trim() !== '');
-}
+export type Controller = typeof CONTROLLER;
 
 /**
- * Tożsamość administratora jako lista par. Wiersz bez wartości nie powstaje,
- * więc dopóki zarząd nie potwierdzi numerów, strona pokazuje samą nazwę i adres
- * kontaktowy zamiast pustych rubryk albo — co gorsza — wartości zmyślonych.
+ * Tożsamość administratora jako lista par. Pola bez wartości wypadają.
  */
 export function controllerDetails(c: Controller = CONTROLLER): string {
-  const rows: Array<[string, string]> = ([
-    ['Nazwa', c.name],
-    ['Adres', [c.street, c.city].filter((part) => part.trim() !== '').join(', ')],
-    ['KRS', c.krs],
-    ['NIP', c.nip],
-    ['REGON', c.regon],
-    ['Sąd rejestrowy', c.court],
-  ] as Array<[string, string]>).filter(([, value]) => value.trim() !== '');
+  const rows: Array<[string, string]> = (
+    [
+      ['Nazwa', c.name],
+      ['Adres', c.address],
+      ['KRS', c.krs],
+      ['NIP', c.nip],
+      ['REGON', c.regon],
+      ['Sąd rejestrowy', c.court],
+    ] as Array<[string, string]>
+  ).filter(([, value]) => value.trim() !== '');
 
   return `<dl class="pdata">${rows
     .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`)

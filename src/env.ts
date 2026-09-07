@@ -32,11 +32,17 @@ export interface Env {
   PAGES_URL: string;
 
   // --- secrets ---
+  /**
+   * `assertConfig` refuses every request before these three are set, in every
+   * environment, so the rest of the code may treat them as present. Deklaracja
+   * jako opcjonalne wymuszała siedem kopii strażnika „sekret albo rzuć",
+   * z których żaden nigdy nie mógł się odpalić.
+   */
+  PII_ENC_KEY: string;
+  TOKEN_SIGNING_KEY: string;
+  TURNSTILE_SECRET_KEY: string;
   /** This site's key at the pages service. Local defaults to `dev`, the dev server's key. */
   PAGES_API_KEY?: string;
-  PII_ENC_KEY?: string;
-  TOKEN_SIGNING_KEY?: string;
-  TURNSTILE_SECRET_KEY?: string;
   EMAIL_PROVIDER?: string;
   EMAIL_API_KEY?: string;
   EMAIL_FROM?: string;

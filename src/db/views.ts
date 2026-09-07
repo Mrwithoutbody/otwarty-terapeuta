@@ -42,30 +42,24 @@ export async function recordProfileView(
   }
 }
 
-export interface ViewStats {
-  last30: number;
-  last7: number;
-  web: number;
-  mcp: number;
-}
-
-/** Podsumowanie dla panelu: ostatnie 30 dni, z podziałem na źródło. */
-export async function profileViewStats(env: Env, therapistId: string): Promise<ViewStats> {
-  const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-  const since7 = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
-
+/** Odsłony per profil za ostatnie `days` dni — jedno zapytanie dla całej listy w panelu. */
+export async function viewsByTherapist(
+  env: Env,
+  days = 30,
+): Promise<Map<string, { web: number; mcp: number }>> {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
   const { results } = await env.DB.prepare(
-    `SELECT day, source, views FROM profile_views
-      WHERE therapist_id = ? AND day >= ?`,
+    `SELECT therapist_id, source, SUM(views) AS views FROM profile_views
+      WHERE day >= ? GROUP BY therapist_id, source`,
   )
-    .bind(therapistId, since)
-    .all<{ day: string; source: ViewSource; views: number }>();
+    .bind(since)
+    .all<{ therapist_id: string; source: ViewSource; views: number }>();
 
-  const stats: ViewStats = { last30: 0, last7: 0, web: 0, mcp: 0 };
+  const byTherapist = new Map<string, { web: number; mcp: number }>();
   for (const row of results) {
-    stats.last30 += row.views;
-    if (row.day >= since7) stats.last7 += row.views;
-    stats[row.source] += row.views;
+    const entry = byTherapist.get(row.therapist_id) ?? { web: 0, mcp: 0 };
+    entry[row.source] += row.views;
+    byTherapist.set(row.therapist_id, entry);
   }
-  return stats;
+  return byTherapist;
 }

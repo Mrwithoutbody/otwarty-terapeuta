@@ -93,19 +93,13 @@ class McpAppBridge {
       return;
     }
 
-    switch (data.method) {
-      case 'ui/notifications/tool-result':
-      case 'ui/notifications/tool-input': {
-        const params = data.params as { result?: unknown; structuredContent?: unknown } | undefined;
-        const payload = params?.structuredContent ?? params?.result ?? params;
-        if (data.method === 'ui/notifications/tool-result') {
-          this.latestToolResult = payload;
-          for (const listener of this.resultListeners) listener(payload);
-        }
-        break;
-      }
-      default:
-        break;
+    // Only the result carries data the widget renders; `ui/notifications/tool-input`
+    // is the host echoing back the arguments, which this surface never shows.
+    if (data.method === 'ui/notifications/tool-result') {
+      const params = data.params as { result?: unknown; structuredContent?: unknown } | undefined;
+      const payload = params?.structuredContent ?? params?.result ?? params;
+      this.latestToolResult = payload;
+      for (const listener of this.resultListeners) listener(payload);
     }
   };
 

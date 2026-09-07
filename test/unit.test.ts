@@ -5,7 +5,7 @@ import { signConfirmationToken, verifyConfirmationToken } from '../src/lib/token
 import { rankTherapists } from '../src/matching/rank';
 import { ADMIN_JS } from '../src/web/admin-ui';
 import { redact } from '../src/lib/log';
-import { controllerDetails, controllerIsComplete } from '../src/web/controller';
+import { controllerDetails } from '../src/web/controller';
 import { decryptPii, encryptPii, timingSafeEqual } from '../src/lib/crypto';
 import {
   addCivilDays,
@@ -400,7 +400,7 @@ describe('tożsamość administratora danych', () => {
   // sposoby na to samo: dokument, który wprowadza w błąd.
   it('nie renderuje rubryki, dla której nie ma potwierdzonej wartości', () => {
     const html = controllerDetails({
-      name: 'Blockbox sp. z o.o.', street: '', city: '', krs: '', nip: '', regon: '',
+      name: 'Blockbox sp. z o.o.', address: '', krs: '', nip: '', regon: '',
       court: '', email: 'kontakt@example.org', dpo: '',
     });
     expect(html).toContain('Blockbox sp. z o.o.');
@@ -411,20 +411,18 @@ describe('tożsamość administratora danych', () => {
 
   it('pokazuje komplet, gdy komplet jest', () => {
     const full = {
-      name: 'Blockbox sp. z o.o.', street: 'ul. Przykładowa 1', city: '00-001 Warszawa',
+      name: 'Blockbox sp. z o.o.', address: 'ul. Przykładowa 1, 00-001 Warszawa',
       krs: '0000000000', nip: '0000000000', regon: '000000000',
       court: 'Sąd Rejonowy dla m.st. Warszawy', email: 'kontakt@example.org', dpo: '',
     };
-    expect(controllerIsComplete(full)).toBe(true);
     const html = controllerDetails(full);
-    for (const value of [full.krs, full.nip, full.regon, full.street, full.city]) {
+    for (const value of [full.krs, full.nip, full.regon, full.address]) {
       expect(html).toContain(value);
     }
   });
 
   it('mówi wprost, że inspektora nie powołano, zamiast milczeć', () => {
     expect(controllerDetails()).toContain('Nie powołaliśmy inspektora ochrony danych');
-    expect(controllerIsComplete()).toBe(false);
   });
 });
 

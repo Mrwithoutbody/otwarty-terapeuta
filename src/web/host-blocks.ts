@@ -552,8 +552,3 @@ export function summarize(resolved: Record<string, Block | null>): Record<string
     }),
   );
 }
-
-/** The default spine of a profile that has never been arranged. */
-export const DEFAULT_PROFILE = [
-  'hero-profil', 'intro', 'dane', 'zestawienie', 'topics', 'offers', 'slots', 'gabinet', 'faq-profil', 'credentials', 'zaproszenie',
-];

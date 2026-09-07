@@ -21,17 +21,12 @@ export interface AdminSession {
   csrfToken: string;
 }
 
-function signingKey(env: Env): string {
-  if (!env.TOKEN_SIGNING_KEY) throw new Error('Brak TOKEN_SIGNING_KEY.');
-  return env.TOKEN_SIGNING_KEY;
-}
-
 async function deriveCsrf(env: Env, sessionSecret: string): Promise<string> {
-  return hmacHex(signingKey(env), `csrf:${sessionSecret}`);
+  return hmacHex(env.TOKEN_SIGNING_KEY, `csrf:${sessionSecret}`);
 }
 
 export async function createAdminSession(env: Env, userId: string): Promise<{ cookie: string }> {
-  const key = signingKey(env);
+  const key = env.TOKEN_SIGNING_KEY;
   const sessionSecret = randomSecret(32);
 
   await env.DB.prepare(
@@ -68,7 +63,7 @@ export async function loadAdminSession(env: Env, request: Request): Promise<Admi
   const row = await env.DB.prepare(
     `SELECT user_id, expires_at FROM admin_sessions WHERE session_hash = ?`,
   )
-    .bind(await hmacHex(signingKey(env), `session:${secret}`))
+    .bind(await hmacHex(env.TOKEN_SIGNING_KEY, `session:${secret}`))
     .first<{ user_id: string; expires_at: string }>();
 
   if (!row || Date.parse(row.expires_at) < Date.now()) return null;
@@ -88,7 +83,7 @@ export async function destroyAdminSession(env: Env, request: Request): Promise<s
   const secret = readCookie(request.headers.get('cookie'), COOKIE_NAME);
   if (secret) {
     await env.DB.prepare(`DELETE FROM admin_sessions WHERE session_hash = ?`)
-      .bind(await hmacHex(signingKey(env), `session:${secret}`))
+      .bind(await hmacHex(env.TOKEN_SIGNING_KEY, `session:${secret}`))
       .run();
   }
   return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;

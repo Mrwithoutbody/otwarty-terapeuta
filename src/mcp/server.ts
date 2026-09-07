@@ -23,7 +23,6 @@ import { AppError, toPublicError } from '../lib/errors';
 import { log } from '../lib/log';
 import { recordProfileView } from '../db/views';
 import { civilDateIn, formatDateTime, formatPrice, formatTime, isoPlusSeconds, nowIso, timezoneLabel } from '../lib/time';
-import { fromBase64Url, toBase64Url } from '../lib/crypto';
 import { WIDGET_HTML } from '../widget/generated';
 import * as S from './schemas';
 
@@ -76,6 +75,26 @@ Zasady korzystania z tego serwera:
 7. Aby pokazać wynik w interfejsie, najpierw wywołaj narzędzie danych, a potem
    render_otwarty_terapeuta_widget z niezmienionym structuredContent.
 `.trim();
+
+/**
+ * Adnotacje narzędzia. Wszystkie dziewięć powtarzało ten sam blok pięciu pól,
+ * w tym `title` podany wiersz wyżej. Katalog tylko czyta, rezerwacja pisze.
+ */
+const readOnly = (title: string) => ({
+  title,
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+});
+
+const writes = (title: string, destructive: boolean) => ({
+  title,
+  readOnlyHint: false,
+  destructiveHint: destructive,
+  idempotentHint: true,
+  openWorldHint: true,
+});
 
 const DISCLAIMER =
   'Wyniki to profile pasujące do podanych kryteriów, a nie rekomendacja kliniczna. ' +
@@ -158,19 +177,10 @@ function ok(text: string, structured: Record<string, unknown>, meta?: Record<str
 
 // -------------------------------------------------------------- pagination ---
 
-function encodeCursor(offset: number): string {
-  return toBase64Url(new TextEncoder().encode(JSON.stringify({ o: offset })));
-}
-
+/** The cursor IS the offset. Anything else - absent, negative, huge, not a number - starts over. */
 function decodeCursor(cursor: string | undefined): number {
-  if (!cursor) return 0;
-  try {
-    const parsed = JSON.parse(new TextDecoder().decode(fromBase64Url(cursor))) as { o?: unknown };
-    const offset = typeof parsed.o === 'number' ? parsed.o : 0;
-    return Number.isInteger(offset) && offset >= 0 && offset <= 500 ? offset : 0;
-  } catch {
-    return 0;
-  }
+  const offset = Number(cursor);
+  return Number.isInteger(offset) && offset >= 0 && offset <= 500 ? offset : 0;
 }
 
 // ------------------------------------------------------------------ tools ---
@@ -263,13 +273,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'wtedy wywołaj get_crisis_resources.',
         inputSchema: S.searchTherapistsInput,
         outputSchema: S.searchTherapistsOutput,
-        annotations: {
-          title: 'Znajdź terapeutów',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('Znajdź terapeutów'),
       },
       async (args): Promise<CallToolResult> => {
         try {
@@ -349,7 +353,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           const structured = {
             results,
             total_matching: ranked.length,
-            next_cursor: offset + args.limit < ranked.length ? encodeCursor(offset + args.limit) : null,
+            next_cursor: offset + args.limit < ranked.length ? String(offset + args.limit) : null,
             applied_filters: JSON.parse(JSON.stringify(filters)) as Record<string, unknown>,
             disclaimer: DISCLAIMER,
           };
@@ -388,13 +392,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'Nie zwraca żadnych danych prywatnych ani notatek weryfikacyjnych.',
         inputSchema: S.getTherapistProfileInput,
         outputSchema: S.getTherapistProfileOutput,
-        annotations: {
-          title: 'Profil terapeuty',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('Profil terapeuty'),
       },
       async (args): Promise<CallToolResult> => {
         try {
@@ -478,13 +476,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'i zaproponuj kontakt bezpośrednio z terapeutą.',
         inputSchema: S.getTherapistFaqInput,
         outputSchema: S.getTherapistFaqOutput,
-        annotations: {
-          title: 'FAQ terapeuty',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('FAQ terapeuty'),
       },
       async (args): Promise<CallToolResult> => {
         try {
@@ -536,13 +528,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'Po upływie fresh_until_utc NIE obiecuj dostępności — sprawdź terminy ponownie.',
         inputSchema: S.listAvailableSlotsInput,
         outputSchema: S.listAvailableSlotsOutput,
-        annotations: {
-          title: 'Wolne terminy',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('Wolne terminy'),
       },
       async (args): Promise<CallToolResult> => {
         try {
@@ -625,13 +611,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'potwierdzenie, zanim wywołasz create_booking. Wymaga połączonego konta.',
         inputSchema: S.previewBookingInput,
         outputSchema: S.previewBookingOutput,
-        annotations: {
-          title: 'Podsumowanie przed rezerwacją',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: false,
-          openWorldHint: false,
-        },
+        annotations: { ...readOnly('Podsumowanie przed rezerwacją'), idempotentHint: false },
       },
       async (args): Promise<CallToolResult> => {
         const guard = await requireUser(
@@ -680,13 +660,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'Serwer ponownie weryfikuje token, właściciela, cenę i dostępność terminu.',
         inputSchema: S.createBookingInput,
         outputSchema: S.createBookingOutput,
-        annotations: {
-          title: 'Zarezerwuj wizytę',
-          readOnlyHint: false,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
+        annotations: writes('Zarezerwuj wizytę', false),
       },
       async (args): Promise<CallToolResult> => {
         const guard = await requireUser(
@@ -731,13 +705,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'terapeuta, termin, forma, cena, status i numer rezerwacji.',
         inputSchema: S.listMyBookingsInput,
         outputSchema: S.listMyBookingsOutput,
-        annotations: {
-          title: 'Moje rezerwacje',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('Moje rezerwacje'),
       },
       async (args): Promise<CallToolResult> => {
         const guard = await requireUser(
@@ -778,13 +746,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'ponowne odwołanie zwraca ten sam status.',
         inputSchema: S.cancelBookingInput,
         outputSchema: S.cancelBookingOutput,
-        annotations: {
-          title: 'Odwołaj wizytę',
-          readOnlyHint: false,
-          destructiveHint: true,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
+        annotations: writes('Odwołaj wizytę', true),
       },
       async (args): Promise<CallToolResult> => {
         const guard = await requireUser(
@@ -817,13 +779,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'Użyj audience="minor" dla osób poniżej 18 roku życia.',
         inputSchema: S.crisisResourcesInput,
         outputSchema: S.crisisResourcesOutput,
-        annotations: {
-          title: 'Pomoc w kryzysie',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('Pomoc w kryzysie'),
       },
       async (args): Promise<CallToolResult> => {
         try {
@@ -896,13 +852,7 @@ export function createServerFactory(env: Env): (ctx: McpRequestContext) => McpSe
           'To narzędzie niczego nie pobiera i niczego nie zapisuje.',
         inputSchema: S.renderWidgetInput,
         outputSchema: S.renderWidgetOutput,
-        annotations: {
-          title: 'Pokaż widok Otwartego Terapeuty',
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: false,
-        },
+        annotations: readOnly('Pokaż widok Otwartego Terapeuty'),
         _meta: {
           // MCP Apps: the single tool bound to the UI resource.
           ui: {

@@ -16,13 +16,6 @@ export interface UserRow {
   deleted_at: string | null;
 }
 
-function requireKeys(env: Env): { pii: string; token: string } {
-  if (!env.PII_ENC_KEY || !env.TOKEN_SIGNING_KEY) {
-    throw new Error('Brak PII_ENC_KEY lub TOKEN_SIGNING_KEY.');
-  }
-  return { pii: env.PII_ENC_KEY, token: env.TOKEN_SIGNING_KEY };
-}
-
 /**
  * Users are keyed by an HMAC of their e-mail address, so the database can find
  * an account without holding a searchable copy of the address itself. The
@@ -30,9 +23,8 @@ function requireKeys(env: Env): { pii: string; token: string } {
  * needed for: sending the person their own booking confirmation.
  */
 export async function findOrCreateUserByEmail(env: Env, email: string): Promise<UserRow> {
-  const keys = requireKeys(env);
   const normalized = email.trim().toLowerCase();
-  const hash = await emailLookupHash(keys.token, normalized);
+  const hash = await emailLookupHash(env.TOKEN_SIGNING_KEY, normalized);
 
   const existing = await env.DB.prepare(
     `SELECT * FROM users WHERE email_hash = ? AND deleted_at IS NULL`,
@@ -50,7 +42,7 @@ export async function findOrCreateUserByEmail(env: Env, email: string): Promise<
   const row: UserRow = {
     id: randomId('usr'),
     email_hash: hash,
-    email_enc: await encryptPii(keys.pii, normalized),
+    email_enc: await encryptPii(env.PII_ENC_KEY, normalized),
     name_enc: null,
     role,
     therapist_id: null,
@@ -74,8 +66,7 @@ export async function getUser(env: Env, userId: string): Promise<UserRow | null>
 }
 
 export async function decryptUserEmail(env: Env, user: UserRow): Promise<string> {
-  const keys = requireKeys(env);
-  return decryptPii(keys.pii, user.email_enc);
+  return decryptPii(env.PII_ENC_KEY, user.email_enc);
 }
 
 export async function recordConsent(
@@ -97,7 +88,6 @@ export async function recordConsent(
  * encrypted fields decrypted - it is the user's own data.
  */
 export async function exportUserData(env: Env, userId: string): Promise<Record<string, unknown>> {
-  const keys = requireKeys(env);
   const user = await getUser(env, userId);
   if (!user) return { user: null };
 
@@ -107,7 +97,7 @@ export async function exportUserData(env: Env, userId: string): Promise<Record<s
   ]);
 
   const decrypt = async (value: unknown): Promise<string | null> =>
-    typeof value === 'string' && value.length > 0 ? decryptPii(keys.pii, value) : null;
+    typeof value === 'string' && value.length > 0 ? decryptPii(env.PII_ENC_KEY, value) : null;
 
   return {
     exported_at: nowIso(),
@@ -177,7 +167,6 @@ export async function therapistNotificationEmail(
   env: Env,
   therapistId: string,
 ): Promise<string | null> {
-  if (!env.PII_ENC_KEY) return null;
 
   const profile = await env.DB.prepare(
     `SELECT contact_email_enc FROM therapists WHERE id = ? AND deleted_at IS NULL`,
