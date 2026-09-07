@@ -63,20 +63,7 @@ VALUES
   'Odwołanie bezpłatne do 24 godzin przed sesją.',24,
   '2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
 
- ('th_7a4c2f9051d3e86b4f0a5c18','katarzyna-wrona-demo','Katarzyna Wrona (DEMO)',
-  'Terapia schematu i EMDR, Wrocław oraz online',
-  'Towarzyszę osobom dorosłym po trudnych doświadczeniach — stracie bliskiej osoby, wypadku, przemocy. Najczęściej trafiają do mnie osoby, które od dawna radzą sobie dzielnie, tylko coraz większym kosztem: sen, koncentracja i bliskie relacje zaczynają się sypać.
-
-Pracuję terapią schematu oraz EMDR. Terapia schematu pomaga zrozumieć, skąd biorą się nawracające wzorce — dlaczego wybieramy podobnych ludzi i wpadamy w te same koleiny. EMDR pozwala przepracować wspomnienia, które nie chcą zblednąć: wracają w obrazach, snach i napięciu ciała.
-
-Zaczynamy zawsze od stabilizacji — bezpieczeństwo idzie przed każdą techniką. Tempo wyznaczasz Ty: bywają sesje, na których tylko rozmawiamy, i takie, na których pracujemy głęboko.
-
-Prowadzę sesje po polsku i po niemiecku, w gabinecie we Wrocławiu i online.',
-  '/avatar-placeholder.webp',1,1,1,'["adults"]','["individual"]',
-  '[{"title":"Certyfikat terapeuty schematu","issuer":"ISST","year":2018,"verified":true},{"title":"EMDR — poziom II","issuer":"EMDR Europe","year":2022,"verified":true}]',
-  'verified','2026-07-20T09:00:00Z','DEMO — profil fikcyjny.','published',1,'Europe/Warsaw',
-  'Odwołanie bezpłatne do 48 godzin przed sesją.',48,
-  '2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
+ 
 
  ('th_5d8f3b6270e91a4c8b3d0f27','tomasz-lis-demo','Tomasz Lis (DEMO)',
   'Terapia Gestalt, Poznań',
@@ -117,7 +104,7 @@ INSERT INTO therapist_locations (id, therapist_id, city, city_norm, region, coun
  ('loc_01','th_4f1a9c72e5b83d016a7c2e40','Warszawa','warszawa','mazowieckie','PL','ul. Przykładowa 1/2',1),
  ('loc_02','th_8b2d6e10f4a97c53d1e08b26','Kraków','krakow','małopolskie','PL','ul. Demonstracyjna 8',1),
  ('loc_04','th_1e07b8d3629af45c0d2e7a91','Gdańsk','gdansk','pomorskie','PL','al. Testowa 14',1),
- ('loc_05','th_7a4c2f9051d3e86b4f0a5c18','Wrocław','wroclaw','dolnośląskie','PL','ul. Fikcyjna 3',1),
+ 
  ('loc_06','th_5d8f3b6270e91a4c8b3d0f27','Poznań','poznan','wielkopolskie','PL','ul. Wzorcowa 21',1),
  ('loc_08','th_9f0b4d7382e6a15c7d2b8e34','Łódź','lodz','łódzkie','PL','ul. Próbna 5',1);
 
@@ -126,7 +113,7 @@ INSERT INTO therapist_languages (therapist_id, language_code) VALUES
  ('th_8b2d6e10f4a97c53d1e08b26','pl'),
  ('th_c93e5a4187b6f20d94a1c3f5','pl'),('th_c93e5a4187b6f20d94a1c3f5','en'),('th_c93e5a4187b6f20d94a1c3f5','uk'),
  ('th_1e07b8d3629af45c0d2e7a91','pl'),
- ('th_7a4c2f9051d3e86b4f0a5c18','pl'),('th_7a4c2f9051d3e86b4f0a5c18','de'),
+ 
  ('th_5d8f3b6270e91a4c8b3d0f27','pl'),
  ('th_2c6a9e50b8f14d73a0c5e829','pl'),('th_2c6a9e50b8f14d73a0c5e829','uk'),('th_2c6a9e50b8f14d73a0c5e829','ru'),
  ('th_9f0b4d7382e6a15c7d2b8e34','pl'),('th_9f0b4d7382e6a15c7d2b8e34','en'),
@@ -137,7 +124,7 @@ INSERT INTO therapist_specialties (therapist_id, specialty_slug) VALUES
  ('th_8b2d6e10f4a97c53d1e08b26','relacje'),('th_8b2d6e10f4a97c53d1e08b26','samoocena'),('th_8b2d6e10f4a97c53d1e08b26','zwiazki'),
  ('th_c93e5a4187b6f20d94a1c3f5','zwiazki'),('th_c93e5a4187b6f20d94a1c3f5','rodzicielstwo'),('th_c93e5a4187b6f20d94a1c3f5','relacje'),
  ('th_1e07b8d3629af45c0d2e7a91','uzaleznienia'),('th_1e07b8d3629af45c0d2e7a91','sen'),('th_1e07b8d3629af45c0d2e7a91','stres-zawodowy'),
- ('th_7a4c2f9051d3e86b4f0a5c18','trauma'),('th_7a4c2f9051d3e86b4f0a5c18','zaloba'),('th_7a4c2f9051d3e86b4f0a5c18','lek'),
+ 
  ('th_5d8f3b6270e91a4c8b3d0f27','zmiana-zyciowa'),('th_5d8f3b6270e91a4c8b3d0f27','samoocena'),('th_5d8f3b6270e91a4c8b3d0f27','zaloba'),
  ('th_2c6a9e50b8f14d73a0c5e829','migracja'),('th_2c6a9e50b8f14d73a0c5e829','lek'),('th_2c6a9e50b8f14d73a0c5e829','zmiana-zyciowa'),
  ('th_9f0b4d7382e6a15c7d2b8e34','neuroroznorodnosc'),('th_9f0b4d7382e6a15c7d2b8e34','lgbtq'),('th_9f0b4d7382e6a15c7d2b8e34','samoocena'),
@@ -148,7 +135,7 @@ INSERT INTO therapist_modalities (therapist_id, modality_slug) VALUES
  ('th_8b2d6e10f4a97c53d1e08b26','psychodynamiczna'),
  ('th_c93e5a4187b6f20d94a1c3f5','systemowa'),
  ('th_1e07b8d3629af45c0d2e7a91','act'),('th_1e07b8d3629af45c0d2e7a91','poznawczo-behawioralna'),
- ('th_7a4c2f9051d3e86b4f0a5c18','schematu'),('th_7a4c2f9051d3e86b4f0a5c18','emdr'),
+ 
  ('th_5d8f3b6270e91a4c8b3d0f27','gestalt'),
  ('th_2c6a9e50b8f14d73a0c5e829','integracyjna'),
  ('th_9f0b4d7382e6a15c7d2b8e34','dbt'),('th_9f0b4d7382e6a15c7d2b8e34','poznawczo-behawioralna'),
@@ -162,8 +149,8 @@ INSERT INTO session_offers (id, therapist_id, title, session_type, mode, duratio
  ('of_05','th_c93e5a4187b6f20d94a1c3f5','Terapia pary online','couples','online',80,30000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('of_06','th_c93e5a4187b6f20d94a1c3f5','Konsultacja rodzinna online','family','online',80,34000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('of_07','th_1e07b8d3629af45c0d2e7a91','Sesja indywidualna online','individual','online',50,18000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
- ('of_08','th_7a4c2f9051d3e86b4f0a5c18','Sesja indywidualna online','individual','online',50,24000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
- ('of_09','th_7a4c2f9051d3e86b4f0a5c18','Sesja EMDR w gabinecie','individual','in_person',80,32000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
+ 
+ 
  ('of_10','th_5d8f3b6270e91a4c8b3d0f27','Sesja indywidualna w gabinecie','individual','in_person',50,17000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('of_11','th_2c6a9e50b8f14d73a0c5e829','Sesja indywidualna online','individual','online',50,15000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('of_12','th_9f0b4d7382e6a15c7d2b8e34','Sesja indywidualna online','individual','online',50,21000,'PLN',1,'2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
@@ -188,9 +175,9 @@ INSERT INTO faq_items (id, therapist_id, question, answer, category, position, s
  ('faq_15','th_c93e5a4187b6f20d94a1c3f5','Jak przygotować się do sesji online?','Potrzebne są dwa osobne urządzenia albo jedno wspólne — ustalamy to przed pierwszą sesją. Ważne, żeby obie osoby miały prywatność w trakcie rozmowy.','online',3,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('faq_16','th_1e07b8d3629af45c0d2e7a91','Jak wygląda pierwsze spotkanie?','Pierwsza sesja to konsultacja: sprawdzamy, czy moja forma pracy odpowiada temu, czego szukasz. Jeśli nie, polecam kogoś innego.','first_session',1,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('faq_17','th_1e07b8d3629af45c0d2e7a91','Czy przyjmujesz nowe osoby?','W tej chwili nie mam wolnych miejsc na stałą współpracę. Terminy widoczne w kalendarzu dotyczą wyłącznie konsultacji jednorazowych.','availability',2,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
- ('faq_18','th_7a4c2f9051d3e86b4f0a5c18','Jak wygląda pierwsze spotkanie?','Pierwsze spotkanie służy zebraniu informacji i zbudowaniu poczucia bezpieczeństwa. Nie proszę o opowiadanie trudnych doświadczeń w szczegółach na starcie.','first_session',1,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
- ('faq_19','th_7a4c2f9051d3e86b4f0a5c18','Czym jest EMDR?','EMDR to metoda pracy z trudnymi wspomnieniami wykorzystująca stymulację bilateralną. Stosuję ją dopiero wtedy, gdy mamy wypracowane sposoby radzenia sobie z napięciem.','modality',2,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
- ('faq_20','th_7a4c2f9051d3e86b4f0a5c18','Jakie są zasady odwoływania wizyt?','Bezpłatne odwołanie do 48 godzin przed sesją.','cancellation',3,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
+ 
+ 
+ 
  ('faq_21','th_5d8f3b6270e91a4c8b3d0f27','Jak wygląda pierwsze spotkanie?','Rozmawiamy o tym, co dzieje się teraz w Twoim życiu. W Gestalt pracujemy dużo z tym, co pojawia się tu i teraz, w kontakcie.','first_session',1,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('faq_22','th_5d8f3b6270e91a4c8b3d0f27','Jakie formy płatności przyjmujesz?','Gotówka lub przelew, płatność po każdej sesji.','payment',2,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('faq_23','th_2c6a9e50b8f14d73a0c5e829','W jakich językach prowadzisz sesje?','Po polsku, ukraińsku i rosyjsku. Możesz zmieniać język w trakcie rozmowy, jeśli tak jest Ci łatwiej.','language',1,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),

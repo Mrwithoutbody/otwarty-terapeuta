@@ -17,7 +17,7 @@ const UNPUBLISHED = 'th_0a1b2c3d4e5f60718293a4b5';
 describe('search filters', () => {
   it('returns every published demo profile with no filters', async () => {
     const all = await findCandidates(env, {});
-    expect(all.length).toBe(8);
+    expect(all.length).toBe(7);
     expect(all.every((t) => t.is_demo)).toBe(true);
   });
 
