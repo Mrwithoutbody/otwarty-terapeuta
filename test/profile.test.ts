@@ -18,7 +18,8 @@ describe('the profile page, typeset by the pages service', () => {
     expect(html).toContain('116 123');
     expect(html).toContain('wsparcie emocjonalne');
     expect(html).toContain('Anna Kowalczyk (DEMO)');
-    expect(html).toContain('href="/terapeuci">Katalog</a>');
+    // Etykieta linku jedzie w <span data-edit>, odkąd edytor pozwala ją poprawiać w podglądzie.
+    expect(html).toMatch(/href="\/terapeuci">(<span[^>]*>)?Katalog/);
     // Every stylesheet is the service's; this host ships no CSS for her pages.
     expect(html).toContain('href="https://pages.test/base.css');
     expect(html.match(/<link rel="stylesheet" href="([^"]+)"/g)?.every((l) => l.includes('https://pages.test/') || l.includes('https://fonts.googleapis.com/'))).toBe(true);
