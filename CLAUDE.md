@@ -145,6 +145,23 @@ Wtedy poproś o `! npx wrangler login` na właściwym koncie — `CLOUDFLARE_ACC
 dostępu do konta nic nie da. Kolejność na produkcji: migracja → `npm run build:widget &&
 npx wrangler deploy --env production`.
 
+**Deploy wypuszcza wszystko zaległe, nie tylko twój commit.** Zanim puszczysz produkcję,
+`npx wrangler deployments list --env production` daje wdrożoną wersję, a
+`git log <ta-wersja>..HEAD --oneline` — listę, która wyjedzie na żywo. Ta lista idzie do
+właściciela **przed** deployem, razem ze zdaniem, ilu realnych terapeutek dotknie
+(katalog `/terapeuci` minus profile `-demo`). Notuj id wdrożonej wersji od razu: rollback
+to wtedy `npx wrangler rollback <id> --env production --message "<powód>"`, jedna komenda.
+Host renderuje na żywo, więc deploy zmienia strony wszystkim w tej samej sekundzie.
+(2026-09-17: deploy na prośbę „zdeployuj hosta" wypuścił dziesięć dni zaległych commitów
+i przestawił wygląd jedenastu profili, w tym siedmiu realnych osób; rollback po 7 min 48 s.)
+
+**Blok hosta i jego wpis w motywie to jedna zmiana w dwóch repo.** Nowa sekcja
+w `HOST_SECTIONS` potrzebuje po stronie x402L wpisu w `themes/<motyw>/sklad.json`:
+`order` (kolejność), `kinds`, `layouts`, czasem `media`. Bez wpisu `host.ts` liczy
+`order.indexOf(source)` = −1 i sekcja spada na koniec strony, za CTA, w domyślnym układzie
+kategorii. Na produkcję idą razem albo wcale: usługa pierwsza, host po niej. Sam host
+z blokiem, którego wdrożony motyw nie zna, wychodzi gorzej niż stan sprzed zmiany.
+
 ## Strony terapeutek żyją w usłudze stron (2026-09-03)
 
 Profil i podstrony to strony w `x402landings.space` (repo `x402Landings`), nie
