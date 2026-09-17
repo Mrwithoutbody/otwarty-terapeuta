@@ -392,6 +392,30 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         lead: leadOf(t),
         buttons: bookButtons(ctx),
         stats: facts(t),
+      };
+    },
+  },
+  portret: {
+    label: 'Zdjęcie i kilka słów', hint: 'Twój portret obok dwóch zdań o tym, kto poprowadzi spotkanie',
+    glyph: 'split', anchor: 'kto',
+    fields: [MEDIA, ...OWN],
+    /**
+     * Twarz ma sekcję, nie pasek u góry.
+     *
+     * Portret siedział wcześniej w wejściu, obok nagłówka i liczb, w kadrze wielkości kciuka —
+     * a to jedyne zdjęcie na całej stronie i jedyna rzecz, która mówi „to człowiek, nie katalog".
+     * Tu dostaje pół szerokości i dwa zdania obok. Bez zdjęcia sekcja nie powstaje w ogóle,
+     * zamiast zostawiać pustą połowę ekranu — wejście bierze wtedy kadr z biblioteki usługi.
+     */
+    resolve: (ctx) => {
+      const t = ctx.therapist;
+      if (!t.photo_url) return null;
+      const rest = sentences(t.bio).filter((x) => !isIntro(x, t.display_name) && x.trim() !== leadOf(t).trim());
+      return {
+        type: 'media-text',
+        eyebrow: 'Kto poprowadzi',
+        heading: t.display_name,
+        body: rest.slice(0, 2).join(' ') || t.bio.trim().split(/\n+/)[0] || '',
         media: photo(ctx),
       };
     },
