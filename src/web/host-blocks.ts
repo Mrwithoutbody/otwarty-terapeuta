@@ -226,6 +226,60 @@ const OWN = [
   T('lead', 'Podtytuł sekcji'),
 ];
 
+/**
+ * Nagłówek wejścia: obietnica, nie nazwisko.
+ *
+ * Nazwisko stoi w pasku, w stopce i w nadtytule, więc jako nagłówek nie wnosi nic — a wejście
+ * ma odpowiedzieć „z czym do mnie przyjść". Kolejność: własne zdanie terapeutki (gdy `headline`
+ * jest zdaniem, nie tytułem zawodowym), potem obszary pracy z miastem, na końcu samo nazwisko,
+ * gdy w rekordzie nie ma nic innego.
+ */
+function promise(t: PublicTherapist): string {
+  const own = (t.headline ?? '').trim();
+  if (own.split(/\s+/).length >= 4) return own;
+  const topics = t.topics.slice(0, 3).map((x) => x.name.toLowerCase());
+  if (topics.length === 0) return t.display_name;
+  const where = t.locations[0]?.city;
+  const head = topics.join(', ').replace(/^./, (c) => c.toUpperCase());
+  const tail = [own.toLowerCase() || 'psychoterapia', where].filter(Boolean).join(', ');
+  return `${head} — ${tail}`;
+}
+
+/** Nadtytuł: kto to jest. Nazwisko musi zostać nad zgięciem, nawet gdy nagłówek mówi o czym innym. */
+function whoIs(t: PublicTherapist): string {
+  const role = (t.headline ?? '').trim();
+  return [t.display_name, role.split(/\s+/).length >= 4 ? '' : role].filter(Boolean).join(' · ');
+}
+
+/**
+ * Lead: pierwsze zdanie, które coś mówi.
+ *
+ * Biogramy zaczynają się od przedstawienia („Nazywam się Karolina Jarosz."), a to samo zdanie
+ * stoi potem w sekcji „Tak wygląda praca ze mną". Pomijamy zdania, które są samą prezentacją
+ * imienia, i to samo zdanie wycinamy z sekcji niżej, żeby nie czytać go dwa razy.
+ */
+const SELF_INTRO = /^(nazywam się|mam na imię|jestem\s+[A-ZĄĆĘŁŃÓŚŹŻ])/i;
+
+function sentences(text: string): string[] {
+  return (text.split(/\n+/)[0] ?? '').trim().split(/(?<=[.!?])\s+/).filter((x) => x.trim() !== '');
+}
+
+function leadOf(t: PublicTherapist): string {
+  const all = sentences(t.bio);
+  const pick = all.find((x) => !SELF_INTRO.test(x.trim()) && !x.includes(t.display_name)) ?? all[0] ?? '';
+  return pick.slice(0, 240);
+}
+
+/** Opis bez zdania, które pojechało już jako lead — inaczej ta sama linia stoi dwa razy na stronie. */
+function bodyWithoutLead(t: PublicTherapist): string {
+  const lead = leadOf(t).trim();
+  const paras = t.bio.trim().split(/\n+/);
+  const rest = paras
+    .map((para, i) => (i === 0 ? para.trim().replace(lead, '').replace(/^\s*/, '') : para))
+    .filter((para) => para.trim() !== '');
+  return rest.join('\n\n');
+}
+
 /** The numbers under the hero: price, length, next free slot. Words are not numbers; they go to the fact sheet. */
 function facts(t: PublicTherapist): Values[] {
   const out: Values[] = [];
@@ -238,8 +292,27 @@ function facts(t: PublicTherapist): Values[] {
   const duration = t.offers[0]?.duration_minutes;
   if (duration) out.push({ value: `${duration} min`, label: 'jedna sesja' });
   if (t.next_available_slot_utc) out.push({ value: compactDateTime(t.next_available_slot_utc, t.timezone), label: 'najbliższy wolny termin' });
+  // Bez ceny i bez terminów pas liczb znikał w całości i wejście zostawało samym nagłówkiem.
+  // Dobijamy go tym, co w rekordzie jest zawsze: miasto, forma pracy, gotowość przyjęcia, nurt.
+  const zapas: Array<Values | null> = [
+    t.locations[0]?.city ? { value: t.locations[0]!.city, label: 'gabinet' } : null,
+    t.offers_online && t.offers_in_person
+      ? { value: 'online i w gabinecie', label: 'forma' }
+      : t.offers_online
+        ? { value: 'online', label: 'forma' }
+        : t.offers_in_person
+          ? { value: 'w gabinecie', label: 'forma' }
+          : null,
+    { value: t.accepting_new_clients ? 'przyjmuje' : 'lista oczekujących', label: 'nowe osoby' },
+    t.modalities[0] ? { value: t.modalities[0]!.name, label: 'nurt' } : null,
+  ];
+  for (const row of zapas) {
+    if (out.length >= 3) break;
+    if (row) out.push(row);
+  }
   return out;
 }
+
 
 /** The fact sheet: who she works with, how, where, in what tongue - label and value, one row each. */
 function factSheet(t: PublicTherapist): Values[] {
@@ -263,13 +336,6 @@ function bookButtons(ctx: SectionCtx): Values[] {
   if (ctx.slots.length > 0) out.push({ label: 'Zobacz wolne terminy', href: '#terminy', style: 'primary' });
   out.push({ label: 'Jak wygląda pierwsze spotkanie', href: '#steps', style: 'ghost' });
   return out;
-}
-
-/** The opening sentence of her description: a lead, not a biography. */
-function firstSentence(text: string): string {
-  const para = text.split('\n')[0]?.trim() ?? '';
-  const m = /^(.+?[.!?])(\s|$)/.exec(para);
-  return (m ? m[1]! : para).slice(0, 240);
 }
 
 /** Her portrait with an absolute address: the editor's preview lives on the service's origin. */
@@ -306,9 +372,9 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       return {
         type: 'hero',
         ...valuesOf('hero-profil', t, { slots: ctx.slots }),
-        eyebrow: t.headline || t.locations[0]?.city || '',
-        heading: t.display_name,
-        lead: firstSentence(t.bio),
+        eyebrow: whoIs(t) || t.locations[0]?.city || '',
+        heading: promise(t),
+        lead: leadOf(t),
         buttons: bookButtons(ctx),
         stats: facts(t),
         media: photo(ctx),
@@ -324,7 +390,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       // No portrait here: the hero already shows it, and the service never repeats a photograph on a page.
       // Pojedynczy enter w opisie to u niej akapit, nie łamanie wiersza: bez tego
       // silnik skleja całą biografię w jeden blok tekstu przedzielony <br>.
-      const body = t.bio.trim().split(/\n+/).join('\n\n');
+      const body = bodyWithoutLead(t);
       return { type: 'media-text', ...valuesOf('intro', t), eyebrow: 'Jak pracuję', heading: 'Tak wygląda praca ze mną', body };
     },
   },

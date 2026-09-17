@@ -936,6 +936,25 @@ function offerForm(session: AdminSession, therapistId: string, offer: OfferRow):
 // ~750 wierszy. Osobne zostają tylko pola administracyjne: slug, timezone, status,
 // verification_status, is_demo, links. Zwinąć do tej szóstki, gdy padnie decyzja,
 // czy zakładki treści mają zostać drogą awaryjną na czas awarii usługi stron.
+/**
+ * Czego brakuje, żeby profil miał z czego złożyć stronę.
+ *
+ * Wejście strony ma nieść twarz, obietnicę, cenę i pierwszy krok. Dotąd nikt tego nie pilnował:
+ * profil bez zdjęcia i bez ceny renderował się jako nagłówek nad pustą połową ekranu i nikomu
+ * nie zapalała się lampka. Lista jest ostrzeżeniem w panelu, nie blokadą publikacji — profile,
+ * które już są w katalogu, zostają widoczne.
+ */
+function profileGapsAdmin(row: TherapistRow, context: EditorContext): string[] {
+  const gaps: string[] = [];
+  const paid = context.offers.filter((offer) => offer.active === 1 && offer.price_minor !== null);
+  if (!row.photo_url) gaps.push('zdjęcie — bez portretu wejście strony zostaje samym tekstem');
+  if (paid.length === 0) gaps.push('cena w ofercie — pas liczb pod nagłówkiem nie ma czego pokazać');
+  if ((row.headline ?? '').trim().split(/\s+/).filter(Boolean).length < 4 && context.chosenTopics.size === 0)
+    gaps.push('obszary pracy albo jedno zdanie o tym, z czym do Ciebie przyjść — inaczej nagłówkiem zostaje samo nazwisko');
+  if ((row.bio ?? '').trim() === '') gaps.push('opis — sekcja „Tak wygląda praca ze mną" wtedy nie powstaje');
+  return gaps;
+}
+
 function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
   const activeOffers = context.offers.filter((offer) => offer.active === 1);
   const id = escapeHtml(row.id);
@@ -947,6 +966,16 @@ function therapistTabs(session: AdminSession, row: TherapistRow, context: Editor
 <h2 class="visually-hidden">O mnie</h2>
 <p class="panel-lead">Kim jesteś i jak pracujesz: opis, zdjęcie, gabinet, obszary, nurty,
 kwalifikacje. Po tych danych wyszukiwarka dobiera Cię do osoby, która szuka pomocy.</p>
+${
+  (() => {
+    const gaps = profileGapsAdmin(row, context);
+    return gaps.length === 0
+      ? ''
+      : `<div class="notice" role="status"><p><strong>Twoja strona ma ${gaps.length} ${
+          gaps.length === 1 ? 'brak' : 'braki'
+        }:</strong></p><ul>${gaps.map((gap) => `<li>${escapeHtml(gap)}</li>`).join('')}</ul></div>`;
+  })()
+}
 ${therapistForm(session, row, context)}
 ${row ? mediaGallery(session, row, context.media) : ''}
 </section>
