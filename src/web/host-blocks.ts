@@ -237,12 +237,18 @@ const OWN = [
 function promise(t: PublicTherapist): string {
   const own = (t.headline ?? '').trim();
   if (own.split(/\s+/).length >= 4) return own;
-  const topics = t.topics.slice(0, 3).map((x) => x.name.toLowerCase());
-  if (topics.length === 0) return t.display_name;
-  const where = t.locations[0]?.city;
+  const all = t.topics.map((x) => x.name.toLowerCase());
+  if (all.length === 0) return t.display_name;
+  // Rola stoi już w nadtytule razem z nazwiskiem, więc w nagłówku byłaby drugi raz — a do tego
+  // „psycholog/psychoterapeutka" to 26 znaków bez spacji i przy 16-znakowej mierze nagłówka
+  // motyw musiał łamać ten wyraz w środku. W nagłówku zostają obszary i miasto.
+  const tail = t.locations[0]?.city ?? '';
+  // Nagłówek ma 90 znaków budżetu w usłudze; bierzemy tyle obszarów, ile się w nim mieści.
+  let topics = all.slice(0, 3);
+  while (topics.length > 1 && [topics.join(', '), tail].filter(Boolean).join(' — ').length > 84)
+    topics = topics.slice(0, -1);
   const head = topics.join(', ').replace(/^./, (c) => c.toUpperCase());
-  const tail = [own.toLowerCase() || 'psychoterapia', where].filter(Boolean).join(', ');
-  return `${head} — ${tail}`;
+  return [head, tail].filter(Boolean).join(' — ');
 }
 
 /** Nadtytuł: kto to jest. Nazwisko musi zostać nad zgięciem, nawet gdy nagłówek mówi o czym innym. */
@@ -258,26 +264,35 @@ function whoIs(t: PublicTherapist): string {
  * stoi potem w sekcji „Tak wygląda praca ze mną". Pomijamy zdania, które są samą prezentacją
  * imienia, i to samo zdanie wycinamy z sekcji niżej, żeby nie czytać go dwa razy.
  */
-const SELF_INTRO = /^(nazywam się|mam na imię|jestem\s+[A-ZĄĆĘŁŃÓŚŹŻ])/i;
+// Zdanie, które przedstawia samo imię. Bez flagi `i` przy członie o wielkiej literze: z nią
+// „jestem psycholożką" liczyło się jak „Jestem Karolina" i lead przeskakiwał o dwa zdania dalej.
+const SELF_INTRO = /^(nazywam się|mam na imię)/i;
+const isIntro = (sentence: string, name: string): boolean =>
+  SELF_INTRO.test(sentence.trim()) || sentence.includes(name);
 
 function sentences(text: string): string[] {
-  return (text.split(/\n+/)[0] ?? '').trim().split(/(?<=[.!?])\s+/).filter((x) => x.trim() !== '');
+  // Cały biogram, nie pierwszy akapit: u części terapeutek pierwszy akapit to samo „Nazywam się…",
+  // więc szukając leadu tylko tam wracamy dokładnie do zdania, które chcemy pominąć.
+  return text.trim().split(/(?<=[.!?])\s+|\n+/).filter((x) => x.trim() !== '');
 }
 
 function leadOf(t: PublicTherapist): string {
   const all = sentences(t.bio);
-  const pick = all.find((x) => !SELF_INTRO.test(x.trim()) && !x.includes(t.display_name)) ?? all[0] ?? '';
+  const pick = all.find((x) => !isIntro(x, t.display_name)) ?? all[0] ?? '';
   return pick.slice(0, 240);
 }
 
 /** Opis bez zdania, które pojechało już jako lead — inaczej ta sama linia stoi dwa razy na stronie. */
 function bodyWithoutLead(t: PublicTherapist): string {
   const lead = leadOf(t).trim();
-  const paras = t.bio.trim().split(/\n+/);
-  const rest = paras
-    .map((para, i) => (i === 0 ? para.trim().replace(lead, '').replace(/^\s*/, '') : para))
-    .filter((para) => para.trim() !== '');
-  return rest.join('\n\n');
+  return t.bio
+    .trim()
+    .split(/\n+/)
+    .map((para) => (lead === '' ? para : para.replace(lead, '').trim()))
+    // Akapit, który był samym przedstawieniem imienia, też wypada: nazwisko stoi w pasku,
+    // w nadtytule i w stopce, więc jako otwarcie opisu nic nie wnosi.
+    .filter((para) => para !== '' && !isIntro(para, t.display_name))
+    .join('\n\n');
 }
 
 /** The numbers under the hero: price, length, next free slot. Words are not numbers; they go to the fact sheet. */
