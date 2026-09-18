@@ -53,9 +53,6 @@ ${pageHead('Dołącz jako terapeuta')}
     <p>Rozliczasz się bezpośrednio z osobą, która przychodzi. W wynikach nie ma
     pola „promowany” — kolejność zależy od dopasowania, nie od opłaty.</p></li>
 </ul>
-<p class="hint">Chcesz zobaczyć, jak to wygląda?
-<a href="/terapeuci/olga-sawicka-demo">Otwórz przykładowy profil</a> — to profil
-demonstracyjny, osoba fikcyjna, złożony z tych samych sekcji, które dostajesz w panelu.</p>
 ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}
 <form method="post" action="/dla-terapeutow/start">
   <div class="field-row two">
