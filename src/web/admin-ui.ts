@@ -644,6 +644,26 @@ export const ADMIN_JS = String.raw`(function () {
       /* Mysz już pomalowała w pointerdown; dotyk maluje tutaj. */
       if (!painted) paint(cell, nextOf(cell));
     });
+    /* Superklik: nazwa dnia = wiersz, godzina = kolumna, róg = cała siatka. Działa
+       wybranym narzędziem jak "zaznacz wszystko" przy zgodach: jeśli wszystko już
+       jest zaznaczone, odznacza. Kłódka obejmuje tylko kratki z terminem. */
+    grid.addEventListener('click', function (event) {
+      var axis = event.target instanceof Element ? event.target.closest('button.axis') : null;
+      if (!axis) return;
+      var pick = axis.hasAttribute('data-row') ? '[data-r="' + axis.getAttribute('data-row') + '"]'
+        : axis.hasAttribute('data-col') ? '[data-h="' + axis.getAttribute('data-col') + '"]' : '';
+      var cells = Array.prototype.slice.call(grid.querySelectorAll('[data-cell]' + pick));
+      var brush = brushOf();
+      var stroke;
+      if (brush === 'lock') {
+        cells = cells.filter(function (cell) { return cell.querySelector('input[data-lock]'); });
+        stroke = { lock: !cells.every(function (cell) { return cell.querySelector('input[data-lock]').checked; }) };
+      } else {
+        var full = cells.every(function (cell) { return ownerOf(cell) === brush; });
+        stroke = { offer: brush === 'erase' || full ? 'none' : brush };
+      }
+      cells.forEach(function (cell) { paint(cell, stroke); });
+    });
     /* Klawiatura: spacja przełącza ukryte pole jak zwykle, kratka idzie za nim. */
     grid.addEventListener('change', function (event) {
       var cell = cellOf(event.target);
@@ -795,7 +815,10 @@ export const ADMIN_CSS = String.raw`
   font-variant-numeric: tabular-nums;
 }
 .week-grid .axis.day { padding-inline: 0.2rem 0.5rem; text-align: right; }
-.week-grid abbr { text-decoration: none; }
+button.axis { margin: 0; padding-block: 0.15rem; border: 0; border-radius: 6px; background: none; font-family: inherit; cursor: pointer; }
+button.axis:hover { background: var(--accent-soft); color: var(--accent-strong); }
+button.axis:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 1px; }
+button.axis[data-all] { font-size: 0.625rem; }
 .week-grid .cell { display: flex; gap: 1px; height: 100%; margin: 0; }
 .week-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .week-grid label, .week-grid .face {

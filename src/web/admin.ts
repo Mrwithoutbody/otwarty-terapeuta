@@ -647,11 +647,11 @@ const modeShort = (mode: string): string => (mode === 'online' ? 'online' : 'gab
  */
 function weekGrid(days: Array<{ label: string; title: string }>, cell: (row: number, hour: number) => string, attrs = ''): string {
   return `<div class="week-wrap"><div class="week-grid"${attrs}>
-<span class="axis"></span>${SCHEDULE_HOURS.map((hour) => `<span class="axis hour">${hh(hour)}</span>`).join('')}
+<button type="button" class="axis" data-all title="Cała siatka">wszystko</button>${SCHEDULE_HOURS.map((hour) => `<button type="button" class="axis hour" data-col="${hour}" title="Cała kolumna ${hh(hour)}">${hh(hour)}</button>`).join('')}
 ${days
   .map(
     (day, row) =>
-      `<span class="axis day"><abbr title="${day.title}">${day.label}</abbr></span>${SCHEDULE_HOURS.map((hour) => cell(row, hour)).join('')}`,
+      `<button type="button" class="axis day" data-row="${row}" title="Cały dzień: ${day.title}">${day.label}</button>${SCHEDULE_HOURS.map((hour) => cell(row, hour)).join('')}`,
   )
   .join('\n')}
 </div></div>`;
@@ -706,7 +706,7 @@ function availabilityGrid(row: TherapistRow, context: EditorContext, offers: Off
     const booked = slot?.status === 'booked';
     const locked = !booked && slot?.status === 'blocked';
     const mark = booked ? '•' : locked ? '' : multi && owner >= 0 ? String(owner + 1) : '';
-    return `<div class="cell${dayKey(days[r]!) < now.slice(0, 10) ? ' is-past' : ''}" data-cell${booked ? ' data-booked' : ''}>${boxes}${lock}<span class="face${locked ? ' is-locked' : ''}" aria-hidden="true"${
+    return `<div class="cell${dayKey(days[r]!) < now.slice(0, 10) ? ' is-past' : ''}" data-cell data-r="${r}" data-h="${hour}"${booked ? ' data-booked' : ''}>${boxes}${lock}<span class="face${locked ? ' is-locked' : ''}" aria-hidden="true"${
       owner >= 0 ? ` data-c="${offerColor(owner)}"` : ''
     }${booked ? ` title="Rezerwacja — ${escapeHtml(slot.title)}"` : ''}>${mark}</span></div>`;
   };
@@ -760,7 +760,7 @@ ${
     dayKey(mondayOf(timezone)) === dayKey(monday) ? '' : link(mondayOf(timezone), 'Ten tydzień')
   }</div>
   ${availabilityGrid(row, context, activeOffers)}
-  <p class="hint">Oferta maluje grafik — godzina powtarza się co tydzień. Kłódka zamyka jeden termin w tym tygodniu, „•” to rezerwacja (odwołasz ją w panelu rezerwacji, osoba dostaje powiadomienie). Kliknij kratkę albo przeciągnij po kilku; zapisz przed zmianą tygodnia.</p>
+  <p class="hint">Oferta maluje grafik — godzina powtarza się co tydzień. Kłódka zamyka jeden termin w tym tygodniu, „•” to rezerwacja (odwołasz ją w panelu rezerwacji, osoba dostaje powiadomienie). Kliknij kratkę albo przeciągnij po kilku; klik w dzień, godzinę albo „wszystko” obejmuje cały wiersz, kolumnę albo siatkę — drugi klik odznacza. Zapisz przed zmianą tygodnia.</p>
   <div class="field"><label for="t_tz">Strefa czasowa</label>
     <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone || DEFAULT_TIMEZONE)}" maxlength="64">
     <p class="hint">Godziny grafiku są godzinami lokalnymi w tej strefie; zmiana czasu jest uwzględniana sama.</p></div>
