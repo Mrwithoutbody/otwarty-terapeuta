@@ -701,11 +701,12 @@ function availabilityGrid(row: TherapistRow, context: EditorContext, offers: Off
     const lock = lockable
       ? `<input type="hidden" name="slot" value="${sid}"><input type="checkbox" id="l-${sid}" name="lock" value="${sid}" data-lock${
           slot.status === 'blocked' ? ' checked' : ''
-        }><label for="l-${sid}" class="lock"><span class="visually-hidden">${label} ${shortDate(days[r]!)} ${hh(hour)}, blokada</span>🔒</label>`
+        }><label for="l-${sid}" class="lock"><span class="visually-hidden">${label} ${shortDate(days[r]!)} ${hh(hour)}, blokada</span><span class="ico-lock" aria-hidden="true"></span></label>`
       : '';
     const booked = slot?.status === 'booked';
-    const mark = booked ? '•' : slot?.status === 'blocked' ? '🔒' : multi && owner >= 0 ? String(owner + 1) : '';
-    return `<div class="cell${dayKey(days[r]!) < now.slice(0, 10) ? ' is-past' : ''}" data-cell${booked ? ' data-booked' : ''}>${boxes}${lock}<span class="face" aria-hidden="true"${
+    const locked = !booked && slot?.status === 'blocked';
+    const mark = booked ? '•' : locked ? '' : multi && owner >= 0 ? String(owner + 1) : '';
+    return `<div class="cell${dayKey(days[r]!) < now.slice(0, 10) ? ' is-past' : ''}" data-cell${booked ? ' data-booked' : ''}>${boxes}${lock}<span class="face${locked ? ' is-locked' : ''}" aria-hidden="true"${
       owner >= 0 ? ` data-c="${offerColor(owner)}"` : ''
     }${booked ? ` title="Rezerwacja — ${escapeHtml(slot.title)}"` : ''}>${mark}</span></div>`;
   };
@@ -753,13 +754,13 @@ ${
       )
       .join('')}
     <label class="brush-opt"><input type="radio" name="brush" value="erase"><span class="swatch is-erase" aria-hidden="true"></span><span>Gumka <span class="meta">zdejmuje godzinę z grafiku</span></span></label>
-    <label class="brush-opt"><input type="radio" name="brush" value="lock"><span class="swatch is-erase" aria-hidden="true">🔒</span><span>Kłódka <span class="meta">blokuje termin tylko w tym dniu</span></span></label>
+    <label class="brush-opt"><input type="radio" name="brush" value="lock"><span class="swatch is-erase" aria-hidden="true"><span class="ico-lock"></span></span><span>Kłódka <span class="meta">blokuje termin tylko w tym dniu</span></span></label>
   </fieldset>
   <div class="week-nav">${link(addCivilDays(monday, -7), '← Poprzedni')}<strong>${weekRange}</strong>${link(addCivilDays(monday, 7), 'Następny →')}${
     dayKey(mondayOf(timezone)) === dayKey(monday) ? '' : link(mondayOf(timezone), 'Ten tydzień')
   }</div>
   ${availabilityGrid(row, context, activeOffers)}
-  <p class="hint">Oferta maluje grafik — godzina powtarza się co tydzień. Kłódka 🔒 zamyka jeden termin w tym tygodniu, „•” to rezerwacja (odwołasz ją w panelu rezerwacji, osoba dostaje powiadomienie). Kliknij kratkę albo przeciągnij po kilku; zapisz przed zmianą tygodnia.</p>
+  <p class="hint">Oferta maluje grafik — godzina powtarza się co tydzień. Kłódka zamyka jeden termin w tym tygodniu, „•” to rezerwacja (odwołasz ją w panelu rezerwacji, osoba dostaje powiadomienie). Kliknij kratkę albo przeciągnij po kilku; zapisz przed zmianą tygodnia.</p>
   <div class="field"><label for="t_tz">Strefa czasowa</label>
     <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone || DEFAULT_TIMEZONE)}" maxlength="64">
     <p class="hint">Godziny grafiku są godzinami lokalnymi w tej strefie; zmiana czasu jest uwzględniana sama.</p></div>

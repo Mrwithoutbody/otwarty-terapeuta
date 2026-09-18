@@ -607,9 +607,20 @@ export const ADMIN_JS = String.raw`(function () {
     var lock = cell.querySelector('input[data-lock]');
     if (owner === 'none') face.removeAttribute('data-c');
     else face.setAttribute('data-c', String(Number(owner) % 4));
+    var locked = !cell.hasAttribute('data-booked') && !!lock && lock.checked;
+    face.classList.toggle('is-locked', locked);
     face.textContent = cell.hasAttribute('data-booked') ? '•'
-      : lock && lock.checked ? '🔒'
+      : locked ? ''
       : owner !== 'none' && cell.querySelectorAll('input[data-o]').length > 1 ? String(Number(owner) + 1) : '';
+  }
+  /* Narzędzie przeżywa zmianę tygodnia i zapis (to przeładowania strony). */
+  function initBrush(brush) {
+    try {
+      var saved = sessionStorage.getItem('ot-brush');
+      var radio = saved === null ? null : brush.querySelector('input[value="' + saved.replace(/[^a-z0-9]/g, '') + '"]');
+      if (radio) radio.checked = true;
+      brush.addEventListener('change', function (event) { sessionStorage.setItem('ot-brush', event.target.value); });
+    } catch (e) { /* bez pamięci sesji narzędzie po prostu wraca do pierwszego */ }
   }
   function initScheduleGrid(grid) {
     grid.classList.add('is-painting');
@@ -648,6 +659,7 @@ export const ADMIN_JS = String.raw`(function () {
 
   function boot() {
     document.querySelectorAll('[data-schedule-grid]').forEach(initScheduleGrid);
+    document.querySelectorAll('[data-brush]').forEach(initBrush);
     document.querySelectorAll('[data-tabs]').forEach(initTabs);
     document.querySelectorAll('[data-editor-dialog]').forEach(initEditorDialog);
     document.querySelectorAll('[data-editor]').forEach(initEditor);
@@ -794,7 +806,12 @@ export const ADMIN_CSS = String.raw`
 .week-grid label:hover, .week-grid .face:hover { border-color: var(--accent); }
 /* Grafik */
 [data-multi] label, .week-grid label.lock { color: var(--text-muted); }
-.week-grid label.lock { font-size: 0.625rem; }
+/* Kłódka rysowana maską w kolorze tekstu - emoji wyglądało inaczej w każdym systemie. */
+.ico-lock, .face.is-locked::before {
+  content: ''; display: inline-block; width: 0.8rem; height: 0.8rem; vertical-align: -0.1rem; background: currentColor;
+  -webkit-mask: var(--lock) center / contain no-repeat; mask: var(--lock) center / contain no-repeat;
+}
+:root { --lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1zm2 0h6V7a3 3 0 0 0-6 0v3z'/%3E%3C/svg%3E"); }
 .week-grid input[data-lock]:checked + label { background: var(--surface-alt); border-style: dashed; }
 .week-grid .face { color: var(--text); }
 .week-grid .face[data-c] { color: #fff; }
