@@ -125,16 +125,18 @@ describe('grafik tygodniowy', () => {
     expect(await schedule('of_01')).toEqual(before);
   });
 
-  it('ta sama godzina w dwóch ofertach to błąd, nie cicha loteria', async () => {
+  it('ta sama godzina w dwóch ofertach: kratka ma jedną ofertę, zostaje pierwsza', async () => {
     const res = await post(admin, `/admin/terapeuci/${ANNA}/grafik`, [
       ['offer', 'of_01'],
       ['offer', 'of_02'],
       ['g_of_01', '2-10'],
       ['g_of_02', '2-10'],
+      ['g_of_02', '2-12'],
       ['timezone', WAW],
     ]);
-    expect(res.status).toBe(400);
-    expect(await res.text()).toContain('Wtorek, 10:00');
+    expect(res.status).toBe(302);
+    expect((await schedule('of_01'))[2]).toEqual([10]);
+    expect((await schedule('of_02'))[2]).toEqual([12]);
   });
 
   it('zarezerwowany termin zostaje, a wolny z odwołaną rezerwacją jest blokowany zamiast usunięty', async () => {
@@ -264,6 +266,5 @@ describe('jeden widok: tydzień z grafikiem, kłódkami i rezerwacjami', () => {
     expect(html).toContain('data-booked');
     expect(html).not.toContain(`value="${taken!.id}"`);
     expect(html).toContain('Ten tydzień');
-    expect(html).toContain('Pn–Pt 9, 11, 13, 15, 17');
   });
 });

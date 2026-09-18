@@ -567,7 +567,6 @@ export const ADMIN_JS = String.raw`(function () {
      (po jednym na ofertę w kratce), więc formularz wysyła to samo co bez skryptu.
      Przeciąganie tylko myszą: na dotyku ten sam gest przewija stronę. */
   var painting = null;
-  var painted = false;
   function cellOf(target) {
     return target instanceof Element ? target.closest('[data-cell]') : null;
   }
@@ -631,7 +630,6 @@ export const ADMIN_JS = String.raw`(function () {
       event.preventDefault();
       painting = nextOf(cell);
       paint(cell, painting);
-      painted = true;
     });
     grid.addEventListener('pointerover', function (event) {
       var cell = painting === null ? null : cellOf(event.target);
@@ -641,8 +639,8 @@ export const ADMIN_JS = String.raw`(function () {
       var cell = cellOf(event.target);
       if (!cell || event.target.tagName === 'INPUT') return;
       event.preventDefault();
-      /* Mysz już pomalowała w pointerdown; dotyk maluje tutaj. */
-      if (!painted) paint(cell, nextOf(cell));
+      /* Mysz już pomalowała w pointerdown; dotyk i klawiatura malują tutaj. */
+      if (event.pointerType !== 'mouse') paint(cell, nextOf(cell));
     });
     /* Superklik: nazwa dnia = wiersz, godzina = kolumna, róg = cała siatka. Działa
        wybranym narzędziem jak "zaznacz wszystko" przy zgodach: jeśli wszystko już
@@ -672,10 +670,7 @@ export const ADMIN_JS = String.raw`(function () {
       else render(cell);
     });
   }
-  document.addEventListener('pointerup', function () {
-    painting = null;
-    setTimeout(function () { painted = false; }, 0);
-  });
+  document.addEventListener('pointerup', function () { painting = null; });
 
   function boot() {
     document.querySelectorAll('[data-schedule-grid]').forEach(initScheduleGrid);
@@ -786,7 +781,7 @@ export const ADMIN_CSS = String.raw`
   flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 6px;
   color: #fff; font-size: 0.8125rem; font-weight: 700;
 }
-.swatch.is-erase { border: 1px dashed var(--border-strong); background: var(--surface-solid); }
+.swatch.is-erase { border: 1px dashed var(--border-strong); background: var(--surface-solid); color: var(--text); font-size: 0.75rem; }
 .swatch[data-c] { background: var(--c); }
 
 /* Siatka tygodnia - grafik i kalendarz. Elementy idą dzień po dniu; wąsko (telefon)
@@ -839,7 +834,6 @@ button.axis[data-all] { font-size: 0.625rem; }
 .week-grid .face { color: var(--text); }
 .week-grid .face[data-c] { color: #fff; }
 .week-grid .cell.is-past { opacity: 0.45; }
-.swatch.is-erase { color: var(--text); font-size: 0.75rem; }
 .week-grid input:checked + label { background: var(--c); border-color: var(--c); color: #fff; }
 .week-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .week-grid .face { display: none; }

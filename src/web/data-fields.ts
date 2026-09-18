@@ -15,7 +15,6 @@
  * wiersz odpowiada rekordowi w tabeli, a nie kolumnie.
  */
 import type { PublicSlot, PublicTherapist, SessionType, AgeGroup } from '../db/types';
-import { cleanHours, SCHEDULE_HOURS, WEEKDAYS, type Week } from '../db/slots';
 import { formatPrice, formatDateTime } from '../lib/time';
 import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 
@@ -36,9 +35,7 @@ export interface Field {
 export type Patch =
   | { column: string; value: string | number }
   | { relation: 'languages' | 'topics' | 'modalities'; values: string[] }
-  | { location: { city: string; address: string } }
-  /** Grafik tygodnia, indeks = dzień (0 = niedziela); null = dnia nie przysłano, zostaje. */
-  | { slots: Array<number[] | null> };
+  | { location: { city: string; address: string } };
 
 /** Listy zamknięte, które żyją w bazie (obszary, nurty) - wczytane przy synchronizacji bloków. */
 export type Dictionaries = Record<'topics' | 'modalities', Array<[string, string]>>;
@@ -53,11 +50,9 @@ export interface DataField {
   write(value: unknown): Patch[];
 }
 
-/** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy i grafik. */
+/** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy. */
 export interface ReadCtx {
   slots: PublicSlot[];
-  /** Suma grafików aktywnych ofert. */
-  week?: Week;
 }
 
 // ------------------------------------------------------------- słowniki ---
@@ -136,7 +131,6 @@ function computed(name: string, label: string, from: string, read: (t: PublicThe
   return { field: { kind: 'computed', name, label, hint: `z: ${from}` }, read, write: () => [] };
 }
 
-const HOUR_OPTIONS: Array<[string, string]> = SCHEDULE_HOURS.map((h) => [String(h), `${String(h).padStart(2, '0')}:00`]);
 
 /** Tak/nie jako kolumna 0/1. */
 function flag(name: string, label: string, read: (t: PublicTherapist) => boolean, hint?: string): DataField {
@@ -228,13 +222,10 @@ export const FIELDS: Record<string, DataField[]> = {
     },
   ],
 
-  // Grafik tygodniowy: godziny rozpoczęcia na każdy dzień, powtarzane co tydzień.
-  slots: WEEKDAYS.map(([day, label], i) => ({
-    field: { kind: 'multiselect', name: `slot_d${day}`, label, options: HOUR_OPTIONS, data: true,
-      ...(i === 0 ? { hint: 'Grafik powtarza się co tydzień, terminy powstają na osiem tygodni do przodu. Odznaczona godzina zdejmuje swoje wolne terminy; zarezerwowanych nie rusza.' } : {}) },
-    read: (_t: PublicTherapist, ctx: ReadCtx) => (ctx.week?.[day] ?? []).map(String),
-    write: () => [],
-  })),
+  // Grafik układa się w panelu (siatka tygodnia z ofertami i kłódkami); tu tylko stan.
+  slots: [
+    computed('slots_shown', 'Wolne terminy', 'Dostępność → grafik', (_t, ctx) => `${ctx.slots.length} w najbliższych trzech tygodniach`),
+  ],
 
   // Kwalifikacje siedzą w kolumnie JSON, więc cała lista jest jedną wartością -
   // stąd `write` na miejscu zamiast osobnej obsługi w zapisie.
@@ -286,13 +277,10 @@ export function valuesOf(type: string, t: PublicTherapist, ctx: ReadCtx = { slot
 /** Co zapisać dla jednego bloku, z tego, co przysłał edytor. */
 export function patchesFor(type: string, sent: Record<string, unknown>): Patch[] {
   const out = (FIELDS[type] ?? []).flatMap((f) => (f.field.name in sent ? f.write(sent[f.field.name]) : []));
-  // Dwa pola, jeden rekord: adres gabinetu i kalendarz składają się z pary
-  // wartości, więc łatka powstaje z całego bloku, nie z pojedynczego pola.
+  // Dwa pola, jeden rekord: adres gabinetu składa się z pary wartości,
+  // więc łatka powstaje z całego bloku, nie z pojedynczego pola.
   if (type === 'gabinet' && ('city' in sent || 'address_line' in sent)) {
     out.push({ location: { city: str(sent.city, 80), address: str(sent.address_line, 200) } });
-  }
-  if (type === 'slots' && WEEKDAYS.some(([day]) => `slot_d${day}` in sent)) {
-    out.push({ slots: [0, 1, 2, 3, 4, 5, 6].map((day) => (`slot_d${day}` in sent ? cleanHours(list(sent[`slot_d${day}`])) : null)) });
   }
   return out;
 }

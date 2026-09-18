@@ -13,11 +13,10 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import { getTherapist } from '../db/catalog';
-import { cleanHours, parseWeek, saveSchedules, weekJson } from '../db/slots';
 import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
 import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { DEFAULT_TIMEZONE, isValidTimezone, nowIso } from '../lib/time';
+import { nowIso } from '../lib/time';
 import { resolveAll, summarize } from './host-blocks';
 import { patchesFor } from './data-fields';
 import { profileContext } from './pages';
@@ -83,13 +82,12 @@ async function writeFields(env: Env, id: string, data: Record<string, Values>): 
 
   for (const patch of patches) {
     if ('location' in patch) await writeLocation(env, id, patch.location);
-    if ('slots' in patch) await writeSlots(env, id, patch.slots);
   }
 
   return [
     ...columns.map((p) => p.column),
     ...relations.map((p) => p.relation),
-    ...patches.flatMap((p) => ('location' in p ? ['location'] : 'slots' in p ? ['slots'] : [])),
+    ...patches.flatMap((p) => ('location' in p ? ['location'] : [])),
   ];
 }
 
@@ -105,39 +103,6 @@ async function writeLocation(env: Env, id: string, loc: { city: string; address:
     );
   }
   await env.DB.batch(statements);
-}
-
-/**
- * Grafik z bloku kalendarza. Blok pokazuje sumę grafików wszystkich aktywnych
- * ofert, więc zapis rozkłada ją z powrotem: odznaczona godzina znika z każdej
- * oferty, nowo zaznaczona trafia do pierwszej. Dzień, którego usługa nie
- * przysłała, zostaje, jak był.
- */
-async function writeSlots(env: Env, id: string, sent: Array<number[] | null>): Promise<void> {
-  const t = await env.DB.prepare(`SELECT timezone FROM therapists WHERE id = ?`).bind(id).first<{ timezone: string | null }>();
-  const { results: offers } = await env.DB.prepare(
-    `SELECT id, duration_minutes, schedule FROM session_offers WHERE therapist_id = ? AND active = 1 ORDER BY created_at`,
-  ).bind(id).all<{ id: string; duration_minutes: number; schedule: string }>();
-  if (offers.length === 0) return; // bez oferty nie ma czego zaplanować - blok mówi to w podpowiedzi
-  const timezone = t?.timezone && isValidTimezone(t.timezone) ? t.timezone : DEFAULT_TIMEZONE;
-
-  const weeks = offers.map((o) => parseWeek(o.schedule));
-  const next = weeks.map((week, i) =>
-    week.map((hours, day) => {
-      const want = sent[day];
-      if (!want) return hours;
-      const kept = hours.filter((h) => want.includes(h));
-      if (i > 0) return kept;
-      const elsewhere = new Set(weeks.flatMap((w) => w[day]!));
-      return cleanHours([...kept, ...want.filter((h) => !elsewhere.has(h))]);
-    }),
-  );
-  // Tylko oferty, którym grafik się zmienił: oferta bez grafiku ma często stare
-  // terminy z generatora i zapis pustego grafiku zdjąłby je bez powodu.
-  const changed = offers
-    .map((o, i) => ({ id: o.id, duration_minutes: o.duration_minutes, week: next[i]!, before: o.schedule }))
-    .filter((o) => weekJson(o.week) !== o.before);
-  await saveSchedules(env, id, timezone, changed);
 }
 
 /** Tabele wiążące dla wyborów wielokrotnych; słownik pilnuje, co wolno wstawić. */

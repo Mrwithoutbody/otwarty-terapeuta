@@ -160,38 +160,11 @@ describe('związania, których brakowało', () => {
     expect(t.locations).toEqual([]);
   });
 
-  it('kalendarz: dzień tygodnia to godziny grafiku; odznaczona godzina traci wolne terminy, reszta dni zostaje', async () => {
-    const { localSlot, parseWeek } = await import('../src/db/slots');
-    const cells = async (): Promise<string[]> => {
-      const { results } = await env.DB.prepare(
-        `SELECT starts_at_utc FROM appointment_slots WHERE offer_id = 'of_01' AND status = 'open' AND starts_at_utc > ?`,
-      ).bind(new Date().toISOString()).all<{ starts_at_utc: string }>();
-      return [...new Set(results.map((r) => { const l = localSlot(r.starts_at_utc, 'Europe/Warsaw'); return `${l.weekday}-${l.hour}`; }))].sort();
-    };
-    const week = async () => {
-      const row = await env.DB.prepare(`SELECT schedule FROM session_offers WHERE id = 'of_01'`).first<{ schedule: string }>();
-      return parseWeek(row?.schedule);
-    };
-    // Pliki testów dzielą bazę: grafik ustawiony tu, nie zastany. Pierwsza aktywna
-    // oferta (po dacie) dostaje nowe godziny, więc of_01 musi nią być.
-    await env.DB.batch([
-      env.DB.prepare(`UPDATE session_offers SET active = 1, schedule = '[[],[9,11,13,15,17],[9,11,13,15,17],[9,11,13,15,17],[9,11,13,15,17],[9,11,13,15,17],[]]' WHERE id = 'of_01'`),
-      env.DB.prepare(`UPDATE session_offers SET schedule = '' WHERE therapist_id = ? AND id != 'of_01'`).bind(ANNA),
-    ]);
-    const first = await env.DB.prepare(`SELECT id FROM session_offers WHERE therapist_id = ? AND active = 1 ORDER BY created_at LIMIT 1`)
-      .bind(ANNA).first<{ id: string }>();
-    expect(first?.id).toBe('of_01');
-
-    // Poniedziałek zawężony do 9 i 15, nowa 20:00; wtorku nie przysłano - zostaje.
-    expect((await write({ slots: { slot_d1: ['9', '15', '20'] } })).status).toBe(200);
-    expect((await week())[1]).toEqual([9, 15, 20]);
-    expect((await week())[2]).toEqual([9, 11, 13, 15, 17]);
-    const monday = (await cells()).filter((c) => c.startsWith('1-'));
-    expect(monday).toEqual(['1-15', '1-20', '1-9']);
-
-    expect((await write({ slots: { slot_d1: ['15'] } })).status).toBe(200);
-    expect((await cells()).filter((c) => c.startsWith('1-'))).toEqual(['1-15']);
-    expect((await cells()).some((c) => c.startsWith('2-'))).toBe(true);
+  it('kalendarz: grafik układa się w panelu, blok pokazuje go jako wyliczony', async () => {
+    const { HOST_BLOCK_DEFS } = await import('../src/web/host-blocks');
+    const field = HOST_BLOCK_DEFS['slots']!.fields!.find((f) => f.name === 'slots_shown')!;
+    expect(field.kind).toBe('computed');
+    expect(field.hint).toContain('Dostępność');
   });
 
   it('liczby pod nagłówkiem są zadeklarowane jako wyliczone, ze źródłem', async () => {

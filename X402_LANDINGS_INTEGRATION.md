@@ -52,7 +52,7 @@ po stronie hosta), gdzie pole bierze adres z galerii.
 
 Każde pole opisuje RAZ `src/web/data-fields.ts` (`FIELDS`): etykieta, rodzaj,
 `read` (wartość dla formularza) i `write` (łatka do bazy: kolumna, tabela
-wiążąca, adres gabinetu, plan kalendarza). Z tego wpisu powstaje deklaracja dla
+wiążąca, adres gabinetu). Z tego wpisu powstaje deklaracja dla
 usługi, wartość w `resolved` i zapis. Listy z bazy (obszary, nurty) wchodzą
 w opcje pól przy synchronizacji bloków (`hostBlockDefs(dict)`).
 

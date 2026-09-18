@@ -17,7 +17,6 @@
  */
 import type { Env } from '../env';
 import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
-import type { Week } from '../db/slots';
 import { escapeHtml } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, formatPrice, formatTime } from '../lib/time';
 import type { CivilDate } from '../lib/time';
@@ -50,8 +49,6 @@ export interface SectionCtx {
   therapist: PublicTherapist;
   faq: PublicFaqItem[];
   slots: PublicSlot[];
-  /** Suma grafików aktywnych ofert - wartości pól bloku kalendarza w edytorze. */
-  week?: Week;
 }
 
 type Values = Record<string, unknown>;
@@ -508,7 +505,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         : `Bezpłatne odwołanie najpóźniej na ${cutoffLabel(t.cancellation_cutoff_hours)} przed sesją; później sesja jest płatna.`;
       return {
         type: 'calendar',
-        ...valuesOf('slots', t, { slots: ctx.slots, week: ctx.week }),
+        ...valuesOf('slots', t, { slots: ctx.slots }),
         eyebrow: 'Najbliższe wolne terminy',
         heading: 'Kiedy możemy się spotkać',
         days: cal.days,

@@ -94,8 +94,6 @@ export interface SlotPlan {
   timezone: string;
   week: Week;
   timeOff?: TimeOff[];
-  /** Pomija instanty nie później niż ten - cron dokłada tylko ogon kalendarza. */
-  after?: string | null;
 }
 
 export function slotStatements(env: Env, therapistId: string, plan: SlotPlan): D1PreparedStatement[] {
@@ -110,7 +108,6 @@ export function slotStatements(env: Env, therapistId: string, plan: SlotPlan): D
 
     for (const hour of plan.week[weekdayIn(plan.timezone, day)] ?? []) {
       const start = zonedTimeToUtc(day, hour, 0, plan.timezone);
-      if (plan.after && isoOf(start) <= plan.after) continue;
       const end = new Date(start.getTime() + plan.durationMinutes * 60_000);
       statements.push(
         env.DB.prepare(
@@ -203,9 +200,9 @@ export async function saveSchedules(env: Env, therapistId: string, timezone: str
 
 /**
  * Terminy z grafików. Bez `therapistId` to cron: tylko kalendarze, którym
- * zostało mniej niż tydzień zapasu, i tylko ogon po ostatnim terminie - zwykły
- * przebieg to jedno zapytanie. Z `therapistId` cały horyzont, bo po zdjęciu
- * urlopu dziura jest w środku.
+ * zostało mniej niż tydzień zapasu - zwykły przebieg to jedno zapytanie. Z
+ * `therapistId` od razu, bo po zdjęciu urlopu dziura jest w środku. Wstawienia
+ * są idempotentne, więc zawsze idzie cały horyzont.
  */
 export async function fillFromSchedules(env: Env, therapistId: string | null = null): Promise<number> {
   const { results } = await env.DB.prepare(
@@ -236,7 +233,6 @@ export async function fillFromSchedules(env: Env, therapistId: string | null = n
       timezone: r.timezone || DEFAULT_TIMEZONE,
       week: parseWeek(r.schedule),
       timeOff: off.filter((o) => o.therapist_id === r.therapist_id),
-      after: therapistId ? null : r.last_slot,
     }),
   );
   if (statements.length > 0) await env.DB.batch(statements);
