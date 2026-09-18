@@ -235,9 +235,12 @@ describe('kalendarz tygodnia w panelu', () => {
       await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}?tydzien=${nextMonday}`, { headers: { cookie: admin.cookie } })
     ).text();
     expect(html).toContain('class="slot is-open"');
-    expect(html).toContain('data-schedule-grid');
-    expect(html).toContain('id="g-of_01-1-9" name="g_of_01" value="1-9" checked');
-    expect(html).not.toContain('id="g-of_01-1-10" name="g_of_01" value="1-10" checked');
+    // Jeden grafik na osobę, nie jeden na ofertę: kratka ma pole każdej oferty, pędzel wybiera.
+    expect(html.match(/data-schedule-grid/g)).toHaveLength(1);
+    expect(html).toContain('data-brush');
+    expect(html).toContain('id="g-of_01-1-9" name="g_of_01" value="1-9" data-o="0" checked');
+    expect(html).toContain('id="g-of_02-1-9" name="g_of_02" value="1-9" data-o="1">');
+    expect(html).not.toContain('value="1-10" data-o="0" checked');
     expect(html).toContain('Ten tydzień');
     expect(html).toContain('Pn–Pt 9, 11, 13, 15, 17');
     expect(html).not.toContain('slot_id');

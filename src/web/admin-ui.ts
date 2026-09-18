@@ -558,36 +558,74 @@ export const ADMIN_JS = String.raw`(function () {
 
   // ------------------------------------------------------------------ boot ---
 
-  /* Grafik: przeciągnięcie myszą zaznacza (albo odznacza) kolejne kratki, jak
-     w kalendarzu - bez tego tydzień pn-pt 9-17 to czterdzieści pięć kliknięć.
-     Tylko mysz: na dotyku ten sam gest przewija stronę i nie może niczego zmieniać. */
+  /* Grafik: jedna kratka dla wszystkich ofert, jak jeden kalendarz. Wybrana
+     oferta to pędzel: klik maluje kratkę jej kolorem, klik w kratkę tej samej
+     oferty ją czyści, przeciągnięcie myszą maluje kolejne - bez tego tydzień
+     pn-pt 9-17 to czterdzieści pięć kliknięć. Pod spodem zostają zwykłe pola
+     (po jednym na ofertę w kratce), więc formularz wysyła to samo co bez skryptu.
+     Przeciąganie tylko myszą: na dotyku ten sam gest przewija stronę. */
   var painting = null;
   var painted = false;
-  function cellBox(target) {
-    var label = target instanceof Element ? target.closest('label') : null;
-    return label ? document.getElementById(label.htmlFor) : null;
+  function cellOf(target) {
+    return target instanceof Element ? target.closest('td[data-cell]') : null;
+  }
+  function ownerOf(cell) {
+    var box = cell.querySelector('input:checked');
+    return box ? box.getAttribute('data-o') : 'none';
+  }
+  function brushOf() {
+    var brush = document.querySelector('[data-brush] input:checked');
+    return brush ? brush.value : '0';
+  }
+  function nextOf(cell) {
+    var brush = brushOf();
+    return brush === 'erase' || ownerOf(cell) === brush ? 'none' : brush;
+  }
+  function paint(cell, value) {
+    var boxes = cell.querySelectorAll('input');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = boxes[i].getAttribute('data-o') === value;
+    var face = cell.querySelector('.face');
+    if (!face) return;
+    if (value === 'none') {
+      face.removeAttribute('data-c');
+      face.textContent = '';
+    } else {
+      face.setAttribute('data-c', String(Number(value) % 4));
+      face.textContent = boxes.length > 1 ? String(Number(value) + 1) : '';
+    }
   }
   function initScheduleGrid(grid) {
+    grid.classList.add('is-painting');
     grid.addEventListener('pointerdown', function (event) {
       if (event.pointerType !== 'mouse' || event.button !== 0) return;
-      var box = cellBox(event.target);
-      if (!box) return;
+      var cell = cellOf(event.target);
+      if (!cell) return;
       event.preventDefault();
-      painting = !box.checked;
-      box.checked = painting;
+      painting = nextOf(cell);
+      paint(cell, painting);
       painted = true;
     });
     grid.addEventListener('pointerover', function (event) {
-      var box = painting === null ? null : cellBox(event.target);
-      if (box) box.checked = painting;
+      var cell = painting === null ? null : cellOf(event.target);
+      if (cell) paint(cell, painting);
     });
-    /* Klik etykiety przełączyłby kratkę drugi raz - pointerdown już to zrobił. */
     grid.addEventListener('click', function (event) {
-      if (painted && cellBox(event.target)) event.preventDefault();
-      painted = false;
+      var cell = cellOf(event.target);
+      if (!cell || event.target.tagName === 'INPUT') return;
+      event.preventDefault();
+      /* Mysz już pomalowała w pointerdown; dotyk maluje tutaj. */
+      if (!painted) paint(cell, nextOf(cell));
+    });
+    /* Klawiatura: spacja przełącza ukryte pole jak zwykle, kratka idzie za nim. */
+    grid.addEventListener('change', function (event) {
+      var cell = cellOf(event.target);
+      if (cell) paint(cell, event.target.checked ? event.target.getAttribute('data-o') : 'none');
     });
   }
-  document.addEventListener('pointerup', function () { painting = null; });
+  document.addEventListener('pointerup', function () {
+    painting = null;
+    setTimeout(function () { painted = false; }, 0);
+  });
 
   function boot() {
     document.querySelectorAll('[data-schedule-grid]').forEach(initScheduleGrid);
@@ -704,9 +742,26 @@ button.slot:focus-visible { outline: 2px solid var(--accent-strong); outline-off
 .slot.is-blocked { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-muted); }
 .slot.is-booked { background: var(--accent-strong); color: #fff; }
 .slot.is-past, .slot.is-empty { color: var(--text-muted); font-weight: 500; }
-.schedule { margin: 0 0 1rem; }
-.schedule summary { cursor: pointer; padding: 0.4rem 0; }
-.schedule .table-scroll { margin-block: 0.5rem 0; }
+/* Oferty w grafiku i kalendarzu: tokeny z białą cyfrą o kontraście >= 4.5
+   (accent-strong 68° 5.3, focus 40° 5.3, text 88° 10.9, text-muted 83° 4.7). */
+:root { --offer-0: var(--accent-strong); --offer-1: var(--focus); --offer-2: var(--text); --offer-3: var(--text-muted); }
+.brush { display: grid; gap: 0.4rem; margin: 0 0 1rem; padding: 0; border: 0; }
+.brush-opt {
+  display: flex; align-items: center; gap: 0.6rem; margin: 0; cursor: pointer; font-weight: 450;
+  padding: 0.45rem 0.7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-solid);
+}
+.brush-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.brush-opt:has(input:checked) { border-color: var(--accent-strong); box-shadow: 0 0 0 1px var(--accent-strong); }
+.brush-opt:has(input:focus-visible) { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.swatch {
+  flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 6px;
+  color: #fff; font-size: 0.8125rem; font-weight: 700;
+}
+.swatch.is-erase { border: 1px dashed var(--border-strong); background: var(--surface-solid); }
+[data-c="0"] { --c: var(--offer-0); } [data-c="1"] { --c: var(--offer-1); }
+[data-c="2"] { --c: var(--offer-2); } [data-c="3"] { --c: var(--offer-3); }
+.swatch[data-c] { background: var(--c); }
+.slot[data-c] { box-shadow: inset 3px 0 0 var(--c); }
 .schedule-grid { width: auto; margin-inline: auto; }
 .schedule-grid th, .schedule-grid td { padding: 2px; border: 0; text-align: center; background: none; }
 .schedule-grid thead th { padding-block: 0.4rem; }
@@ -715,14 +770,23 @@ button.slot:focus-visible { outline: 2px solid var(--accent-strong); outline-off
   color: var(--text-muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0; text-transform: none;
 }
 .schedule-grid tbody tr:hover td { background: none; }
+.schedule-grid td { white-space: nowrap; }
 .schedule-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.schedule-grid label {
-  display: block; width: 2.6rem; height: 1.9rem; margin: 0; cursor: pointer; user-select: none;
+.schedule-grid label, .schedule-grid .face {
+  display: inline-block; width: 2.6rem; height: 1.9rem; margin: 0; cursor: pointer; user-select: none; vertical-align: middle;
   border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-solid);
+  color: #fff; font-size: 0.75rem; font-weight: 700; line-height: 1.8rem; text-align: center;
 }
-.schedule-grid label:hover { border-color: var(--accent); }
-.schedule-grid input:checked + label { background: var(--accent-strong); border-color: var(--accent-strong); }
+.schedule-grid.is-multi label { width: 1.3rem; color: var(--text-muted); }
+.schedule-grid label:hover, .schedule-grid .face:hover { border-color: var(--accent); }
+.schedule-grid input:checked + label { background: var(--c); border-color: var(--c); color: #fff; }
 .schedule-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+/* Ze skryptem: jedna kratka zamiast pól ofert. */
+.schedule-grid .face { display: none; }
+.schedule-grid.is-painting label { display: none; }
+.schedule-grid.is-painting .face { display: inline-block; }
+.schedule-grid .face[data-c] { background: var(--c); border-color: var(--c); }
+.schedule-grid.is-painting td:has(input:focus-visible) .face { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .time-off { list-style: none; padding: 0; margin: 0 0 1.5rem; }
 .time-off li { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
 .notice-inline { color: var(--danger); font-weight: 600; }

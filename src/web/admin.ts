@@ -394,9 +394,11 @@ interface OfferRow {
 
 interface WeekSlot {
   id: string;
+  offer_id: string;
   starts_at_utc: string;
   status: 'open' | 'booked' | 'blocked';
   title: string;
+  mode: string;
 }
 
 interface FaqRow {
@@ -558,7 +560,7 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
   const [from, to] = localRange(timezone, context.monday, addCivilDays(context.monday, 6));
   const [weekSlots, timeOff] = await Promise.all([
     env.DB.prepare(
-      `SELECT s.id, s.starts_at_utc, s.status, o.title
+      `SELECT s.id, s.offer_id, s.starts_at_utc, s.status, o.title, o.mode
          FROM appointment_slots s JOIN session_offers o ON o.id = s.offer_id
         WHERE s.therapist_id = ? AND s.starts_at_utc >= ? AND s.starts_at_utc < ? ORDER BY s.starts_at_utc`,
     )
@@ -652,15 +654,21 @@ function weekCalendar(session: AdminSession, row: TherapistRow, context: EditorC
     : `${monday.day} ${MONTHS[monday.month - 1]} – ${sunday.day} ${MONTHS[sunday.month - 1]} ${sunday.year}`;
   const thisWeek = dayKey(mondayOf(timezone)) === dayKey(monday);
 
+  // Przy kilku ofertach termin niesie formę i kolor oferty z grafiku pod spodem.
+  const active = context.offers.filter((offer) => offer.active === 1).map((offer) => offer.id);
+  const multi = active.length > 1;
   const chip = (s: WeekSlot): string => {
     const time = formatTime(s.starts_at_utc, timezone);
     const title = escapeHtml(s.title);
-    if (s.status === 'booked') return `<span class="slot is-booked" title="${title}">${time}<small>rezerwacja</small></span>`;
+    const index = active.indexOf(s.offer_id);
+    const color = multi && index >= 0 ? ` data-c="${offerColor(index)}"` : '';
+    const form = multi ? ` · ${modeShort(s.mode)}` : '';
+    if (s.status === 'booked') return `<span class="slot is-booked"${color} title="${title}">${time}<small>rezerwacja${form}</small></span>`;
     if (s.starts_at_utc <= now) return `<span class="slot is-past">${time}</span>`;
     const blocked = s.status === 'blocked';
     return `<form method="post" action="/admin/terapeuci/${id}/terminy/${escapeHtml(s.id)}">${csrfField(session)}
       <input type="hidden" name="stan" value="${blocked ? 'open' : 'blocked'}"><input type="hidden" name="tydzien" value="${dayKey(monday)}">
-      <button type="submit" class="slot ${blocked ? 'is-blocked' : 'is-open'}" title="${title} — kliknij, żeby ${blocked ? 'przywrócić' : 'zablokować'}">${time}<small>${blocked ? 'zablokowany' : 'wolny'}</small></button></form>`;
+      <button type="submit" class="slot ${blocked ? 'is-blocked' : 'is-open'}"${color} title="${title} — kliknij, żeby ${blocked ? 'przywrócić' : 'zablokować'}">${time}<small>${blocked ? 'zablokowany' : 'wolny'}${form}</small></button></form>`;
   };
 
   const columns = days.map((d) => {
@@ -677,18 +685,41 @@ function weekCalendar(session: AdminSession, row: TherapistRow, context: EditorC
 <p class="hint">${context.weekSlots.length === 0 ? 'W tym tygodniu nie ma terminów. Zaznacz godziny w grafiku poniżej, a pojawią się same. ' : ''}Kliknij wolny termin, żeby go zablokować; zablokowany — żeby go przywrócić. Rezerwacje odwołujesz w panelu rezerwacji, osoba dostaje wtedy powiadomienie.</p>`;
 }
 
-/** Grafik oferty: godziny w wierszach, dni w kolumnach, jak w kalendarzu nad nim. */
-function scheduleGrid(offer: OfferRow): string {
-  const oid = escapeHtml(offer.id);
-  const week = parseWeek(offer.schedule);
-  return `<div class="table-scroll"><table class="schedule-grid" data-schedule-grid>
+/** Kolor oferty w grafiku i w kalendarzu: cztery tokeny serwisu po kolei, numer rozróżnia resztę. */
+const offerColor = (index: number): number => index % 4;
+const modeShort = (mode: string): string => (mode === 'online' ? 'online' : 'gabinet');
+
+/**
+ * Jeden grafik, jak jeden kalendarz człowieka: godziny w wierszach, dni w
+ * kolumnach, a kratka należy do najwyżej jednej oferty. Pod spodem każda
+ * oferta ma swoje pole na kratkę (`g_<oferta>` = "dzień-godzina"), więc bez
+ * JavaScriptu kratka to kilka małych pól z numerami; ze skryptem jedna
+ * kratka malowana wybraną ofertą.
+ */
+function scheduleGrid(offers: OfferRow[]): string {
+  const weeks = offers.map((offer) => parseWeek(offer.schedule));
+  const multi = offers.length > 1;
+  return `<div class="table-scroll"><table class="schedule-grid${multi ? ' is-multi' : ''}" data-schedule-grid>
 <thead><tr><th scope="col"><span class="visually-hidden">Godzina</span></th>${WEEKDAYS.map(
     ([day, label]) => `<th scope="col"><abbr title="${label}">${DAY_SHORT[day]}</abbr></th>`,
   ).join('')}</tr></thead>
 <tbody>${SCHEDULE_HOURS.map(
     (hour) => `<tr><th scope="row">${hh(hour)}</th>${WEEKDAYS.map(([day, label]) => {
-      const cell = `g-${oid}-${day}-${hour}`;
-      return `<td><input type="checkbox" id="${cell}" name="g_${oid}" value="${day}-${hour}"${week[day]!.includes(hour) ? ' checked' : ''}><label for="${cell}"><span class="visually-hidden">${label} ${hh(hour)}</span></label></td>`;
+      const owner = weeks.findIndex((week) => week[day]!.includes(hour));
+      const boxes = offers
+        .map((offer, i) => {
+          const oid = escapeHtml(offer.id);
+          const cell = `g-${oid}-${day}-${hour}`;
+          return `<input type="checkbox" id="${cell}" name="g_${oid}" value="${day}-${hour}" data-o="${i}"${
+            weeks[i]![day]!.includes(hour) ? ' checked' : ''
+          }><label for="${cell}" data-c="${offerColor(i)}"><span class="visually-hidden">${label} ${hh(hour)}${
+            multi ? `, ${escapeHtml(offer.title)}` : ''
+          }</span>${multi ? i + 1 : ''}</label>`;
+        })
+        .join('');
+      return `<td data-cell>${boxes}<span class="face" aria-hidden="true"${owner >= 0 ? ` data-c="${offerColor(owner)}"` : ''}>${
+        multi && owner >= 0 ? owner + 1 : ''
+      }</span></td>`;
     }).join('')}</tr>`,
   ).join('')}</tbody></table></div>`;
 }
@@ -716,18 +747,25 @@ ${
     ? `<div class="notice warn"><p>Grafik układasz dla oferty — dodaj ją najpierw w zakładce „Oferta”.</p></div>`
     : `<form method="post" action="/admin/terapeuci/${id}/grafik">
   ${csrfField(session)}
-  ${activeOffers
-    .map((offer) => {
-      const week = parseWeek(offer.schedule);
-      const open = activeOffers.length === 1 || week.some((day) => day.length > 0);
-      return `<details class="schedule"${open ? ' open' : ''}>
-  <summary><strong>${escapeHtml(offer.title)}</strong> <span class="meta">${offer.mode === 'online' ? 'online' : 'w gabinecie'}, ${offer.duration_minutes} min · ${escapeHtml(weekSummary(week))}</span></summary>
-  <input type="hidden" name="offer" value="${escapeHtml(offer.id)}">
-  ${scheduleGrid(offer)}
-</details>`;
-    })
-    .join('')}
-  <p class="hint">Kliknij pole albo przeciągnij po kilku. Jedna godzina należy do jednej oferty — w tym czasie przyjmujesz jedną osobę.</p>
+  ${activeOffers.map((offer) => `<input type="hidden" name="offer" value="${escapeHtml(offer.id)}">`).join('')}
+  ${
+    activeOffers.length === 1
+      ? `<p class="meta"><strong>${escapeHtml(activeOffers[0]!.title)}</strong> · ${modeShort(activeOffers[0]!.mode)}, ${activeOffers[0]!.duration_minutes} min · ${escapeHtml(weekSummary(parseWeek(activeOffers[0]!.schedule)))}</p>`
+      : `<fieldset class="brush" data-brush><legend class="seg-label">Maluj ofertą</legend>
+    ${activeOffers
+      .map(
+        (offer, i) => `<label class="brush-opt"><input type="radio" name="brush" value="${i}"${i === 0 ? ' checked' : ''}><span class="swatch" data-c="${offerColor(i)}">${i + 1}</span><span><strong>${escapeHtml(offer.title)}</strong> <span class="meta">${modeShort(offer.mode)}, ${offer.duration_minutes} min · ${escapeHtml(weekSummary(parseWeek(offer.schedule)))}</span></span></label>`,
+      )
+      .join('')}
+    <label class="brush-opt"><input type="radio" name="brush" value="erase"><span class="swatch is-erase" aria-hidden="true"></span><span>Gumka</span></label>
+  </fieldset>`
+  }
+  ${scheduleGrid(activeOffers)}
+  <p class="hint">${
+    activeOffers.length === 1
+      ? 'Kliknij kratkę albo przeciągnij po kilku.'
+      : 'Wybierz ofertę i klikaj albo przeciągaj po kratkach; kratka tej samej oferty się czyści. W jednej godzinie przyjmujesz jedną osobę, więc kratka ma jedną ofertę.'
+  }</p>
   <div class="field"><label for="t_tz">Strefa czasowa</label>
     <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone || DEFAULT_TIMEZONE)}" maxlength="64">
     <p class="hint">Godziny grafiku są godzinami lokalnymi w tej strefie; zmiana czasu jest uwzględniana sama.</p></div>
