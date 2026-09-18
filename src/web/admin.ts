@@ -1106,7 +1106,7 @@ ${
 <h2>Strony</h2>
 <p class="panel-lead">Profil i strony obok niego: landing pod kampanię, terapia grupowa, warsztat,
 wyjazd. Każda ma własny adres i własny układ; kalendarz, oferta i FAQ wchodzą na nią z Twoich danych.
-Kliknij tytuł, żeby otworzyć edytor.</p>
+Kliknij tytuł albo adres, żeby otworzyć edytor.</p>
 ${
   context.pagesError
     ? `<p class="notice">${escapeHtml(context.pagesError)}</p>`
@@ -1114,8 +1114,9 @@ ${
         .map((p) => {
           const profile = p.slug === PROFILE_SLUG;
           const href = `/terapeuci/${escapeHtml(row.slug)}${profile ? '' : `/${escapeHtml(p.slug)}`}`;
-          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}">${profile ? 'Profil' : escapeHtml(p.title)}</button></td>
-             <td><a href="${href}" target="_blank" rel="noopener">${href} ↗</a></td>
+          const editor = `/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}`;
+          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${profile ? 'Profil' : escapeHtml(p.title)}</button></td>
+             <td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${href}</button></td>
              <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td></tr>`;
         })
         .join('')}</tbody></table></div>
