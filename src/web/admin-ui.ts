@@ -11,6 +11,8 @@
  * of rows the server rendered.
  */
 
+import { SCHEDULE_HOURS } from '../db/slots';
+
 export const ADMIN_JS = String.raw`(function () {
   'use strict';
 
@@ -567,7 +569,7 @@ export const ADMIN_JS = String.raw`(function () {
   var painting = null;
   var painted = false;
   function cellOf(target) {
-    return target instanceof Element ? target.closest('td[data-cell]') : null;
+    return target instanceof Element ? target.closest('[data-cell]') : null;
   }
   function ownerOf(cell) {
     var box = cell.querySelector('input:checked');
@@ -716,35 +718,13 @@ export const ADMIN_CSS = String.raw`
   outline: 2px solid var(--accent-strong); outline-offset: 2px;
 }
 
-/* Dostępność: tydzień jak w kalendarzu (kolumna na dzień), grafik jako kratka
-   godzin × dni. Kolory z tokenów serwisu, bez nowych odcieni. */
+/* Dostępność. Kolory z tokenów serwisu, bez nowych odcieni. */
 .week-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; margin: 0 0 0.75rem; }
-.week-scroll { overflow-x: auto; margin: 0 0 0.5rem; padding-bottom: 0.25rem; }
-.week { display: grid; grid-template-columns: repeat(7, minmax(5rem, 1fr)); gap: 0.4rem; min-width: 37rem; }
-.week-day {
-  display: flex; flex-direction: column; gap: 0.3rem; padding: 0.5rem;
-  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
-}
-.week-day.is-past { opacity: 0.6; }
-.week-day h4 { margin: 0 0 0.15rem; font-size: 0.8125rem; text-align: center; }
-.week-day h4 span { color: var(--text-muted); font-weight: 500; }
-.week-day form { margin: 0; }
-.slot {
-  display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0.3rem 0.2rem;
-  border: 1px solid transparent; border-radius: 8px; font: inherit; font-size: 0.875rem; font-weight: 650;
-  font-variant-numeric: tabular-nums; line-height: 1.2;
-}
-.slot small { font-size: 0.6875rem; font-weight: 500; }
-button.slot { cursor: pointer; }
-button.slot:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-.slot.is-open { background: var(--accent-soft); border-color: var(--border-strong); color: var(--accent-strong); }
-.slot.is-open:hover { border-color: var(--accent); }
-.slot.is-blocked { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-muted); }
-.slot.is-booked { background: var(--accent-strong); color: #fff; }
-.slot.is-past, .slot.is-empty { color: var(--text-muted); font-weight: 500; }
 /* Oferty w grafiku i kalendarzu: tokeny z białą cyfrą o kontraście >= 4.5
    (accent-strong 68° 5.3, focus 40° 5.3, text 88° 10.9, text-muted 83° 4.7). */
 :root { --offer-0: var(--accent-strong); --offer-1: var(--focus); --offer-2: var(--text); --offer-3: var(--text-muted); }
+[data-c="0"] { --c: var(--offer-0); } [data-c="1"] { --c: var(--offer-1); }
+[data-c="2"] { --c: var(--offer-2); } [data-c="3"] { --c: var(--offer-3); }
 .brush { display: grid; gap: 0.4rem; margin: 0 0 1rem; padding: 0; border: 0; }
 .brush-opt {
   display: flex; align-items: center; gap: 0.6rem; margin: 0; cursor: pointer; font-weight: 450;
@@ -758,35 +738,60 @@ button.slot:focus-visible { outline: 2px solid var(--accent-strong); outline-off
   color: #fff; font-size: 0.8125rem; font-weight: 700;
 }
 .swatch.is-erase { border: 1px dashed var(--border-strong); background: var(--surface-solid); }
-[data-c="0"] { --c: var(--offer-0); } [data-c="1"] { --c: var(--offer-1); }
-[data-c="2"] { --c: var(--offer-2); } [data-c="3"] { --c: var(--offer-3); }
 .swatch[data-c] { background: var(--c); }
-.slot[data-c] { box-shadow: inset 3px 0 0 var(--c); }
-.schedule-grid { width: auto; margin-inline: auto; }
-.schedule-grid th, .schedule-grid td { padding: 2px; border: 0; text-align: center; background: none; }
-.schedule-grid thead th { padding-block: 0.4rem; }
-.schedule-grid tbody th {
-  padding-right: 0.6rem; text-align: right; white-space: nowrap;
-  color: var(--text-muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0; text-transform: none;
+
+/* Siatka tygodnia - grafik i kalendarz. Elementy idą dzień po dniu; wąsko (telefon)
+   siatka wypełnia się kolumnami - dni obok siebie, godziny w dół; szeroko wierszami -
+   godziny w poziomie, dni w pionie, cały tydzień bez przewijania. Decyduje szerokość
+   miejsca, nie ekranu. */
+.week-wrap { container-type: inline-size; overflow-x: auto; margin: 0 0 0.5rem; }
+.week-grid {
+  /* Liczba godzin z tej samej stałej co znacznik - CSP nie wpuszcza atrybutu style. */
+  --hours: ${SCHEDULE_HOURS.length};
+  display: grid; gap: 3px; align-items: center; justify-content: center;
+  grid-auto-flow: column;
+  grid-template-rows: auto repeat(var(--hours), 1.9rem);
+  grid-template-columns: auto repeat(7, minmax(2.2rem, 2.6rem));
 }
-.schedule-grid tbody tr:hover td { background: none; }
-.schedule-grid td { white-space: nowrap; }
-.schedule-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.schedule-grid label, .schedule-grid .face {
-  display: inline-block; width: 2.6rem; height: 1.9rem; margin: 0; cursor: pointer; user-select: none; vertical-align: middle;
+@container (min-width: 40rem) {
+  .week-grid {
+    grid-auto-flow: row; justify-content: stretch;
+    grid-template-rows: none; grid-auto-rows: 1.9rem;
+    grid-template-columns: auto repeat(var(--hours), minmax(0, 1fr));
+  }
+  .week-grid .axis.hour { font-size: 0.6875rem; }
+}
+.week-grid .axis {
+  color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-align: center; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.week-grid .axis.day { padding-inline: 0.2rem 0.5rem; text-align: right; }
+.week-grid abbr { text-decoration: none; }
+.week-grid .cell { display: flex; gap: 1px; height: 100%; margin: 0; }
+.week-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+/* Kratka: pole grafiku (label/face) i termin kalendarza (mark) wyglądają tak samo. */
+.week-grid label, .week-grid .face, .mark {
+  flex: 1; min-width: 0; margin: 0; padding: 0; user-select: none;
   border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-solid);
-  color: #fff; font-size: 0.75rem; font-weight: 700; line-height: 1.8rem; text-align: center;
+  color: #fff; font: inherit; font-size: 0.75rem; font-weight: 700; line-height: 1.8rem; text-align: center;
 }
-.schedule-grid.is-multi label { width: 1.3rem; color: var(--text-muted); }
-.schedule-grid label:hover, .schedule-grid .face:hover { border-color: var(--accent); }
-.schedule-grid input:checked + label { background: var(--c); border-color: var(--c); color: #fff; }
-.schedule-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-/* Ze skryptem: jedna kratka zamiast pól ofert. */
-.schedule-grid .face { display: none; }
-.schedule-grid.is-painting label { display: none; }
-.schedule-grid.is-painting .face { display: inline-block; }
-.schedule-grid .face[data-c] { background: var(--c); border-color: var(--c); }
-.schedule-grid.is-painting td:has(input:focus-visible) .face { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.week-grid label, .week-grid .face, button.mark { cursor: pointer; }
+.week-grid label:hover, .week-grid .face:hover, button.mark:hover { border-color: var(--accent); }
+/* Grafik */
+[data-multi] label { color: var(--text-muted); }
+.week-grid input:checked + label { background: var(--c); border-color: var(--c); color: #fff; }
+.week-grid input:focus-visible + label, button.mark:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.week-grid .face { display: none; }
+.week-grid.is-painting label { display: none; }
+.week-grid.is-painting .face { display: block; }
+.week-grid .face[data-c] { background: var(--c); border-color: var(--c); }
+.week-grid.is-painting .cell:has(input:focus-visible) .face { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+/* Kalendarz: wolny jasny z paskiem oferty, zablokowany przerywany, rezerwacja pełna. */
+.mark.is-open { background: var(--accent-soft); color: var(--accent-strong); box-shadow: inset 3px 0 0 var(--c, var(--accent-strong)); }
+.mark.is-blocked { background: transparent; border-style: dashed; color: var(--text-muted); }
+.mark.is-booked { background: var(--c, var(--accent-strong)); border-color: var(--c, var(--accent-strong)); }
+.mark.is-past { opacity: 0.45; }
+.legend .mark { display: inline-block; width: 1.6rem; height: 1.2rem; line-height: 1rem; vertical-align: middle; }
 .time-off { list-style: none; padding: 0; margin: 0 0 1.5rem; }
 .time-off li { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
 .notice-inline { color: var(--danger); font-weight: 600; }

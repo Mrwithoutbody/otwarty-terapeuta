@@ -17,7 +17,7 @@ import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/chall
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
 import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, formatTime, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayIn, zonedTimeToUtc, type CivilDate } from '../lib/time';
+import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayIn, zonedTimeToUtc, type CivilDate } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
@@ -398,7 +398,6 @@ interface WeekSlot {
   starts_at_utc: string;
   status: 'open' | 'booked' | 'blocked';
   title: string;
-  mode: string;
 }
 
 interface FaqRow {
@@ -560,7 +559,7 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
   const [from, to] = localRange(timezone, context.monday, addCivilDays(context.monday, 6));
   const [weekSlots, timeOff] = await Promise.all([
     env.DB.prepare(
-      `SELECT s.id, s.offer_id, s.starts_at_utc, s.status, o.title, o.mode
+      `SELECT s.id, s.offer_id, s.starts_at_utc, s.status, o.title
          FROM appointment_slots s JOIN session_offers o ON o.id = s.offer_id
         WHERE s.therapist_id = ? AND s.starts_at_utc >= ? AND s.starts_at_utc < ? ORDER BY s.starts_at_utc`,
     )
@@ -635,10 +634,33 @@ function weekSummary(week: number[][]): string {
   return parts.length > 0 ? parts.join(' · ') : 'bez grafiku';
 }
 
+/** Kolor oferty w grafiku i w kalendarzu: cztery tokeny serwisu po kolei, numer rozróżnia resztę. */
+const offerColor = (index: number): number => index % 4;
+const modeShort = (mode: string): string => (mode === 'online' ? 'online' : 'gabinet');
+
 /**
- * Tydzień jak w kalendarzu ZnanegoLekarza: kolumna na dzień, w niej terminy.
- * Wolny termin blokuje się kliknięciem, zablokowany tak samo wraca; rezerwacji
- * stąd nie ruszysz - odwołanie idzie przez panel rezerwacji, z powiadomieniem.
+ * Siatka tygodnia - jeden komponent pod grafik i kalendarz: wiersz na dzień,
+ * kolumna na godzinę. Elementy idą dzień po dniu, a kierunek ustawia CSS:
+ * na szerokim panelu godziny w poziomie, na telefonie ta sama siatka
+ * wypełniana kolumnami (dni obok siebie, godziny w dół). Grafik i kalendarz
+ * różnią się tylko zawartością kratki.
+ */
+function weekGrid(days: Array<{ label: string; title: string }>, cell: (row: number, hour: number) => string, attrs = ''): string {
+  return `<div class="week-wrap"><div class="week-grid"${attrs}>
+<span class="axis"></span>${SCHEDULE_HOURS.map((hour) => `<span class="axis hour">${hh(hour)}</span>`).join('')}
+${days
+  .map(
+    (day, row) =>
+      `<span class="axis day"><abbr title="${day.title}">${day.label}</abbr></span>${SCHEDULE_HOURS.map((hour) => cell(row, hour)).join('')}`,
+  )
+  .join('\n')}
+</div></div>`;
+}
+
+/**
+ * Kalendarz: siatka tygodnia z terminami konkretnych dni. Wolny termin blokuje
+ * się kliknięciem, zablokowany tak samo wraca; rezerwacji stąd nie ruszysz -
+ * odwołanie idzie przez panel rezerwacji, z powiadomieniem.
  */
 function weekCalendar(session: AdminSession, row: TherapistRow, context: EditorContext): string {
   const id = escapeHtml(row.id);
@@ -654,74 +676,80 @@ function weekCalendar(session: AdminSession, row: TherapistRow, context: EditorC
     : `${monday.day} ${MONTHS[monday.month - 1]} – ${sunday.day} ${MONTHS[sunday.month - 1]} ${sunday.year}`;
   const thisWeek = dayKey(mondayOf(timezone)) === dayKey(monday);
 
-  // Przy kilku ofertach termin niesie formę i kolor oferty z grafiku pod spodem.
+  // Termin w kratce "dzień-godzina"; przy kilku ofertach niesie kolor i numer oferty z grafiku.
+  const at = new Map(
+    context.weekSlots.map((s) => {
+      const day = dayKey(civilDateIn(timezone, new Date(s.starts_at_utc)));
+      return [`${days.findIndex((d) => dayKey(d) === day)}-${localSlot(s.starts_at_utc, timezone).hour}`, s];
+    }),
+  );
   const active = context.offers.filter((offer) => offer.active === 1).map((offer) => offer.id);
   const multi = active.length > 1;
-  const chip = (s: WeekSlot): string => {
-    const time = formatTime(s.starts_at_utc, timezone);
-    const title = escapeHtml(s.title);
+  const STATE = { open: 'wolny', blocked: 'zablokowany', booked: 'rezerwacja' } as const;
+
+  const cell = (r: number, hour: number): string => {
+    const s = at.get(`${r}-${hour}`);
+    if (!s) return '<span class="cell"></span>';
     const index = active.indexOf(s.offer_id);
     const color = multi && index >= 0 ? ` data-c="${offerColor(index)}"` : '';
-    const form = multi ? ` · ${modeShort(s.mode)}` : '';
-    if (s.status === 'booked') return `<span class="slot is-booked"${color} title="${title}">${time}<small>rezerwacja${form}</small></span>`;
-    if (s.starts_at_utc <= now) return `<span class="slot is-past">${time}</span>`;
-    const blocked = s.status === 'blocked';
-    return `<form method="post" action="/admin/terapeuci/${id}/terminy/${escapeHtml(s.id)}">${csrfField(session)}
-      <input type="hidden" name="stan" value="${blocked ? 'open' : 'blocked'}"><input type="hidden" name="tydzien" value="${dayKey(monday)}">
-      <button type="submit" class="slot ${blocked ? 'is-blocked' : 'is-open'}"${color} title="${title} — kliknij, żeby ${blocked ? 'przywrócić' : 'zablokować'}">${time}<small>${blocked ? 'zablokowany' : 'wolny'}${form}</small></button></form>`;
+    const what = `${WEEKDAYS.find(([d]) => d === weekdayIn(timezone, days[r]!))![1]} ${shortDate(days[r]!)}, ${hh(hour)} — ${STATE[s.status]}, ${escapeHtml(s.title)}`;
+    const mark = s.status === 'booked' ? '•' : s.status === 'blocked' ? '×' : multi && index >= 0 ? String(index + 1) : '';
+    const past = s.starts_at_utc <= now;
+    if (s.status === 'booked' || past) {
+      return `<span class="cell"><span class="mark is-${s.status}${past ? ' is-past' : ''}"${color} title="${what}">${mark}</span></span>`;
+    }
+    return `<form class="cell" method="post" action="/admin/terapeuci/${id}/terminy/${escapeHtml(s.id)}">${csrfField(session)}
+      <input type="hidden" name="stan" value="${s.status === 'blocked' ? 'open' : 'blocked'}"><input type="hidden" name="tydzien" value="${dayKey(monday)}">
+      <button type="submit" class="mark is-${s.status}"${color} title="${what} — kliknij, żeby ${s.status === 'blocked' ? 'przywrócić' : 'zablokować'}"><span class="visually-hidden">${what}</span>${mark}</button></form>`;
   };
 
-  const columns = days.map((d) => {
-    const key = dayKey(d);
-    const slots = context.weekSlots.filter((s) => dayKey(civilDateIn(timezone, new Date(s.starts_at_utc))) === key);
-    return `<div class="week-day${key < now.slice(0, 10) ? ' is-past' : ''}"><h4>${DAY_SHORT[weekdayIn(timezone, d)]} <span>${shortDate(d)}</span></h4>
-      ${slots.length > 0 ? slots.map(chip).join('') : '<span class="slot is-empty">—</span>'}</div>`;
+  const rows = days.map((d) => {
+    const [, name] = WEEKDAYS.find(([day]) => day === weekdayIn(timezone, d))!;
+    return { label: `${DAY_SHORT[weekdayIn(timezone, d)]} ${shortDate(d)}`, title: `${name} ${shortDate(d)}` };
   });
 
   return `<div class="week-nav">${link(addCivilDays(monday, -7), '← Poprzedni')}<strong>${range}</strong>${link(addCivilDays(monday, 7), 'Następny →')}${
     thisWeek ? '' : link(mondayOf(timezone), 'Ten tydzień')
   }</div>
-<div class="week-scroll"><div class="week">${columns.join('')}</div></div>
-<p class="hint">${context.weekSlots.length === 0 ? 'W tym tygodniu nie ma terminów. Zaznacz godziny w grafiku poniżej, a pojawią się same. ' : ''}Kliknij wolny termin, żeby go zablokować; zablokowany — żeby go przywrócić. Rezerwacje odwołujesz w panelu rezerwacji, osoba dostaje wtedy powiadomienie.</p>`;
+${weekGrid(rows, cell)}
+<p class="hint legend"><span class="mark is-open"></span> wolny — klik blokuje · <span class="mark is-blocked">×</span> zablokowany — klik przywraca · <span class="mark is-booked">•</span> rezerwacja${
+    multi ? ' · numer i kolor to oferta z grafiku' : ''
+  }</p>
+<p class="hint">${context.weekSlots.length === 0 ? 'W tym tygodniu nie ma terminów. Zaznacz godziny w grafiku poniżej, a pojawią się same. ' : ''}Rezerwacje odwołujesz w panelu rezerwacji, osoba dostaje wtedy powiadomienie.</p>`;
 }
 
-/** Kolor oferty w grafiku i w kalendarzu: cztery tokeny serwisu po kolei, numer rozróżnia resztę. */
-const offerColor = (index: number): number => index % 4;
-const modeShort = (mode: string): string => (mode === 'online' ? 'online' : 'gabinet');
-
 /**
- * Jeden grafik, jak jeden kalendarz człowieka: godziny w wierszach, dni w
- * kolumnach, a kratka należy do najwyżej jednej oferty. Pod spodem każda
- * oferta ma swoje pole na kratkę (`g_<oferta>` = "dzień-godzina"), więc bez
- * JavaScriptu kratka to kilka małych pól z numerami; ze skryptem jedna
- * kratka malowana wybraną ofertą.
+ * Grafik: ta sama siatka tygodnia, kratka należy do najwyżej jednej oferty.
+ * Pod spodem każda oferta ma swoje pole na kratkę (`g_<oferta>` =
+ * "dzień-godzina"), więc bez JavaScriptu kratka to kilka małych pól
+ * z numerami; ze skryptem jedna kratka malowana wybraną ofertą.
  */
 function scheduleGrid(offers: OfferRow[]): string {
   const weeks = offers.map((offer) => parseWeek(offer.schedule));
   const multi = offers.length > 1;
-  return `<div class="table-scroll"><table class="schedule-grid${multi ? ' is-multi' : ''}" data-schedule-grid>
-<thead><tr><th scope="col"><span class="visually-hidden">Godzina</span></th>${WEEKDAYS.map(
-    ([day, label]) => `<th scope="col"><abbr title="${label}">${DAY_SHORT[day]}</abbr></th>`,
-  ).join('')}</tr></thead>
-<tbody>${SCHEDULE_HOURS.map(
-    (hour) => `<tr><th scope="row">${hh(hour)}</th>${WEEKDAYS.map(([day, label]) => {
-      const owner = weeks.findIndex((week) => week[day]!.includes(hour));
-      const boxes = offers
-        .map((offer, i) => {
-          const oid = escapeHtml(offer.id);
-          const cell = `g-${oid}-${day}-${hour}`;
-          return `<input type="checkbox" id="${cell}" name="g_${oid}" value="${day}-${hour}" data-o="${i}"${
-            weeks[i]![day]!.includes(hour) ? ' checked' : ''
-          }><label for="${cell}" data-c="${offerColor(i)}"><span class="visually-hidden">${label} ${hh(hour)}${
-            multi ? `, ${escapeHtml(offer.title)}` : ''
-          }</span>${multi ? i + 1 : ''}</label>`;
-        })
-        .join('');
-      return `<td data-cell>${boxes}<span class="face" aria-hidden="true"${owner >= 0 ? ` data-c="${offerColor(owner)}"` : ''}>${
-        multi && owner >= 0 ? owner + 1 : ''
-      }</span></td>`;
-    }).join('')}</tr>`,
-  ).join('')}</tbody></table></div>`;
+  const cell = (row: number, hour: number): string => {
+    const [day, label] = WEEKDAYS[row]!;
+    const owner = weeks.findIndex((week) => week[day]!.includes(hour));
+    const boxes = offers
+      .map((offer, i) => {
+        const oid = escapeHtml(offer.id);
+        const id = `g-${oid}-${day}-${hour}`;
+        return `<input type="checkbox" id="${id}" name="g_${oid}" value="${day}-${hour}" data-o="${i}"${
+          weeks[i]![day]!.includes(hour) ? ' checked' : ''
+        }><label for="${id}" data-c="${offerColor(i)}"><span class="visually-hidden">${label} ${hh(hour)}${
+          multi ? `, ${escapeHtml(offer.title)}` : ''
+        }</span>${multi ? i + 1 : ''}</label>`;
+      })
+      .join('');
+    return `<div class="cell" data-cell>${boxes}<span class="face" aria-hidden="true"${owner >= 0 ? ` data-c="${offerColor(owner)}"` : ''}>${
+      multi && owner >= 0 ? owner + 1 : ''
+    }</span></div>`;
+  };
+  return weekGrid(
+    WEEKDAYS.map(([day, label]) => ({ label: DAY_SHORT[day]!, title: label })),
+    cell,
+    ` data-schedule-grid${multi ? ' data-multi' : ''} role="group" aria-label="Grafik tygodnia"`,
+  );
 }
 
 function availabilityTab(session: AdminSession, row: TherapistRow, context: EditorContext): string {

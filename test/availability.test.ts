@@ -234,7 +234,9 @@ describe('kalendarz tygodnia w panelu', () => {
     const html = await (
       await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}?tydzien=${nextMonday}`, { headers: { cookie: admin.cookie } })
     ).text();
-    expect(html).toContain('class="slot is-open"');
+    expect(html).toContain('class="mark is-open"');
+    // Kalendarz i grafik to ta sama siatka tygodnia.
+    expect(html.match(/class="week-grid"/g)).toHaveLength(2);
     // Jeden grafik na osobę, nie jeden na ofertę: kratka ma pole każdej oferty, pędzel wybiera.
     expect(html.match(/data-schedule-grid/g)).toHaveLength(1);
     expect(html).toContain('data-brush');
