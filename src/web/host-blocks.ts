@@ -282,13 +282,27 @@ function leadOf(t: PublicTherapist): string {
   return pick.slice(0, 240);
 }
 
-/** Opis bez zdania, które pojechało już jako lead — inaczej ta sama linia stoi dwa razy na stronie. */
-function bodyWithoutLead(t: PublicTherapist): string {
+/**
+ * Dwa zdania, które bierze sekcja portretu.
+ *
+ * Liczone raz i w jednym miejscu, bo czyta je też opis: portret dostał własną sekcję
+ * (2026-09-18), a opis nadal szedł od początku biogramu, więc te same dwa zdania stały
+ * na stronie dwa razy — widać to było na profilu Karoliny Jarosz zaraz po wdrożeniu.
+ */
+function portretBody(t: PublicTherapist): string {
+  if (!t.photo_url) return '';
   const lead = leadOf(t).trim();
+  const rest = sentences(t.bio).filter((x) => !isIntro(x, t.display_name) && x.trim() !== lead);
+  return rest.slice(0, 2).join(' ');
+}
+
+/** Opis bez zdań, które pojechały już jako lead albo do portretu. */
+function bodyWithoutLead(t: PublicTherapist): string {
+  const drop = [leadOf(t).trim(), ...sentences(portretBody(t)).map((x) => x.trim())].filter(Boolean);
   return t.bio
     .trim()
     .split(/\n+/)
-    .map((para) => (lead === '' ? para : para.replace(lead, '').trim()))
+    .map((para) => drop.reduce((acc, zdanie) => acc.replace(zdanie, '').trim(), para))
     // Akapit, który był samym przedstawieniem imienia, też wypada: nazwisko stoi w pasku,
     // w nadtytule i w stopce, więc jako otwarcie opisu nic nie wnosi.
     .filter((para) => para !== '' && !isIntro(para, t.display_name))
@@ -410,12 +424,11 @@ const HOST_SECTIONS: Record<string, HostDef> = {
     resolve: (ctx) => {
       const t = ctx.therapist;
       if (!t.photo_url) return null;
-      const rest = sentences(t.bio).filter((x) => !isIntro(x, t.display_name) && x.trim() !== leadOf(t).trim());
       return {
         type: 'media-text',
         eyebrow: 'Kto poprowadzi',
         heading: t.display_name,
-        body: rest.slice(0, 2).join(' ') || t.bio.trim().split(/\n+/)[0] || '',
+        body: portretBody(t) || t.bio.trim().split(/\n+/)[0] || '',
         media: photo(ctx),
       };
     },
