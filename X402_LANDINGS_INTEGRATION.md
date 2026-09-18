@@ -29,7 +29,7 @@ hostom z listy `HOSTS` po jej stronie. `memory://` = x402L w procesie (testy).
 
 ```
 POST /v1/render/page   {owner, slug, title, theme, variant, page, resolved, chrome, industry} → HTML
-POST /v1/edit-session  {…jak wyżej, write: {url, token}}                                    → {url} edytora, nowa karta
+POST /v1/edit-session  {…jak wyżej, write: {url, token}, media: {scope}}                                    → {url} edytora, nowa karta
 GET  /v1/themes        → [{slug, label, hint, variants}]
 PUT  /v1/site/blocks   → 204
 ```

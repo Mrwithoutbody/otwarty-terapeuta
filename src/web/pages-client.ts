@@ -184,6 +184,8 @@ export interface EditSessionInput {
   chrome: Record<string, unknown>;
   /** Gdzie usługa odeśle stronę po zapisie, i czym się przy tym wylegitymuje. */
   write: { url: string; token: string };
+  /** Zakres półki plików właścicielki w edytorze usługi. */
+  media: { scope: string };
 }
 
 /** A link into the hosted editor, good for an hour. */

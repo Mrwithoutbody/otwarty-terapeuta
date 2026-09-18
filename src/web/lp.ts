@@ -17,6 +17,7 @@ import { escapeHtml } from '../lib/sanitize';
 import { createPage, editSession, listPages, PagesUnavailable, renderPage, type PageInfo } from './pages-client';
 import { resolveAll, type SectionCtx } from './host-blocks';
 import { writeToken } from './host-write';
+import { hmacBase64Url } from '../lib/crypto';
 
 export { PagesUnavailable };
 export type { SectionCtx };
@@ -119,5 +120,8 @@ export async function editorUrl(env: Env, page: PageInfo, ctx: SectionCtx | null
     // Strona po edycji wraca tutaj: usługa odsyła ją pod ten adres z tym tokenem,
     // a zapisuje ją ta baza. Usługa stron nie trzyma.
     write: { url: `${env.PUBLIC_BASE_URL}/api/host-blocks?page=${encodeURIComponent(page.id)}`, token: await writeToken(env, page.owner) },
+    // Jej półka plików w edytorze: stały sekret z naszego klucza, więc usługa pokaże wgrane
+    // logo i zdjęcia tylko w sesjach, które otworzyliśmy dla niej - sam identyfikator nie wystarczy.
+    media: { scope: await hmacBase64Url(env.TOKEN_SIGNING_KEY, `media:${page.owner}`) },
   });
 }
