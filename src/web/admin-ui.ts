@@ -572,29 +572,44 @@ export const ADMIN_JS = String.raw`(function () {
     return target instanceof Element ? target.closest('[data-cell]') : null;
   }
   function ownerOf(cell) {
-    var box = cell.querySelector('input:checked');
+    var box = cell.querySelector('input[data-o]:checked');
     return box ? box.getAttribute('data-o') : 'none';
   }
   function brushOf() {
     var brush = document.querySelector('[data-brush] input:checked');
     return brush ? brush.value : '0';
   }
+  /* Co pędzel zrobi z kratką: kłódka przełącza blokadę terminu (tylko tam, gdzie
+     termin jest), oferta i gumka zmieniają grafik. Przeciągnięcie niesie to dalej. */
   function nextOf(cell) {
     var brush = brushOf();
-    return brush === 'erase' || ownerOf(cell) === brush ? 'none' : brush;
+    if (brush === 'lock') {
+      var lock = cell.querySelector('input[data-lock]');
+      return { lock: lock ? !lock.checked : true };
+    }
+    return { offer: brush === 'erase' || ownerOf(cell) === brush ? 'none' : brush };
   }
-  function paint(cell, value) {
-    var boxes = cell.querySelectorAll('input');
-    for (var i = 0; i < boxes.length; i++) boxes[i].checked = boxes[i].getAttribute('data-o') === value;
+  function paint(cell, stroke) {
+    var lock = cell.querySelector('input[data-lock]');
+    if ('lock' in stroke) {
+      if (!lock) return;
+      lock.checked = stroke.lock;
+    } else {
+      var boxes = cell.querySelectorAll('input[data-o]');
+      for (var i = 0; i < boxes.length; i++) boxes[i].checked = boxes[i].getAttribute('data-o') === stroke.offer;
+    }
+    render(cell);
+  }
+  function render(cell) {
     var face = cell.querySelector('.face');
     if (!face) return;
-    if (value === 'none') {
-      face.removeAttribute('data-c');
-      face.textContent = '';
-    } else {
-      face.setAttribute('data-c', String(Number(value) % 4));
-      face.textContent = boxes.length > 1 ? String(Number(value) + 1) : '';
-    }
+    var owner = ownerOf(cell);
+    var lock = cell.querySelector('input[data-lock]');
+    if (owner === 'none') face.removeAttribute('data-c');
+    else face.setAttribute('data-c', String(Number(owner) % 4));
+    face.textContent = cell.hasAttribute('data-booked') ? '•'
+      : lock && lock.checked ? '🔒'
+      : owner !== 'none' && cell.querySelectorAll('input[data-o]').length > 1 ? String(Number(owner) + 1) : '';
   }
   function initScheduleGrid(grid) {
     grid.classList.add('is-painting');
@@ -621,7 +636,9 @@ export const ADMIN_JS = String.raw`(function () {
     /* Klawiatura: spacja przełącza ukryte pole jak zwykle, kratka idzie za nim. */
     grid.addEventListener('change', function (event) {
       var cell = cellOf(event.target);
-      if (cell) paint(cell, event.target.checked ? event.target.getAttribute('data-o') : 'none');
+      if (!cell) return;
+      if (event.target.hasAttribute('data-o') && event.target.checked) paint(cell, { offer: event.target.getAttribute('data-o') });
+      else render(cell);
     });
   }
   document.addEventListener('pointerup', function () {
@@ -769,29 +786,27 @@ export const ADMIN_CSS = String.raw`
 .week-grid abbr { text-decoration: none; }
 .week-grid .cell { display: flex; gap: 1px; height: 100%; margin: 0; }
 .week-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-/* Kratka: pole grafiku (label/face) i termin kalendarza (mark) wyglądają tak samo. */
-.week-grid label, .week-grid .face, .mark {
-  flex: 1; min-width: 0; margin: 0; padding: 0; user-select: none;
+.week-grid label, .week-grid .face {
+  flex: 1; min-width: 0; margin: 0; padding: 0; cursor: pointer; user-select: none;
   border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-solid);
   color: #fff; font: inherit; font-size: 0.75rem; font-weight: 700; line-height: 1.8rem; text-align: center;
 }
-.week-grid label, .week-grid .face, button.mark { cursor: pointer; }
-.week-grid label:hover, .week-grid .face:hover, button.mark:hover { border-color: var(--accent); }
+.week-grid label:hover, .week-grid .face:hover { border-color: var(--accent); }
 /* Grafik */
-[data-multi] label { color: var(--text-muted); }
+[data-multi] label, .week-grid label.lock { color: var(--text-muted); }
+.week-grid label.lock { font-size: 0.625rem; }
+.week-grid input[data-lock]:checked + label { background: var(--surface-alt); border-style: dashed; }
+.week-grid .face { color: var(--text); }
+.week-grid .face[data-c] { color: #fff; }
+.week-grid .cell.is-past { opacity: 0.45; }
+.swatch.is-erase { color: var(--text); font-size: 0.75rem; }
 .week-grid input:checked + label { background: var(--c); border-color: var(--c); color: #fff; }
-.week-grid input:focus-visible + label, button.mark:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.week-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .week-grid .face { display: none; }
 .week-grid.is-painting label { display: none; }
 .week-grid.is-painting .face { display: block; }
 .week-grid .face[data-c] { background: var(--c); border-color: var(--c); }
 .week-grid.is-painting .cell:has(input:focus-visible) .face { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-/* Kalendarz: wolny jasny z paskiem oferty, zablokowany przerywany, rezerwacja pełna. */
-.mark.is-open { background: var(--accent-soft); color: var(--accent-strong); box-shadow: inset 3px 0 0 var(--c, var(--accent-strong)); }
-.mark.is-blocked { background: transparent; border-style: dashed; color: var(--text-muted); }
-.mark.is-booked { background: var(--c, var(--accent-strong)); border-color: var(--c, var(--accent-strong)); }
-.mark.is-past { opacity: 0.45; }
-.legend .mark { display: inline-block; width: 1.6rem; height: 1.2rem; line-height: 1rem; vertical-align: middle; }
 .time-off { list-style: none; padding: 0; margin: 0 0 1.5rem; }
 .time-off li { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
 .notice-inline { color: var(--danger); font-weight: 600; }

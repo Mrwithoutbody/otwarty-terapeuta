@@ -206,45 +206,64 @@ describe('urlop', () => {
   });
 });
 
-describe('kalendarz tygodnia w panelu', () => {
-  it('klik blokuje wolny termin i przywraca zablokowany; rezerwacji nie rusza', async () => {
+describe('jeden widok: tydzień z grafikiem, kłódkami i rezerwacjami', () => {
+  it('kłódka blokuje wolny termin, brak kłódki przywraca; rezerwacji i grafiku nie rusza', async () => {
     await seedSchedule();
     const [open, other] = (await future('therapist_id', ANNA)).filter((s) => s.status === 'open');
-    const toggle = (id: string, stan: string) =>
-      post(admin, `/admin/terapeuci/${ANNA}/terminy/${id}`, [['stan', stan], ['tydzien', '2030-01-07']]);
+    const save = (slots: string[], locked: string[]) =>
+      post(admin, `/admin/terapeuci/${ANNA}/grafik`, [
+        ['tydzien', '2030-01-07'],
+        ...slots.map((id): [string, string] => ['slot', id]),
+        ...locked.map((id): [string, string] => ['lock', id]),
+      ]);
     const status = async (id: string) =>
       (await env.DB.prepare(`SELECT status FROM appointment_slots WHERE id = ?`).bind(id).first<{ status: string }>())?.status;
+    const before = await schedule('of_01');
 
-    const res = await toggle(open!.id, 'blocked');
+    const res = await save([open!.id, other!.id], [open!.id]);
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe(`/admin/terapeuci/${ANNA}?tydzien=2030-01-07#panel-terminy`);
     expect(await status(open!.id)).toBe('blocked');
-    await toggle(open!.id, 'open');
+    expect(await status(other!.id)).toBe('open');
+    expect(await schedule('of_01')).toEqual(before);
+
+    await save([open!.id], []);
     expect(await status(open!.id)).toBe('open');
 
     await env.DB.prepare(`UPDATE appointment_slots SET status = 'booked' WHERE id = ?`).bind(other!.id).run();
-    await toggle(other!.id, 'blocked');
+    await save([other!.id], [other!.id]);
     expect(await status(other!.id)).toBe('booked');
   });
 
-  it('panel pokazuje tydzień z terminami i grafik z zaznaczonymi kratkami', async () => {
+  it('cudzego terminu kłódka nie dotyka', async () => {
+    const [foreign] = (await future('therapist_id', MAREK)).filter((s) => s.status === 'open');
+    await post(admin, `/admin/terapeuci/${ANNA}/grafik`, [['slot', foreign!.id], ['lock', foreign!.id]]);
+    const row = await env.DB.prepare(`SELECT status FROM appointment_slots WHERE id = ?`).bind(foreign!.id).first<{ status: string }>();
+    expect(row?.status).toBe('open');
+  });
+
+  it('panel ma jedną siatkę: kratka niesie pola ofert, kłódkę terminu i rezerwację', async () => {
     await seedSchedule();
     const today = civilDateIn(WAW, new Date());
     const nextMonday = dayKey(addCivilDays(today, 7 - ((weekdayIn(WAW, today) + 6) % 7)));
+    const [slot, taken] = (await future('offer_id', 'of_01')).filter(
+      (s) => s.status === 'open' && dayKey(civilDateIn(WAW, new Date(s.starts_at_utc))) >= nextMonday,
+    );
+    await env.DB.prepare(`UPDATE appointment_slots SET status = 'booked' WHERE id = ?`).bind(taken!.id).run();
     const html = await (
       await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}?tydzien=${nextMonday}`, { headers: { cookie: admin.cookie } })
     ).text();
-    expect(html).toContain('class="mark is-open"');
-    // Kalendarz i grafik to ta sama siatka tygodnia.
-    expect(html.match(/class="week-grid"/g)).toHaveLength(2);
-    // Jeden grafik na osobę, nie jeden na ofertę: kratka ma pole każdej oferty, pędzel wybiera.
-    expect(html.match(/data-schedule-grid/g)).toHaveLength(1);
+    expect(html.match(/class="week-grid"/g)).toHaveLength(1);
     expect(html).toContain('data-brush');
+    expect(html).toContain('name="brush" value="lock"');
     expect(html).toContain('id="g-of_01-1-9" name="g_of_01" value="1-9" data-o="0" checked');
     expect(html).toContain('id="g-of_02-1-9" name="g_of_02" value="1-9" data-o="1">');
     expect(html).not.toContain('value="1-10" data-o="0" checked');
+    expect(html).toContain(`name="lock" value="${slot!.id}" data-lock>`);
+    // Rezerwacja: widać ją w kratce, ale kłódki do niej nie ma.
+    expect(html).toContain('data-booked');
+    expect(html).not.toContain(`value="${taken!.id}"`);
     expect(html).toContain('Ten tydzień');
     expect(html).toContain('Pn–Pt 9, 11, 13, 15, 17');
-    expect(html).not.toContain('slot_id');
   });
 });
