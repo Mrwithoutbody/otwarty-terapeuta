@@ -121,6 +121,8 @@ export function renderPage(env: Env, options: PageOptions): string {
 <title>${escapeHtml(options.title)} — Otwarty Terapeuta</title>
 <meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
+<link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">
 ${
   options.adminAssets

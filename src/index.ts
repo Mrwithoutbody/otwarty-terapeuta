@@ -46,11 +46,14 @@ const app = new Hono<{ Bindings: Env }>();
 
 // ------------------------------------------------------------ static bits ---
 
+// Every one of these is linked with `?v=<content hash>`, so a change is a new URL.
+const VERSIONED = 'public, max-age=31536000, immutable';
+
 app.get('/assets/app.css', () =>
   new Response(APP_CSS, {
     headers: {
       'content-type': 'text/css; charset=utf-8',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': VERSIONED,
     },
   }),
 );
@@ -61,7 +64,7 @@ app.get('/assets/admin.css', () =>
   new Response(ADMIN_CSS, {
     headers: {
       'content-type': 'text/css; charset=utf-8',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': VERSIONED,
     },
   }),
 );
@@ -70,7 +73,7 @@ app.get('/assets/admin.js', () =>
   new Response(ADMIN_JS, {
     headers: {
       'content-type': 'text/javascript; charset=utf-8',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': VERSIONED,
       'x-content-type-options': 'nosniff',
     },
   }),
