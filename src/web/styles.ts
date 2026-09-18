@@ -1,6 +1,6 @@
 /**
- * One stylesheet, served from /assets/app.css so the page needs no inline
- * styles and the CSP can stay strict.
+ * One stylesheet. Public pages inline it under a CSP hash (see layout.ts), the
+ * panel links it from /assets/app.css; no style attributes anywhere.
  *
  * Visual direction: calm, editorial and health-focused. Warm ivory surfaces,
  * botanical greens, soft light and generous spacing. Mobile first.

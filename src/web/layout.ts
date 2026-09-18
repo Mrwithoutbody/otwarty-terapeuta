@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Env } from '../env';
 import { fnv1a } from '../lib/crypto';
 import { escapeHtml } from '../lib/sanitize';
@@ -21,8 +22,16 @@ const APP_CSS_VERSION = assetVersion(APP_CSS);
 const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
 
 /**
- * Content-Security-Policy for the website. No inline scripts anywhere, which
- * is why the stylesheet is a separate file and every form is server rendered.
+ * Public pages carry the stylesheet inline: a linked one blocks the first paint
+ * for a round trip, and a visitor rarely sees more than two of these pages, so
+ * the shared cache bought little. The CSP allows exactly these bytes by hash -
+ * no 'unsafe-inline', no nonce. The panel keeps the linked file.
+ */
+const APP_CSS_CSP_HASH = `'sha256-${createHash('sha256').update(APP_CSS).digest('base64')}'`;
+
+/**
+ * Content-Security-Policy for the website. No inline scripts anywhere and every
+ * form is server rendered; the one inline stylesheet is allowed by its hash.
  * Two other origins: Turnstile, only where a form needs it, and the pages
  * service - its editor is framed in the panel, its stylesheet and fonts are
  * linked from every therapist page.
@@ -41,7 +50,7 @@ function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string 
     `default-src 'none'`,
     script,
     // Kroje motywów usługi idą z Google Fonts: arkusz z googleapis, pliki z gstatic.
-    `style-src ${own}${pages ? ' https://fonts.googleapis.com' : ''}`,
+    `style-src ${own} ${APP_CSS_CSP_HASH}${pages ? ' https://fonts.googleapis.com' : ''}`,
     // The service's themes bring their own photographs, served from its origin.
     `img-src ${own} data:`,
     `font-src ${own}${pages ? ' https://fonts.gstatic.com' : ''}`,
@@ -123,12 +132,12 @@ export function renderPage(env: Env, options: PageOptions): string {
 ${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">
 ${
   options.adminAssets
-    ? `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
+    ? `<link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">\n` +
+      `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
       `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`
-    : ''
+    : `<style>${APP_CSS}</style>`
 }
 <link rel="icon" href="data:,">
 </head>
