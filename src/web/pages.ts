@@ -11,6 +11,7 @@ import {
   type SearchFilters,
 } from '../db/catalog';
 import type { PublicTherapist } from '../db/types';
+import { cleanHours, emptyWeek, parseWeek } from '../db/slots';
 import { rankTherapists } from '../matching/rank';
 import { escapeHtml } from '../lib/sanitize';
 import { formatDate, formatDateTime, formatPrice, formatTime, nowIso } from '../lib/time';
@@ -420,7 +421,7 @@ function notFoundProfile(env: Env): Response {
 
 /** What every page of a therapist renders from: her FAQ and her open slots. */
 export async function profileContext(env: Env, t: PublicTherapist): Promise<SectionCtx> {
-  const [faq, slots] = await Promise.all([
+  const [faq, slots, schedules] = await Promise.all([
     getPublishedFaq(env, t.therapist_id),
     listOpenSlots(env, {
       therapist_id: t.therapist_id,
@@ -432,8 +433,14 @@ export async function profileContext(env: Env, t: PublicTherapist): Promise<Sect
       // revisit if anyone opens more than ~80 slots inside the window.
       limit: 80,
     }),
+    env.DB.prepare(`SELECT schedule FROM session_offers WHERE therapist_id = ? AND active = 1 AND schedule != ''`)
+      .bind(t.therapist_id)
+      .all<{ schedule: string }>(),
   ]);
-  return { env, therapist: t, faq, slots };
+  const week = schedules.results
+    .map((row) => parseWeek(row.schedule))
+    .reduce((sum, w) => sum.map((hours, day) => cleanHours([...hours, ...w[day]!])), emptyWeek());
+  return { env, therapist: t, faq, slots, week };
 }
 
 /**

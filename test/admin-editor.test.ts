@@ -269,86 +269,11 @@ describe('the public profile shows the photo', () => {
   });
 });
 
-describe('slot hours come from the hour chips', () => {
-  const OFFER = 'of_01';
+describe('profile form keeps its long fields', () => {
   let admin: Actor;
 
   beforeAll(async () => {
     admin = await actor('hours-admin@example.invalid', 'admin');
-  });
-
-  function generate(pairs: Array<[string, string]>): Promise<Response> {
-    const body = new URLSearchParams();
-    body.append('csrf', admin.csrf);
-    body.append('offer_id', OFFER);
-    body.append('days', '7');
-    body.append('timezone', 'Europe/Warsaw');
-    for (const [key, value] of pairs) body.append(key, value);
-    return SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/terminy`, {
-      method: 'POST',
-      headers: { cookie: admin.cookie, 'content-type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-      redirect: 'manual',
-    });
-  }
-
-  async function countByLocalHour(): Promise<Record<string, number>> {
-    const { results } = await env.DB.prepare(
-      `SELECT starts_at_utc FROM appointment_slots WHERE offer_id = ?`,
-    )
-      .bind(OFFER)
-      .all<{ starts_at_utc: string }>();
-    const format = new Intl.DateTimeFormat('pl-PL', {
-      timeZone: 'Europe/Warsaw',
-      hour: '2-digit',
-      hour12: false,
-    });
-    const counts: Record<string, number> = {};
-    for (const row of results) {
-      const hour = format.format(new Date(row.starts_at_utc));
-      counts[hour] = (counts[hour] ?? 0) + 1;
-    }
-    return counts;
-  }
-
-  async function localHours(): Promise<string[]> {
-    return Object.keys(await countByLocalHour()).sort();
-  }
-
-  it('accepts one entry per checked chip', async () => {
-    const before = await localHours();
-    const response = await generate([
-      ['hours', '6'],
-      ['hours', '7'],
-      // Not an hour of the day; must be ignored rather than break the batch.
-      ['hours', '99'],
-    ]);
-    expect(response.status).toBe(302);
-
-    const added = (await localHours()).filter((hour) => !before.includes(hour));
-    expect(added).toEqual(['06', '07']);
-
-    // Every checked hour must land on the same set of working days: a per-hour
-    // dropout would show up as two different counts.
-    const perHour = await countByLocalHour();
-    expect(perHour['06']).toBeGreaterThan(0);
-    expect(perHour['07']).toBe(perHour['06']);
-  });
-
-  it('still accepts the older comma-separated single field', async () => {
-    const before = await localHours();
-    const response = await generate([['hours', '3,4']]);
-    expect(response.status).toBe(302);
-
-    const added = (await localHours()).filter((hour) => !before.includes(hour));
-    expect(added).toEqual(['03', '04']);
-  });
-
-  it('refuses to generate anything when no hour is chosen', async () => {
-    const before = await localHours();
-    const response = await generate([]);
-    expect(response.status).toBe(400);
-    expect(await localHours()).toEqual(before);
   });
 
   it('saves the description, the first meeting and the qualifications', async () => {

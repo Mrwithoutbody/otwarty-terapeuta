@@ -558,7 +558,39 @@ export const ADMIN_JS = String.raw`(function () {
 
   // ------------------------------------------------------------------ boot ---
 
+  /* Grafik: przeciągnięcie myszą zaznacza (albo odznacza) kolejne kratki, jak
+     w kalendarzu - bez tego tydzień pn-pt 9-17 to czterdzieści pięć kliknięć.
+     Tylko mysz: na dotyku ten sam gest przewija stronę i nie może niczego zmieniać. */
+  var painting = null;
+  var painted = false;
+  function cellBox(target) {
+    var label = target instanceof Element ? target.closest('label') : null;
+    return label ? document.getElementById(label.htmlFor) : null;
+  }
+  function initScheduleGrid(grid) {
+    grid.addEventListener('pointerdown', function (event) {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      var box = cellBox(event.target);
+      if (!box) return;
+      event.preventDefault();
+      painting = !box.checked;
+      box.checked = painting;
+      painted = true;
+    });
+    grid.addEventListener('pointerover', function (event) {
+      var box = painting === null ? null : cellBox(event.target);
+      if (box) box.checked = painting;
+    });
+    /* Klik etykiety przełączyłby kratkę drugi raz - pointerdown już to zrobił. */
+    grid.addEventListener('click', function (event) {
+      if (painted && cellBox(event.target)) event.preventDefault();
+      painted = false;
+    });
+  }
+  document.addEventListener('pointerup', function () { painting = null; });
+
   function boot() {
+    document.querySelectorAll('[data-schedule-grid]').forEach(initScheduleGrid);
     document.querySelectorAll('[data-tabs]').forEach(initTabs);
     document.querySelectorAll('[data-editor-dialog]').forEach(initEditorDialog);
     document.querySelectorAll('[data-editor]').forEach(initEditor);
@@ -626,33 +658,74 @@ export const ADMIN_CSS = String.raw`
   box-shadow: var(--shadow-sm);
 }
 
-/* Two chip groups share one look: the segmented status radios, and the hour
-   picker. The input itself is off-screen; its label is the visible control. */
+/* Segmented status radios. The input itself is off-screen; its label is the visible control. */
 .seg-label {
   display: block; color: var(--text); font-size: 0.875rem; font-weight: 620; margin-bottom: var(--space-2);
 }
 .seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.hour-grid {
-  display: grid; gap: 0.4rem;
-  grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
-}
-.seg input, .hour-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.seg label, .hour-grid label {
+.seg input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.seg label {
   margin: 0; cursor: pointer; font-weight: 600; font-size: 0.9375rem;
   min-height: 2.5rem; display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border-strong); background: var(--surface-solid); color: var(--text-muted);
 }
 .seg label { padding: 0.55rem 1.1rem; border-radius: 999px; }
-.hour-grid label {
-  padding: 0.5rem 0.4rem; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums;
-}
-.seg label:hover, .hour-grid label:hover { border-color: var(--accent); color: var(--text); }
-.seg input:checked + label, .hour-grid input:checked + label {
+.seg label:hover { border-color: var(--accent); color: var(--text); }
+.seg input:checked + label {
   background: var(--accent-strong); border-color: var(--accent-strong); color: #fff;
 }
-.seg input:focus-visible + label, .hour-grid input:focus-visible + label {
+.seg input:focus-visible + label {
   outline: 2px solid var(--accent-strong); outline-offset: 2px;
 }
+
+/* Dostępność: tydzień jak w kalendarzu (kolumna na dzień), grafik jako kratka
+   godzin × dni. Kolory z tokenów serwisu, bez nowych odcieni. */
+.week-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; margin: 0 0 0.75rem; }
+.week-scroll { overflow-x: auto; margin: 0 0 0.5rem; padding-bottom: 0.25rem; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(5rem, 1fr)); gap: 0.4rem; min-width: 37rem; }
+.week-day {
+  display: flex; flex-direction: column; gap: 0.3rem; padding: 0.5rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+}
+.week-day.is-past { opacity: 0.6; }
+.week-day h4 { margin: 0 0 0.15rem; font-size: 0.8125rem; text-align: center; }
+.week-day h4 span { color: var(--text-muted); font-weight: 500; }
+.week-day form { margin: 0; }
+.slot {
+  display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0.3rem 0.2rem;
+  border: 1px solid transparent; border-radius: 8px; font: inherit; font-size: 0.875rem; font-weight: 650;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.slot small { font-size: 0.6875rem; font-weight: 500; }
+button.slot { cursor: pointer; }
+button.slot:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.slot.is-open { background: var(--accent-soft); border-color: var(--border-strong); color: var(--accent-strong); }
+.slot.is-open:hover { border-color: var(--accent); }
+.slot.is-blocked { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-muted); }
+.slot.is-booked { background: var(--accent-strong); color: #fff; }
+.slot.is-past, .slot.is-empty { color: var(--text-muted); font-weight: 500; }
+.schedule { margin: 0 0 1rem; }
+.schedule summary { cursor: pointer; padding: 0.4rem 0; }
+.schedule .table-scroll { margin-block: 0.5rem 0; }
+.schedule-grid { width: auto; margin-inline: auto; }
+.schedule-grid th, .schedule-grid td { padding: 2px; border: 0; text-align: center; background: none; }
+.schedule-grid thead th { padding-block: 0.4rem; }
+.schedule-grid tbody th {
+  padding-right: 0.6rem; text-align: right; white-space: nowrap;
+  color: var(--text-muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0; text-transform: none;
+}
+.schedule-grid tbody tr:hover td { background: none; }
+.schedule-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.schedule-grid label {
+  display: block; width: 2.6rem; height: 1.9rem; margin: 0; cursor: pointer; user-select: none;
+  border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-solid);
+}
+.schedule-grid label:hover { border-color: var(--accent); }
+.schedule-grid input:checked + label { background: var(--accent-strong); border-color: var(--accent-strong); }
+.schedule-grid input:focus-visible + label { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.time-off { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.time-off li { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+.notice-inline { color: var(--danger); font-weight: 600; }
 
 /* Checkbox grids replacing the hand-typed JSON and comma-separated slugs. */
 .choice-grid {

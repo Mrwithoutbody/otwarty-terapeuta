@@ -13,11 +13,11 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import { getTherapist } from '../db/catalog';
-import { slotStatements } from '../db/slots';
+import { cleanHours, parseWeek, saveSchedules, weekJson } from '../db/slots';
 import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
 import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { DEFAULT_TIMEZONE, formatTime, isValidTimezone, nowIso } from '../lib/time';
+import { DEFAULT_TIMEZONE, isValidTimezone, nowIso } from '../lib/time';
 import { resolveAll, summarize } from './host-blocks';
 import { patchesFor } from './data-fields';
 import { profileContext } from './pages';
@@ -108,37 +108,36 @@ async function writeLocation(env: Env, id: string, loc: { city: string; address:
 }
 
 /**
- * Kalendarz z bloku: zaznaczone godziny dostają wolne terminy w dni robocze
- * na N dni do przodu (te same wiersze co generator w panelu; unikalność
- * `(therapist_id, starts_at_utc)` czyni to idempotentnym), a odznaczona
- * godzina traci swoje przyszłe WOLNE terminy. Zarezerwowane zostają.
+ * Grafik z bloku kalendarza. Blok pokazuje sumę grafików wszystkich aktywnych
+ * ofert, więc zapis rozkłada ją z powrotem: odznaczona godzina znika z każdej
+ * oferty, nowo zaznaczona trafia do pierwszej. Dzień, którego usługa nie
+ * przysłała, zostaje, jak był.
  */
-async function writeSlots(env: Env, id: string, plan: { hours: number[]; days: number }): Promise<void> {
+async function writeSlots(env: Env, id: string, sent: Array<number[] | null>): Promise<void> {
   const t = await env.DB.prepare(`SELECT timezone FROM therapists WHERE id = ?`).bind(id).first<{ timezone: string | null }>();
-  const offer = await env.DB.prepare(
-    `SELECT id, duration_minutes FROM session_offers WHERE therapist_id = ? AND active = 1 ORDER BY created_at LIMIT 1`,
-  ).bind(id).first<{ id: string; duration_minutes: number }>();
-  if (!offer) return; // bez oferty nie ma czego zaplanować - blok mówi to w podpowiedzi
+  const { results: offers } = await env.DB.prepare(
+    `SELECT id, duration_minutes, schedule FROM session_offers WHERE therapist_id = ? AND active = 1 ORDER BY created_at`,
+  ).bind(id).all<{ id: string; duration_minutes: number; schedule: string }>();
+  if (offers.length === 0) return; // bez oferty nie ma czego zaplanować - blok mówi to w podpowiedzi
   const timezone = t?.timezone && isValidTimezone(t.timezone) ? t.timezone : DEFAULT_TIMEZONE;
 
-  const { results: open } = await env.DB.prepare(
-    `SELECT id, starts_at_utc FROM appointment_slots WHERE therapist_id = ? AND status = 'open' AND starts_at_utc > ?`,
-  ).bind(id, nowIso()).all<{ id: string; starts_at_utc: string }>();
-  const keep = new Set(plan.hours);
-  const statements = open
-    .filter((s) => !keep.has(Number(formatTime(s.starts_at_utc, timezone).split(':')[0])))
-    .map((s) => env.DB.prepare(`DELETE FROM appointment_slots WHERE id = ? AND status = 'open'`).bind(s.id));
-
-  statements.push(
-    ...slotStatements(env, id, {
-      offerId: offer.id,
-      durationMinutes: offer.duration_minutes,
-      timezone,
-      hours: plan.hours,
-      days: plan.days,
+  const weeks = offers.map((o) => parseWeek(o.schedule));
+  const next = weeks.map((week, i) =>
+    week.map((hours, day) => {
+      const want = sent[day];
+      if (!want) return hours;
+      const kept = hours.filter((h) => want.includes(h));
+      if (i > 0) return kept;
+      const elsewhere = new Set(weeks.flatMap((w) => w[day]!));
+      return cleanHours([...kept, ...want.filter((h) => !elsewhere.has(h))]);
     }),
   );
-  if (statements.length > 0) await env.DB.batch(statements);
+  // Tylko oferty, którym grafik się zmienił: oferta bez grafiku ma często stare
+  // terminy z generatora i zapis pustego grafiku zdjąłby je bez powodu.
+  const changed = offers
+    .map((o, i) => ({ id: o.id, duration_minutes: o.duration_minutes, week: next[i]!, before: o.schedule }))
+    .filter((o) => weekJson(o.week) !== o.before);
+  await saveSchedules(env, id, timezone, changed);
 }
 
 /** Tabele wiążące dla wyborów wielokrotnych; słownik pilnuje, co wolno wstawić. */

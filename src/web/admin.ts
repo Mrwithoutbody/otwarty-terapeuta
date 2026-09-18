@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import { getTherapistRowForAdmin } from '../db/catalog';
-import { generateSlots } from '../db/slots';
+import { cleanHours, closeSlots, dayKey, emptyWeek, fillFromSchedules, listTimeOff, localSlot, parseDay, parseWeek, saveSchedules, SCHEDULE_HOURS, WEEKDAYS, weekJson, type TimeOff } from '../db/slots';
 import { viewsByTherapist } from '../db/views';
 import type { TherapistRow } from '../db/types';
 import { eraseUserData, exportUserData, findOrCreateUserByEmail, type UserRow } from '../db/users';
@@ -17,7 +17,7 @@ import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/chall
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
 import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { DEFAULT_TIMEZONE, formatDateTime, formatPrice, isValidTimezone, nowIso } from '../lib/time';
+import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, formatTime, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayIn, zonedTimeToUtc, type CivilDate } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
@@ -389,6 +389,14 @@ interface OfferRow {
   price_minor: number;
   currency: string;
   active: number;
+  schedule: string;
+}
+
+interface WeekSlot {
+  id: string;
+  starts_at_utc: string;
+  status: 'open' | 'booked' | 'blocked';
+  title: string;
 }
 
 interface FaqRow {
@@ -418,6 +426,10 @@ interface EditorContext {
   pagesError: string | null;
   /** Origin of the hosted editor, for the dialog's postMessage check. */
   editorOrigin: string;
+  /** Tydzień w kalendarzu zakładki „Dostępność": poniedziałek i terminy od niego. */
+  monday: CivilDate;
+  weekSlots: WeekSlot[];
+  timeOff: Array<TimeOff & { id: string; booked: number }>;
 }
 
 const SESSION_TYPE_LABELS: RefTag[] = [
@@ -443,7 +455,18 @@ async function previewContext(env: Env, therapistId: string): Promise<SectionCtx
   return t ? profileContext(env, t) : null;
 }
 
-async function loadEditorContext(env: Env, therapist: TherapistRow | null): Promise<EditorContext> {
+/** Poniedziałek tygodnia, w którym leży `key` (albo dziś), w kalendarzu terapeutki. */
+function mondayOf(timezone: string, key?: string): CivilDate {
+  const day = key && isIsoDate(key) ? parseDay(key) : civilDateIn(timezone, new Date());
+  return addCivilDays(day, -((weekdayIn(timezone, day) + 6) % 7));
+}
+
+/** Granice lokalnych dni jako instanty UTC: od północy `from` do północy po `to`. */
+function localRange(timezone: string, from: CivilDate, to: CivilDate): [string, string] {
+  return [isoOf(zonedTimeToUtc(from, 0, 0, timezone)), isoOf(zonedTimeToUtc(addCivilDays(to, 1), 0, 0, timezone))];
+}
+
+async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?: string): Promise<EditorContext> {
   const [languages, specialties, modalities] = await Promise.all([
     env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
     env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<RefTag>(),
@@ -467,6 +490,9 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null): Prom
     looks: [],
     pagesError: 'Najpierw zapisz profil.',
     editorOrigin: pagesOrigin(env) ?? '',
+    monday: mondayOf(DEFAULT_TIMEZONE),
+    weekSlots: [],
+    timeOff: [],
   };
   if (!therapist) return context;
   try {
@@ -500,7 +526,7 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null): Prom
       .bind(therapist.id)
       .first<{ city: string; address_line: string | null }>(),
     env.DB.prepare(
-      `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active
+      `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active, schedule
          FROM session_offers WHERE therapist_id = ? ORDER BY created_at`,
     )
       .bind(therapist.id)
@@ -526,6 +552,33 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null): Prom
   context.offers = offers.results;
   context.faq = faq.results;
   context.media = media.results;
+
+  const timezone = therapist.timezone || DEFAULT_TIMEZONE;
+  context.monday = mondayOf(timezone, week);
+  const [from, to] = localRange(timezone, context.monday, addCivilDays(context.monday, 6));
+  const [weekSlots, timeOff] = await Promise.all([
+    env.DB.prepare(
+      `SELECT s.id, s.starts_at_utc, s.status, o.title
+         FROM appointment_slots s JOIN session_offers o ON o.id = s.offer_id
+        WHERE s.therapist_id = ? AND s.starts_at_utc >= ? AND s.starts_at_utc < ? ORDER BY s.starts_at_utc`,
+    )
+      .bind(therapist.id, from, to)
+      .all<WeekSlot>(),
+    listTimeOff(env, therapist.id),
+  ]);
+  context.weekSlots = weekSlots.results;
+  // Rezerwacje w czasie urlopu zostają - lista mówi, ile ich jest do odwołania.
+  context.timeOff = await Promise.all(
+    timeOff.map(async (off) => {
+      const [a, b] = localRange(timezone, parseDay(off.starts_on), parseDay(off.ends_on));
+      const row = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM appointment_slots WHERE therapist_id = ? AND status = 'booked' AND starts_at_utc >= ? AND starts_at_utc < ?`,
+      )
+        .bind(therapist.id, a, b)
+        .first<{ n: number }>();
+      return { ...off, booked: row?.n ?? 0 };
+    }),
+  );
   return context;
 }
 
@@ -560,17 +613,153 @@ function checkboxGrid(name: string, options: RefTag[], chosen: Set<string>): str
     .join('')}</div>`;
 }
 
-const DEFAULT_SLOT_HOURS = [9, 11, 13, 15];
-/** Slots start on the hour, so the whole range fits in 24 chips. */
-const SLOT_HOUR_RANGE = Array.from({ length: 24 }, (_, hour) => hour);
+const MONTHS = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+const DAY_SHORT = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
+const hh = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
+const shortDate = (d: CivilDate): string => `${d.day}.${String(d.month).padStart(2, '0')}`;
 
-function hourGrid(checked: number[]): string {
-  return `<div class="hour-grid">${SLOT_HOUR_RANGE.map((hour) => {
-    const label = `${String(hour).padStart(2, '0')}:00`;
-    return `<input id="hours-${hour}" type="checkbox" name="hours" value="${hour}"${
-      checked.includes(hour) ? ' checked' : ''
-    }><label for="hours-${hour}">${label}</label>`;
-  }).join('')}</div>`;
+/** „Pn–Pt 9, 11 · So 10" - grafik w jednej linijce, do nagłówka oferty; kolejne dni o tych samych godzinach razem. */
+function weekSummary(week: number[][]): string {
+  const runs: Array<{ from: number; to: number; hours: string }> = [];
+  for (const [day] of WEEKDAYS) {
+    const hours = week[day]!.join(', ');
+    const last = runs.at(-1);
+    if (last && last.hours === hours) last.to = day;
+    else runs.push({ from: day, to: day, hours });
+  }
+  const parts = runs
+    .filter((run) => run.hours !== '')
+    .map((run) => `${DAY_SHORT[run.from]}${run.to === run.from ? '' : `–${DAY_SHORT[run.to]}`} ${run.hours}`);
+  return parts.length > 0 ? parts.join(' · ') : 'bez grafiku';
+}
+
+/**
+ * Tydzień jak w kalendarzu ZnanegoLekarza: kolumna na dzień, w niej terminy.
+ * Wolny termin blokuje się kliknięciem, zablokowany tak samo wraca; rezerwacji
+ * stąd nie ruszysz - odwołanie idzie przez panel rezerwacji, z powiadomieniem.
+ */
+function weekCalendar(session: AdminSession, row: TherapistRow, context: EditorContext): string {
+  const id = escapeHtml(row.id);
+  const timezone = row.timezone || DEFAULT_TIMEZONE;
+  const monday = context.monday;
+  const days = [0, 1, 2, 3, 4, 5, 6].map((i) => addCivilDays(monday, i));
+  const now = nowIso();
+  const link = (d: CivilDate, label: string): string =>
+    `<a href="/admin/terapeuci/${id}?tydzien=${dayKey(d)}#panel-terminy">${label}</a>`;
+  const sunday = days[6]!;
+  const range = monday.month === sunday.month
+    ? `${monday.day}–${sunday.day} ${MONTHS[monday.month - 1]} ${monday.year}`
+    : `${monday.day} ${MONTHS[monday.month - 1]} – ${sunday.day} ${MONTHS[sunday.month - 1]} ${sunday.year}`;
+  const thisWeek = dayKey(mondayOf(timezone)) === dayKey(monday);
+
+  const chip = (s: WeekSlot): string => {
+    const time = formatTime(s.starts_at_utc, timezone);
+    const title = escapeHtml(s.title);
+    if (s.status === 'booked') return `<span class="slot is-booked" title="${title}">${time}<small>rezerwacja</small></span>`;
+    if (s.starts_at_utc <= now) return `<span class="slot is-past">${time}</span>`;
+    const blocked = s.status === 'blocked';
+    return `<form method="post" action="/admin/terapeuci/${id}/terminy/${escapeHtml(s.id)}">${csrfField(session)}
+      <input type="hidden" name="stan" value="${blocked ? 'open' : 'blocked'}"><input type="hidden" name="tydzien" value="${dayKey(monday)}">
+      <button type="submit" class="slot ${blocked ? 'is-blocked' : 'is-open'}" title="${title} — kliknij, żeby ${blocked ? 'przywrócić' : 'zablokować'}">${time}<small>${blocked ? 'zablokowany' : 'wolny'}</small></button></form>`;
+  };
+
+  const columns = days.map((d) => {
+    const key = dayKey(d);
+    const slots = context.weekSlots.filter((s) => dayKey(civilDateIn(timezone, new Date(s.starts_at_utc))) === key);
+    return `<div class="week-day${key < now.slice(0, 10) ? ' is-past' : ''}"><h4>${DAY_SHORT[weekdayIn(timezone, d)]} <span>${shortDate(d)}</span></h4>
+      ${slots.length > 0 ? slots.map(chip).join('') : '<span class="slot is-empty">—</span>'}</div>`;
+  });
+
+  return `<div class="week-nav">${link(addCivilDays(monday, -7), '← Poprzedni')}<strong>${range}</strong>${link(addCivilDays(monday, 7), 'Następny →')}${
+    thisWeek ? '' : link(mondayOf(timezone), 'Ten tydzień')
+  }</div>
+<div class="week-scroll"><div class="week">${columns.join('')}</div></div>
+<p class="hint">${context.weekSlots.length === 0 ? 'W tym tygodniu nie ma terminów. Zaznacz godziny w grafiku poniżej, a pojawią się same. ' : ''}Kliknij wolny termin, żeby go zablokować; zablokowany — żeby go przywrócić. Rezerwacje odwołujesz w panelu rezerwacji, osoba dostaje wtedy powiadomienie.</p>`;
+}
+
+/** Grafik oferty: godziny w wierszach, dni w kolumnach, jak w kalendarzu nad nim. */
+function scheduleGrid(offer: OfferRow): string {
+  const oid = escapeHtml(offer.id);
+  const week = parseWeek(offer.schedule);
+  return `<div class="table-scroll"><table class="schedule-grid" data-schedule-grid>
+<thead><tr><th scope="col"><span class="visually-hidden">Godzina</span></th>${WEEKDAYS.map(
+    ([day, label]) => `<th scope="col"><abbr title="${label}">${DAY_SHORT[day]}</abbr></th>`,
+  ).join('')}</tr></thead>
+<tbody>${SCHEDULE_HOURS.map(
+    (hour) => `<tr><th scope="row">${hh(hour)}</th>${WEEKDAYS.map(([day, label]) => {
+      const cell = `g-${oid}-${day}-${hour}`;
+      return `<td><input type="checkbox" id="${cell}" name="g_${oid}" value="${day}-${hour}"${week[day]!.includes(hour) ? ' checked' : ''}><label for="${cell}"><span class="visually-hidden">${label} ${hh(hour)}</span></label></td>`;
+    }).join('')}</tr>`,
+  ).join('')}</tbody></table></div>`;
+}
+
+function availabilityTab(session: AdminSession, row: TherapistRow, context: EditorContext): string {
+  const id = escapeHtml(row.id);
+  const activeOffers = context.offers.filter((offer) => offer.active === 1);
+  const today = nowIso().slice(0, 10);
+  const range = (off: TimeOff): string => {
+    const [a, b] = [parseDay(off.starts_on), parseDay(off.ends_on)];
+    return off.starts_on === off.ends_on ? `${shortDate(a)}.${a.year}` : `${shortDate(a)}.${a.year} – ${shortDate(b)}.${b.year}`;
+  };
+
+  return `<section data-tab-panel data-tab-label="Dostępność" id="panel-terminy">
+<h2>Dostępność</h2>
+<p class="panel-lead">Grafik powtarza się co tydzień: zaznacz godziny, w których przyjmujesz, a wolne terminy
+powstaną same na osiem tygodni do przodu. Pojedynczy termin zablokujesz w kalendarzu, urlop — jednym zakresem dat.</p>
+
+<h3>Kalendarz</h3>
+${weekCalendar(session, row, context)}
+
+<h3>Grafik</h3>
+${
+  activeOffers.length === 0
+    ? `<div class="notice warn"><p>Grafik układasz dla oferty — dodaj ją najpierw w zakładce „Oferta”.</p></div>`
+    : `<form method="post" action="/admin/terapeuci/${id}/grafik">
+  ${csrfField(session)}
+  ${activeOffers
+    .map((offer) => {
+      const week = parseWeek(offer.schedule);
+      const open = activeOffers.length === 1 || week.some((day) => day.length > 0);
+      return `<details class="schedule"${open ? ' open' : ''}>
+  <summary><strong>${escapeHtml(offer.title)}</strong> <span class="meta">${offer.mode === 'online' ? 'online' : 'w gabinecie'}, ${offer.duration_minutes} min · ${escapeHtml(weekSummary(week))}</span></summary>
+  <input type="hidden" name="offer" value="${escapeHtml(offer.id)}">
+  ${scheduleGrid(offer)}
+</details>`;
+    })
+    .join('')}
+  <p class="hint">Kliknij pole albo przeciągnij po kilku. Jedna godzina należy do jednej oferty — w tym czasie przyjmujesz jedną osobę.</p>
+  <div class="field"><label for="t_tz">Strefa czasowa</label>
+    <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone || DEFAULT_TIMEZONE)}" maxlength="64">
+    <p class="hint">Godziny grafiku są godzinami lokalnymi w tej strefie; zmiana czasu jest uwzględniana sama.</p></div>
+  <p><button class="btn" type="submit">Zapisz grafik</button></p>
+</form>`
+}
+
+<h3>Urlop i wolne dni</h3>
+<form method="post" action="/admin/terapeuci/${id}/urlop">
+  ${csrfField(session)}
+  <div class="field-row two">
+    <div class="field"><label for="u_od">Od</label><input id="u_od" name="od" type="date" min="${today}" required></div>
+    <div class="field"><label for="u_do">Do (włącznie)</label><input id="u_do" name="do" type="date" min="${today}" required></div>
+  </div>
+  <p class="hint">Wolne terminy w tych dniach znikają, a grafik ich nie odtworzy, dopóki wpis tu jest. Rezerwacje zostają.</p>
+  <p><button class="btn secondary" type="submit">Dodaj wolne</button></p>
+</form>
+${
+  context.timeOff.length === 0
+    ? ''
+    : `<ul class="time-off">${context.timeOff
+        .map(
+          (off) => `<li><strong>${range(off)}</strong> ${
+            off.booked > 0
+              ? `<span class="notice-inline">${off.booked} ${off.booked === 1 ? 'rezerwacja zostaje' : 'rezerwacje zostają'} — odwołaj w panelu rezerwacji</span>`
+              : '<span class="meta">bez rezerwacji</span>'
+          }
+  <form method="post" action="/admin/terapeuci/${id}/urlop/${escapeHtml(off.id)}/usun" class="inline-form">${csrfField(session)}<button class="link" type="submit">Usuń</button></form></li>`,
+        )
+        .join('')}</ul>`
+}
+</section>`;
 }
 
 function segmented(name: string, current: string, options: RefTag[]): string {
@@ -956,7 +1145,6 @@ function profileGapsAdmin(row: TherapistRow, context: EditorContext): string[] {
 }
 
 function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
-  const activeOffers = context.offers.filter((offer) => offer.active === 1);
   const id = escapeHtml(row.id);
 
   return `
@@ -1010,49 +1198,7 @@ ${
 }
 </section>
 
-<section data-tab-panel data-tab-label="Dostępność" id="panel-terminy">
-<h2>Dostępność</h2>
-<p class="panel-lead">Wolne terminy do rezerwacji. Każdy termin należy do konkretnej oferty,
-więc najpierw dodaj ofertę.</p>
-${
-  activeOffers.length === 0
-    ? `<div class="notice warn"><p>Terminy powstają dla konkretnej oferty. Dodaj najpierw ofertę
-       w zakładce „Oferta”.</p></div>`
-    : `<form method="post" action="/admin/terapeuci/${id}/terminy">
-  ${csrfField(session)}
-  <div class="field"><label for="t_offer">Oferta</label>
-    <select id="t_offer" name="offer_id" required>
-      ${activeOffers
-        .map(
-          (offer) =>
-            `<option value="${escapeHtml(offer.id)}">${escapeHtml(offer.title)} — ${escapeHtml(offer.mode)}, ${offer.duration_minutes} min, ${escapeHtml(formatPrice(offer.price_minor, offer.currency))}</option>`,
-        )
-        .join('')}
-    </select></div>
-  <div class="field"><label for="t_days">Liczba dni do wygenerowania</label>
-    <input id="t_days" name="days" type="number" min="1" max="60" value="14"></div>
-  <fieldset>
-    <legend>Godziny rozpoczęcia</legend>
-    ${hourGrid(DEFAULT_SLOT_HOURS)}
-    <p class="hint">Terminy powstają w dni robocze, o każdej zaznaczonej godzinie.</p>
-  </fieldset>
-  <div class="field"><label for="t_tz">Strefa czasowa terapeuty</label>
-    <input id="t_tz" name="timezone" value="${escapeHtml(row.timezone ?? 'Europe/Warsaw')}" maxlength="64">
-    <p class="hint">Godziny powyżej są godzinami lokalnymi w tej strefie. Zmiana czasu jest uwzględniana automatycznie.</p></div>
-  <p><button class="btn" type="submit">Wygeneruj wolne terminy</button></p>
-</form>`
-}
-
-<h3>Blokowanie terminu</h3>
-<form method="post" action="/admin/terapeuci/${id}/blokuj">
-  ${csrfField(session)}
-  <div class="field-row two">
-    <div class="field"><label for="b_slot">Identyfikator terminu (slot_id)</label><input id="b_slot" name="slot_id" required maxlength="64"></div>
-    <div class="field"><label for="b_reason">Powód</label><input id="b_reason" name="reason" maxlength="120"></div>
-  </div>
-  <p><button class="btn secondary" type="submit">Zablokuj termin</button></p>
-</form>
-</section>
+${availabilityTab(session, row, context)}
 
 <section data-tab-panel data-tab-label="FAQ" id="panel-faq">
 <h2>FAQ</h2>
@@ -1164,7 +1310,7 @@ adminApp.get('/terapeuci/:id', async (c) => {
   const row = await getTherapistRowForAdmin(c.env, id);
   if (!row) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
 
-  const context = await loadEditorContext(c.env, row);
+  const context = await loadEditorContext(c.env, row, c.req.query('tydzien'));
   context.credentials = parseStoredCredentials(row.credentials);
 
   return page(
@@ -1785,105 +1931,170 @@ adminApp.post('/terapeuci/:id/oferta/:offerId', async (c) => {
   return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}#panel-oferta` } });
 });
 
-adminApp.post('/terapeuci/:id/terminy', async (c) => {
+/** Wspólny początek zapisów zakładki „Dostępność": CSRF, rola, własny profil. */
+async function availabilityGuard(c: { env: Env; req: { raw: Request; param(name: string): string | undefined } }): Promise<
+  { response: Response } | { session: AdminSession; body: URLSearchParams; therapist: TherapistRow; timezone: string; back: string }
+> {
   const body = await formValues(c.req.raw);
   const g = await guard(c, body, ['admin', 'therapist']);
-  if ('response' in g) return g.response;
-  const id = c.req.param('id');
-  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-
+  if ('response' in g) return g;
+  const id = c.req.param('id') ?? '';
+  if (!ownsTherapist(g.session.user, id)) return { response: page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403) };
   const therapist = await getTherapistRowForAdmin(c.env, id);
-  if (!therapist) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
+  if (!therapist) return { response: page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404) };
+  const week = body.get('tydzien') ?? '';
+  const back = `/admin/terapeuci/${id}${isIsoDate(week) ? `?tydzien=${week}` : ''}#panel-terminy`;
+  return { session: g.session, body, therapist, timezone: therapist.timezone || DEFAULT_TIMEZONE, back };
+}
 
-  const offerId = sanitizeLine(body.get('offer_id_manual') || body.get('offer_id') || '', 64);
-  const offer = await c.env.DB.prepare(
-    `SELECT id, duration_minutes FROM session_offers WHERE id = ? AND therapist_id = ? AND active = 1`,
-  )
-    .bind(offerId, id)
-    .first<{ id: string; duration_minutes: number }>();
-  if (!offer) return page(c.env, 'Błąd', '<h1>Nie znaleziono aktywnej oferty o tym identyfikatorze</h1>', 400);
+const actorOf = (session: AdminSession): 'admin' | 'therapist' => (session.user.role === 'admin' ? 'admin' : 'therapist');
+const seeOther = (location: string): Response => new Response(null, { status: 302, headers: { location } });
 
-  const days = Math.min(Math.max(Number(body.get('days') ?? 14) || 14, 1), 60);
-  // The form posts one entry per checked hour; splitting on commas as well keeps
-  // the older "9,11,13,15" single-field shape working.
-  const hours = [
-    ...new Set(
-      body
-        .getAll('hours')
-        .flatMap((entry) => entry.split(','))
-        .map((entry) => Number(entry.trim()))
-        .filter((hour) => Number.isInteger(hour) && hour >= 0 && hour <= 23),
-    ),
-  ]
-    .sort((a, b) => a - b)
-    .slice(0, 24);
+adminApp.post('/terapeuci/:id/grafik', async (c) => {
+  const g = await availabilityGuard(c);
+  if ('response' in g) return g.response;
+  const { body, therapist } = g;
 
-  if (hours.length === 0) {
-    return page(
-      c.env,
-      'Błąd',
-      '<h1>Wybierz co najmniej jedną godzinę</h1><p>Bez godziny rozpoczęcia nie ma czego wygenerować.</p>',
-      400,
-    );
-  }
-
-  // The therapist works in a wall clock, not in UTC. The requested zone is
-  // validated against the runtime's own zone data; an unknown zone is refused
-  // rather than silently replaced.
-  const requestedTz = sanitizeLine(body.get('timezone') ?? '', 64);
-  const timezone = requestedTz || therapist.timezone || DEFAULT_TIMEZONE;
+  // Strefa jest godzinami grafiku: nieznana odpada, zamiast cicho zostać Warszawą.
+  const timezone = sanitizeLine(body.get('timezone') ?? '', 64) || g.timezone;
   if (!isValidTimezone(timezone)) {
     return page(c.env, 'Błąd', '<h1>Nieznana strefa czasowa</h1><p>Podaj identyfikator IANA, np. Europe/Warsaw.</p>', 400);
   }
 
-  // Slots are built from a LOCAL date and a LOCAL hour, then converted to the
-  // UTC instant they denote. "10:00 in Europe/Warsaw" therefore stays 10:00 for
-  // the therapist on both sides of a daylight-saving transition, even though the
-  // stored UTC instant shifts by an hour.
-  const added = await generateSlots(c.env, id, {
-    offerId: offer.id,
-    durationMinutes: offer.duration_minutes,
+  const { results: offers } = await c.env.DB.prepare(
+    `SELECT id, title, duration_minutes, schedule FROM session_offers WHERE therapist_id = ? AND active = 1`,
+  )
+    .bind(therapist.id)
+    .all<{ id: string; title: string; duration_minutes: number; schedule: string }>();
+  const posted = new Set(body.getAll('offer'));
+  // Formularz przysyła jedno pole na zaznaczoną kratkę: "dzień-godzina".
+  const schedules = offers
+    .filter((offer) => posted.has(offer.id))
+    .map((offer) => {
+      const week = emptyWeek();
+      for (const cell of body.getAll(`g_${offer.id}`)) {
+        const [day, hour] = cell.split('-').map(Number);
+        if (Number.isInteger(day) && day! >= 0 && day! <= 6) week[day!]!.push(hour!);
+      }
+      return { ...offer, week: week.map(cleanHours) };
+    });
+
+  for (const [day, label] of WEEKDAYS) {
+    for (const hour of SCHEDULE_HOURS) {
+      const owners = schedules.filter((s) => s.week[day]!.includes(hour));
+      if (owners.length > 1) {
+        return page(
+          c.env,
+          'Jedna godzina w dwóch ofertach',
+          `<h1>Jedna godzina w dwóch ofertach</h1><p>${label}, ${hh(hour)} jest zaznaczony w ofertach ${owners
+            .map((o) => `„${escapeHtml(o.title)}”`)
+            .join(' i ')}. W tym czasie przyjmujesz jedną osobę — zostaw tę godzinę w jednej ofercie.</p>
+           <p><a href="${escapeHtml(g.back)}">Wróć do grafiku</a></p>`,
+          400,
+        );
+      }
+    }
+  }
+
+  if (timezone !== therapist.timezone) {
+    await c.env.DB.prepare(`UPDATE therapists SET timezone = ?, updated_at = ? WHERE id = ?`).bind(timezone, nowIso(), therapist.id).run();
+  }
+  // Oferta, której grafik się nie zmienił, zostaje nietknięta - także jej stare
+  // terminy sprzed grafiku. Zmiana strefy przelicza wszystkie.
+  await saveSchedules(
+    c.env,
+    therapist.id,
     timezone,
-    hours,
-    days,
-  });
+    schedules.filter((s) => timezone !== therapist.timezone || weekJson(s.week) !== s.schedule),
+  );
 
   await audit(c.env, {
-    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorType: actorOf(g.session),
     actorId: g.session.user.id,
-    action: 'slots.generated',
+    action: 'schedule.saved',
     subjectType: 'therapist',
-    subjectId: id,
-    meta: { count: added, field: timezone },
+    subjectId: therapist.id,
+    meta: { count: schedules.reduce((n, s) => n + s.week.flat().length, 0), field: timezone },
   });
-  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+  return seeOther(g.back);
 });
 
-adminApp.post('/terapeuci/:id/blokuj', async (c) => {
-  const body = await formValues(c.req.raw);
-  const g = await guard(c, body, ['admin', 'therapist']);
+/** Klik w kalendarzu: wolny termin się blokuje, zablokowany wraca. Rezerwacji nie rusza. */
+adminApp.post('/terapeuci/:id/terminy/:slot', async (c) => {
+  const g = await availabilityGuard(c);
   if ('response' in g) return g.response;
-  const id = c.req.param('id');
-  if (!ownsTherapist(g.session.user, id)) return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-
-  const slotId = sanitizeLine(body.get('slot_id') ?? '', 64);
-  // A booked slot can never be silently blocked - the booking must be cancelled first.
+  const status = g.body.get('stan') === 'open' ? 'open' : 'blocked';
+  const slotId = c.req.param('slot');
+  const at = nowIso();
   const result = await c.env.DB.prepare(
-    `UPDATE appointment_slots SET status = 'blocked', block_reason = ?, updated_at = ?
-      WHERE id = ? AND therapist_id = ? AND status = 'open'`,
+    `UPDATE appointment_slots SET status = ?, block_reason = ?, updated_at = ?
+      WHERE id = ? AND therapist_id = ? AND status IN ('open', 'blocked') AND starts_at_utc > ?`,
   )
-    .bind(sanitizeLine(body.get('reason') ?? '', 120), nowIso(), slotId, id)
+    .bind(status, status === 'blocked' ? 'zablokowany w panelu' : null, at, slotId, g.therapist.id, at)
     .run();
 
   await audit(c.env, {
-    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorType: actorOf(g.session),
     actorId: g.session.user.id,
-    action: 'slot.blocked',
+    action: status === 'blocked' ? 'slot.blocked' : 'slot.opened',
     subjectType: 'appointment_slot',
     subjectId: slotId,
     meta: { count: result.meta.changes ?? 0 },
   });
-  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${id}` } });
+  return seeOther(g.back);
+});
+
+adminApp.post('/terapeuci/:id/urlop', async (c) => {
+  const g = await availabilityGuard(c);
+  if ('response' in g) return g.response;
+  const from = g.body.get('od') ?? '';
+  const to = g.body.get('do') ?? '';
+  if (!isIsoDate(from) || !isIsoDate(to) || to < from || Date.parse(to) - Date.parse(from) > 366 * 86_400_000) {
+    return page(c.env, 'Błąd', '<h1>Sprawdź daty urlopu</h1><p>„Do” nie może być przed „Od”, a jeden wpis obejmuje najwyżej rok.</p>', 400);
+  }
+
+  const [start, end] = localRange(g.timezone, parseDay(from), parseDay(to));
+  const { results: open } = await c.env.DB.prepare(
+    `SELECT id FROM appointment_slots WHERE therapist_id = ? AND status = 'open' AND starts_at_utc >= ? AND starts_at_utc < ?`,
+  )
+    .bind(g.therapist.id, start, end)
+    .all<{ id: string }>();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO therapist_time_off (id, therapist_id, starts_on, ends_on, created_at) VALUES (?, ?, ?, ?, ?)`,
+    ).bind(randomId('off'), g.therapist.id, from, to, nowIso()),
+    ...closeSlots(c.env, open.map((s) => s.id), 'urlop'),
+  ]);
+
+  await audit(c.env, {
+    actorType: actorOf(g.session),
+    actorId: g.session.user.id,
+    action: 'time_off.added',
+    subjectType: 'therapist',
+    subjectId: g.therapist.id,
+    meta: { count: open.length },
+  });
+  return seeOther(g.back);
+});
+
+/** Urlop zdjęty: dni wracają do grafiku, więc terminy dokładają się od razu, nie przy cronie. */
+adminApp.post('/terapeuci/:id/urlop/:off/usun', async (c) => {
+  const g = await availabilityGuard(c);
+  if ('response' in g) return g.response;
+  const result = await c.env.DB.prepare(`DELETE FROM therapist_time_off WHERE id = ? AND therapist_id = ?`)
+    .bind(c.req.param('off'), g.therapist.id)
+    .run();
+  const added = (result.meta.changes ?? 0) > 0 ? await fillFromSchedules(c.env, g.therapist.id) : 0;
+
+  await audit(c.env, {
+    actorType: actorOf(g.session),
+    actorId: g.session.user.id,
+    action: 'time_off.removed',
+    subjectType: 'therapist',
+    subjectId: g.therapist.id,
+    meta: { count: added },
+  });
+  return seeOther(g.back);
 });
 
 // ------------------------------------------------------- booking cancelling ---

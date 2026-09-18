@@ -22,7 +22,7 @@ import { siteApp } from './web/pages';
 import { htmlResponse, renderPage, securityHeaders } from './web/layout';
 import { APP_CSS } from './web/styles';
 import { ADMIN_CSS, ADMIN_JS } from './web/admin-ui';
-import { topUpDemoSlots } from './db/demo';
+import { fillFromSchedules } from './db/slots';
 import { log } from './lib/log';
 import { purgeExpiredData } from './db/retention';
 import { drainOutbox } from './notify/outbox';
@@ -357,12 +357,11 @@ export default {
           const result = await drainOutbox(env, 50);
           await purgeExpiredAuthState(env);
           const purged = await purgeExpiredData(env);
-          const demo = await topUpDemoSlots(env);
+          const slots = await fillFromSchedules(env);
           log.info('scheduled.done', {
             count: result.sent,
-            demoSlots: demo.added,
             // Liczby, nie treści: ile wierszy przeszło retencję.
-            reason: `purge:${purged.outbox}/${purged.bookingContacts}/${purged.auditEvents}`,
+            reason: `purge:${purged.outbox}/${purged.bookingContacts}/${purged.auditEvents} slots:${slots}`,
           });
         } catch (error) {
           log.error('scheduled.failed', error);

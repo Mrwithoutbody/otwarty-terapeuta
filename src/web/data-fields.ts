@@ -15,7 +15,8 @@
  * wiersz odpowiada rekordowi w tabeli, a nie kolumnie.
  */
 import type { PublicSlot, PublicTherapist, SessionType, AgeGroup } from '../db/types';
-import { formatPrice, formatTime, formatDateTime } from '../lib/time';
+import { cleanHours, SCHEDULE_HOURS, WEEKDAYS, type Week } from '../db/slots';
+import { formatPrice, formatDateTime } from '../lib/time';
 import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 
 export interface Field {
@@ -36,7 +37,8 @@ export type Patch =
   | { column: string; value: string | number }
   | { relation: 'languages' | 'topics' | 'modalities'; values: string[] }
   | { location: { city: string; address: string } }
-  | { slots: { hours: number[]; days: number } };
+  /** Grafik tygodnia, indeks = dzień (0 = niedziela); null = dnia nie przysłano, zostaje. */
+  | { slots: Array<number[] | null> };
 
 /** Listy zamknięte, które żyją w bazie (obszary, nurty) - wczytane przy synchronizacji bloków. */
 export type Dictionaries = Record<'topics' | 'modalities', Array<[string, string]>>;
@@ -51,9 +53,11 @@ export interface DataField {
   write(value: unknown): Patch[];
 }
 
-/** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy. */
+/** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy i grafik. */
 export interface ReadCtx {
   slots: PublicSlot[];
+  /** Suma grafików aktywnych ofert. */
+  week?: Week;
 }
 
 // ------------------------------------------------------------- słowniki ---
@@ -132,10 +136,7 @@ function computed(name: string, label: string, from: string, read: (t: PublicThe
   return { field: { kind: 'computed', name, label, hint: `z: ${from}` }, read, write: () => [] };
 }
 
-const HOUR_OPTIONS: Array<[string, string]> = Array.from({ length: 15 }, (_, i) => {
-  const h = i + 7;
-  return [String(h), `${String(h).padStart(2, '0')}:00`];
-});
+const HOUR_OPTIONS: Array<[string, string]> = SCHEDULE_HOURS.map((h) => [String(h), `${String(h).padStart(2, '0')}:00`]);
 
 /** Tak/nie jako kolumna 0/1. */
 function flag(name: string, label: string, read: (t: PublicTherapist) => boolean, hint?: string): DataField {
@@ -227,19 +228,13 @@ export const FIELDS: Record<string, DataField[]> = {
     },
   ],
 
-  slots: [
-    {
-      field: { kind: 'multiselect', name: 'slot_hours', label: 'Godziny rozpoczęcia sesji', options: HOUR_OPTIONS, data: true,
-        hint: 'Zaznaczone godziny w dni robocze dostają wolne terminy; odznaczona godzina usuwa swoje wolne terminy. Zarezerwowanych nie rusza.' },
-      read: (_t, ctx) => [...new Set(ctx.slots.map(localHour))].sort((a, b) => Number(a) - Number(b)),
-      write: () => [],
-    },
-    {
-      field: { kind: 'text', name: 'slot_days', label: 'Na ile dni do przodu', max: 3, data: true, hint: 'Dni robocze, licząc od jutra. 1–60.' },
-      read: () => '14',
-      write: () => [],
-    },
-  ],
+  // Grafik tygodniowy: godziny rozpoczęcia na każdy dzień, powtarzane co tydzień.
+  slots: WEEKDAYS.map(([day, label], i) => ({
+    field: { kind: 'multiselect', name: `slot_d${day}`, label, options: HOUR_OPTIONS, data: true,
+      ...(i === 0 ? { hint: 'Grafik powtarza się co tydzień, terminy powstają na osiem tygodni do przodu. Odznaczona godzina zdejmuje swoje wolne terminy; zarezerwowanych nie rusza.' } : {}) },
+    read: (_t: PublicTherapist, ctx: ReadCtx) => (ctx.week?.[day] ?? []).map(String),
+    write: () => [],
+  })),
 
   // Kwalifikacje siedzą w kolumnie JSON, więc cała lista jest jedną wartością -
   // stąd `write` na miejscu zamiast osobnej obsługi w zapisie.
@@ -296,15 +291,9 @@ export function patchesFor(type: string, sent: Record<string, unknown>): Patch[]
   if (type === 'gabinet' && ('city' in sent || 'address_line' in sent)) {
     out.push({ location: { city: str(sent.city, 80), address: str(sent.address_line, 200) } });
   }
-  if (type === 'slots' && 'slot_hours' in sent) {
-    const hours = list(sent.slot_hours).map(Number).filter((h) => Number.isInteger(h) && h >= 0 && h <= 23);
-    const days = Math.min(Math.max(Number(String(sent.slot_days ?? '14').replace(/\D/g, '')) || 14, 1), 60);
-    out.push({ slots: { hours, days } });
+  if (type === 'slots' && WEEKDAYS.some(([day]) => `slot_d${day}` in sent)) {
+    out.push({ slots: [0, 1, 2, 3, 4, 5, 6].map((day) => (`slot_d${day}` in sent ? cleanHours(list(sent[`slot_d${day}`])) : null)) });
   }
   return out;
 }
 
-/** Godzina lokalna terminu, jako napis - klucz do porównania z opcjami. */
-function localHour(slot: PublicSlot): string {
-  return String(Number(formatTime(slot.starts_at_utc, slot.timezone).split(':')[0]));
-}

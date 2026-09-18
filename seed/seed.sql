@@ -186,6 +186,12 @@ INSERT INTO faq_items (id, therapist_id, question, answer, category, position, s
  ('faq_26','th_9f0b4d7382e6a15c7d2b8e34','Czy pracujesz z osobami LGBTQ+?','Tak. Przyjmuję osoby LGBTQ+ i nie traktuję orientacji ani tożsamości płciowej jako problemu do leczenia.','scope',2,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z'),
  ('faq_27','th_9f0b4d7382e6a15c7d2b8e34','Jak wygląda poufność i jakie ma granice?','Obowiązuje mnie tajemnica zawodowa. Wyjątki wynikają z prawa: bezpośrednie zagrożenie życia lub zdrowia oraz podejrzenie krzywdzenia osoby małoletniej.','confidentiality',3,'published','seed','2026-08-01T10:00:00Z','2026-05-01T10:00:00Z','2026-08-01T10:00:00Z');
 
+-- Weekly schedule of the first offer of each demo profile: the cron keeps
+-- extending it, so a sample profile never shows an empty calendar.
+UPDATE session_offers SET schedule = '[[],[9,11,13,15,17],[9,11,13,15,17],[9,11,13,15,17],[9,11,13,15,17],[9,11,13,15,17],[]]'
+ WHERE id IN (SELECT MIN(o.id) FROM session_offers o JOIN therapists t ON t.id = o.therapist_id
+               WHERE t.is_demo = 1 AND o.active = 1 GROUP BY o.therapist_id);
+
 -- Open slots for the next three weeks, weekdays only. Generated relative to
 -- `now` so the demo data never goes stale. Each offer of the same therapist
 -- gets its own hour lane, which keeps UNIQUE(therapist_id, starts_at_utc) safe.
