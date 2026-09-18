@@ -16,3 +16,4 @@
 0016_therapist_pages.sql
 0017_pages_service.sql
 0018_pages_home.sql
+0019_offer_schedule.sql
