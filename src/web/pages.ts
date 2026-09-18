@@ -7,6 +7,7 @@ import {
   getTherapist,
   listCities,
   listOpenSlots,
+  listSitemapEntries,
   listVocabulary,
   type SearchFilters,
 } from '../db/catalog';
@@ -263,6 +264,25 @@ function catalogueFacts(entries: PublicTherapist[]): string {
     .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`)
     .join('')}</dl>`;
 }
+
+/** Static pages worth indexing; panel, OAuth and booking receipts stay out (robots.txt). */
+const SITEMAP_STATIC = ['/', '/terapeuci', '/jak-to-dziala', '/bezpieczenstwo', '/pomoc-w-kryzysie', '/dla-terapeutow', '/polityka-prywatnosci', '/regulamin'];
+
+siteApp.get('/sitemap.xml', async (c) => {
+  const base = c.env.PUBLIC_BASE_URL;
+  const entries = await listSitemapEntries(c.env);
+  const urls = [
+    ...SITEMAP_STATIC.map((path) => `<url><loc>${base}${path}</loc></url>`),
+    ...entries.map(
+      (e) =>
+        `<url><loc>${base}/terapeuci/${escapeHtml(e.slug)}${e.page ? `/${escapeHtml(e.page)}` : ''}</loc><lastmod>${escapeHtml(e.updated_at)}</lastmod></url>`,
+    ),
+  ];
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
+    { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } },
+  );
+});
 
 siteApp.get('/terapeuci', async (c) => {
   const url = new URL(c.req.url);

@@ -523,6 +523,23 @@ export async function listCities(env: Env): Promise<string[]> {
   return results.map((r) => r.city);
 }
 
+/**
+ * Every address of a real person worth a crawler's visit: her profile (`page`
+ * null) and each published subpage. Demo profiles stay out - they are fiction.
+ */
+export async function listSitemapEntries(env: Env): Promise<Array<{ slug: string; page: string | null; updated_at: string }>> {
+  const { results } = await env.DB.prepare(
+    `SELECT t.slug, NULL AS page, t.updated_at FROM therapists t
+      WHERE ${PUBLISHED} AND t.is_demo = 0
+     UNION ALL
+     SELECT t.slug, p.slug, p.updated_at FROM therapist_pages p
+       JOIN therapists t ON t.id = p.therapist_id
+      WHERE ${PUBLISHED} AND t.is_demo = 0 AND p.status = 'published' AND p.slug != 'profil'
+      ORDER BY 1, 2`,
+  ).all<{ slug: string; page: string | null; updated_at: string }>();
+  return results;
+}
+
 export async function listVocabulary(env: Env): Promise<{
   topics: NamedTag[];
   modalities: NamedTag[];

@@ -79,11 +79,9 @@ app.get('/assets/admin.js', () =>
   }),
 );
 
-app.get('/robots.txt', () =>
+app.get('/robots.txt', (c) =>
   new Response(
-    // No Sitemap line: there is no sitemap yet, and pointing at a 404 is worse
-    // than pointing at nothing.
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /oauth\nDisallow: /rezerwacja\n`,
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /oauth\nDisallow: /rezerwacja\nSitemap: ${c.env.PUBLIC_BASE_URL}/sitemap.xml\n`,
     { headers: { 'content-type': 'text/plain; charset=utf-8' } },
   ),
 );

@@ -259,3 +259,20 @@ describe('stopka serwisu', () => {
     expect(await res.text()).toContain('<a href="https://otwartyterapeuta.pl/admin">Logowanie</a>');
   });
 });
+
+describe('sitemap.xml', () => {
+  it('lists static pages and real profiles, never demo ones; robots points at it', async () => {
+    await env.DB.prepare(`UPDATE therapists SET is_demo = 0 WHERE slug = 'anna-kowalczyk-demo'`).run();
+    const res = await SELF.fetch('https://example.com/sitemap.xml');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/xml');
+    const xml = await res.text();
+    expect(xml).toContain(`<loc>${env.PUBLIC_BASE_URL}/terapeuci</loc>`);
+    expect(xml).toContain(`<loc>${env.PUBLIC_BASE_URL}/terapeuci/anna-kowalczyk-demo</loc><lastmod>`);
+    expect(xml).not.toContain('marek-zielinski-demo');
+    expect(xml).not.toContain('/admin');
+
+    const robots = await (await SELF.fetch('https://example.com/robots.txt')).text();
+    expect(robots).toContain(`Sitemap: ${env.PUBLIC_BASE_URL}/sitemap.xml`);
+  });
+});
