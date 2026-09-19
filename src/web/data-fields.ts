@@ -57,6 +57,9 @@ export interface ReadCtx {
 
 // ------------------------------------------------------------- słowniki ---
 
+/** Ile kwalifikacji pokazuje formularz edytora; panel trzyma ich do dwudziestu. */
+export const CREDENTIAL_ROWS = 6;
+
 /** Listy zamknięte są wspólne dla wszystkich terapeutek, więc mogą siedzieć w definicji bloku. */
 export const LANGUAGE_OPTIONS: Array<[string, string]> = [
   ['pl', 'polski'], ['en', 'angielski'], ['uk', 'ukraiński'], ['ru', 'rosyjski'],
@@ -228,11 +231,12 @@ export const FIELDS: Record<string, DataField[]> = {
   ],
 
   // Kwalifikacje siedzą w kolumnie JSON, więc cała lista jest jedną wartością -
-  // stąd `write` na miejscu zamiast osobnej obsługi w zapisie.
+  // stąd `write` na miejscu. Znacznik weryfikacji i wpisy ponad limit formularza
+  // dokleja `host-write.ts` z tego, co już jest w bazie.
   credentials: [
     {
       field: {
-        kind: 'list', name: 'credential_rows', label: 'Dyplomy i certyfikaty', item: 'Dyplom', max: 6, data: true,
+        kind: 'list', name: 'credential_rows', label: 'Dyplomy i certyfikaty', item: 'Dyplom', max: CREDENTIAL_ROWS, data: true,
         hint: 'Wyczyszczona nazwa usuwa wpis. Weryfikacja zostaje po stronie administratora.',
         of: [
           { kind: 'text', name: 'title', label: 'Nazwa', max: 160 },
@@ -240,7 +244,7 @@ export const FIELDS: Record<string, DataField[]> = {
           { kind: 'text', name: 'year', label: 'Rok', max: 4 },
         ],
       },
-      read: (t) => t.credentials.slice(0, 6).map((c) => ({
+      read: (t) => t.credentials.slice(0, CREDENTIAL_ROWS).map((c) => ({
         title: c.title, issuer: c.issuer ?? '', year: c.year === null ? '' : String(c.year),
       })),
       write: (value) => {
@@ -252,7 +256,7 @@ export const FIELDS: Record<string, DataField[]> = {
             year: Number(String(row.year ?? '').replace(/\D/g, '').slice(0, 4)) || null,
             verified: false,
           };
-        }).filter((row) => row.title !== '').slice(0, 6);
+        }).filter((row) => row.title !== '').slice(0, CREDENTIAL_ROWS);
         return [{ column: 'credentials', value: JSON.stringify(items) }];
       },
     },

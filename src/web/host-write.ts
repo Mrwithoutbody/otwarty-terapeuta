@@ -17,8 +17,8 @@ import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
 import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
-import { resolveAll, summarize } from './host-blocks';
-import { patchesFor } from './data-fields';
+import { OFFER_ROWS, resolveAll, summarize } from './host-blocks';
+import { CREDENTIAL_ROWS, patchesFor } from './data-fields';
 import { profileContext } from './pages';
 import { savePageJson } from './pages-client';
 
@@ -50,13 +50,37 @@ const str = (value: unknown, max: number): string => (typeof value === 'string' 
 const rows = (value: unknown): Values[] => (Array.isArray(value) ? (value as Values[]) : []);
 
 /**
- * Wartości z bloków w bazie. Co gdzie idzie, mówi `FIELDS` w `data-fields.ts`
- * - tutaj nie ma ani jednej nazwy kolumny, więc nowe pole nie wymaga zmiany
- * w tym pliku.
+ * Kwalifikacje z edytora scalone z tym, co jest w bazie. Formularz nie niesie
+ * znacznika „zweryfikowane" (nadaje go administrator) i pokazuje tylko pierwsze
+ * `CREDENTIAL_ROWS` wpisów, więc zapis wprost kasowałby weryfikację i obcinał listę.
+ * Znacznik wraca po nazwie i wydającym, tak jak w panelu; wpisy spoza formularza zostają.
+ */
+async function mergeCredentials(env: Env, id: string, sentJson: string): Promise<string> {
+  const row = await env.DB.prepare(`SELECT credentials FROM therapists WHERE id = ?`).bind(id).first<{ credentials: string | null }>();
+  let stored: Values[] = [];
+  try {
+    const parsed: unknown = JSON.parse(row?.credentials ?? '[]');
+    if (Array.isArray(parsed)) stored = parsed.filter((c): c is Values => typeof c === 'object' && c !== null);
+  } catch {
+    // zepsuty JSON w kolumnie: nie ma czego zachować
+  }
+  const key = (c: Values): string => `${normalizeForSearch(String(c.title ?? ''))}|${normalizeForSearch(String(c.issuer ?? ''))}`;
+  const verified = new Set(stored.filter((c) => c.verified === true).map(key));
+  const sent = JSON.parse(sentJson) as Values[];
+  return JSON.stringify([...sent.map((c) => ({ ...c, verified: verified.has(key(c)) })), ...stored.slice(CREDENTIAL_ROWS)]);
+}
+
+/**
+ * Wartości z bloków w bazie. Co gdzie idzie, mówi `FIELDS` w `data-fields.ts`,
+ * więc nowe pole nie wymaga zmiany w tym pliku. Wyjątkiem są kwalifikacje:
+ * ich zapis zależy od stanu w bazie (`mergeCredentials`).
  */
 async function writeFields(env: Env, id: string, data: Record<string, Values>): Promise<string[]> {
   const patches = Object.entries(data).flatMap(([type, sent]) => patchesFor(type, sent));
   const columns = patches.filter((p): p is { column: string; value: string | number } => 'column' in p);
+  for (const patch of columns) {
+    if (patch.column === 'credentials') patch.value = await mergeCredentials(env, id, String(patch.value));
+  }
   const relations = patches.filter((p): p is { relation: 'languages' | 'topics' | 'modalities'; values: string[] } => 'relation' in p);
 
   if (columns.length > 0) {
@@ -116,6 +140,9 @@ const RELATIONS = {
  * Cennik. Wiersz z identyfikatorem poprawia ofertę, wiersz bez niego zakłada
  * nową, a oferta, której w formularzu zabrakło, przestaje być aktywna - nigdy
  * nie znika, bo mogą do niej być przypięte rezerwacje.
+ *
+ * Wyłączanie działa tylko wtedy, gdy formularz pokazał wszystkie aktywne oferty.
+ * Przy większej liczbie brak wiersza nie znaczy „usuń", tylko „nie było go widać".
  */
 async function writeOffers(env: Env, id: string, list: Values[]): Promise<number> {
   const { results } = await env.DB.prepare(`SELECT id FROM session_offers WHERE therapist_id = ? AND active = 1`)
@@ -125,7 +152,7 @@ async function writeOffers(env: Env, id: string, list: Values[]): Promise<number
   const kept = new Set<string>();
   let changes = 0;
 
-  for (const row of list.slice(0, 4)) {
+  for (const row of list.slice(0, OFFER_ROWS)) {
     const title = sanitizeLine(String(row.title ?? ''), 120);
     const priceMinor = Math.round(Math.min(Math.max(Number(String(row.price ?? '').replace(',', '.')) || 0, 0), 5000) * 100);
     const minutes = Math.min(Math.max(Number(row.minutes ?? 50) || 50, 15), 240);
@@ -150,7 +177,7 @@ async function writeOffers(env: Env, id: string, list: Values[]): Promise<number
     changes += 1;
   }
 
-  for (const existing of results) {
+  for (const existing of results.length > OFFER_ROWS ? [] : results) {
     if (kept.has(existing.id)) continue;
     await env.DB.prepare(`UPDATE session_offers SET active = 0, updated_at = ? WHERE id = ? AND therapist_id = ?`)
       .bind(at, existing.id, id)

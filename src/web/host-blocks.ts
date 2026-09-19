@@ -188,6 +188,12 @@ function pluginButton(env: Env): Values {
 
 const T = (name: string, label: string, hint?: string): Field => ({ kind: 'text', name, label, hint, max: 160 });
 
+/**
+ * Ile ofert mieści formularz cennika. Ta sama liczba w odczycie i w zapisie:
+ * oferta, której edytor nie pokazał, nie może zniknąć przy zapisie.
+ */
+export const OFFER_ROWS = 12;
+
 const DLIST = (name: string, label: string, item: string, of: Field[], max: number, hint?: string): Field =>
   ({ kind: 'list', name, label, item, hint, max, of, data: true });
 
@@ -475,7 +481,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         { kind: 'text', name: 'price', label: 'Cena (zł)', max: 10 },
         { kind: 'text', name: 'minutes', label: 'Czas (min)', max: 4 },
         { kind: 'select', name: 'mode', label: 'Forma', options: [['online', 'online'], ['in_person', 'w gabinecie']] },
-      ], 8, 'Wyłączona oferta znika z profilu, jej terminy zostają w bazie.'),
+      ], OFFER_ROWS, 'Wyłączona oferta znika z profilu, jej terminy zostają w bazie.'),
       ...OWN,
     ],
     resolve: (ctx) => {
@@ -483,7 +489,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       if (t.offers.length === 0) return null;
       return {
         type: 'pricing', eyebrow: 'Oferta', heading: 'Sesje i ceny',
-        offer_rows: t.offers.slice(0, 4).map((o) => ({
+        offer_rows: t.offers.slice(0, OFFER_ROWS).map((o) => ({
           id: o.offer_id, title: o.title, price: String(o.price_minor / 100), minutes: String(o.duration_minutes), mode: o.mode,
         })),
         items: t.offers.slice(0, 4).map((o) => ({

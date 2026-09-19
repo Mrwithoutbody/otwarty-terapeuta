@@ -160,6 +160,49 @@ describe('związania, których brakowało', () => {
     expect(t.locations).toEqual([]);
   });
 
+  it('kwalifikacje: zapis z edytora nie kasuje weryfikacji ani wpisów spoza formularza', async () => {
+    const MAREK = 'th_8b2d6e10f4a97c53d1e08b26';
+    const stored = [
+      { title: 'Certyfikat psychoterapeuty', issuer: 'PTPP', year: 2017, verified: true },
+      ...Array.from({ length: 6 }, (_, i) => ({ title: `Kurs ${i + 1}`, issuer: 'Szkoła', year: 2020, verified: false })),
+    ];
+    await env.DB.prepare(`UPDATE therapists SET credentials = ? WHERE id = ?`).bind(JSON.stringify(stored), MAREK).run();
+
+    // Formularz widzi sześć pierwszych; terapeuta poprawia rok i dopisuje nic więcej.
+    const shown = stored.slice(0, 6).map((c) => ({ title: c.title, issuer: c.issuer, year: '2018' }));
+    const res = await write({ credentials: { credential_rows: shown } }, await writeToken(env, MAREK));
+    expect(res.status).toBe(200);
+
+    const row = await env.DB.prepare(`SELECT credentials FROM therapists WHERE id = ?`).bind(MAREK).first<{ credentials: string }>();
+    const after = JSON.parse(row!.credentials) as Array<{ title: string; year: number; verified: boolean }>;
+    expect(after).toHaveLength(7);
+    expect(after[0]).toMatchObject({ title: 'Certyfikat psychoterapeuty', year: 2018, verified: true });
+    expect(after[1]!.verified).toBe(false);
+    expect(after[6]!.title).toBe('Kurs 6');
+  });
+
+  it('cennik: przy ofertach ponad limit formularza zapis niczego nie wyłącza', async () => {
+    const { OFFER_ROWS } = await import('../src/web/host-blocks');
+    const MAREK = 'th_8b2d6e10f4a97c53d1e08b26';
+    const at = '2026-09-01T00:00:00Z';
+    for (let i = 0; i <= OFFER_ROWS; i++) {
+      await env.DB.prepare(
+        `INSERT INTO session_offers (id, therapist_id, title, session_type, mode, duration_minutes, price_minor, currency, active, created_at, updated_at)
+         VALUES (?, ?, ?, 'couples', 'online', 50, ?, 'PLN', 1, ?, ?)`,
+      ).bind(`of_limit_${i}`, MAREK, `Oferta ${i}`, 90000 + i, at, at).run();
+    }
+    const active = async (): Promise<number> =>
+      (await env.DB.prepare(`SELECT COUNT(*) n FROM session_offers WHERE therapist_id = ? AND active = 1`).bind(MAREK).first<{ n: number }>())!.n;
+    const before = await active();
+    expect(before).toBeGreaterThan(OFFER_ROWS);
+
+    const res = await write({ offers: { offer_rows: [{ id: 'of_limit_0', title: 'Oferta 0 po zmianie', price: '900', minutes: '50', mode: 'online' }] } }, await writeToken(env, MAREK));
+    expect(res.status).toBe(200);
+    expect(await active()).toBe(before);
+    const edited = await env.DB.prepare(`SELECT title, session_type FROM session_offers WHERE id = 'of_limit_0'`).first<{ title: string; session_type: string }>();
+    expect(edited).toEqual({ title: 'Oferta 0 po zmianie', session_type: 'couples' });
+  });
+
   it('kalendarz: grafik układa się w panelu, blok pokazuje go jako wyliczony', async () => {
     const { HOST_BLOCK_DEFS } = await import('../src/web/host-blocks');
     const field = HOST_BLOCK_DEFS['slots']!.fields!.find((f) => f.name === 'slots_shown')!;
