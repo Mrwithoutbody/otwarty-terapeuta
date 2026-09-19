@@ -435,6 +435,8 @@ interface EditorContext {
 }
 
 const refTags = (options: Array<[string, string]>): RefTag[] => options.map(([slug, name_pl]) => ({ slug, name_pl }));
+const SESSION_TYPE_LABELS = refTags(SESSION_TYPE_OPTIONS);
+const AGE_GROUP_LABELS = refTags(AGE_GROUP_OPTIONS);
 
 const PAGES_DOWN = 'Edytor stron jest chwilowo niedostępny. Twoje dane i strona publiczna działają; spróbuj za chwilę.';
 
@@ -901,9 +903,9 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   </fieldset>
 
   <fieldset><legend>Typy spotkań</legend>
-    ${checkboxGrid('session_types', refTags(SESSION_TYPE_OPTIONS), sessionTypes)}</fieldset>
+    ${checkboxGrid('session_types', SESSION_TYPE_LABELS, sessionTypes)}</fieldset>
   <fieldset><legend>Grupy wiekowe</legend>
-    ${checkboxGrid('age_groups', refTags(AGE_GROUP_OPTIONS), ageGroups)}</fieldset>
+    ${checkboxGrid('age_groups', AGE_GROUP_LABELS, ageGroups)}</fieldset>
   <fieldset><legend>Języki</legend>
     ${checkboxGrid('languages', context.languages, context.chosenLanguages)}</fieldset>
   <fieldset><legend>Obszary pracy</legend>

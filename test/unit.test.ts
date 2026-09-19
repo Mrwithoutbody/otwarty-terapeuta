@@ -322,7 +322,7 @@ describe('timezones', () => {
     });
   });
 
-  it('reports the weekday as it reads locally', () => {
+  it('reports the weekday of a civil date', () => {
     expect(weekdayOf({ year: 2027, month: 3, day: 28 })).toBe(0); // niedziela
     expect(weekdayOf({ year: 2027, month: 3, day: 29 })).toBe(1); // poniedziałek
   });

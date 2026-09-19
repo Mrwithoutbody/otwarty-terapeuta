@@ -158,7 +158,7 @@ export function zonedTimeToUtc(
   return new Date(secondPass);
 }
 
-/** Day of week (0 = Sunday) of a civil date. */
+/** Day of week (0 = Sunday) of a civil date. The date must already be zone-local (`civilDateIn`). */
 export function weekdayOf(date: CivilDate): number {
   return new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay();
 }
