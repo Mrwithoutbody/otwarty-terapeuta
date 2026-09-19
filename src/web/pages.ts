@@ -133,6 +133,7 @@ siteApp.get('/', async (c) => {
   const entries = await findCandidates(c.env, {});
   const facts = catalogueFacts(entries);
   const allTopics = catalogueTopics(entries);
+  const cities = [...new Set(entries.flatMap((t) => t.locations.map((l) => l.city)))].sort((x, y) => x.localeCompare(y, 'pl'));
   const topics = allTopics
     .slice(0, 10)
     .map((t) => `<li><a href="/terapeuci?obszar=${encodeURIComponent(t.slug)}">${escapeHtml(t.name)}</a></li>`)
@@ -160,32 +161,25 @@ siteApp.get('/', async (c) => {
       <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
       <h1 id="home-title">Znajdź terapeutę na swoich warunkach.</h1>
       <p class="lead">Każda osoba w katalogu prowadzi tu własną stronę: pisze, jak pracuje, komu pomaga, ile kosztuje sesja i kiedy ma wolny termin. Czytasz, porównujesz i rezerwujesz wizytę — bez pośredników i bez płatnych pozycji.</p>
-      <form class="hero-search" method="get" action="/terapeuci" role="search" aria-label="Szukaj terapeuty">
-        <div class="field"><label for="hero-szukaj">Kogo szukasz</label><input id="hero-szukaj" name="szukaj" type="search" maxlength="120" autocomplete="off" placeholder="imię, miasto albo nurt"></div>
-        <div class="field"><label for="hero-obszar">W czym</label><select id="hero-obszar" name="obszar"><option value="">dowolny obszar</option>${allTopics
-          .map((t) => `<option value="${escapeHtml(t.slug)}">${escapeHtml(t.name)}</option>`)
-          .join('')}</select></div>
-        <label class="hero-search-online"><input type="checkbox" name="online" value="1"> online</label>
-        <button class="btn" type="submit">Szukaj <span aria-hidden="true">→</span></button>
-      </form>
       <p class="hero-more"><a href="/terapeuci">Przeglądaj wszystkich</a> · <a href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a></p>
     </div>
 
-    <div class="finder-preview" aria-label="Przykładowy widok wyszukiwarki terapeutów">
-      <div class="preview-toolbar"><span class="preview-mark"><img src="/logo.svg" alt="" width="22" height="22"></span><span>Katalog Otwarty Terapeuta</span><span class="preview-status">widok strony</span></div>
-      <div class="preview-filters">
-        <span>Online</span><span>do 220 zł</span><span>najbliższy termin</span>
+    <form class="hero-search" method="get" action="/terapeuci" role="search" aria-label="Szukaj terapeuty">
+      <fieldset class="hero-tabs"><legend class="visually-hidden">Forma spotkań</legend>
+        <label><input type="radio" name="tryb" value="gabinet" checked><span>W gabinecie</span></label>
+        <label><input type="radio" name="tryb" value="online"><span>Online</span></label>
+      </fieldset>
+      <div class="hero-search-fields">
+        <label class="visually-hidden" for="hero-szukaj">Obszar, nurt lub nazwisko</label>
+        <input id="hero-szukaj" name="szukaj" type="search" list="hero-obszary" maxlength="120" autocomplete="off" placeholder="obszar, nurt lub nazwisko">
+        <datalist id="hero-obszary">${allTopics.map((t) => `<option value="${escapeHtml(t.name)}">`).join('')}</datalist>
+        <label class="visually-hidden" for="hero-miasto">Miejscowość</label>
+        <select id="hero-miasto" name="miasto"><option value="">cała Polska</option>${cities
+          .map((city) => `<option>${escapeHtml(city)}</option>`)
+          .join('')}</select>
+        <button class="btn" type="submit">Szukaj</button>
       </div>
-      <div class="preview-result featured">
-        <span class="profile-photo" aria-hidden="true">MK</span>
-        <div><p class="result-label">Profil zweryfikowany</p><h2>Psychoterapia dopasowana do Ciebie</h2><p>Online · terapia indywidualna</p></div>
-        <span class="match-score">dobry wybór</span>
-      </div>
-      <div class="preview-slots">
-        <p>Najbliższe wolne terminy</p><span>Dziś 18:00</span><span>Jutro 10:30</span><a href="/terapeuci">Zobacz profil →</a>
-      </div>
-      <div class="preview-note"><span aria-hidden="true">✓</span><p><strong>Dlaczego ten profil?</strong><br>Pasuje do wybranej formy spotkań, budżetu i dostępności.</p></div>
-    </div>
+    </form>
   </section>
 
   ${facts}
@@ -346,8 +340,9 @@ siteApp.get('/terapeuci', async (c) => {
   const filters: SearchFilters = {
     text: q.get('szukaj')?.slice(0, 120).trim() || undefined,
     location: q.get('miasto')?.slice(0, 80) || undefined,
-    online: q.get('online') === '1' ? true : undefined,
-    in_person: q.get('stacjonarnie') === '1' ? true : undefined,
+    // `tryb` is the home page's W gabinecie / Online switch: one radio group, two filters.
+    online: q.get('online') === '1' || q.get('tryb') === 'online' ? true : undefined,
+    in_person: q.get('stacjonarnie') === '1' || q.get('tryb') === 'gabinet' ? true : undefined,
     languages: parseListParam(q.get('jezyk') ?? undefined),
     topics: parseListParam(q.get('obszar') ?? undefined),
     modalities: parseListParam(q.get('nurt') ?? undefined),

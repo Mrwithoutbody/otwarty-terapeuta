@@ -574,40 +574,21 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero .btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
 .home-hero h1 { max-width: 20ch; margin: 0 0 1rem; color: #fbfbff; font-size: clamp(1.95rem, 1.6rem + 1.6vw, 2.85rem); line-height: 1.14; letter-spacing: -0.025em; }
 .home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c8cde4; font-size: 1rem; line-height: 1.65; }
-.hero-search { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0.75rem; align-items: end; max-width: 34rem; padding: 1rem; border-radius: var(--radius); background: #fff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
-.hero-search .field { margin: 0; }
-.hero-search label { color: var(--text); font-size: 0.78rem; font-weight: 600; }
-.hero-search-online { display: flex; align-items: center; gap: 0.45rem; min-height: 2.75rem; }
-.home-hero .hero-search .btn { justify-content: center; background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+/* The search of the hero, after the pattern people know from booking a doctor:
+   a switch above, one white bar with what, where and the button. */
+.hero-search { display: grid; gap: 0; align-self: center; }
+.hero-tabs { display: flex; gap: 0.25rem; margin: 0; padding: 0; border: 0; }
+.hero-tabs label { cursor: pointer; }
+.hero-tabs input { position: absolute; opacity: 0; }
+.hero-tabs span { display: block; padding: 0.7rem 1.25rem; border-radius: 12px 12px 0 0; color: #dfe3f2; font-size: 0.9rem; font-weight: 600; }
+.hero-tabs input:checked + span { background: #fff; color: var(--text); }
+.hero-tabs input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: -2px; }
+.hero-search-fields { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.9fr) auto; gap: 0.5rem; padding: 0.6rem; border-radius: 0 14px 14px 14px; background: #fff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
+.hero-search-fields input, .hero-search-fields select { min-height: 3.25rem; margin: 0; }
+.home-hero .hero-search .btn { min-height: 3.25rem; padding-inline: 1.2rem; justify-content: center; border-radius: 10px; background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
 .home-hero .hero-search .btn:hover { background: var(--text); border-color: var(--text); }
 .hero-more { margin: 1rem 0 0; color: #a3abc6; font-size: 0.85rem; }
 .hero-more a { color: #dfe3f2; }
-.finder-preview {
-  position: relative; width: 100%; padding: 1rem;
-  border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
-  background: var(--surface-solid); box-shadow: 0 22px 50px rgba(0, 0, 0, 0.22);
-  color: var(--text);
-}
-.preview-toolbar { display: flex; align-items: center; gap: 0.65rem; color: var(--text); font-size: 0.78rem; font-weight: 700; }
-.preview-mark { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--accent-strong); border-radius: 0.55rem; background: var(--accent-soft); }
-.preview-mark img { width: 1.15rem; height: 1.15rem; }
-.preview-status { margin-left: auto; padding: 0.25rem 0.55rem; border-radius: 99px; color: var(--accent-strong); background: var(--accent-soft); font-size: 0.67rem; }
-.preview-filters { display: flex; gap: 0.5rem; margin: 0.9rem 0; padding-bottom: 0.9rem; border-bottom: 1px solid var(--border); }
-.preview-filters span { padding: 0.34rem 0.62rem; border: 1px solid var(--border); border-radius: 99px; background: #fafbf5; color: var(--text-muted); font-size: 0.66rem; }
-.preview-result { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.8rem; padding: 0.9rem; border: 1px solid var(--border); border-radius: 0.85rem; background: #fff; }
-.profile-photo { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 12px; background: #e6ece0; color: var(--text-muted); font: 600 0.8rem var(--sans); }
-.preview-result h2 { margin: 0.08rem 0 0.22rem; font-size: 1rem; letter-spacing: -0.02em; }
-.preview-result p { margin: 0; color: var(--text-muted); font-size: 0.68rem; line-height: 1.4; }
-.preview-result .result-label { color: var(--accent-strong); font-size: 0.6rem; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase; }
-.match-score { align-self: start; padding: 0.3rem 0.5rem; border-radius: 99px; background: #eef5dd; color: #536900; font-size: 0.61rem; font-weight: 700; }
-.preview-slots { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.7rem; padding: 0.7rem 0.85rem; border-radius: 0.75rem; background: #f6f7ef; }
-.preview-slots p { margin: 0 auto 0 0; color: var(--text-muted); font-size: 0.65rem; }
-.preview-slots span { padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem; background: white; font-size: 0.62rem; }
-.preview-slots a { font-size: 0.65rem; font-weight: 700; text-decoration: none; }
-.preview-note { display: flex; gap: 0.55rem; margin-top: 0.7rem; padding: 0.7rem; border: 1px solid var(--border); border-radius: 0.8rem; background: var(--accent-soft); }
-.preview-note > span { display: grid; place-items: center; flex: 0 0 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.7rem; font-weight: 800; }
-.preview-note p { margin: 0; color: var(--text-muted); font-size: 0.63rem; line-height: 1.45; }
-.preview-note strong { color: var(--text); }
 .home-section { margin-top: clamp(3rem, 6vw, 4.75rem); }
 /* A label that names the thing, not a slogan above every heading: the hero
    badge and this one are what is left of the kickers. */
@@ -700,21 +681,10 @@ main { padding-block: 1rem 3.5rem; }
 .hero h1 { font-size: clamp(2.25rem, 10vw, 3rem); }
 .btn { width: 100%; }
 .card:hover { transform: none; }
-.home-hero { min-height: 42rem; padding: 3.25rem 1rem 0; border-radius: 1rem 1rem 0 0; }
+.home-hero { padding: 3.25rem 1rem 3rem; }
 .home-hero h1 { max-width: 12ch; font-size: clamp(2.6rem, 12vw, 3.65rem); }
 .home-hero .lead { font-size: 0.93rem; line-height: 1.65; }
-.hero-search { grid-template-columns: 1fr; }
-.finder-preview { width: 100%; margin-top: 2rem; padding: 0.7rem; border-radius: 1rem 1rem 0 0; }
-.preview-toolbar > span:nth-child(2) { max-width: 10rem; }
-.preview-filters { overflow-x: auto; }
-.preview-filters span { flex: none; }
-.preview-result { grid-template-columns: auto 1fr; }
-.match-score { display: none; }
-.profile-photo { width: 3rem; height: 3rem; }
-.preview-result h2 { font-size: 0.86rem; }
-.preview-slots { display: grid; grid-template-columns: repeat(2, 1fr); }
-.preview-slots p, .preview-slots a { grid-column: 1 / -1; }
-.preview-note { display: none; }
+.hero-search-fields { grid-template-columns: 1fr; }
 .home-section { margin-top: 4.5rem; }
 .section-heading h2, .safety-copy h2 { font-size: 2.45rem; }
 .steps-section { padding: 2.5rem 1rem; border-radius: 1rem; }
