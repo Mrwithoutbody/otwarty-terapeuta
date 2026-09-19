@@ -148,7 +148,8 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     `<meta property="og:title" content="${title}">`,
     `<meta property="og:description" content="${escapeHtml(description)}">`,
     `<meta property="og:url" content="${escapeHtml(url)}">`,
-    image ? `<meta property="og:image" content="${escapeHtml(image)}">` : '',
+    // Bez jej zdjęcia podgląd linku dostaje obraz serwisu; Person w JSON-LD zostaje bez `image`, bo to nie ona.
+    `<meta property="og:image" content="${escapeHtml(image ?? `${env.PUBLIC_BASE_URL}/og-image.jpg`)}">`,
     // `<` escaped so nothing in her bio can close the script element.
     `<script type="application/ld+json">${JSON.stringify(person).replace(/</g, '\\u003c')}</script>`,
   ].join('');
