@@ -22,7 +22,7 @@ import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
 import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './lp';
-import { createPage, getPage, listPages, listThemeChoices, pagesOrigin, slugOf, type PageInfo, type ThemeChoice } from './pages-client';
+import { createPage, getPage, listPages, listThemeChoices, pagesOrigin, setPageStatus, slugOf, type PageInfo, type ThemeChoice } from './pages-client';
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
 import type { SectionCtx } from './host-blocks';
@@ -1260,7 +1260,13 @@ ${
           const editor = `/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}`;
           return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${profile ? 'Profil' : escapeHtml(p.title)}</button></td>
              <td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${href}</button></td>
-             <td>${p.status === 'published' ? 'opublikowana' : 'szkic'}</td></tr>`;
+             <td>${p.status === 'published' ? 'opublikowana' : 'szkic — niewidoczna publicznie'}${
+               profile
+                 ? ''
+                 : ` <form method="post" action="${editor}/status" class="inline-form">${csrfField(session)}
+               <button class="btn secondary" name="status" value="${p.status === 'published' ? 'draft' : 'published'}" type="submit">
+                 ${p.status === 'published' ? 'Wycofaj' : 'Opublikuj'}</button></form>`
+             }</td></tr>`;
         })
         .join('')}</tbody></table></div>
 <form method="post" action="/admin/terapeuci/${id}/strony" class="form-row">
@@ -1582,6 +1588,25 @@ async function ownedTherapist(
   if (!therapist) return { response: page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404) };
   return { session, therapist };
 }
+
+/** Publish or withdraw a subpage: a draft is served to no one and stays out of the sitemap. */
+adminApp.post('/terapeuci/:id/strony/:pid/status', async (c) => {
+  const body = await formValues(c.req.raw);
+  const g = await ownedTherapist(c, body);
+  if ('response' in g) return g.response;
+  const id = g.therapist.id;
+  const status = body.get('status') === 'published' ? 'published' : 'draft';
+  await setPageStatus(c.env, id, c.req.param('pid'), status);
+  await audit(c.env, {
+    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorId: g.session.user.id,
+    action: 'therapist.page_status_changed',
+    subjectType: 'therapist',
+    subjectId: id,
+    meta: { page: c.req.param('pid'), status },
+  });
+  return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
+});
 
 /** A new subpage in the service, from a template; the editor opens on it. */
 adminApp.post('/terapeuci/:id/strony', async (c) => {

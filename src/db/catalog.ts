@@ -529,7 +529,9 @@ export async function listCities(env: Env): Promise<string[]> {
  */
 export async function listSitemapEntries(env: Env): Promise<Array<{ slug: string; page: string | null; updated_at: string }>> {
   const { results } = await env.DB.prepare(
-    `SELECT t.slug, NULL AS page, t.updated_at FROM therapists t
+    `SELECT t.slug, NULL AS page,
+            MAX(t.updated_at, COALESCE((SELECT p.updated_at FROM therapist_pages p WHERE p.therapist_id = t.id AND p.slug = 'profil'), '')) AS updated_at
+       FROM therapists t
       WHERE ${PUBLISHED} AND t.is_demo = 0
      UNION ALL
      SELECT t.slug, p.slug, p.updated_at FROM therapist_pages p

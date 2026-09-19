@@ -139,7 +139,7 @@ export async function createPage(env: Env, input: NewPage): Promise<PageInfo | '
   try {
     await env.DB.prepare(
       `INSERT INTO therapist_pages (id, therapist_id, slug, title, status, theme, page_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, '{}', ?, ?)`,
-    ).bind(id, input.owner, slug, input.title, input.status ?? 'published', input.theme ?? '', now, now).run();
+    ).bind(id, input.owner, slug, input.title, input.status ?? 'draft', input.theme ?? '', now, now).run();
   } catch (err) {
     if (/UNIQUE/.test((err as Error).message)) return 'slug_taken';
     throw err;
@@ -160,6 +160,12 @@ export async function savePageJson(env: Env, owner: string, id: string, page: Re
 /** The trade of this catalogue: which photographs fill a slot the therapist left empty. */
 const INDUSTRY = 'psychotherapy';
 
+/** Publish or withdraw one of her subpages. The profile follows the therapist's own status, not this. */
+export async function setPageStatus(env: Env, owner: string, id: string, status: 'draft' | 'published'): Promise<void> {
+  await env.DB.prepare(`UPDATE therapist_pages SET status = ?, updated_at = ? WHERE id = ? AND therapist_id = ? AND slug != 'profil'`)
+    .bind(status, nowIso(), id, owner).run();
+}
+
 export interface RenderRequest {
   owner: string;
   slug: string;
@@ -170,7 +176,8 @@ export interface RenderRequest {
 /** The page with her data in it, or null when she has no such page. */
 export async function renderPage(env: Env, input: RenderRequest): Promise<string | null> {
   const row = await findPage(env, input.owner, input.slug);
-  if (!row) return null;
+  // A draft has an address only in the editor: the public, and with it the index, sees none.
+  if (!row || row.status !== 'published') return null;
   const res = await pagesFetch(env, '/v1/render/page', {
     method: 'POST',
     json: { ...input, title: row.title, theme: row.theme, page: row.page, industry: INDUSTRY },

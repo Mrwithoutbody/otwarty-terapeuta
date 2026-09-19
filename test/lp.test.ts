@@ -48,8 +48,12 @@ describe('podstrony terapeutki', () => {
     expect(hop.status).toBe(303);
     expect(hop.headers.get('location')).toMatch(/^https:\/\/pages\.test\/edit\//);
 
-    // Served at once, in the look she picked, with her calendar and the crisis numbers.
+    // Born a draft: no public address, no place in the sitemap, until she publishes it.
     const slug = 'grupa-wsparcia-dla-rodzicow';
+    expect((await SELF.fetch(`https://localhost/terapeuci/anna-kowalczyk-demo/${slug}`)).status).toBe(404);
+    expect((await post(anna, `/admin/terapeuci/${ANNA}/strony/${pid}/status`, [['status', 'published']])).status).toBe(303);
+
+    // Then served in the look she picked, with her calendar and the crisis numbers.
     const publicPage = await SELF.fetch(`https://localhost/terapeuci/anna-kowalczyk-demo/${slug}`);
     expect(publicPage.status).toBe(200);
     let html = await publicPage.text();
