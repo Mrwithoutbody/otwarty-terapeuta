@@ -207,7 +207,8 @@ siteApp.get('/', async (c) => {
     <p class="section-action"><a class="btn" href="/terapeuci">Zobacz wszystkie profile <span aria-hidden="true">→</span></a></p>
   </section>
 
-  <section class="home-section steps-section" aria-labelledby="steps-title">
+  <div class="home-section path-row">
+  <section class="steps-section" aria-labelledby="steps-title">
     <div class="section-heading centered">
       <h2 id="steps-title">Od kryteriów do spotkania</h2>
       <p>Nie musisz znać się na psychoterapii. Zacznij od tego, w czym szukasz wsparcia.</p>
@@ -219,21 +220,21 @@ siteApp.get('/', async (c) => {
       <li><span>3</span><h3>Zarezerwuj termin</h3><p>Wolny termin z kalendarza, jasne potwierdzenie.</p></li>
     </ol>
   </section>
-
-  <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
-    <div><h2 id="assistant-title">Wolisz zapytać w rozmowie?</h2><p>Ten sam katalog będzie dostępny w ChatGPT: podajesz kryteria, dostajesz profile i wolne terminy. ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : 'Aplikacja jest w przygotowaniu do publikacji — katalog na stronie działa niezależnie.'}</p></div>
-    ${pluginCta(c.env)}
-  </aside>
-
-  <section class="home-section" aria-labelledby="next-title">
-    <div class="section-heading centered"><h2 id="next-title">Rozwijamy serwis</h2></div>
+  <aside class="roadmap" aria-labelledby="next-title">
+    <h2 id="next-title">Rozwijamy serwis</h2>
     <ul class="offer-soon">
       <li><strong>Opowiadania terapeutów i superwizorów</strong><span>Teksty o własnej pracy i superwizji. Zobaczysz, kto naprawdę pracuje nad sobą.</span></li>
       <li><strong>Wirtualne gabinety</strong><span>Miejsce spotkań online prowadzone przez terapeutę.</span></li>
       <li><strong>Wydarzenia</strong><span>Warsztaty, grupy i spotkania otwarte.</span></li>
       <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
     </ul>
-  </section>
+  </aside>
+  </div>
+
+  <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
+    <div><h2 id="assistant-title">Wolisz zapytać w rozmowie?</h2><p>Ten sam katalog będzie dostępny w ChatGPT: podajesz kryteria, dostajesz profile i wolne terminy. ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : 'Aplikacja jest w przygotowaniu do publikacji — katalog na stronie działa niezależnie.'}</p></div>
+    ${pluginCta(c.env)}
+  </aside>
 
   <section class="home-cta" aria-labelledby="cta-title">
     <div><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>

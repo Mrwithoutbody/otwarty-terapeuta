@@ -610,10 +610,15 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .offer-grid article { padding: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-solid); box-shadow: var(--shadow-sm); }
 .offer-grid h3 { margin: 0 0 0.6rem; font-size: 1.12rem; }
 .offer-grid p { margin: 0; color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
-.offer-soon { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0 1.5rem; margin: 1.75rem 0 0; padding: 0; list-style: none; }
-.offer-soon li { display: grid; align-content: start; gap: 0.25rem; margin: 0; padding: 1rem 0; border-top: 1px solid var(--border-strong); }
-.offer-soon strong { font-size: 0.92rem; }
-.offer-soon span { color: var(--text-muted); font-size: 0.8rem; line-height: 1.55; }
+.path-row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.roadmap { padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; }
+.roadmap h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.offer-soon { display: grid; margin: 0; padding: 0; list-style: none; }
+.offer-soon li { display: grid; gap: 0.2rem; margin: 0; padding: 0.8rem 0; border-top: 1px solid var(--border); }
+.offer-soon li:last-child { padding-bottom: 0; }
+.offer-soon strong { font-size: 0.85rem; }
+.offer-soon span { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
+@media (max-width: 64rem) {.path-row { grid-template-columns: 1fr; } }
 .featured-grid { margin-top: 2rem; }
 @media (min-width: 64rem) {.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .topic-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; max-width: 52rem; margin: 1.5rem auto 0; padding: 0; list-style: none; }
