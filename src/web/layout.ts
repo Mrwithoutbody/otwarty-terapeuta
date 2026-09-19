@@ -170,7 +170,7 @@ ${
 <header class="site">
   <div class="wrap">
     <a class="brand" href="/" aria-label="Otwarty Terapeuta — strona główna">
-      <img src="/logo.svg" alt="" width="34" height="34">
+      <img src="/logo.svg?v=2" alt="" width="34" height="34">
       <span>Otwarty Terapeuta</span>
     </a>
     <nav class="site desktop-nav" aria-label="Nawigacja główna"><ul>${nav}</ul></nav>
@@ -202,7 +202,7 @@ ${options.body}
       <p><a href="/pomoc-w-kryzysie">Pełna lista miejsc pomocy <span aria-hidden="true">→</span></a></p>
     </aside>
     <div class="footer-brand">
-      <a class="brand" href="/"><img src="/logo.svg" alt="" width="36" height="36"><span>Otwarty Terapeuta</span></a>
+      <a class="brand" href="/"><img src="/logo.svg?v=2" alt="" width="36" height="36"><span>Otwarty Terapeuta</span></a>
       <p>Przejrzysty katalog psychoterapeutów i prosta rezerwacja wizyt — bez ukrytego rankingu.</p>
     </div>
     <div class="footer-links">
