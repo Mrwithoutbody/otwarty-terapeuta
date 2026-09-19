@@ -119,6 +119,26 @@ function featuredTherapists(entries: PublicTherapist[]): PublicTherapist[] {
   return [...entries].sort((x, y) => rank(x) - rank(y)).slice(0, 3);
 }
 
+/**
+ * Faces round the hero's search card: up to seven profiles with a photograph,
+ * real people before demo ones, each a link to the profile. The first takes the
+ * large tile and therefore the master image; the rest are 160 px thumbnails.
+ * Slots nobody fills stay in the grid as empty cells, next to the three that
+ * are empty by design. Under three faces there is no mosaic at all.
+ */
+function heroFaces(entries: PublicTherapist[]): string {
+  const people = [...entries].filter((t) => t.photo_url).sort((x, y) => Number(x.is_demo) - Number(y.is_demo)).slice(0, 7);
+  if (people.length < 3) return '';
+  const faces = Array.from({ length: 7 }, (_, i) => {
+    const t = people[i];
+    if (!t) return `<span class="hero-face hero-face-${i + 1}" aria-hidden="true"></span>`;
+    const src = i === 0 ? t.photo_url! : thumbnailUrl(t.photo_url)!;
+    const size = i === 0 ? 320 : 160;
+    return `<a class="hero-face hero-face-${i + 1}" href="/terapeuci/${encodeURIComponent(t.slug)}"><img src="${escapeHtml(src)}" alt="${escapeHtml(t.display_name)}" width="${size}" height="${size}" decoding="async"></a>`;
+  }).join('');
+  return faces + [1, 2, 3].map((k) => `<span class="hero-face hero-gap-${k}" aria-hidden="true"></span>`).join('');
+}
+
 /** Areas the catalogue's profiles work with, the most common first. */
 function catalogueTopics(entries: PublicTherapist[]): Array<{ slug: string; name: string }> {
   const counts = new Map<string, { name: string; n: number }>();
@@ -167,6 +187,7 @@ siteApp.get('/', async (c) => {
       <p class="hero-more"><a href="/terapeuci">Przeglądaj wszystkich</a> · <a href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a></p>
     </div>
 
+    <div class="hero-bento">
     <form class="hero-search" method="get" action="/terapeuci" role="search" aria-label="Szukaj terapeuty">
       <fieldset class="hero-tabs"><legend class="visually-hidden">Forma spotkań</legend>
         <label><input type="radio" name="tryb" value="gabinet" checked><span>W gabinecie</span></label>
@@ -183,6 +204,8 @@ siteApp.get('/', async (c) => {
         <button class="btn" type="submit">Szukaj</button>
       </div>
     </form>
+    ${heroFaces(entries)}
+    </div>
   </section>
 
   <dl class="facts-strip" aria-label="Numery pomocy w nagłej sytuacji">

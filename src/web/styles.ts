@@ -622,6 +622,25 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c8cde4; font-size: 1rem; line-height: 1.65; }
 /* The search of the hero, after the pattern people know from booking a doctor:
    a switch above, one white bar with what, where and the button. */
+/* The search card is one tile of a seven-column mosaic; faces take single cells and one
+   2x2 round it, and a few cells stay empty on purpose. The form comes first in the markup,
+   so the keyboard reaches it before the faces; every tile is placed by class (no style
+   attributes under this CSP). Rows 1-2 above the card, row 4 below. */
+.hero-bento { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.6rem; align-self: center; min-width: 0; }
+.hero-bento .hero-search { grid-column: 1 / -1; grid-row: 3; }
+.hero-face { display: block; aspect-ratio: 1; overflow: hidden; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.04); }
+.hero-face img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+a.hero-face:hover img, a.hero-face:focus-visible img { transform: scale(1.06); }
+.hero-face-1 { grid-area: 1 / 6 / 3 / 8; }
+.hero-face-2 { grid-area: 1 / 2; }
+.hero-face-3 { grid-area: 2 / 3; }
+.hero-face-4 { grid-area: 2 / 5; }
+.hero-face-5 { grid-area: 4 / 1; }
+.hero-face-6 { grid-area: 4 / 3; }
+.hero-face-7 { grid-area: 4 / 6; }
+.hero-gap-1 { grid-area: 1 / 4; }
+.hero-gap-2 { grid-area: 2 / 1; }
+.hero-gap-3 { grid-area: 4 / 5; }
 .hero-search { display: grid; gap: 0.6rem; align-self: center; padding: 0.6rem; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
 .hero-tabs { display: flex; gap: 0.25rem; margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--border); }
 .hero-tabs label { cursor: pointer; }
