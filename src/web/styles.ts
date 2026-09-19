@@ -560,15 +560,15 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    child takes its grid area as containing block), so "100%" is the container's
    right edge in the two-column and the single-column layout alike - no overrides.
    --w is the side of a plane: the rosette plus the view box's margin. It follows
-   the viewport, not a column, and the root hangs a tenth of it under the hero's
-   bottom edge; at that size the band shows only the long upper reaches of the
-   petals, crossing it like shafts of light rising from below.
+   the viewport, not a column, and the root hangs 7% of it under the hero's bottom
+   edge: the petals still rise through the band like shafts of light, but they
+   converge visibly, so the crown reads as the logo's flower and not as a glow.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
-  --w: max(190rem, 260vw);
+  --w: max(100rem, 138vw);
   position: absolute; z-index: 0; grid-column: 1 / -1; grid-row: 1 / auto;
-  inset: auto 0 calc(var(--w) * -0.1); pointer-events: none; opacity: .55;
+  inset: auto 0 calc(var(--w) * -0.073); pointer-events: none; opacity: .6;
 }
 /* Square planes centred on the root (the view box is), so the mask below covers
    the whole rosette. */
