@@ -131,7 +131,6 @@ function catalogueTopics(entries: PublicTherapist[]): Array<{ slug: string; name
 
 siteApp.get('/', async (c) => {
   const entries = await findCandidates(c.env, {});
-  const facts = catalogueFacts(entries);
   const allTopics = catalogueTopics(entries);
   const cities = [...new Set(entries.flatMap((t) => t.locations.map((l) => l.city)))].sort((x, y) => x.localeCompare(y, 'pl'));
   const topics = allTopics
@@ -182,7 +181,12 @@ siteApp.get('/', async (c) => {
     </form>
   </section>
 
-  ${facts}
+  <dl class="facts-strip" aria-label="Numery pomocy w nagłej sytuacji">
+    <div><dt>bezpośrednie zagrożenie życia</dt><dd><a href="tel:112">112</a></dd></div>
+    <div><dt>wsparcie emocjonalne, całą dobę</dt><dd><a href="tel:116123">116 123</a></dd></div>
+    <div><dt>telefon zaufania dla młodzieży</dt><dd><a href="tel:116111">116 111</a></dd></div>
+    <div><dt>potrzebujesz pomocy natychmiast?</dt><dd><a href="/pomoc-w-kryzysie">Pełna lista miejsc pomocy <span aria-hidden="true">→</span></a></dd></div>
+  </dl>
 
   <section class="home-section offer-section" id="co-znajdziesz" aria-labelledby="offer-title">
     <div class="section-heading centered">

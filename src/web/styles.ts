@@ -392,6 +392,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .facts-strip dt { color: var(--text-muted); font-size: 0.72rem; }
 .facts-strip dd { margin: 0.1rem 0 0; color: var(--text); font-size: 0.95rem; font-weight: 600; }
 .home .facts-strip { padding-block: 1.15rem; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
+@media (max-width: 46rem) {.facts-strip { grid-template-columns: 1fr 1fr; gap: 0.9rem 1rem; }
+.facts-strip > div { padding: 0; border-left: 0; } }
 .subpage-heading { max-width: 45rem; margin-bottom: 2.5rem; }
 .subpage-heading h2, .resource-heading h2 { margin: 0 0 0.8rem; font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); letter-spacing: -0.02em; }
 .subpage-heading > p:last-child, .resource-heading > p:last-child { color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; }
