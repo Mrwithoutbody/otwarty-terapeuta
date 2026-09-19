@@ -276,3 +276,18 @@ describe('sitemap.xml', () => {
     expect(robots).toContain(`Sitemap: ${env.PUBLIC_BASE_URL}/sitemap.xml`);
   });
 });
+
+describe('head profilu', () => {
+  it('names the person and the place, points at itself and keeps fiction out of the index', async () => {
+    const html = await (await SELF.fetch('https://example.com/terapeuci/anna-kowalczyk-demo')).text();
+    expect(html).toMatch(/<title>Anna Kowalczyk[^<]* — psychoterapia[^<]* — Otwarty Terapeuta<\/title>/);
+    expect(html.match(/<title>/g)).toHaveLength(1);
+    expect(html).toContain(`<link rel="canonical" href="${env.PUBLIC_BASE_URL}/terapeuci/anna-kowalczyk-demo">`);
+    expect(html).toContain('<meta name="description" content="Anna Kowalczyk');
+    const demo = await (await SELF.fetch('https://example.com/terapeuci/marek-zielinski-demo')).text();
+    expect(demo).toContain('<meta name="robots" content="noindex, nofollow">');
+    const ld = JSON.parse(/<script type="application\/ld\+json">(.*?)<\/script>/s.exec(html)![1]!);
+    expect(ld['@type']).toBe('Person');
+    expect(ld.name).toContain('Anna Kowalczyk');
+  });
+});

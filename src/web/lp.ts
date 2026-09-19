@@ -105,6 +105,58 @@ export async function serveTherapistPage(
   }
 }
 
+/**
+ * What a search engine reads before it reads the page. The service typesets the body
+ * and knows nothing of the address the page lives at, her city or her prices - the host
+ * does, so the host writes the head: title with name and place, description, canonical,
+ * Open Graph and a schema.org Person. Fictional profiles stay out of the index.
+ */
+export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug: string): string {
+  const profile = pageSlug === PROFILE_SLUG;
+  const url = `${env.PUBLIC_BASE_URL}/terapeuci/${t.slug}${profile ? '' : `/${pageSlug}`}`;
+  const city = t.locations[0]?.city;
+  const image = t.photo_url ? new URL(t.photo_url, env.PUBLIC_BASE_URL).href : undefined;
+  const place = [city, t.offers_online ? 'online' : ''].filter(Boolean).join(' i ');
+  const own = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? escapeHtml(t.display_name);
+  const title = profile
+    ? escapeHtml(`${t.display_name} — psychoterapia${place ? `, ${place}` : ''} — Otwarty Terapeuta`)
+    : `${own} — ${escapeHtml(t.display_name)} — Otwarty Terapeuta`;
+  const topics = t.topics.slice(0, 4).map((x) => x.name.toLowerCase()).join(', ');
+  const description = [
+    `${t.display_name}${t.headline ? ` — ${t.headline}` : ''}.`,
+    topics ? `Obszary pracy: ${topics}.` : '',
+    place ? `Psychoterapia: ${place}.` : '',
+    t.price_min_minor != null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
+  ].filter(Boolean).join(' ').slice(0, 300);
+  const person = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: t.display_name,
+    jobTitle: t.headline ?? 'Psychoterapeuta',
+    url: `${env.PUBLIC_BASE_URL}/terapeuci/${t.slug}`,
+    image,
+    description: t.bio.slice(0, 500) || undefined,
+    knowsAbout: t.topics.map((x) => x.name),
+    knowsLanguage: t.languages,
+    address: t.locations.map((l) => ({ '@type': 'PostalAddress', addressLocality: l.city, addressRegion: l.region ?? undefined, addressCountry: l.country })),
+  };
+  const head = [
+    `<meta name="description" content="${escapeHtml(description)}">`,
+    t.is_demo ? '<meta name="robots" content="noindex, nofollow">' : '',
+    `<link rel="canonical" href="${escapeHtml(url)}">`,
+    '<meta property="og:type" content="profile">',
+    '<meta property="og:site_name" content="Otwarty Terapeuta">',
+    '<meta property="og:locale" content="pl_PL">',
+    `<meta property="og:title" content="${title}">`,
+    `<meta property="og:description" content="${escapeHtml(description)}">`,
+    `<meta property="og:url" content="${escapeHtml(url)}">`,
+    image ? `<meta property="og:image" content="${escapeHtml(image)}">` : '',
+    // `<` escaped so nothing in her bio can close the script element.
+    `<script type="application/ld+json">${JSON.stringify(person).replace(/</g, '\\u003c')}</script>`,
+  ].join('');
+  return html.replace(/<title>[^<]*<\/title>/, () => `<title>${title}</title>`).replace('</head>', () => `${head}</head>`);
+}
+
 /** What a page shows when the service is down and no copy exists: the numbers that matter, and a way back. */
 export function unavailablePage(t: PublicTherapist): string {
   return `<h1>${escapeHtml(t.display_name)}</h1>

@@ -20,7 +20,7 @@ import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
 import { log } from '../lib/log';
 import { htmlResponse, renderPage } from './layout';
-import { PROFILE_SLUG, serveTherapistPage, unavailablePage, type SectionCtx } from './lp';
+import { PROFILE_SLUG, serveTherapistPage, unavailablePage, withSeoHead, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
 
 /**
@@ -266,7 +266,7 @@ function catalogueFacts(entries: PublicTherapist[]): string {
 }
 
 /** Static pages worth indexing; panel, OAuth and booking receipts stay out (robots.txt). */
-const SITEMAP_STATIC = ['/', '/terapeuci', '/jak-to-dziala', '/bezpieczenstwo', '/pomoc-w-kryzysie', '/dla-terapeutow', '/polityka-prywatnosci', '/regulamin'];
+const SITEMAP_STATIC = ['/', '/terapeuci', '/jak-to-dziala', '/bezpieczenstwo', '/pomoc-w-kryzysie', '/polityka-prywatnosci', '/regulamin'];
 
 siteApp.get('/sitemap.xml', async (c) => {
   const base = c.env.PUBLIC_BASE_URL;
@@ -473,7 +473,7 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
   try {
     const served = await serveTherapistPage(c.env, t, ctx, pageSlug);
     if (!served) return notFoundProfile(c.env);
-    return htmlResponse(c.env, served.html, served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
+    return htmlResponse(c.env, withSeoHead(c.env, served.html, t, pageSlug), served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
   } catch (err) {
     log.warn('pages.unavailable', { slug, page: pageSlug, error: String((err as Error).message ?? err) });
     return htmlResponse(c.env, renderPage(c.env, { title: t.display_name, path: '/terapeuci', body: unavailablePage(t), noindex: true }), {
