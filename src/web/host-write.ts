@@ -17,7 +17,7 @@ import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
 import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
-import { OFFER_ROWS, resolveAll, summarize } from './host-blocks';
+import { FAQ_CATEGORIES, FAQ_ROWS, OFFER_ROWS, OFFER_TYPES, resolveAll, summarize } from './host-blocks';
 import { CREDENTIAL_ROWS, patchesFor } from './data-fields';
 import { profileContext } from './pages';
 import { savePageJson } from './pages-client';
@@ -48,6 +48,9 @@ async function therapistFromToken(env: Env, token: unknown): Promise<string | nu
 
 const str = (value: unknown, max: number): string => (typeof value === 'string' ? value.trim().slice(0, max) : '');
 const rows = (value: unknown): Values[] => (Array.isArray(value) ? (value as Values[]) : []);
+/** Wartość z listy zamkniętej albo domyślna - select z edytora to nadal cudze wejście. */
+const oneOf = (options: Array<[string, string]>, value: unknown, fallback: string): string =>
+  options.some(([slug]) => slug === value) ? (value as string) : fallback;
 
 /**
  * Kwalifikacje z edytora scalone z tym, co jest w bazie. Formularz nie niesie
@@ -157,21 +160,23 @@ async function writeOffers(env: Env, id: string, list: Values[]): Promise<number
     const priceMinor = Math.round(Math.min(Math.max(Number(String(row.price ?? '').replace(',', '.')) || 0, 0), 5000) * 100);
     const minutes = Math.min(Math.max(Number(row.minutes ?? 50) || 50, 15), 240);
     const mode = row.mode === 'in_person' ? 'in_person' : 'online';
+    const type = oneOf(OFFER_TYPES, row.type, 'individual');
     const offerId = str(row.id, 64);
     if (title === '') continue; // pusty wiersz to wyłączenie oferty albo nic
     kept.add(offerId);
     if (offerId !== '' && results.some((existing) => existing.id === offerId)) {
       await env.DB.prepare(
-        `UPDATE session_offers SET title=?, price_minor=?, duration_minutes=?, mode=?, updated_at=? WHERE id = ? AND therapist_id = ?`,
+        `UPDATE session_offers SET title=?, session_type=COALESCE(?, session_type), price_minor=?, duration_minutes=?, mode=?, updated_at=? WHERE id = ? AND therapist_id = ?`,
       )
-        .bind(title, priceMinor, minutes, mode, at, offerId, id)
+        // Sesja edycji otwarta przed dodaniem pola nie przyśle typu: brak znaczy „zostaw", nie „indywidualna".
+        .bind(title, 'type' in row ? type : null, priceMinor, minutes, mode, at, offerId, id)
         .run();
     } else {
       await env.DB.prepare(
         `INSERT INTO session_offers (id, therapist_id, title, session_type, mode, duration_minutes, price_minor, currency, active, created_at, updated_at)
-         VALUES (?, ?, ?, 'individual', ?, ?, ?, 'PLN', 1, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'PLN', 1, ?, ?)`,
       )
-        .bind(randomId('of'), id, title, mode, minutes, priceMinor, at, at)
+        .bind(randomId('of'), id, title, type, mode, minutes, priceMinor, at, at)
         .run();
     }
     changes += 1;
@@ -187,7 +192,7 @@ async function writeOffers(env: Env, id: string, list: Values[]): Promise<number
   return changes;
 }
 
-/** FAQ: wiersz z identyfikatorem poprawia wpis, bez - zakłada, brakujący znika. */
+/** FAQ: wiersz z identyfikatorem poprawia wpis, bez - zakłada, brakujący znika - o ile formularz pokazał wszystkie. */
 async function writeFaq(env: Env, id: string, list: Values[]): Promise<number> {
   const { results } = await env.DB.prepare(`SELECT id FROM faq_items WHERE therapist_id = ? AND status = 'published'`)
     .bind(id)
@@ -196,28 +201,29 @@ async function writeFaq(env: Env, id: string, list: Values[]): Promise<number> {
   const kept = new Set<string>();
   let changes = 0;
 
-  for (const [position, row] of list.slice(0, 10).entries()) {
+  for (const [position, row] of list.slice(0, FAQ_ROWS).entries()) {
     const question = sanitizeLine(String(row.q ?? ''), 200);
     const answer = sanitizeRichText(String(row.a ?? ''), 2000);
     const faqId = str(row.id, 64);
+    const category = oneOf(FAQ_CATEGORIES, row.category, 'general');
     if (question === '' || answer === '') continue;
     kept.add(faqId);
     if (faqId !== '' && results.some((existing) => existing.id === faqId)) {
-      await env.DB.prepare(`UPDATE faq_items SET question=?, answer=?, position=?, updated_at=? WHERE id = ? AND therapist_id = ?`)
-        .bind(question, answer, position, at, faqId, id)
+      await env.DB.prepare(`UPDATE faq_items SET question=?, answer=?, category=COALESCE(?, category), position=?, updated_at=? WHERE id = ? AND therapist_id = ?`)
+        .bind(question, answer, 'category' in row ? category : null, position, at, faqId, id)
         .run();
     } else {
       await env.DB.prepare(
         `INSERT INTO faq_items (id, therapist_id, question, answer, category, position, status, approved_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'general', ?, 'published', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?)`,
       )
-        .bind(randomId('faq'), id, question, answer, position, at, at, at)
+        .bind(randomId('faq'), id, question, answer, category, position, at, at, at)
         .run();
     }
     changes += 1;
   }
 
-  for (const existing of results) {
+  for (const existing of results.length > FAQ_ROWS ? [] : results) {
     if (kept.has(existing.id)) continue;
     await env.DB.prepare(`UPDATE faq_items SET status = 'archived', updated_at = ? WHERE id = ? AND therapist_id = ?`)
       .bind(at, existing.id, id)

@@ -193,6 +193,16 @@ const T = (name: string, label: string, hint?: string): Field => ({ kind: 'text'
  * oferta, której edytor nie pokazał, nie może zniknąć przy zapisie.
  */
 export const OFFER_ROWS = 12;
+/** To samo dla FAQ: pytanie, którego formularz nie pokazał, nie trafia do archiwum. */
+export const FAQ_ROWS = 20;
+
+export const OFFER_TYPES: Array<[string, string]> = [['individual', 'indywidualna'], ['couples', 'para'], ['family', 'rodzina']];
+
+export const FAQ_CATEGORIES: Array<[string, string]> = [
+  ['first_session', 'pierwsze spotkanie'], ['modality', 'nurt pracy'], ['cancellation', 'odwoływanie wizyt'],
+  ['online', 'sesje online'], ['payment', 'płatności'], ['confidentiality', 'poufność'],
+  ['accessibility', 'dostępność gabinetu'], ['scope', 'zakres pracy'], ['general', 'inne'],
+];
 
 const DLIST = (name: string, label: string, item: string, of: Field[], max: number, hint?: string): Field =>
   ({ kind: 'list', name, label, item, hint, max, of, data: true });
@@ -478,6 +488,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       DLIST('offer_rows', 'Sesje i ceny', 'Sesja', [
         HID('id'),
         { kind: 'text', name: 'title', label: 'Nazwa', max: 120 },
+        { kind: 'select', name: 'type', label: 'Typ', options: OFFER_TYPES },
         { kind: 'text', name: 'price', label: 'Cena (zł)', max: 10 },
         { kind: 'text', name: 'minutes', label: 'Czas (min)', max: 4 },
         { kind: 'select', name: 'mode', label: 'Forma', options: [['online', 'online'], ['in_person', 'w gabinecie']] },
@@ -490,7 +501,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
       return {
         type: 'pricing', eyebrow: 'Oferta', heading: 'Sesje i ceny',
         offer_rows: t.offers.slice(0, OFFER_ROWS).map((o) => ({
-          id: o.offer_id, title: o.title, price: String(o.price_minor / 100), minutes: String(o.duration_minutes), mode: o.mode,
+          id: o.offer_id, title: o.title, type: o.session_type, price: String(o.price_minor / 100), minutes: String(o.duration_minutes), mode: o.mode,
         })),
         items: t.offers.slice(0, 4).map((o) => ({
           name: o.title, price: formatPrice(o.price_minor, o.currency), per: `${o.duration_minutes} min · ${o.mode === 'online' ? 'online' : 'w gabinecie'}`,
@@ -558,7 +569,8 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         HID('id'),
         { kind: 'text', name: 'q', label: 'Pytanie', max: 200 },
         { kind: 'textarea', name: 'a', label: 'Odpowiedź', max: 2000 },
-      ], 20, 'Usunięte pytanie trafia do archiwum.'),
+        { kind: 'select', name: 'category', label: 'Kategoria', options: FAQ_CATEGORIES },
+      ], FAQ_ROWS, 'Usunięte pytanie trafia do archiwum.'),
       ...OWN,
     ],
     resolve: (ctx) =>
@@ -566,7 +578,7 @@ const HOST_SECTIONS: Record<string, HostDef> = {
         ? null
         : {
             type: 'faq', eyebrow: 'Pytania i odpowiedzi', heading: 'Pytania, które padają najczęściej',
-            faq_rows: ctx.faq.slice(0, 10).map((f) => ({ id: f.faq_id, q: f.question, a: f.answer })),
+            faq_rows: ctx.faq.slice(0, FAQ_ROWS).map((f) => ({ id: f.faq_id, q: f.question, a: f.answer, category: f.category })),
             items: ctx.faq.slice(0, 10).map((f) => ({ q: f.question, a: f.answer })),
           },
   },

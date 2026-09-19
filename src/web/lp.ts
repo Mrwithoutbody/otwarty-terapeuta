@@ -126,7 +126,7 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     `${t.display_name}${t.headline ? ` — ${t.headline.replace(/[.\s]+$/, '')}` : ''}.`,
     topics ? `Obszary pracy: ${topics}.` : '',
     place ? `Psychoterapia: ${place}.` : '',
-    t.price_min_minor != null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
+    t.price_min_minor !== null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
   ].filter(Boolean).join(' ').slice(0, 300);
   const person = {
     '@context': 'https://schema.org',

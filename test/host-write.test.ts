@@ -203,6 +203,31 @@ describe('związania, których brakowało', () => {
     expect(edited).toEqual({ title: 'Oferta 0 po zmianie', session_type: 'couples' });
   });
 
+  it('typ oferty i kategoria FAQ: edytor je zapisuje, a ich brak w wierszu niczego nie nadpisuje', async () => {
+    const JULIA = 'th_c93e5a4187b6f20d94a1c3f5';
+    const token = await writeToken(env, JULIA);
+    const created = await write({
+      offers: { offer_rows: [{ title: 'Sesja dla par', type: 'couples', price: '300', minutes: '80', mode: 'online' }] },
+      'faq-profil': { faq_rows: [{ q: 'Jak płacę?', a: 'Przelewem po sesji.', category: 'payment' }] },
+    }, token);
+    expect(created.status).toBe(200);
+    const offer = (await env.DB.prepare(`SELECT id, session_type FROM session_offers WHERE therapist_id = ? AND title = 'Sesja dla par'`).bind(JULIA).first<{ id: string; session_type: string }>())!;
+    const faq = (await env.DB.prepare(`SELECT id, category FROM faq_items WHERE therapist_id = ? AND question = 'Jak płacę?'`).bind(JULIA).first<{ id: string; category: string }>())!;
+    expect(offer.session_type).toBe('couples');
+    expect(faq.category).toBe('payment');
+
+    // Wiersze bez `type` i `category`, jak z sesji edycji sprzed tej zmiany; obcy typ spada na domyślny.
+    await write({
+      offers: { offer_rows: [{ id: offer.id, title: 'Sesja dla par', price: '320', minutes: '80', mode: 'online' }] },
+      'faq-profil': { faq_rows: [{ id: faq.id, q: 'Jak płacę?', a: 'Przelewem albo BLIK-iem.' }] },
+    }, token);
+    expect((await env.DB.prepare(`SELECT session_type, price_minor FROM session_offers WHERE id = ?`).bind(offer.id).first())).toEqual({ session_type: 'couples', price_minor: 32000 });
+    expect((await env.DB.prepare(`SELECT category FROM faq_items WHERE id = ?`).bind(faq.id).first<{ category: string }>())!.category).toBe('payment');
+
+    await write({ offers: { offer_rows: [{ id: offer.id, title: 'Sesja dla par', type: 'grupowa', price: '320', minutes: '80', mode: 'online' }] } }, token);
+    expect((await env.DB.prepare(`SELECT session_type FROM session_offers WHERE id = ?`).bind(offer.id).first<{ session_type: string }>())!.session_type).toBe('individual');
+  });
+
   it('kalendarz: grafik układa się w panelu, blok pokazuje go jako wyliczony', async () => {
     const { HOST_BLOCK_DEFS } = await import('../src/web/host-blocks');
     const field = HOST_BLOCK_DEFS['slots']!.fields!.find((f) => f.name === 'slots_shown')!;
