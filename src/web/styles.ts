@@ -590,7 +590,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    turbulence is rasterised once per 220 px tile rather than across the hero. */
 .home-hero::after {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  opacity: .34; mix-blend-mode: overlay;
+  opacity: .2; mix-blend-mode: overlay;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.8 0 0 0 -.4 1.8 0 0 0 -.4 1.8 0 0 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .hero-copy { max-width: 34rem; min-width: 0; }
