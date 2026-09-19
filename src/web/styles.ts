@@ -558,7 +558,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero > * { position: relative; z-index: 1; }
 /* The lotus takes the search column as its containing block (an absolutely
    positioned grid child does), so the flower keeps its place by the card: its
-   root sits under the column's right end, below the hero's bottom edge.
+   root sits a quarter-column past the column's right end, below the hero's bottom edge.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
@@ -566,7 +566,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   inset: auto 0 -5rem; pointer-events: none;
 }
 .hero-lotus svg {
-  position: absolute; bottom: 0; left: -50%; width: 300%; overflow: visible;
+  position: absolute; bottom: 0; left: -75%; width: 400%; overflow: visible;
   transform-origin: 50% 96.3%; will-change: transform;
   animation: lotus-turn 240s linear infinite;
 }
