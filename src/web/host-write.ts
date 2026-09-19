@@ -118,7 +118,7 @@ async function writeFields(env: Env, id: string, data: Record<string, Values>): 
   ];
 }
 
-/** Jeden gabinet: puste miasto zdejmuje adres z profilu. */
+/** Jeden gabinet: puste miasto zdejmuje adres z profilu, tak jak w panelu. */
 async function writeLocation(env: Env, id: string, loc: { city: string; address: string }): Promise<void> {
   const statements = [env.DB.prepare(`DELETE FROM therapist_locations WHERE therapist_id = ?`).bind(id)];
   if (loc.city !== '') {

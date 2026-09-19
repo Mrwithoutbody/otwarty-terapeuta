@@ -55,67 +55,71 @@ async function column(table: string, field: string): Promise<string[]> {
 }
 
 
-describe('formularz panelu: tożsamość tak, treść nie', () => {
+describe('therapist editor form state', () => {
   let admin: Actor;
 
   beforeAll(async () => {
     admin = await actor('editor-admin@example.invalid', 'admin');
   });
 
-  it('nie pokazuje pól treści, za to prowadzi do edytora strony', async () => {
+  // The form used to render these inputs empty while the save handler replaced
+  // the relations wholesale, so every save silently wiped them.
+  it('renders the stored languages, topics and modalities as checked', async () => {
     const html = await editorHtml(admin);
-    expect(html).toMatch(/<input id="display_name"[^>]*value="Anna Kowalczyk \(DEMO\)">/);
-    expect(html).toMatch(/<input id="slug"[^>]*value="anna-kowalczyk-demo">/);
-    for (const id of ['headline', 'bio', 'city', 'address_line', 'first_meeting_course', 'cancellation_policy', 'languages-pl', 'topics-lek']) {
-      expect(html).not.toContain(`id="${id}"`);
-    }
-    expect(html).toMatch(/data-editor-open data-page-editor="\/admin\/terapeuci\/th_[a-z0-9]+\/strony\/[^"]+">Edytuj treść strony/);
+
+    expect(html).toMatch(/<input id="languages-pl"[^>]*\schecked>/);
+    expect(html).toMatch(/<input id="languages-en"[^>]*\schecked>/);
+    expect(html).toMatch(/<input id="topics-lek"[^>]*\schecked>/);
+    expect(html).toMatch(/<input id="modalities-poznawczo-behawioralna"[^>]*\schecked>/);
+
+    // Something the profile does not have must render unchecked.
+    expect(html).toMatch(/<input id="languages-de"(?![^>]*checked)[^>]*>/);
   });
 
-  // Dawny zapis podmieniał relacje i adres hurtem z tego, co przysłał formularz.
-  // Formularz ich już nie niesie, więc zapis nie może ich dotknąć.
-  it('zapis nie rusza treści profilu: relacji, gabinetu, opisu ani form pracy', async () => {
-    const before = await env.DB.prepare(`SELECT bio, headline, session_types, age_groups, offers_online, cancellation_cutoff_h FROM therapists WHERE id = ?`).bind(ANNA).first();
-    const languages = await column('therapist_languages', 'language_code');
-    const topics = await column('therapist_specialties', 'specialty_slug');
-    const modalities = await column('therapist_modalities', 'modality_slug');
-    expect(languages.length).toBeGreaterThan(0);
-    expect(topics.length).toBeGreaterThan(0);
+  it('renders the stored city and address instead of blank inputs', async () => {
+    const html = await editorHtml(admin);
+    expect(html).toMatch(/<input id="city"[^>]*value="Warszawa">/);
+    expect(html).toMatch(/<input id="address_line"[^>]*value="ul\. Przykładowa 1\/2">/);
+  });
 
-    // Stary formularz w pamięci przeglądarki może jeszcze przysłać pola treści.
-    const response = await saveProfile(admin, [['bio', 'nadpisane'], ['city', ''], ['languages', 'de'], ['session_types', 'family']]);
+  it('keeps the relations that the rendered form posts back', async () => {
+    const response = await saveProfile(admin, [
+      ['languages', 'pl'],
+      ['languages', 'en'],
+      ['topics', 'lek'],
+      ['topics', 'depresja'],
+      ['modalities', 'poznawczo-behawioralna'],
+      ['city', 'Warszawa'],
+      ['address_line', 'ul. Przykładowa 1/2'],
+    ]);
     expect(response.status).toBe(302);
 
-    expect(await env.DB.prepare(`SELECT bio, headline, session_types, age_groups, offers_online, cancellation_cutoff_h FROM therapists WHERE id = ?`).bind(ANNA).first()).toEqual(before);
-    expect(await column('therapist_languages', 'language_code')).toEqual(languages);
-    expect(await column('therapist_specialties', 'specialty_slug')).toEqual(topics);
-    expect(await column('therapist_modalities', 'modality_slug')).toEqual(modalities);
+    expect(await column('therapist_languages', 'language_code')).toEqual(['en', 'pl']);
+    expect(await column('therapist_specialties', 'specialty_slug')).toEqual(['depresja', 'lek']);
+    expect(await column('therapist_modalities', 'modality_slug')).toEqual(['poznawczo-behawioralna']);
     expect(await column('therapist_locations', 'city')).toEqual(['Warszawa']);
   });
 
-  it('administrator weryfikuje kwalifikacje, a zapis terapeutki ich nie zmienia', async () => {
-    const res = await saveProfile(admin, [
-      ['cred_title_0', 'Certyfikat psychoterapeuty'],
-      ['cred_issuer_0', 'PTP'],
-      ['cred_year_0', '2019'],
-      ['cred_verified_0', '1'],
-    ]);
-    expect(res.status).toBe(302);
-    const stored = async (): Promise<unknown> =>
-      JSON.parse((await env.DB.prepare('SELECT credentials FROM therapists WHERE id = ?').bind(ANNA).first<{ credentials: string }>())!.credentials);
-    const expected = [{ title: 'Certyfikat psychoterapeuty', issuer: 'PTP', year: 2019, verified: true }];
-    expect(await stored()).toEqual(expected);
-    expect(await editorHtml(admin)).toContain('Certyfikat psychoterapeuty');
+  it('clears the office location when the city field is emptied', async () => {
+    const response = await saveProfile(admin, [['city', '']]);
+    expect(response.status).toBe(302);
+    expect(await column('therapist_locations', 'city')).toEqual([]);
+  });
 
-    const status = async (): Promise<string> =>
-      (await env.DB.prepare('SELECT status FROM therapists WHERE id = ?').bind(ANNA).first<{ status: string }>())!.status;
-    const statusBefore = await status();
-    const therapist = await actor('editor-anna@example.invalid', 'therapist', ANNA);
-    expect(await editorHtml(therapist)).not.toContain('cred_title_0');
-    const own = await saveProfile(therapist, [['cred_title_0', 'Dopisany sobie'], ['cred_verified_0', '1'], ['status', 'unpublished'], ['verification_status', 'verified']]);
-    expect(own.status).toBe(302);
-    expect(await stored()).toEqual(expected);
-    expect(await status()).toBe(statusBefore);
+  it('stores the checked session types and age groups as JSON', async () => {
+    await saveProfile(admin, [
+      ['session_types', 'individual'],
+      ['session_types', 'couples'],
+      ['age_groups', 'adults'],
+      // Not one of the four allowed values.
+      ['age_groups', 'wszyscy'],
+    ]);
+
+    const row = await env.DB.prepare(`SELECT session_types, age_groups FROM therapists WHERE id = ?`)
+      .bind(ANNA)
+      .first<{ session_types: string; age_groups: string }>();
+    expect(JSON.parse(row?.session_types ?? '[]')).toEqual(['individual', 'couples']);
+    expect(JSON.parse(row?.age_groups ?? '[]')).toEqual(['adults']);
   });
 });
 
@@ -262,5 +266,45 @@ describe('the public profile shows the photo', () => {
     const list = await (await SELF.fetch('https://localhost/terapeuci')).text();
     expect(list).toContain('src="/media/demo/avatar-1.svg"');
     expect(list).not.toContain('avatar-1-160');
+  });
+});
+
+describe('profile form keeps its long fields', () => {
+  let admin: Actor;
+
+  beforeAll(async () => {
+    admin = await actor('hours-admin@example.invalid', 'admin');
+  });
+
+  it('saves the description, the first meeting and the qualifications', async () => {
+    // Wypadły z formularza we wrześniu, a kolumny zostały: zapis przepisywał
+    // stare wartości w kółko i nie było gdzie ich zmienić.
+    const res = await saveProfile(admin, [
+      ['bio', 'Pracuję z osobami dorosłymi.\n\nDrugi akapit.'],
+      ['first_meeting_course', 'Rozmawiamy o tym, z czym przychodzisz.'],
+      ['first_meeting_prep', 'Nie trzeba nic przygotowywać.'],
+      ['first_meeting_decision', 'Po dwóch spotkaniach decydujemy oboje.'],
+      ['cred_title_0', 'Certyfikat psychoterapeuty'],
+      ['cred_issuer_0', 'PTP'],
+      ['cred_year_0', '2019'],
+      ['cred_verified_0', '1'],
+    ]);
+    expect(res.status).toBe(302);
+
+    const row = await env.DB.prepare('SELECT bio, first_meeting_course, first_meeting_prep, first_meeting_decision, credentials FROM therapists WHERE id = ?')
+      .bind(ANNA).first<{ bio: string; first_meeting_course: string; first_meeting_prep: string; first_meeting_decision: string; credentials: string }>();
+    expect(row?.bio).toContain('Drugi akapit');
+    expect(row?.first_meeting_course).toContain('z czym przychodzisz');
+    expect(row?.first_meeting_prep).toContain('Nie trzeba');
+    expect(row?.first_meeting_decision).toContain('decydujemy oboje');
+    expect(JSON.parse(row?.credentials ?? '[]')).toEqual([
+      { title: 'Certyfikat psychoterapeuty', issuer: 'PTP', year: 2019, verified: true },
+    ]);
+
+    // I wracają do formularza, a nie tylko do bazy.
+    const html = await editorHtml(admin);
+    expect(html).toContain('Drugi akapit');
+    expect(html).toContain('Certyfikat psychoterapeuty');
+    expect(html).toContain('id="first_meeting_course"');
   });
 });
