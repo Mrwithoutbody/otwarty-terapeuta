@@ -159,7 +159,7 @@ siteApp.get('/', async (c) => {
   <section class="home-hero" aria-labelledby="home-title">
     <div class="hero-copy">
       <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
-      <h1 id="home-title">Znajdź terapeutę na swoich warunkach.</h1>
+      <h1 id="home-title">Znajdź osobę, z którą chcesz porozmawiać.</h1>
       <p class="lead">Każdy terapeuta prowadzi tu własną stronę: jak pracuje, ile kosztuje sesja, kiedy ma wolny termin. Bez płatnych pozycji.</p>
       <p class="hero-more"><a href="/terapeuci">Przeglądaj wszystkich</a> · <a href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a></p>
     </div>
@@ -236,7 +236,7 @@ siteApp.get('/', async (c) => {
   </aside>
 
   <section class="home-cta" aria-labelledby="cta-title">
-    <div><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
+    <div><h2 id="cta-title">Znajdź terapeutę na swoich warunkach.</h2></div>
     <div><a class="btn" href="/terapeuci">Przeglądaj terapeutów <span aria-hidden="true">→</span></a><a href="/pomoc-w-kryzysie">Potrzebuję pilnej pomocy</a></div>
   </section>
 

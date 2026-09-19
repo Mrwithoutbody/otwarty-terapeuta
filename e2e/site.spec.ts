@@ -10,7 +10,7 @@ test('landing page states what the service is and is not', async ({ page }) => {
   });
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Znajdź terapeutę');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Znajdź osobę');
   await expect(page.getByText('Nie jest usługą terapeutyczną').first()).toBeVisible();
   await expect(page.getByText('116 123').first()).toBeVisible();
   expect(errors).toEqual([]);
