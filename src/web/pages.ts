@@ -220,6 +220,11 @@ siteApp.get('/', async (c) => {
     </ol>
   </section>
 
+  <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
+    <div><h2 id="assistant-title">Wolisz zapytać w rozmowie?</h2><p>Ten sam katalog będzie dostępny w ChatGPT: podajesz kryteria, dostajesz profile i wolne terminy. ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : 'Aplikacja jest w przygotowaniu do publikacji — katalog na stronie działa niezależnie.'}</p></div>
+    ${pluginCta(c.env)}
+  </aside>
+
   <section class="home-section" aria-labelledby="next-title">
     <div class="section-heading centered"><h2 id="next-title">Rozwijamy serwis</h2></div>
     <ul class="offer-soon">
@@ -229,11 +234,6 @@ siteApp.get('/', async (c) => {
       <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
     </ul>
   </section>
-
-  <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
-    <div><h2 id="assistant-title">Wolisz zapytać w rozmowie?</h2><p>Ten sam katalog będzie dostępny w ChatGPT: podajesz kryteria, dostajesz profile i wolne terminy. ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : 'Aplikacja jest w przygotowaniu do publikacji — katalog na stronie działa niezależnie.'}</p></div>
-    ${pluginCta(c.env)}
-  </aside>
 
   <section class="home-cta" aria-labelledby="cta-title">
     <div><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
