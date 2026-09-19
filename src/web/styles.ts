@@ -549,28 +549,37 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   padding-inline: max(clamp(1rem, 3vw, 2.5rem), calc((100vw - var(--maxw)) / 2 + clamp(1rem, 3vw, 2.5rem)));
 }
 .home-hero {
-  position: relative; display: grid; align-items: center;
+  position: relative; isolation: isolate; overflow: hidden; display: grid; align-items: center;
   margin-top: calc(clamp(2rem, 4vw, 3rem) * -1);
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr); gap: clamp(2rem, 4vw, 3.5rem);
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
   border: 0; border-radius: 0; background: #1b1f34; color: #c8cde4;
 }
-/* One of the illustrations as texture, not as a picture: 140 px wide, so the
-   browser's own upscaling is the blur and the page pays no filter at paint
-   time. It carries no colour of its own - grey, with its tonal range squeezed
-   into 70-185 - so the hue on the band comes from the wash alone and the
-   drawing reads as shape rather than as a photograph under a filter. Wash at
-   0.76 over a darker ground: the band runs from 20% to 29% lightness, so it
-   reads dark and the blur still has ten points of range to show. Contrast in
-   the lightest point: 9.48 under the headline, 6.20 under the lead. */
-.home-hero::before {
-  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    linear-gradient(rgba(27, 31, 52, 0.76), rgba(27, 31, 52, 0.76)),
-    url("/illustrations/hero-texture.webp") center / cover no-repeat;
-}
 .home-hero > * { position: relative; z-index: 1; }
-.hero-copy { max-width: 34rem; }
+/* The lotus takes the search column as its containing block (an absolutely
+   positioned grid child does), so the flower keeps its place by the card: its
+   root sits under the column's right end, below the hero's bottom edge.
+   Three stacked planes; blur and drift are CSS on whole <svg> elements, so the
+   blur is rasterised once and the motion stays on the compositor. */
+.home-hero > .hero-lotus {
+  position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: 1 / auto;
+  inset: auto 0 -5rem; pointer-events: none;
+}
+.hero-lotus svg {
+  position: absolute; bottom: 0; left: -50%; width: 300%; overflow: visible;
+  transform-origin: 50% 96.3%; will-change: transform;
+  animation: lotus-drift 9s ease-in-out infinite alternate;
+}
+.lotus-plane-0 { filter: blur(7px); opacity: .85; --turn: 1.6deg; --rise: -10px; }
+.lotus-plane-1 { --turn: -2.2deg; --rise: -5px; animation-duration: 7s; }
+.lotus-plane-2 { filter: blur(20px); opacity: .65; --turn: 3deg; --rise: 8px; animation-duration: 13s; }
+.lotus-halo { filter: blur(9px); }
+.lotus-petal { mix-blend-mode: screen; }
+@keyframes lotus-drift {
+  from { transform: rotate(calc(var(--turn) * -1)); }
+  to { transform: rotate(var(--turn)) translateY(var(--rise)) scale(1.03); }
+}
+.hero-copy { max-width: 34rem; min-width: 0; }
 /* What the site is, above the promise - the one line of label the hero keeps. */
 .eyebrow {
   display: inline-flex; align-items: center; gap: 0.5rem; margin: 0 0 1.1rem;
@@ -665,6 +674,9 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .mobile-nav a { display: block; padding: 0.65rem 0.75rem; border-radius: 0.55rem; color: var(--text); font-size: 0.82rem; text-decoration: none; }
 .mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
 .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
+.home-hero > .hero-lotus { grid-column: 1 / 2; grid-row: 2 / auto; opacity: .75; }
+.hero-lotus svg { --w: min(140%, 44rem); width: var(--w); left: calc(80% - var(--w) / 2); }
+.home-hero .hero-search { min-width: 0; width: 100%; }
 .section-heading { max-width: 42rem; }
 .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .crisis-hero { grid-template-columns: 1fr; }

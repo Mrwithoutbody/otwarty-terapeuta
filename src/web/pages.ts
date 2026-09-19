@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { renderHeroLotus } from './hero-lotus';
 import type { Env } from '../env';
 import {
   findCandidates,
@@ -156,6 +157,9 @@ siteApp.get('/', async (c) => {
       body: `
 <div class="home">
   <section class="home-hero" aria-labelledby="home-title">
+    <div class="hero-lotus" aria-hidden="true">
+      ${renderHeroLotus()}
+    </div>
     <div class="hero-copy">
       <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
       <h1 id="home-title">Znajdź osobę, z którą chcesz porozmawiać.</h1>
