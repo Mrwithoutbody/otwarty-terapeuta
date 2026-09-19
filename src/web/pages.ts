@@ -235,15 +235,6 @@ siteApp.get('/', async (c) => {
     </ol>
   </section>
 
-  <section class="home-section safety-section" aria-labelledby="safety-title">
-    <div class="safety-copy"><h2 id="safety-title">Twoje dane.<br>Twoja decyzja.</h2><p>Projektujemy serwis tak, aby do znalezienia terapeuty wystarczało minimum informacji.</p><a href="/bezpieczenstwo">Jak chronimy dane →</a></div>
-    <div class="safety-list">
-      <article><span aria-hidden="true">✓</span><div><h3>Minimum danych</h3><p>Nie prosimy o opis objawów ani historię zdrowia podczas przeglądania.</p></div></article>
-      <article><span aria-hidden="true">✓</span><div><h3>Jawne zasady</h3><p>Wyjaśniamy, jak działa dopasowanie i co dzieje się z rezerwacją.</p></div></article>
-      <article><span aria-hidden="true">✓</span><div><h3>Pomoc w kryzysie</h3><p>Serwis nie zastępuje interwencji kryzysowej. Ważne numery są zawsze dostępne.</p></div></article>
-    </div>
-  </section>
-
   <section class="home-section for-you-section" aria-labelledby="for-you-title">
     <div class="section-heading centered"><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
     <div class="audience-grid">
