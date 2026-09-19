@@ -27,7 +27,7 @@ test('the plugin CTA never links anywhere invented', async ({ page }) => {
     // Not configured: lead to the real explanation page, without a fake plugin URL.
     const fallback = page.getByRole('link', { name: 'Zobacz, jak działa w ChatGPT' });
     await expect(fallback).toBeVisible();
-    await expect(fallback).toHaveAttribute('href', '#w-chatgpt');
+    await expect(fallback).toHaveAttribute('href', '/jak-to-dziala');
   }
 });
 

@@ -170,7 +170,7 @@ function cutoffLabel(hours: number): string {
 export function pluginCta(env: Env): string {
   const url = env.PUBLIC_PLUGIN_URL?.trim();
   if (!url) {
-    return `<a class="btn secondary" href="#w-chatgpt">Zobacz, jak działa w ChatGPT <span aria-hidden="true">↓</span></a>`;
+    return `<a class="btn secondary" href="/jak-to-dziala">Zobacz, jak działa w ChatGPT <span aria-hidden="true">→</span></a>`;
   }
   return `<a class="btn secondary" href="${escapeHtml(url)}" rel="noopener">Znajdź terapeutę z pomocą ChatGPT <span aria-hidden="true">↗</span></a>`;
 }

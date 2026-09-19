@@ -108,6 +108,8 @@ export interface PageOptions {
   /** Rendered inside <main>. Must already be escaped. */
   body: string;
   noindex?: boolean;
+  /** Extra markup for <head>, already escaped - structured data of a page. */
+  head?: string;
   /**
    * Loads the admin stylesheet and the admin enhancement script. Both are
    * same-origin files, so the `script-src 'self'` policy stays untouched.
@@ -121,15 +123,33 @@ export function renderPage(env: Env, options: PageOptions): string {
     (item) =>
       `<li><a href="${item.href}"${options.path === item.href ? ' aria-current="page"' : ''}>${escapeHtml(item.label)}</a></li>`,
   ).join('');
+  const description = options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.';
+  const fullTitle = `${options.title} — Otwarty Terapeuta`;
+  const url = `${env.PUBLIC_BASE_URL}${options.path}`;
+  // Indexable pages only: a canonical or a share card on a booking receipt would be a lie.
+  const share = options.noindex
+    ? ''
+    : `<link rel="canonical" href="${escapeHtml(url)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Otwarty Terapeuta">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:title" content="${escapeHtml(fullTitle)}">
+<meta property="og:description" content="${escapeHtml(description)}">
+<meta property="og:url" content="${escapeHtml(url)}">
+<meta property="og:image" content="${escapeHtml(env.PUBLIC_BASE_URL)}/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">`;
 
   return `<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(options.title)} — Otwarty Terapeuta</title>
-<meta name="description" content="${escapeHtml(options.description ?? 'Katalog psychoterapeutów i rezerwacja wizyt.')}">
-${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : ''}
+<title>${escapeHtml(fullTitle)}</title>
+<meta name="description" content="${escapeHtml(description)}">
+${options.noindex ? '<meta name="robots" content="noindex, nofollow">' : share}
+${options.head ?? ''}
 <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/lora-latin-variable.woff2" as="font" type="font/woff2" crossorigin>
@@ -140,7 +160,10 @@ ${
       `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`
     : `<style>${APP_CSS}</style>`
 }
-<link rel="icon" href="data:,">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#f7f8f1">
 </head>
 <body>
 <a class="skip-link" href="#tresc">Przejdź do treści</a>

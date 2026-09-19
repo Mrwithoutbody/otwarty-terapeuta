@@ -61,7 +61,7 @@ function therapistCard(t: PublicTherapist, reasons: string[]): string {
   <div class="card-head">
     ${
       t.photo_url
-        ? `<img class="avatar" src="${escapeHtml(thumbnailUrl(t.photo_url))}" alt="" width="72" height="72" loading="lazy" decoding="async">`
+        ? `<img class="avatar" src="${escapeHtml(thumbnailUrl(t.photo_url))}" alt="${escapeHtml(t.display_name)} — zdjęcie" width="72" height="72" loading="lazy" decoding="async">`
         : `<span class="avatar" aria-hidden="true"></span>`
     }
     <div>
@@ -108,27 +108,62 @@ export function pageHead(title: string, extra = ''): string {
 
 // ------------------------------------------------------------------- home ---
 
+/**
+ * Three profiles a visitor can open straight from the home page. Real people
+ * with a photograph come first; demo profiles only fill the row when the
+ * catalogue is still short.
+ */
+function featuredTherapists(entries: PublicTherapist[]): PublicTherapist[] {
+  const rank = (t: PublicTherapist) => (t.is_demo ? 2 : 0) + (t.photo_url ? 0 : 1);
+  return [...entries].sort((x, y) => rank(x) - rank(y)).slice(0, 3);
+}
+
+/** The areas most profiles in the catalogue work with, each a ready filter link. */
+function topicLinks(entries: PublicTherapist[]): string {
+  const counts = new Map<string, { name: string; n: number }>();
+  for (const topic of entries.flatMap((t) => t.topics)) {
+    const seen = counts.get(topic.slug) ?? { name: topic.name, n: 0 };
+    seen.n += 1;
+    counts.set(topic.slug, seen);
+  }
+  return [...counts]
+    .sort((x, y) => y[1].n - x[1].n)
+    .slice(0, 10)
+    .map(([slug, { name }]) => `<li><a href="/terapeuci?obszar=${encodeURIComponent(slug)}">${escapeHtml(name)}</a></li>`)
+    .join('');
+}
+
 siteApp.get('/', async (c) => {
-  const facts = catalogueFacts(await findCandidates(c.env, {}));
+  const entries = await findCandidates(c.env, {});
+  const facts = catalogueFacts(entries);
+  const topics = topicLinks(entries);
+  const base = c.env.PUBLIC_BASE_URL;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': 'Organization', '@id': `${base}/#org`, name: 'Otwarty Terapeuta', url: base, logo: `${base}/apple-touch-icon.png`, email: c.env.SUPPORT_EMAIL },
+      { '@type': 'WebSite', '@id': `${base}/#site`, name: 'Otwarty Terapeuta', url: base, inLanguage: 'pl-PL', publisher: { '@id': `${base}/#org` } },
+    ],
+  };
   return htmlResponse(
     c.env,
     renderPage(c.env, {
       title: 'Znajdź psychoterapeutę',
       description:
-        'Katalog psychoterapeutów w Polsce z jasnymi cenami, zasadami odwołania i rezerwacją terminu. Bez ukrytego rankingu i bez płatnych pozycji.',
+        'Psychoterapeuci w Polsce z własnymi, autorskimi stronami: jak pracują, ile kosztuje sesja, kiedy mają wolny termin. Jawne ceny, rezerwacja online, bez płatnych pozycji.',
       path: '/',
+      head: `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
       body: `
 <div class="home">
   <section class="home-hero" aria-labelledby="home-title">
     <div class="hero-copy">
-      <p class="eyebrow"><span aria-hidden="true"></span> Katalog psychoterapeutów i rezerwacja wizyt</p>
+      <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
       <h1 id="home-title">Znajdź psychoterapeutę na swoich warunkach.</h1>
-      <p class="lead">Porównaj profile po tym, co naprawdę ma znaczenie: formie spotkań, języku, cenie, nurcie pracy i najbliższym wolnym terminie. Zarezerwuj wizytę bezpośrednio — także w rozmowie z ChatGPT.</p>
+      <p class="lead">Każda osoba w katalogu prowadzi tu własną stronę: pisze, jak pracuje, komu pomaga, ile kosztuje sesja i kiedy ma wolny termin. Czytasz, porównujesz i rezerwujesz wizytę — bez pośredników i bez płatnych pozycji.</p>
       <div class="hero-actions">
-        <a class="btn" href="/terapeuci">Przeglądaj katalog na stronie <span aria-hidden="true">→</span></a>
-        ${pluginCta(c.env)}
+        <a class="btn" href="/terapeuci">Przeglądaj terapeutów <span aria-hidden="true">→</span></a>
+        <a class="btn secondary" href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a>
       </div>
-      ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : '<p class="hero-availability"><span aria-hidden="true"></span> Integracja z ChatGPT jest w przygotowaniu do publikacji.</p>'}
     </div>
 
     <div class="finder-preview" aria-label="Przykładowy widok wyszukiwarki terapeutów">
@@ -150,6 +185,45 @@ siteApp.get('/', async (c) => {
 
   ${facts}
 
+  <section class="home-section offer-section" id="co-znajdziesz" aria-labelledby="offer-title">
+    <div class="section-heading centered">
+      <h2 id="offer-title">Co tu znajdziesz</h2>
+      <p>Nie wizytówki z formularza, tylko strony pisane przez samych terapeutów. Tej treści nie ma nigdzie indziej.</p>
+    </div>
+    <div class="offer-grid">
+      <article><h3>Autorskie strony terapeutów</h3><p>Podejście, doświadczenie, przebieg pierwszego spotkania i odpowiedzi na częste pytania — własnymi słowami osoby, do której idziesz.</p></article>
+      <article><h3>Ceny i zasady przed decyzją</h3><p>Cena sesji, czas trwania, forma spotkania i zasady odwołania są jawne, zanim podasz jakiekolwiek dane.</p></article>
+      <article><h3>Wolne terminy i rezerwacja</h3><p>Widzisz realny kalendarz i rezerwujesz online. Logowanie dopiero przy rezerwacji — przeglądasz anonimowo.</p></article>
+    </div>
+    <div class="section-heading centered offer-next"><h3>Rozwijamy serwis</h3></div>
+    <ul class="offer-soon">
+      <li><strong>Opowiadania terapeutów i superwizorów</strong><span>Teksty o własnej pracy i superwizji. Zobaczysz, kto naprawdę pracuje nad sobą.</span></li>
+      <li><strong>Wirtualne gabinety</strong><span>Miejsce spotkań online prowadzone przez terapeutę.</span></li>
+      <li><strong>Wydarzenia</strong><span>Warsztaty, grupy i spotkania otwarte.</span></li>
+      <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
+    </ul>
+  </section>
+
+  <section class="home-section" aria-labelledby="featured-title">
+    <div class="section-heading centered">
+      <h2 id="featured-title">Poznaj terapeutów</h2>
+      <p>Każdy profil prowadzi do pełnej strony tej osoby.</p>
+    </div>
+    <ul class="grid cols-3 featured-grid">${featuredTherapists(entries)
+      .map((t) => therapistCard(t, []))
+      .join('')}</ul>
+    <p class="section-action"><a class="btn" href="/terapeuci">Zobacz wszystkie profile <span aria-hidden="true">→</span></a></p>
+  </section>
+
+  ${
+    topics
+      ? `<section class="home-section topics-section" aria-labelledby="topics-title">
+    <div class="section-heading centered"><h2 id="topics-title">W czym szukasz wsparcia?</h2><p>Wybierz obszar, a pokażemy osoby, które z nim pracują.</p></div>
+    <ul class="topic-links">${topics}</ul>
+  </section>`
+      : ''
+  }
+
   <section class="home-section steps-section" aria-labelledby="steps-title">
     <div class="section-heading centered">
       <h2 id="steps-title">Od kryteriów do spotkania</h2>
@@ -157,38 +231,9 @@ siteApp.get('/', async (c) => {
     </div>
     <ol class="steps">
       <li><span>1</span><h3>Wybierz kryteria</h3><p>Określ formę spotkań, lokalizację, budżet i dostępność.</p></li>
-      <li><span>2</span><h3>Porównaj profile</h3><p>Przeczytaj o doświadczeniu, podejściu i zasadach współpracy.</p></li>
+      <li><span>2</span><h3>Przeczytaj strony terapeutów</h3><p>Poznaj doświadczenie, podejście i zasady współpracy.</p></li>
       <li><span>3</span><h3>Zarezerwuj termin</h3><p>Wybierz dogodny termin i otrzymaj jasne potwierdzenie wizyty.</p></li>
     </ol>
-    <p class="section-action"><a class="btn" href="/terapeuci">Przejdź do katalogu <span aria-hidden="true">→</span></a></p>
-  </section>
-
-  <section class="home-section assistant-section" id="w-chatgpt" aria-labelledby="assistant-title">
-    <div class="chat-window" aria-label="Przykład działania Otwartego Terapeuty w rozmowie z ChatGPT">
-      <div class="chat-topbar"><span class="chatgpt-mark" aria-hidden="true">✦</span><strong>ChatGPT</strong><span class="chat-demo-label">przykładowa rozmowa</span></div>
-      <div class="chat-thread">
-        <p class="chat-user">Szukam terapii online, wieczorami, do 220 zł za spotkanie.</p>
-        <div class="chat-assistant"><span class="chatgpt-mark" aria-hidden="true">✦</span><p>Znalazłem profile pasujące do tych kryteriów. Możesz je porównać poniżej.</p></div>
-        <div class="chat-widget">
-          <div class="chat-widget-head"><span class="preview-mark"><img src="/logo.svg" alt="" width="20" height="20"></span><div><strong>Otwarty Terapeuta</strong><small>3 pasujące profile</small></div></div>
-          <div class="chat-profile">
-            <span class="profile-photo" aria-hidden="true">MK</span>
-            <div><span class="verified-dot">profil zweryfikowany</span><strong>Psychoterapia indywidualna</strong><small>Online · 200 zł · wolny termin jutro</small></div>
-          </div>
-          <div class="chat-reason"><span aria-hidden="true">✓</span><p><strong>Dlaczego ten profil?</strong> Pasuje do formy spotkań, budżetu i dostępności.</p></div>
-          <div class="chat-widget-actions"><span>Zobacz profil</span><span>Sprawdź terminy</span></div>
-        </div>
-        <p class="chat-caption">Po wyborze terminu ChatGPT pokaże pełne podsumowanie. Rezerwacja nastąpi dopiero po Twoim potwierdzeniu.</p>
-      </div>
-    </div>
-    <div class="assistant-copy">
-      <p class="kicker">Otwarty Terapeuta w ChatGPT</p>
-      <h2 id="assistant-title">Zapytaj po swojemu. Porównaj. Zarezerwuj.</h2>
-      <p>Nie musisz przeklikiwać wielu stron. W rozmowie podajesz ważne dla Ciebie kryteria, a ChatGPT korzysta z naszego katalogu i pokazuje wyniki w interaktywnym widżecie.</p>
-      <ol class="chat-steps"><li><span>1</span><p><strong>Opisz praktyczne kryteria</strong><small>Na przykład forma spotkań, budżet i dogodna pora.</small></p></li><li><span>2</span><p><strong>Porównaj profile w rozmowie</strong><small>Zobacz cenę, dostępność i powody dopasowania.</small></p></li><li><span>3</span><p><strong>Potwierdź wybrany termin</strong><small>Przed rezerwacją zobaczysz kompletne podsumowanie.</small></p></li></ol>
-      <p class="launch-note"><span aria-hidden="true"></span><strong>Aplikacja w przygotowaniu do publikacji w ChatGPT.</strong> Katalog na stronie działa niezależnie.</p>
-      <a href="/jak-to-dziala">Poznaj dokładne zasady działania →</a>
-    </div>
   </section>
 
   <section class="home-section safety-section" aria-labelledby="safety-title">
@@ -203,11 +248,16 @@ siteApp.get('/', async (c) => {
   <section class="home-section for-you-section" aria-labelledby="for-you-title">
     <div class="section-heading centered"><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
     <div class="audience-grid">
-      <article><img class="audience-art audience-art-first" src="/illustrations/audience-first-step.webp" srcset="/illustrations/audience-first-step-480.webp 480w, /illustrations/audience-first-step-720.webp 720w, /illustrations/audience-first-step.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
-      <article><img class="audience-art audience-art-choice" src="/illustrations/audience-conscious-choice.webp" srcset="/illustrations/audience-conscious-choice-480.webp 480w, /illustrations/audience-conscious-choice-720.webp 720w, /illustrations/audience-conscious-choice.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
-      <article><img class="audience-art audience-art-transparency" src="/illustrations/audience-transparency.webp" srcset="/illustrations/audience-transparency-480.webp 480w, /illustrations/audience-transparency-720.webp 720w, /illustrations/audience-transparency.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
+      <article><img class="audience-art audience-art-first" src="/illustrations/audience-first-step.webp" srcset="/illustrations/audience-first-step-480.webp 480w, /illustrations/audience-first-step-720.webp 720w, /illustrations/audience-first-step.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="Akwarela: osoba idzie ścieżką w stronę otwartych drzwi w ogrodzie" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
+      <article><img class="audience-art audience-art-choice" src="/illustrations/audience-conscious-choice.webp" srcset="/illustrations/audience-conscious-choice-480.webp 480w, /illustrations/audience-conscious-choice-720.webp 720w, /illustrations/audience-conscious-choice.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="Akwarela: kobieta przy stole wybiera spośród kart z kryteriami — termin, miejsce, forma spotkania" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
+      <article><img class="audience-art audience-art-transparency" src="/illustrations/audience-transparency.webp" srcset="/illustrations/audience-transparency-480.webp 480w, /illustrations/audience-transparency-720.webp 720w, /illustrations/audience-transparency.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="Akwarela: kobieta przy biurku czyta dokument z otwartej teczki" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
     </div>
   </section>
+
+  <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
+    <div><h2 id="assistant-title">Wolisz zapytać w rozmowie?</h2><p>Ten sam katalog będzie dostępny w ChatGPT: podajesz kryteria, dostajesz profile i wolne terminy. ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : 'Aplikacja jest w przygotowaniu do publikacji — katalog na stronie działa niezależnie.'}</p></div>
+    ${pluginCta(c.env)}
+  </aside>
 
   <section class="home-cta" aria-labelledby="cta-title">
     <div><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
@@ -328,7 +378,8 @@ siteApp.get('/terapeuci', async (c) => {
     c.env,
     renderPage(c.env, {
       title: 'Katalog terapeutów',
-      description: 'Przeglądaj i filtruj profile psychoterapeutów.',
+      description:
+        'Profile psychoterapeutów w Polsce: filtruj po mieście, formie spotkań, cenie, języku i nurcie. Przy każdym profilu cena i najbliższy wolny termin.',
       path: '/terapeuci',
       body: `
 <div class="directory-page">
@@ -493,6 +544,8 @@ siteApp.get('/jak-to-dziala', (c) =>
     c.env,
     renderPage(c.env, {
       title: 'Jak to działa',
+      description:
+        'Jak znaleźć psychoterapeutę w Otwartym Terapeucie: kryteria, strony terapeutów, wolne terminy i rezerwacja. Bez opisywania objawów i bez płatnych pozycji.',
       path: '/jak-to-dziala',
       body: `
 <div class="subpage how-page">
@@ -528,6 +581,8 @@ siteApp.get('/bezpieczenstwo', (c) =>
     c.env,
     renderPage(c.env, {
       title: 'Bezpieczeństwo',
+      description:
+        'Jak Otwarty Terapeuta chroni dane: minimum informacji, anonimowe przeglądanie katalogu, logowanie dopiero przy rezerwacji.',
       path: '/bezpieczenstwo',
       body: `
 <div class="subpage safety-page">
@@ -601,6 +656,8 @@ siteApp.get('/polityka-prywatnosci', (c) =>
     c.env,
     renderPage(c.env, {
       title: 'Polityka prywatności',
+      description:
+        'Polityka prywatności serwisu Otwarty Terapeuta: jakie dane przetwarzamy, w jakim celu i jak długo.',
       path: '/polityka-prywatnosci',
       body: `
 <div class="document-page">
@@ -722,6 +779,8 @@ siteApp.get('/regulamin', (c) =>
     c.env,
     renderPage(c.env, {
       title: 'Regulamin',
+      description:
+        'Regulamin serwisu Otwarty Terapeuta: zasady korzystania z katalogu psychoterapeutów i rezerwacji wizyt.',
       path: '/regulamin',
       body: `
 <div class="document-page">
