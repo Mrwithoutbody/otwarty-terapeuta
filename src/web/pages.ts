@@ -207,16 +207,6 @@ siteApp.get('/', async (c) => {
     <p class="section-action"><a class="btn" href="/terapeuci">Zobacz wszystkie profile <span aria-hidden="true">→</span></a></p>
   </section>
 
-  <section class="home-section" aria-labelledby="next-title">
-    <div class="section-heading centered"><h2 id="next-title">Rozwijamy serwis</h2></div>
-    <ul class="offer-soon">
-      <li><strong>Opowiadania terapeutów i superwizorów</strong><span>Teksty o własnej pracy i superwizji. Zobaczysz, kto naprawdę pracuje nad sobą.</span></li>
-      <li><strong>Wirtualne gabinety</strong><span>Miejsce spotkań online prowadzone przez terapeutę.</span></li>
-      <li><strong>Wydarzenia</strong><span>Warsztaty, grupy i spotkania otwarte.</span></li>
-      <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
-    </ul>
-  </section>
-
   <section class="home-section steps-section" aria-labelledby="steps-title">
     <div class="section-heading centered">
       <h2 id="steps-title">Od kryteriów do spotkania</h2>
@@ -228,6 +218,16 @@ siteApp.get('/', async (c) => {
       <li><span>2</span><h3>Przeczytaj strony terapeutów</h3><p>Podejście, doświadczenie, cena i zasady.</p></li>
       <li><span>3</span><h3>Zarezerwuj termin</h3><p>Wolny termin z kalendarza, jasne potwierdzenie.</p></li>
     </ol>
+  </section>
+
+  <section class="home-section" aria-labelledby="next-title">
+    <div class="section-heading centered"><h2 id="next-title">Rozwijamy serwis</h2></div>
+    <ul class="offer-soon">
+      <li><strong>Opowiadania terapeutów i superwizorów</strong><span>Teksty o własnej pracy i superwizji. Zobaczysz, kto naprawdę pracuje nad sobą.</span></li>
+      <li><strong>Wirtualne gabinety</strong><span>Miejsce spotkań online prowadzone przez terapeutę.</span></li>
+      <li><strong>Wydarzenia</strong><span>Warsztaty, grupy i spotkania otwarte.</span></li>
+      <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
+    </ul>
   </section>
 
   <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
