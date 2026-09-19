@@ -558,21 +558,28 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero > * { position: relative; z-index: 1; }
 /* The lotus takes the search column as its containing block (an absolutely
    positioned grid child does), so the flower keeps its place by the card: its
-   root sits over the container's right edge, 6rem above the hero's top edge, and
-   the petals hang into the band.
+   root sits on the hero's top edge, at the container's right edge, and the petals
+   hang into the band.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
   position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: auto / 2;
-  inset: -6rem 0 auto; pointer-events: none;
+  inset: 0 0 auto; pointer-events: none;
 }
+/* Square planes centred on the root (the view box is), so the mask below covers
+   the whole rosette. --w is 5 x 1.24: five columns of flower, plus the view box's margin. */
 .hero-lotus svg {
-  position: absolute; bottom: 0; left: -100%; width: 400%; overflow: visible;
-  transform-origin: 50% 96.3%; will-change: transform;
-  animation: lotus-turn 240s linear infinite;
+  --w: 620%;
+  position: absolute; top: 0; left: calc(100% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
+  will-change: transform; animation: lotus-turn 240s linear infinite;
+  /* The pigment thins out in patches: low-frequency noise as an alpha mask, turning
+     with its plane. One 512 px tile stretched over the plane, rasterised once - the
+     same fade as an SVG filter on the petals froze the renderer. Edges stay true. */
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 2.6 0 -.55'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23m)'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
 }
-.lotus-plane-0 { filter: blur(7px); opacity: .85; animation-duration: 320s; }
-.lotus-plane-2 { filter: blur(20px); opacity: .65; animation-duration: 190s; }
+.lotus-plane-0 { filter: blur(7px); opacity: .7; animation-duration: 320s; }
+.lotus-plane-1 { opacity: .8; }
+.lotus-plane-2 { filter: blur(20px); opacity: .5; animation-duration: 190s; }
 .lotus-halo { filter: blur(9px); }
 @keyframes lotus-turn { to { transform: rotate(360deg); } }
 /* Suede: a tile of fine grey noise over the band, overlay, so the pastels read as
@@ -679,7 +686,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
 .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
 .home-hero > .hero-lotus { grid-column: 1 / 2; grid-row: 2 / auto; inset: auto 0 -6rem; opacity: .75; }
-.hero-lotus svg { --w: min(260%, 72rem); width: var(--w); left: calc(100% - var(--w) / 2); }
+.hero-lotus svg { --w: min(322%, 89rem); }
 .home-hero .hero-search { min-width: 0; width: 100%; }
 .section-heading { max-width: 42rem; }
 .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -31,7 +31,7 @@ export function renderHeroLotus(): string {
   }).join('');
   // A soft line over a wide blurred halo of its own colour.
   const plane = (depth: number, halo = false, extra = '') =>
-    `<svg class="lotus-plane-${depth}${halo ? ' lotus-halo' : ''}" viewBox="-500 -520 1000 540" fill="none" focusable="false">` + extra +
+    `<svg class="lotus-plane-${depth}${halo ? ' lotus-halo' : ''}" viewBox="-620 -620 1240 1240" fill="none" focusable="false">` + extra +
     petals.map(([angle, length, width, d], i) => d !== depth ? '' :
       `<g transform="rotate(${angle})"><path class="lotus-petal" ` +
       `d="M0 0${side(length!, width!)}C${n(-width! * 1.12)} ${n(-length! * 0.68)} ${n(-width!)} ${n(-length! * 0.22)} 0 0Z" ` +
