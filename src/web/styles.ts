@@ -68,6 +68,10 @@ export const APP_CSS = `
   /* The banknote the accent comes from ('Dollar bill' green): the blue of its security
      ribbon, measured from a scan at 226deg / 28% / 55% and taken darker, and a light gold
      mixed from --focus. The hero's lotus is painted from these and --accent, nowhere else. */
+  /* The one dark ground of the site: hero, directory head, emergency panel, closing CTA.
+     The ribbon's hue at 21% light: 15% read as black, 28% as washed out. Faintest hero
+     text (#a3abc6) keeps 6.3:1 on it, the lead 8.6:1 - Lighthouse asks for 4.5:1. */
+  --navy: hsl(226 30% 21%);
   --ribbon-blue: hsl(226 28% 46%);
   --gold-light: color-mix(in srgb, var(--focus) 40%, #fff);
   --danger: #8a2f2f;
@@ -433,7 +437,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .crisis-hero .lead { max-width: 52ch; margin: 0; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
 /* The same deep blue as the home band. The number has to be the loudest
    thing on the page: white on this ground reads 16.25. */
-.emergency-panel { display: grid; justify-items: start; padding: clamp(1.75rem, 4vw, 2.75rem); border-radius: 14px; background: #1b1f34; color: #fff; box-shadow: var(--shadow); }
+.emergency-panel { display: grid; justify-items: start; padding: clamp(1.75rem, 4vw, 2.75rem); border-radius: 14px; background: var(--navy); color: #fff; box-shadow: var(--shadow); }
 .emergency-panel p { margin: 0; color: #dfe3f2; font-size: 0.75rem; font-weight: 700; }
 .emergency-panel .emergency-warning { margin-bottom: 1.4rem; padding-bottom: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.18); color: #fff; font-size: 0.78rem; line-height: 1.5; }
 .emergency-panel a { margin: 0.4rem 0; color: #eef1ff; font: 600 clamp(2.8rem, 5.5vw, 4.2rem)/1 var(--sans); letter-spacing: -0.04em; text-decoration: none; }
@@ -471,7 +475,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    hidden - a native <details>, no script, works with JavaScript off. */
 /* The catalogue opens with the navy of the home hero; the filter card sits
    half on the band, the way the search card does there. */
-.directory-page .page-head { margin-top: calc(clamp(2rem, 4vw, 3rem) * -1); padding-block: clamp(2rem, 4vw, 3rem) 5.5rem; background: #1b1f34; }
+.directory-page .page-head { margin-top: calc(clamp(2rem, 4vw, 3rem) * -1); padding-block: clamp(2rem, 4vw, 3rem) 5.5rem; background: var(--navy); }
 .directory-page .page-head h1 { color: #fbfbff; }
 .directory-page .page-head .facts-strip { margin-top: 1.5rem; }
 .directory-page .page-head .facts-strip > div { border-left-color: rgba(255, 255, 255, 0.18); }
@@ -558,7 +562,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-top: calc(clamp(2rem, 4vw, 3rem) * -1);
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr); gap: clamp(2rem, 4vw, 3.5rem);
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
-  border: 0; border-radius: 0; background: #1b1f34; color: #c8cde4;
+  border: 0; border-radius: 0; background: var(--navy); color: #c8cde4;
 }
 .home-hero > * { position: relative; z-index: 1; }
 /* The lotus spans the grid's whole content box (an absolutely positioned grid
@@ -610,7 +614,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   background: rgba(255,255,255,0.08); color: #ccd2ea; font-size: 0.8rem; font-weight: 550;
 }
 .eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #85bb65; }
-.home-hero .btn { background: #fff; border-color: #fff; color: #1b1f34; box-shadow: none; }
+.home-hero .btn { background: #fff; border-color: #fff; color: var(--navy); box-shadow: none; }
 .home-hero .btn:hover { background: #e6e9f5; border-color: #e6e9f5; }
 .home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #dfe3f2; }
 .home-hero .btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
@@ -675,9 +679,9 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The three illustrations are the only warm thing on the page: measured on
    their pixels, 96.6-98.7% of their colour sits between 15 and 60 degrees,
    peaking at 45 (amber, sand). Everything else here is the service green. */
-.home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(3rem, 6vw, 4.75rem); padding: clamp(2rem, 5vw, 3.25rem); border: 0; border-radius: 16px; background: #1b1f34; }
+.home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(3rem, 6vw, 4.75rem); padding: clamp(2rem, 5vw, 3.25rem); border: 0; border-radius: 16px; background: var(--navy); }
 .home-cta h2 { color: #fbfbff; }
-.home-cta .btn { background: #fff; border-color: #fff; color: #1b1f34; box-shadow: none; }
+.home-cta .btn { background: #fff; border-color: #fff; color: var(--navy); box-shadow: none; }
 .home-cta .btn:hover { background: #e6e9f5; border-color: #e6e9f5; }
 .home-cta > div:last-child > a:last-child { color: #dfe3f2; }
 .home-cta h2 { max-width: 22ch; margin: 0; font-size: clamp(1.6rem, 1.4rem + 0.9vw, 2.25rem); line-height: 1.18; letter-spacing: -0.02em; }
