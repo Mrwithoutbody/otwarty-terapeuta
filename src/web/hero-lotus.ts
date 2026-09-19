@@ -25,9 +25,9 @@ export function renderHeroLotus(): string {
       stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join('') + '</linearGradient>';
     // Matte pastels: saturation stays under 50%, nothing is white-hot, nothing is screen-blended.
     const tone = (shift: number, light: number) => `hsl(${n((hue + shift) % 360)} 46% ${light}%)`;
-    return ramp('lf', [[0, '#e9c9a4', 0.34], [0.3, tone(340, 72), 0.26], [0.7, tone(0, 68), 0.18], [1, tone(325, 74), 0.06]]) +
-      ramp('lh', [[0, '#e9c9a4', 0], [0.35, tone(340, 74), 0.3], [1, tone(0, 76), 0.5]]) +
-      ramp('lr', [[0, '#e9c9a4', 0], [0.4, tone(0, 82), 0.3], [1, tone(0, 86), 0.6]]);
+    return ramp('lf', [[0, '#d9b994', 0.3], [0.3, tone(340, 64), 0.24], [0.7, tone(0, 60), 0.17], [1, tone(325, 66), 0.06]]) +
+      ramp('lh', [[0, '#d9b994', 0], [0.35, tone(340, 68), 0.14], [1, tone(0, 70), 0.24]]) +
+      ramp('lr', [[0, '#d9b994', 0], [0.4, tone(0, 76), 0.2], [1, tone(0, 80), 0.42]]);
   }).join('');
   // A soft line over a wide blurred halo of its own colour.
   const plane = (depth: number, halo = false, extra = '') =>
@@ -39,8 +39,8 @@ export function renderHeroLotus(): string {
         `fill="url(#lf${i})"` + (depth === 2 ? '' : ` stroke="url(#${depth ? 'lr' : 'lh'}${i})" stroke-width="${depth ? 0.6 : 2.5}"`)) +
       '/></g>').join('') + '</svg>';
   return plane(0, false, '<defs>' + defs +
-      '<radialGradient id="lotus-heart"><stop stop-color="#e9c9a4" stop-opacity=".34"/>' +
-      '<stop offset=".3" stop-color="#d9a08c" stop-opacity=".14"/><stop offset="1" stop-color="#a48cc4" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="lotus-heart"><stop stop-color="#d9b994" stop-opacity=".18"/>' +
+      '<stop offset=".3" stop-color="#c9907c" stop-opacity=".08"/><stop offset="1" stop-color="#a48cc4" stop-opacity="0"/></radialGradient>' +
       '</defs>' +
       '<ellipse rx="520" ry="400" fill="url(#lotus-heart)"/>') +
     plane(1, true) + plane(1) + plane(2);

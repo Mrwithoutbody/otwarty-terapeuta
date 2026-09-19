@@ -574,13 +574,13 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .lotus-plane-2 { filter: blur(20px); opacity: .65; animation-duration: 190s; }
 .lotus-halo { filter: blur(9px); }
 @keyframes lotus-turn { to { transform: rotate(360deg); } }
-/* Suede: a tile of fine noise over the band, soft-light, so the pastels read as
+/* Suede: a tile of fine grey noise over the band, overlay, so the pastels read as
    a matte nap instead of as light. A data URI - img-src allows it, and the
    turbulence is rasterised once per 220 px tile rather than across the hero. */
 .home-hero::after {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  opacity: .5; mix-blend-mode: soft-light;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.4 -.2'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: .34; mix-blend-mode: overlay;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.8 0 0 0 -.4 1.8 0 0 0 -.4 1.8 0 0 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .hero-copy { max-width: 34rem; min-width: 0; }
 /* What the site is, above the promise - the one line of label the hero keeps. */
