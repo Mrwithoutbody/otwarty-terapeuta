@@ -558,15 +558,15 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero > * { position: relative; z-index: 1; }
 /* The lotus takes the search column as its containing block (an absolutely
    positioned grid child does), so the flower keeps its place by the card: its
-   root sits a quarter-column past the column's right end, below the hero's bottom edge.
+   root sits under the container's right edge, 14rem below the hero's bottom edge.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
   position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: 1 / auto;
-  inset: auto 0 -5rem; pointer-events: none;
+  inset: auto 0 -14rem; pointer-events: none;
 }
 .hero-lotus svg {
-  position: absolute; bottom: 0; left: -75%; width: 400%; overflow: visible;
+  position: absolute; bottom: 0; left: -100%; width: 400%; overflow: visible;
   transform-origin: 50% 96.3%; will-change: transform;
   animation: lotus-turn 240s linear infinite;
 }
@@ -677,8 +677,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .mobile-nav a { display: block; padding: 0.65rem 0.75rem; border-radius: 0.55rem; color: var(--text); font-size: 0.82rem; text-decoration: none; }
 .mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
 .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
-.home-hero > .hero-lotus { grid-column: 1 / 2; grid-row: 2 / auto; opacity: .75; }
-.hero-lotus svg { --w: min(140%, 44rem); width: var(--w); left: calc(80% - var(--w) / 2); }
+.home-hero > .hero-lotus { grid-column: 1 / 2; grid-row: 2 / auto; bottom: -6rem; opacity: .75; }
+.hero-lotus svg { --w: min(260%, 72rem); width: var(--w); left: calc(100% - var(--w) / 2); }
 .home-hero .hero-search { min-width: 0; width: 100%; }
 .section-heading { max-width: 42rem; }
 .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
