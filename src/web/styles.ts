@@ -556,21 +556,23 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   border: 0; border-radius: 0; background: #1b1f34; color: #c8cde4;
 }
 .home-hero > * { position: relative; z-index: 1; }
-/* The lotus takes the search column as its containing block (an absolutely
-   positioned grid child does), so the flower keeps its place by the card: its
-   root sits 30rem under the hero's bottom edge, at the container's right edge, and
-   the flower is large enough that the band shows only the long upper reaches of
-   the petals: they cross it like shafts of light rising from below.
+/* The lotus spans the grid's whole content box (an absolutely positioned grid
+   child takes its grid area as containing block), so "100%" is the container's
+   right edge in the two-column and the single-column layout alike - no overrides.
+   --w is the side of a plane: the rosette plus the view box's margin. It follows
+   the viewport, not a column, and the root hangs a tenth of it under the hero's
+   bottom edge; at that size the band shows only the long upper reaches of the
+   petals, crossing it like shafts of light rising from below.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
-  position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: 1 / auto;
-  inset: auto 0 -30rem; pointer-events: none; opacity: .75;
+  --w: max(190rem, 260vw);
+  position: absolute; z-index: 0; grid-column: 1 / -1; grid-row: 1 / auto;
+  inset: auto 0 calc(var(--w) * -0.1); pointer-events: none; opacity: .75;
 }
 /* Square planes centred on the root (the view box is), so the mask below covers
-   the whole rosette. --w is 7.5 x 1.24: seven and a half columns of flower, plus the view box's margin. */
+   the whole rosette. */
 .hero-lotus svg {
-  --w: 930%;
   position: absolute; top: 0; left: calc(100% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
   will-change: transform; animation: lotus-turn 240s linear infinite;
   /* The pigment thins out in patches: low-frequency noise as an alpha mask, turning
@@ -686,8 +688,6 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .mobile-nav a { display: block; padding: 0.65rem 0.75rem; border-radius: 0.55rem; color: var(--text); font-size: 0.82rem; text-decoration: none; }
 .mobile-nav a:hover, .mobile-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); }
 .home-hero { grid-template-columns: 1fr; gap: 2.5rem; }
-.home-hero > .hero-lotus { grid-column: 1 / 2; grid-row: 2 / auto; inset: auto 0 -6rem; opacity: .75; }
-.hero-lotus svg { --w: min(322%, 89rem); }
 .home-hero .hero-search { min-width: 0; width: 100%; }
 .section-heading { max-width: 42rem; }
 .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
