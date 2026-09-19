@@ -228,6 +228,27 @@ describe('związania, których brakowało', () => {
     expect((await env.DB.prepare(`SELECT session_type FROM session_offers WHERE id = ?`).bind(offer.id).first<{ session_type: string }>())!.session_type).toBe('individual');
   });
 
+  it('edytor dostaje pola danych z opcjami z bazy, bez pól prezentacji, i każde z nich ma wartość w resolved', async () => {
+    const { hostDataFields, HOST_LOCKS, resolveAll } = await import('../src/web/host-blocks');
+    const { profileContext } = await import('../src/web/pages');
+    const fields = hostDataFields({ topics: [['lek', 'Lęk']], modalities: [['cbt', 'CBT']] });
+    expect(fields.offers!.map((f) => f.name)).toEqual(['offer_rows']);
+    expect(fields['faq-profil']!.map((f) => f.name)).toEqual(['faq_rows']);
+    expect(fields.topics!.find((f) => f.name === 'topics')!.options).toEqual([['lek', 'Lęk']]);
+    // Nagłówek sekcji i przyciski to sloty usługi, nie dane tej bazy.
+    expect(Object.values(fields).flat().some((f) => f.name === 'heading' || f.name === 'buttons')).toBe(false);
+    expect(Object.keys(HOST_LOCKS).every((type) => type in fields)).toBe(true);
+
+    // Usługa bierze wartość startową z resolved[blok][pole]: brak = puste pole i zapis, który czyści dane.
+    const t = (await getTherapist(env, { therapist_id: ANNA }, { drafts: true }))!;
+    const resolved = resolveAll(await profileContext(env, t));
+    for (const [type, list] of Object.entries(fields)) {
+      const block = resolved[type];
+      if (!block) continue;
+      for (const f of list.filter((x) => x.data)) expect(block, `${type}.${f.name}`).toHaveProperty(f.name);
+    }
+  });
+
   it('kalendarz: grafik układa się w panelu, blok pokazuje go jako wyliczony', async () => {
     const { HOST_BLOCK_DEFS } = await import('../src/web/host-blocks');
     const field = HOST_BLOCK_DEFS['slots']!.fields!.find((f) => f.name === 'slots_shown')!;

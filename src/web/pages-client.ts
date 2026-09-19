@@ -193,6 +193,9 @@ export interface EditSessionInput {
   write: { url: string; token: string };
   /** Zakres półki plików właścicielki w edytorze usługi. */
   media: { scope: string };
+  /** Pola danych hosta per blok i sloty, które host wylicza sam (kontrakt: README usługi). */
+  fields: Record<string, unknown[]>;
+  locks: Record<string, string[]>;
 }
 
 /** A link into the hosted editor, good for an hour. */

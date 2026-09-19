@@ -169,7 +169,13 @@ w D1 ot-02. ot-02 tylko przysyła dane bloków (`host-blocks.ts`) i linkuje do
 edytora usługi. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
 
 - Nowy blok danych = wpis w `HOST_SECTIONS`; usługa dowiaduje się o nim sama
-  (`PUT /v1/site/blocks` przed każdą sesją edycji). Żadnego skryptu po deployu.
+  (`fields` i `locks` w każdym `POST /v1/edit-session`). Żadnego skryptu po deployu.
+- **Edytor stron zapisuje dane profilu do tej bazy dopiero od 2026-09-19.** Wcześniej
+  `host-write.ts` (ścieżka `data`) żył tylko w testach - usługa odsyłała samą stronę.
+  Zanim utniesz cokolwiek w panelu „bo edytor to robi", otwórz sesję edycji na preview
+  i sprawdź `GET <adres edytora>/data` oraz zapis w D1. Zielone testy po obu stronach
+  nie dowodzą, że usługi ze sobą rozmawiają (2026-09-19: cięcie zakładki „Dane" na tej
+  podstawie, rollback po ~30 min).
 - Produkcja wymaga sekretu `PAGES_API_KEY` (klucz site'u `ot-02` w usłudze;
   `npm run site:create` po stronie x402Landings). Bez niego `assertConfig` odmawia.
 - Kolejność zmian w kontrakcie: najpierw usługa (testy + deploy), potem ot-02.

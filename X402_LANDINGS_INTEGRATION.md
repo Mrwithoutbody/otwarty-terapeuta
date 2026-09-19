@@ -29,9 +29,8 @@ hostom z listy `HOSTS` po jej stronie. `memory://` = x402L w procesie (testy).
 
 ```
 POST /v1/render/page   {owner, slug, title, theme, variant, page, resolved, chrome, industry} → HTML
-POST /v1/edit-session  {…jak wyżej, write: {url, token}, media: {scope}}                                    → {url} edytora, nowa karta
+POST /v1/edit-session  {…jak wyżej, write: {url, token}, media: {scope}, fields, locks} → {url} edytora, nowa karta
 GET  /v1/themes        → [{slug, label, hint, variants}]
-PUT  /v1/site/blocks   → 204
 ```
 
 Profil = wiersz o slugu `profil`, tworzony przy pierwszym wyświetleniu
@@ -54,10 +53,16 @@ Każde pole opisuje RAZ `src/web/data-fields.ts` (`FIELDS`): etykieta, rodzaj,
 `read` (wartość dla formularza) i `write` (łatka do bazy: kolumna, tabela
 wiążąca, adres gabinetu). Z tego wpisu powstaje deklaracja dla
 usługi, wartość w `resolved` i zapis. Listy z bazy (obszary, nurty) wchodzą
-w opcje pól przy synchronizacji bloków (`hostBlockDefs(dict)`).
+w opcje pól przy otwarciu sesji edycji (`hostDataFields(dict)` w `editorUrl`).
 
-Przepływ zapisu: usługa wyjmuje pola `data` z bloku i POST-uje
-`{token, data: {blok: {pole}}}` pod `write.url` z `edit-session`; host
+Deklaracje jadą w `fields` każdej sesji edycji, a `locks` (`HOST_LOCKS`) wymienia sloty, które
+`resolve` wypełnia z bazy - edytor nie daje dla nich pola w „Treści sekcji". Do 2026-09-19
+usługa deklaracji nie przyjmowała i odsyłała samą stronę: cała ta ścieżka istniała tylko
+w testach, a dane zmieniało się wyłącznie w panelu. Sprawdzaj ją na żywej parze usług
+(preview + `x402landings.space`), nie tylko testami po obu stronach.
+
+Przepływ zapisu: usługa POST-uje `{token, page, data?: {blok: {pole}}}` pod `write.url`
+(w `data` tylko pola zmienione i zadeklarowane z `data: true`) z `edit-session`; host
 (`src/web/host-write.ts`, `POST /api/host-blocks`) wykonuje łatki i odpowiada
 świeżym `{resolved, summary}`. Token: HMAC `hostwrite:<id>.<exp>`
 z `TOKEN_SIGNING_KEY`, dwie godziny. Zapis z formularza, który danego pola nie

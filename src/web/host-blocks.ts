@@ -632,6 +632,29 @@ function withOptions(type: string, field: Field, dict: Dictionaries): Field {
 /** Bez słowników: to, co zna kod. Testy i schemat. */
 export const HOST_BLOCK_DEFS = hostBlockDefs();
 
+/**
+ * Pola danych dla edytora usługi stron: to, co zapisuje się w tej bazie (`data`), i to,
+ * co jest z niej wyliczone (`computed`, tylko do odczytu). Pola prezentacji bloku zna
+ * sama usługa - to jej sloty - więc nie jadą.
+ */
+export function hostDataFields(dict: Dictionaries): Record<string, Field[]> {
+  return Object.fromEntries(
+    Object.entries(hostBlockDefs(dict))
+      .map(([type, def]): [string, Field[]] => [type, (def.fields ?? []).filter((f) => f.data === true || f.kind === 'computed')])
+      .filter(([, fields]) => fields.length > 0),
+  );
+}
+
+/**
+ * Sloty usługi, które `resolve` wypełnia z bazy: lista pozycji bloku, a w „Jak pracuję" treść
+ * (opis). Edytor nie daje dla nich pola w „Treści sekcji" - poprawka w stronie przesłoniłaby
+ * cenę albo pytanie z bazy, a katalog i rezerwacje dalej pokazywałyby stare.
+ */
+export const HOST_LOCKS: Record<string, string[]> = {
+  'hero-profil': ['items'], intro: ['body'], dane: ['items'], topics: ['items'], offers: ['items'], slots: ['items'],
+  gabinet: ['items'], zestawienie: ['items'], 'faq-profil': ['items'], credentials: ['items'],
+};
+
 /** Her data for every host block, keyed by type - what a render and an edit session send. */
 export function resolveAll(ctx: SectionCtx): Record<string, Block | null> {
   return Object.fromEntries(Object.entries(HOST_SECTIONS).map(([type, def]) => [type, def.resolve(ctx)]));

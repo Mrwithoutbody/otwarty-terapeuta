@@ -15,7 +15,7 @@ import type { Env } from '../env';
 import type { PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
 import { createPage, editSession, listPages, PagesUnavailable, renderPage, type PageInfo } from './pages-client';
-import { resolveAll, type SectionCtx } from './host-blocks';
+import { HOST_LOCKS, hostDataFields, resolveAll, type SectionCtx } from './host-blocks';
 import { writeToken } from './host-write';
 import { hmacBase64Url } from '../lib/crypto';
 
@@ -163,9 +163,22 @@ export function unavailablePage(t: PublicTherapist): string {
 }
 
 /** A link into the service's editor for one of her pages, with her data for the preview. */
+/** Obszary i nurty z bazy: opcje pól wyboru w edytorze. */
+async function dictionaries(env: Env): Promise<Record<'topics' | 'modalities', Array<[string, string]>>> {
+  const [topics, modalities] = await Promise.all([
+    env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<{ slug: string; name_pl: string }>(),
+    env.DB.prepare(`SELECT slug, name_pl FROM modalities ORDER BY name_pl`).all<{ slug: string; name_pl: string }>(),
+  ]);
+  const pairs = (rows: Array<{ slug: string; name_pl: string }>): Array<[string, string]> => rows.map((r) => [r.slug, r.name_pl]);
+  return { topics: pairs(topics.results), modalities: pairs(modalities.results) };
+}
+
 export async function editorUrl(env: Env, page: PageInfo, ctx: SectionCtx | null): Promise<string> {
   return editSession(env, page, {
     resolved: ctx ? resolveAll(ctx) : {},
+    // Pola danych tej bazy w formularzach bloków; usługa odeśle zmienione w `data` (`host-write.ts`).
+    fields: ctx ? hostDataFields(await dictionaries(env)) : {},
+    locks: ctx ? HOST_LOCKS : {},
     chrome: ctx ? chromeFor(ctx.therapist) : {},
     // Strona po edycji wraca tutaj: usługa odsyła ją pod ten adres z tym tokenem,
     // a zapisuje ją ta baza. Usługa stron nie trzyma.
