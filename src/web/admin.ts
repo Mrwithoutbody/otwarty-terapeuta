@@ -16,7 +16,7 @@ import {
 import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/challenge';
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
-import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { escapeHtml, isEmail, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayOf, zonedTimeToUtc, type CivilDate } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
@@ -26,7 +26,6 @@ import { createPage, getPage, listPages, listThemeChoices, pagesOrigin, setPageS
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
 import type { SectionCtx } from './host-blocks';
-import { AGE_GROUP_OPTIONS, SESSION_TYPE_OPTIONS } from './data-fields';
 
 /**
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
@@ -410,14 +409,8 @@ interface FaqRow {
 }
 
 interface EditorContext {
-  languages: RefTag[];
-  specialties: RefTag[];
-  modalities: RefTag[];
-  chosenLanguages: Set<string>;
-  chosenTopics: Set<string>;
-  chosenModalities: Set<string>;
-  city: string;
-  addressLine: string;
+  /** Ile obszarów pracy ma profil - tylko dla listy braków; wybiera się je w edytorze stron. */
+  topicCount: number;
   credentials: CredentialInput[];
   offers: OfferRow[];
   faq: FaqRow[];
@@ -434,9 +427,6 @@ interface EditorContext {
   timeOff: Array<TimeOff & { id: string; booked: number }>;
 }
 
-const refTags = (options: Array<[string, string]>): RefTag[] => options.map(([slug, name_pl]) => ({ slug, name_pl }));
-const SESSION_TYPE_LABELS = refTags(SESSION_TYPE_OPTIONS);
-const AGE_GROUP_LABELS = refTags(AGE_GROUP_OPTIONS);
 
 const PAGES_DOWN = 'Edytor stron jest chwilowo niedostępny. Twoje dane i strona publiczna działają; spróbuj za chwilę.';
 
@@ -460,21 +450,8 @@ function localRange(timezone: string, from: CivilDate, to: CivilDate): [string, 
 }
 
 async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?: string): Promise<EditorContext> {
-  const [languages, specialties, modalities] = await Promise.all([
-    env.DB.prepare(`SELECT code AS slug, name_pl FROM languages ORDER BY name_pl`).all<RefTag>(),
-    env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<RefTag>(),
-    env.DB.prepare(`SELECT slug, name_pl FROM modalities ORDER BY name_pl`).all<RefTag>(),
-  ]);
-
   const context: EditorContext = {
-    languages: languages.results,
-    specialties: specialties.results,
-    modalities: modalities.results,
-    chosenLanguages: new Set(),
-    chosenTopics: new Set(),
-    chosenModalities: new Set(),
-    city: '',
-    addressLine: '',
+    topicCount: 0,
     credentials: [],
     offers: [],
     faq: [],
@@ -502,22 +479,10 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
     context.pagesError = PAGES_DOWN;
   }
 
-  const [chosenLanguages, chosenTopics, chosenModalities, location, offers, faq, media] = await Promise.all([
-    env.DB.prepare(`SELECT language_code FROM therapist_languages WHERE therapist_id = ?`)
+  const [topics, offers, faq, media] = await Promise.all([
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM therapist_specialties WHERE therapist_id = ?`)
       .bind(therapist.id)
-      .all<{ language_code: string }>(),
-    env.DB.prepare(`SELECT specialty_slug FROM therapist_specialties WHERE therapist_id = ?`)
-      .bind(therapist.id)
-      .all<{ specialty_slug: string }>(),
-    env.DB.prepare(`SELECT modality_slug FROM therapist_modalities WHERE therapist_id = ?`)
-      .bind(therapist.id)
-      .all<{ modality_slug: string }>(),
-    env.DB.prepare(
-      `SELECT city, address_line FROM therapist_locations WHERE therapist_id = ?
-        ORDER BY is_primary DESC LIMIT 1`,
-    )
-      .bind(therapist.id)
-      .first<{ city: string; address_line: string | null }>(),
+      .first<{ n: number }>(),
     env.DB.prepare(
       `SELECT id, title, session_type, mode, duration_minutes, price_minor, currency, active, schedule
          FROM session_offers WHERE therapist_id = ? ORDER BY created_at`,
@@ -537,11 +502,7 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
       .all<{ id: string; url: string }>(),
   ]);
 
-  context.chosenLanguages = new Set(chosenLanguages.results.map((row) => row.language_code));
-  context.chosenTopics = new Set(chosenTopics.results.map((row) => row.specialty_slug));
-  context.chosenModalities = new Set(chosenModalities.results.map((row) => row.modality_slug));
-  context.city = location?.city ?? '';
-  context.addressLine = location?.address_line ?? '';
+  context.topicCount = topics?.n ?? 0;
   context.offers = offers.results;
   context.faq = faq.results;
   context.media = media.results;
@@ -591,20 +552,6 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
  */
 
 
-
-function checkboxGrid(name: string, options: RefTag[], chosen: Set<string>): string {
-  return `<div class="choice-grid">${options
-    .map((option) => {
-      const id = `${name}-${option.slug}`;
-      return `<div class="checkbox">
-        <input id="${escapeHtml(id)}" type="checkbox" name="${escapeHtml(name)}" value="${escapeHtml(option.slug)}"${
-          chosen.has(option.slug) ? ' checked' : ''
-        }>
-        <label for="${escapeHtml(id)}">${escapeHtml(option.name_pl)}</label>
-      </div>`;
-    })
-    .join('')}</div>`;
-}
 
 const DAY_SHORT = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'];
 const hh = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
@@ -770,20 +717,6 @@ function segmented(name: string, current: string, options: RefTag[]): string {
     .join('')}</div>`;
 }
 
-function jsonListToSet(value: string | null | undefined, fallback: string[]): Set<string> {
-  try {
-    const parsed: unknown = JSON.parse(value ?? '[]');
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return new Set(parsed.filter((entry): entry is string => typeof entry === 'string'));
-    }
-  } catch {
-    /* fall through to the default */
-  }
-  return new Set(fallback);
-}
-
-
-
 /**
  * Every file ever uploaded for this profile, as its own row in the media
  * relation. The portrait is one of them; the rest wait for the gallery. Forms
@@ -863,12 +796,15 @@ function photoField(session: AdminSession, row: TherapistRow | null): string {
 </div>`;
 }
 
+/**
+ * Tożsamość profilu i to, co należy do administratora. Treść - opis, gabinet,
+ * obszary, nurty, pierwsze spotkanie, zasady odwołania - edytuje się w edytorze
+ * stron (`data-fields.ts`), jednym formularzem nad tą samą bazą.
+ */
 function therapistForm(session: AdminSession, row: TherapistRow | null, context: EditorContext): string {
   const v = <K extends keyof TherapistRow>(key: K, fallback = ''): string =>
     escapeHtml(row ? String(row[key] ?? fallback) : fallback);
   const isAdmin = session.user.role === 'admin';
-  const sessionTypes = jsonListToSet(row?.session_types, ['individual']);
-  const ageGroups = jsonListToSet(row?.age_groups, ['adults']);
 
   return `
 <form method="post" action="/admin/terapeuci/${row ? escapeHtml(row.id) : 'nowy'}">
@@ -879,86 +815,19 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
     <div class="field"><label for="slug">Adres profilu (slug)</label>
       <input id="slug" name="slug" required maxlength="80" pattern="[a-z0-9-]+" value="${v('slug')}"></div>
   </div>
-  <div class="field"><label for="headline">Nagłówek</label>
-    <input id="headline" name="headline" maxlength="200" value="${v('headline')}"></div>
 
   ${photoField(session, row)}
-
-  <div class="field-row two">
-    <div class="field"><label for="city">Miejscowość (gabinet)</label>
-      <input id="city" name="city" maxlength="80" value="${escapeHtml(context.city)}"></div>
-    <div class="field"><label for="address_line">Adres gabinetu</label>
-      <input id="address_line" name="address_line" maxlength="160" value="${escapeHtml(context.addressLine)}"></div>
-  </div>
-  <p class="hint">Wyczyszczenie miejscowości usuwa adres gabinetu z profilu publicznego.</p>
-
-  <fieldset>
-    <legend>Forma spotkań</legend>
-    <div class="checkbox"><input id="offers_online" name="offers_online" type="checkbox" value="1"${row?.offers_online ? ' checked' : ''}>
-      <label for="offers_online">online</label></div>
-    <div class="checkbox"><input id="offers_in_person" name="offers_in_person" type="checkbox" value="1"${row?.offers_in_person ? ' checked' : ''}>
-      <label for="offers_in_person">stacjonarnie</label></div>
-    <div class="checkbox"><input id="accepting" name="accepting_new_clients" type="checkbox" value="1"${row?.accepting_new_clients ? ' checked' : ''}>
-      <label for="accepting">przyjmuje nowe osoby</label></div>
-  </fieldset>
-
-  <fieldset><legend>Typy spotkań</legend>
-    ${checkboxGrid('session_types', SESSION_TYPE_LABELS, sessionTypes)}</fieldset>
-  <fieldset><legend>Grupy wiekowe</legend>
-    ${checkboxGrid('age_groups', AGE_GROUP_LABELS, ageGroups)}</fieldset>
-  <fieldset><legend>Języki</legend>
-    ${checkboxGrid('languages', context.languages, context.chosenLanguages)}</fieldset>
-  <fieldset><legend>Obszary pracy</legend>
-    ${checkboxGrid('topics', context.specialties, context.chosenTopics)}</fieldset>
-  <fieldset><legend>Nurty</legend>
-    ${checkboxGrid('modalities', context.modalities, context.chosenModalities)}</fieldset>
-
-  <div class="field" data-editor data-editor-label="bio-label">
-    <label id="bio-label" for="bio">Opis doświadczenia i sposobu pracy</label>
-    <textarea id="bio" name="bio" rows="10" maxlength="4000" data-editor-value>${v('bio')}</textarea>
-    <p class="hint">Blok „Jak pracuję” na Twojej stronie. Pusta linia zaczyna nowy akapit.</p>
-  </div>
-
-  <fieldset>
-    <legend>Pierwsze spotkanie</legend>
-    <div class="field">
-      <label for="first_meeting_course">Jak wygląda pierwsze spotkanie?</label>
-      <textarea id="first_meeting_course" name="first_meeting_course" rows="2" maxlength="400"
-        placeholder="np. Rozmawiamy o tym, z czym przychodzisz. Opowiadam, jak pracuję.">${escapeHtml(row?.first_meeting_course ?? '')}</textarea>
-    </div>
-    <div class="field">
-      <label for="first_meeting_prep">Czy trzeba się przygotować?</label>
-      <textarea id="first_meeting_prep" name="first_meeting_prep" rows="2" maxlength="400"
-        placeholder="np. Nie. Nie musisz wiedzieć, czego potrzebujesz — to jest materiał na pierwsze spotkania.">${escapeHtml(row?.first_meeting_prep ?? '')}</textarea>
-    </div>
-    <div class="field">
-      <label for="first_meeting_decision">Kiedy decydujecie o dalszej pracy?</label>
-      <textarea id="first_meeting_decision" name="first_meeting_decision" rows="2" maxlength="400"
-        placeholder="np. Po dwóch–trzech spotkaniach decydujemy oboje, czy zaczynamy regularną terapię.">${escapeHtml(row?.first_meeting_decision ?? '')}</textarea>
-    </div>
-  </fieldset>
-
-  <fieldset data-repeat>
-    <legend>Kwalifikacje</legend>
-    <div data-repeat-body>${[...context.credentials, { title: '', issuer: '', year: '', verified: false }]
-      .map((entry, index) => credentialRow(entry, index, isAdmin))
-      .join('')}</div>
-    <template>${credentialRow(null, 0, isAdmin)}</template>
-    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
-    ${isAdmin
-      ? ''
-      : '<p class="hint">Oznaczenie „zweryfikowane” nadaje wyłącznie zespół po sprawdzeniu dokumentu.</p>'}
-  </fieldset>
-
-  <div class="field-row two">
-    <div class="field"><label for="cancellation_policy">Zasady odwołania</label>
-      <input id="cancellation_policy" name="cancellation_policy" maxlength="500" value="${v('cancellation_policy')}"></div>
-    <div class="field"><label for="cutoff">Bezpłatne odwołanie (godziny przed sesją)</label>
-      <input id="cutoff" name="cancellation_cutoff_h" type="number" min="0" max="168" value="${v('cancellation_cutoff_h', '24')}"></div>
-  </div>
   ${
     isAdmin
-      ? `<fieldset>
+      ? `<fieldset data-repeat>
+    <legend>Kwalifikacje i ich weryfikacja (tylko administrator)</legend>
+    <div data-repeat-body>${[...context.credentials, { title: '', issuer: '', year: '', verified: false }]
+      .map((entry, index) => credentialRow(entry, index))
+      .join('')}</div>
+    <template>${credentialRow(null, 0)}</template>
+    <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
+  </fieldset>
+  <fieldset>
     <legend>Weryfikacja i publikacja (tylko administrator)</legend>
     <div class="field"><span class="seg-label">Status weryfikacji</span>
       ${segmented(
@@ -998,12 +867,7 @@ interface CredentialInput {
 }
 
 
-function credentialKey(title: string, issuer: string): string {
-  return `${normalizeForSearch(title)}|${normalizeForSearch(issuer)}`;
-}
-
-
-function credentialRow(entry: CredentialInput | null, index: number, isAdmin: boolean): string {
+function credentialRow(entry: CredentialInput | null, index: number): string {
   const suffix = entry ? `_${index}` : '';
   const nameAttr = (base: string): string => (entry ? ` name="${base}${suffix}" id="${base}${suffix}"` : '');
   return `<div class="repeat-row" data-repeat-row>
@@ -1019,14 +883,10 @@ function credentialRow(entry: CredentialInput | null, index: number, isAdmin: bo
     <label data-label-for="cred_year"${entry ? ` for="cred_year${suffix}"` : ''}>Rok</label>
     <input data-name="cred_year"${nameAttr('cred_year')} type="number" min="1950" max="2100" value="${escapeHtml(entry?.year ?? '')}">
   </div>
-  ${
-    isAdmin
-      ? `<div class="checkbox">
+  <div class="checkbox">
     <input type="checkbox" value="1" data-name="cred_verified"${nameAttr('cred_verified')}${entry?.verified ? ' checked' : ''}>
     <label data-label-for="cred_verified"${entry ? ` for="cred_verified${suffix}"` : ''}>zweryfikowane</label>
-  </div>`
-      : `<p class="hint">${entry?.verified ? 'zweryfikowane przez zespół' : 'deklarowane'}</p>`
-  }
+  </div>
   <button type="button" class="repeat-remove" data-repeat-remove>Usuń</button>
 </div>`;
 }
@@ -1057,22 +917,16 @@ function parseStoredCredentials(value: string | null): CredentialInput[] {
 }
 
 
-function collectCredentials(body: URLSearchParams, isAdmin: boolean, previous: CredentialInput[]): string {
-  const alreadyVerified = new Set(
-    previous.filter((entry) => entry.verified).map((entry) => credentialKey(entry.title, entry.issuer)),
-  );
+/** Kwalifikacje z formularza administratora; terapeutka swoje edytuje w edytorze stron. */
+function collectCredentials(body: URLSearchParams): string {
   const out: Array<{ title: string; issuer: string; year: number | null; verified: boolean }> = [];
-
   for (let index = 0; index < 50 && out.length < 20; index++) {
     const title = sanitizeLine(body.get(`cred_title_${index}`) ?? '', 120);
     if (!title) continue;
     const issuer = sanitizeLine(body.get(`cred_issuer_${index}`) ?? '', 120);
     const parsedYear = Number(body.get(`cred_year_${index}`) ?? '');
     const year = Number.isInteger(parsedYear) && parsedYear >= 1950 && parsedYear <= 2100 ? parsedYear : null;
-    const verified = isAdmin
-      ? body.get(`cred_verified_${index}`) === '1'
-      : alreadyVerified.has(credentialKey(title, issuer));
-    out.push({ title, issuer, year, verified });
+    out.push({ title, issuer, year, verified: body.get(`cred_verified_${index}`) === '1' });
   }
   return JSON.stringify(out);
 }
@@ -1117,11 +971,6 @@ function offerForm(session: AdminSession, therapistId: string, offer: OfferRow):
 </form>`;
 }
 
-// ponytail: zakładki „Dane/Oferta/FAQ/Dostępność" piszą do tych samych kolumn co
-// edytor stron (`data-fields.ts` + `host-write.ts`) — dwa formularze nad jedną bazą,
-// ~750 wierszy. Osobne zostają tylko pola administracyjne: slug, timezone, status,
-// verification_status, is_demo, links. Zwinąć do tej szóstki, gdy padnie decyzja,
-// czy zakładki treści mają zostać drogą awaryjną na czas awarii usługi stron.
 /**
  * Czego brakuje, żeby profil miał z czego złożyć stronę.
  *
@@ -1135,7 +984,7 @@ function profileGapsAdmin(row: TherapistRow, context: EditorContext): string[] {
   const paid = context.offers.filter((offer) => offer.active === 1 && offer.price_minor !== null);
   if (!row.photo_url) gaps.push('zdjęcie — bez portretu wejście strony zostaje samym tekstem');
   if (paid.length === 0) gaps.push('cena w ofercie — pas liczb pod nagłówkiem nie ma czego pokazać');
-  if ((row.headline ?? '').trim().split(/\s+/).filter(Boolean).length < 4 && context.chosenTopics.size === 0)
+  if ((row.headline ?? '').trim().split(/\s+/).filter(Boolean).length < 4 && context.topicCount === 0)
     gaps.push('obszary pracy albo jedno zdanie o tym, z czym do Ciebie przyjść — inaczej nagłówkiem zostaje samo nazwisko');
   if ((row.bio ?? '').trim() === '') gaps.push('opis — sekcja „Tak wygląda praca ze mną" wtedy nie powstaje');
   return gaps;
@@ -1149,8 +998,14 @@ function therapistTabs(session: AdminSession, row: TherapistRow, context: Editor
 
 <section data-tab-panel data-tab-label="Dane" id="panel-profil">
 <h2 class="visually-hidden">O mnie</h2>
-<p class="panel-lead">Kim jesteś i jak pracujesz: opis, zdjęcie, gabinet, obszary, nurty,
-kwalifikacje. Po tych danych wyszukiwarka dobiera Cię do osoby, która szuka pomocy.</p>
+<p class="panel-lead">Imię, adres profilu i zdjęcie. Opis, gabinet, obszary pracy, nurty, kwalifikacje
+i pierwsze spotkanie edytujesz na swojej stronie — widzisz je od razu tak, jak zobaczy je osoba szukająca pomocy.</p>
+${(() => {
+  const profile = context.pages.find((p) => p.slug === PROFILE_SLUG);
+  return profile
+    ? `<p><button class="btn" type="button" data-editor-open data-page-editor="/admin/terapeuci/${id}/strony/${escapeHtml(profile.id)}">Edytuj treść strony</button></p>`
+    : `<p class="notice">${escapeHtml(context.pagesError ?? PAGES_DOWN)}</p>`;
+})()}
 ${
   (() => {
     const gaps = profileGapsAdmin(row, context);
@@ -1326,25 +1181,6 @@ adminApp.get('/terapeuci/:id', async (c) => {
 });
 
 /**
- * A checkbox group posts one entry per checked box and nothing at all for the
- * unchecked ones, so the submitted set IS the new set - no free-text parsing,
- * no way to submit a value that was never on screen.
- */
-function checkedValues(body: URLSearchParams, name: string, allowed: string[] | null, max: number): string[] {
-  const chosen = new Set<string>();
-  for (const raw of body.getAll(name)) {
-    const slug = raw.trim().toLowerCase();
-    if (!/^[a-z0-9-]{1,64}$/.test(slug)) continue;
-    if (allowed && !allowed.includes(slug)) continue;
-    chosen.add(slug);
-    if (chosen.size >= max) break;
-  }
-  return [...chosen];
-}
-
-
-
-/**
  * Linki do wizytówek w innych serwisach. `safeUrl` przepuszcza wyłącznie https,
  * więc `javascript:` albo `//evil` odpada zanim trafi do bazy i na profil.
  */
@@ -1371,156 +1207,55 @@ adminApp.post('/terapeuci/:id', async (c) => {
 
   const isAdmin = session.user.role === 'admin';
   const existing = isNew ? null : await getTherapistRowForAdmin(c.env, id);
+  const pick = (name: string, allowed: string[], fallback: string): string =>
+    allowed.includes(body.get(name) ?? '') ? (body.get(name) as string) : fallback;
 
   const values = {
     slug,
     display_name: sanitizeLine(body.get('display_name') ?? '', 120),
-    headline: sanitizeLine(body.get('headline') ?? '', 200),
     photo_url: sanitizeLine(body.get('photo_url') ?? '', 500),
-    offers_online: body.get('offers_online') === '1' ? 1 : 0,
-    offers_in_person: body.get('offers_in_person') === '1' ? 1 : 0,
-    accepting_new_clients: body.get('accepting_new_clients') === '1' ? 1 : 0,
-    session_types: JSON.stringify(
-      checkedValues(body, 'session_types', ['individual', 'couples', 'family'], 3),
-    ),
-    age_groups: JSON.stringify(
-      checkedValues(body, 'age_groups', ['adults', 'teens', 'children', 'seniors'], 4),
-    ),
-    cancellation_policy: sanitizeLine(body.get('cancellation_policy') ?? '', 500),
-    cancellation_cutoff_h: Math.min(Math.max(Number(body.get('cancellation_cutoff_h') ?? 24) || 24, 0), 168),
-    // Verification and publication remain admin-only, whatever the form posts.
+    // Verification, publication and credential checks remain admin-only, whatever the form posts.
     verification_status: isAdmin
-      ? (['unverified', 'verified', 'rejected'].includes(body.get('verification_status') ?? '')
-          ? (body.get('verification_status') as string)
-          : 'unverified')
+      ? pick('verification_status', ['unverified', 'verified', 'rejected'], 'unverified')
       : (existing?.verification_status ?? 'unverified'),
     verification_notes: isAdmin
       ? sanitizeRichText(body.get('verification_notes') ?? '', 2000)
       : (existing?.verification_notes ?? null),
-    status: isAdmin
-      ? (['draft', 'published', 'unpublished'].includes(body.get('status') ?? '')
-          ? (body.get('status') as string)
-          : 'draft')
-      : (existing?.status ?? 'draft'),
-    // Opis, pierwsze spotkanie i kwalifikacje wróciły do formularza (2026-09-04);
-    // przedtem kolumny przepisywały się w kółko, bo pól nie było gdzie wpisać.
-    bio: sanitizeRichText(body.get('bio') ?? '', 4000),
-    credentials: collectCredentials(body, session.user.role === 'admin', parseStoredCredentials(existing?.credentials ?? null)),
-    links: existing?.links ?? '[]',
-    first_meeting_course: sanitizeLine(body.get('first_meeting_course') ?? '', 400),
-    first_meeting_prep: sanitizeLine(body.get('first_meeting_prep') ?? '', 400),
-    first_meeting_decision: sanitizeLine(body.get('first_meeting_decision') ?? '', 400),
+    status: isAdmin ? pick('status', ['draft', 'published', 'unpublished'], 'draft') : (existing?.status ?? 'draft'),
+    credentials: isAdmin ? collectCredentials(body) : (existing?.credentials ?? '[]'),
   };
   const verifiedAt =
     values.verification_status === 'verified'
       ? (existing?.verification_status === 'verified' ? existing.verified_at : at)
       : null;
 
-
-  // Jeden zapis dla obu przypadków: SQLite scala po kluczu głównym. `is_demo`,
-  // `timezone` i `created_at` należą do wiersza, nie do formularza, więc przy
-  // aktualizacji nie ma ich w `DO UPDATE` i zostają takie, jakie były.
+  // Jeden zapis dla obu przypadków: SQLite scala po kluczu głównym. Treść profilu
+  // (opis, gabinet, obszary, oferta) należy do edytora stron, więc tutaj jej nie ma:
+  // nowy wiersz bierze wartości domyślne kolumn, a aktualizacja ich nie dotyka.
   await c.env.DB.prepare(
-    `INSERT INTO therapists (id, slug, display_name, headline, bio, photo_url, offers_online, offers_in_person,
-                             accepting_new_clients, age_groups, session_types, credentials, links,
-                             first_meeting_course, first_meeting_prep, first_meeting_decision,
-                             verification_status, verified_at, verification_notes, status, is_demo, timezone,
-                             cancellation_policy, cancellation_cutoff_h, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'Europe/Warsaw',?,?,?,?)
+    `INSERT INTO therapists (id, slug, display_name, photo_url, credentials, verification_status, verified_at,
+                             verification_notes, status, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
-       slug=excluded.slug, display_name=excluded.display_name, headline=excluded.headline, bio=excluded.bio,
-       photo_url=excluded.photo_url, offers_online=excluded.offers_online, offers_in_person=excluded.offers_in_person,
-       accepting_new_clients=excluded.accepting_new_clients, age_groups=excluded.age_groups,
-       session_types=excluded.session_types, credentials=excluded.credentials, links=excluded.links,
-       first_meeting_course=excluded.first_meeting_course, first_meeting_prep=excluded.first_meeting_prep,
-       first_meeting_decision=excluded.first_meeting_decision, verification_status=excluded.verification_status,
+       slug=excluded.slug, display_name=excluded.display_name, photo_url=excluded.photo_url,
+       credentials=excluded.credentials, verification_status=excluded.verification_status,
        verified_at=excluded.verified_at, verification_notes=excluded.verification_notes, status=excluded.status,
-       cancellation_policy=excluded.cancellation_policy, cancellation_cutoff_h=excluded.cancellation_cutoff_h,
        updated_at=excluded.updated_at`,
   )
     .bind(
       therapistIdValue,
       values.slug,
       values.display_name,
-      values.headline,
-      values.bio,
       values.photo_url || null,
-      values.offers_online,
-      values.offers_in_person,
-      values.accepting_new_clients,
-      values.age_groups,
-      values.session_types,
       values.credentials,
-      values.links,
-      values.first_meeting_course,
-      values.first_meeting_prep,
-      values.first_meeting_decision,
       values.verification_status,
       verifiedAt,
       values.verification_notes,
       values.status,
-      values.cancellation_policy,
-      values.cancellation_cutoff_h,
       at,
       at,
     )
     .run();
-
-  // Relations are replaced wholesale - simpler and always consistent. The form
-  // renders the current selection as checked boxes, so "replaced wholesale"
-  // means what the administrator sees, not an empty set.
-  const languages = checkedValues(body, 'languages', null, 8);
-  const topics = checkedValues(body, 'topics', null, 12);
-  const modalities = checkedValues(body, 'modalities', null, 8);
-  const city = sanitizeLine(body.get('city') ?? '', 80);
-
-  const statements = [
-    c.env.DB.prepare(`DELETE FROM therapist_languages WHERE therapist_id = ?`).bind(therapistIdValue),
-    c.env.DB.prepare(`DELETE FROM therapist_specialties WHERE therapist_id = ?`).bind(therapistIdValue),
-    c.env.DB.prepare(`DELETE FROM therapist_modalities WHERE therapist_id = ?`).bind(therapistIdValue),
-    // Clearing the city field removes the office address, which is the only
-    // way to take a location off a published profile.
-    c.env.DB.prepare(`DELETE FROM therapist_locations WHERE therapist_id = ?`).bind(therapistIdValue),
-  ];
-  for (const code of languages) {
-    statements.push(
-      c.env.DB.prepare(
-        `INSERT OR IGNORE INTO therapist_languages (therapist_id, language_code)
-         SELECT ?, code FROM languages WHERE code = ?`,
-      ).bind(therapistIdValue, code),
-    );
-  }
-  for (const s of topics) {
-    statements.push(
-      c.env.DB.prepare(
-        `INSERT OR IGNORE INTO therapist_specialties (therapist_id, specialty_slug)
-         SELECT ?, slug FROM specialties WHERE slug = ?`,
-      ).bind(therapistIdValue, s),
-    );
-  }
-  for (const m of modalities) {
-    statements.push(
-      c.env.DB.prepare(
-        `INSERT OR IGNORE INTO therapist_modalities (therapist_id, modality_slug)
-         SELECT ?, slug FROM modalities WHERE slug = ?`,
-      ).bind(therapistIdValue, m),
-    );
-  }
-  if (city) {
-    statements.push(
-      c.env.DB.prepare(
-        `INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, address_line, is_primary)
-         VALUES (?, ?, ?, ?, 'PL', ?, 1)`,
-      ).bind(
-        randomId('loc'),
-        therapistIdValue,
-        city,
-        normalizeForSearch(city),
-        sanitizeLine(body.get('address_line') ?? '', 160) || null,
-      ),
-    );
-  }
-  await c.env.DB.batch(statements);
 
   await audit(c.env, {
     actorType: session.user.role === 'admin' ? 'admin' : 'therapist',

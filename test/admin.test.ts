@@ -127,7 +127,7 @@ describe('zapis terapeutki jednym UPSERT-em', () => {
     expect(created.status).toBe(302);
 
     const row = await env.DB.prepare(
-      `SELECT id, display_name, is_demo, timezone, created_at, updated_at, cancellation_cutoff_h
+      `SELECT id, display_name, is_demo, timezone, created_at, updated_at, cancellation_cutoff_h, status
          FROM therapists WHERE slug = ?`,
     )
       .bind('nowa-osoba-upsert')
@@ -139,11 +139,15 @@ describe('zapis terapeutki jednym UPSERT-em', () => {
         created_at: string;
         updated_at: string;
         cancellation_cutoff_h: number;
+        status: string;
       }>();
     expect(row).not.toBeNull();
     expect(row!.display_name).toBe('Nowa Osoba');
     expect(row!.is_demo).toBe(0);
     expect(row!.timezone).toBe('Europe/Warsaw');
+    expect(row!.status).toBe('published');
+    // Treść należy do edytora stron: panel jej nie zapisuje, kolumny biorą wartości domyślne.
+    expect(row!.cancellation_cutoff_h).toBe(24);
 
     // Wiersz wygląda jak zaimportowany: demo, inna strefa. Edycja ma to zostawić.
     await env.DB.prepare(`UPDATE therapists SET is_demo = 1, timezone = 'Europe/Berlin' WHERE id = ?`)
@@ -178,7 +182,7 @@ describe('zapis terapeutki jednym UPSERT-em', () => {
         cancellation_cutoff_h: number;
       }>();
     expect(after!.display_name).toBe('Nowa Osoba (po edycji)');
-    expect(after!.cancellation_cutoff_h).toBe(72);
+    expect(after!.cancellation_cutoff_h).toBe(24);
     expect(after!.is_demo).toBe(1);
     expect(after!.timezone).toBe('Europe/Berlin');
     expect(after!.created_at).toBe(row!.created_at);
