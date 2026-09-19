@@ -238,15 +238,6 @@ siteApp.get('/', async (c) => {
     </ol>
   </section>
 
-  <section class="home-section for-you-section" aria-labelledby="for-you-title">
-    <div class="section-heading centered"><h2 id="for-you-title">To miejsce może być dla Ciebie</h2></div>
-    <div class="audience-grid">
-      <article><img class="audience-art audience-art-first" src="/illustrations/audience-first-step.webp" srcset="/illustrations/audience-first-step-480.webp 480w, /illustrations/audience-first-step-720.webp 720w, /illustrations/audience-first-step.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="Akwarela: osoba idzie ścieżką w stronę otwartych drzwi w ogrodzie" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli szukasz po raz pierwszy</h3><p>Zrozumiałe informacje pomagają zacząć bez znajomości specjalistycznych pojęć.</p></article>
-      <article><img class="audience-art audience-art-choice" src="/illustrations/audience-conscious-choice.webp" srcset="/illustrations/audience-conscious-choice-480.webp 480w, /illustrations/audience-conscious-choice-720.webp 720w, /illustrations/audience-conscious-choice.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="Akwarela: kobieta przy stole wybiera spośród kart z kryteriami — termin, miejsce, forma spotkania" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli wiesz, czego potrzebujesz</h3><p>Filtry pozwalają szybko zawęzić wybór do ważnych dla Ciebie kryteriów.</p></article>
-      <article><img class="audience-art audience-art-transparency" src="/illustrations/audience-transparency.webp" srcset="/illustrations/audience-transparency-480.webp 480w, /illustrations/audience-transparency-720.webp 720w, /illustrations/audience-transparency.webp 1200w" sizes="(max-width: 64rem) calc(100vw - 2rem), 23rem" alt="Akwarela: kobieta przy biurku czyta dokument z otwartej teczki" width="1200" height="676" loading="lazy" decoding="async"><h3>Jeśli cenisz przejrzystość</h3><p>Ceny, dostępność i zasady odwołania widzisz przed podjęciem decyzji.</p></article>
-    </div>
-  </section>
-
   <aside class="home-section chat-note" id="w-chatgpt" aria-labelledby="assistant-title">
     <div><h2 id="assistant-title">Wolisz zapytać w rozmowie?</h2><p>Ten sam katalog będzie dostępny w ChatGPT: podajesz kryteria, dostajesz profile i wolne terminy. ${c.env.PUBLIC_PLUGIN_URL?.trim() ? '' : 'Aplikacja jest w przygotowaniu do publikacji — katalog na stronie działa niezależnie.'}</p></div>
     ${pluginCta(c.env)}
