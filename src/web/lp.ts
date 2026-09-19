@@ -123,7 +123,7 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     : `${own} — ${escapeHtml(t.display_name)} — Otwarty Terapeuta`;
   const topics = t.topics.slice(0, 4).map((x) => x.name.toLowerCase()).join(', ');
   const description = [
-    `${t.display_name}${t.headline ? ` — ${t.headline}` : ''}.`,
+    `${t.display_name}${t.headline ? ` — ${t.headline.replace(/[.\s]+$/, '')}` : ''}.`,
     topics ? `Obszary pracy: ${topics}.` : '',
     place ? `Psychoterapia: ${place}.` : '',
     t.price_min_minor != null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
@@ -135,7 +135,7 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     jobTitle: t.headline ?? 'Psychoterapeuta',
     url: `${env.PUBLIC_BASE_URL}/terapeuci/${t.slug}`,
     image,
-    description: t.bio.slice(0, 500) || undefined,
+    description: t.bio.replace(/[*_#>`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500) || undefined,
     knowsAbout: t.topics.map((x) => x.name),
     knowsLanguage: t.languages,
     address: t.locations.map((l) => ({ '@type': 'PostalAddress', addressLocality: l.city, addressRegion: l.region ?? undefined, addressCountry: l.country })),
