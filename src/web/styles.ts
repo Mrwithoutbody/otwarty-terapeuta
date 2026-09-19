@@ -599,10 +599,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .section-heading.centered { margin-inline: auto; text-align: center; }
 .section-heading h2 { font-size: clamp(1.55rem, 1.35rem + 0.85vw, 2.15rem); line-height: 1.2; letter-spacing: -0.02em; }
 .section-heading > p:last-child { color: var(--text-muted); line-height: 1.7; }
-.steps-section { padding: clamp(2rem, 5vw, 3.5rem); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-alt); }
+.steps-section { padding: clamp(2rem, 5vw, 3.5rem); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-solid); }
 .steps-section .section-heading { max-width: 40rem; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 2rem 0; padding: 0; list-style: none; background: var(--border-strong); }
-.steps li { position: relative; margin: 0; padding: 1.25rem 1.5rem; background: var(--surface-alt); }
+.steps li { position: relative; margin: 0; padding: 1.25rem 1.5rem; background: var(--surface-solid); }
 .steps li > span { display: grid; place-items: center; width: 2rem; height: 2rem; margin-bottom: 0.8rem; border: 1px solid var(--border-strong); border-radius: 50%; background: #fff; color: var(--accent-strong); font-size: 0.72rem; font-weight: 800; }
 .steps-section .steps:last-child { margin-bottom: 0; }
 .steps h3 { margin: 0 0 0.6rem; font-size: 1.2rem; }
@@ -635,7 +635,11 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The three illustrations are the only warm thing on the page: measured on
    their pixels, 96.6-98.7% of their colour sits between 15 and 60 degrees,
    peaking at 45 (amber, sand). Everything else here is the service green. */
-.home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(3rem, 6vw, 4.75rem); padding: clamp(2rem, 5vw, 3.25rem); border: 1px solid var(--border-strong); border-radius: 16px; background: var(--accent-soft); }
+.home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(3rem, 6vw, 4.75rem); padding: clamp(2rem, 5vw, 3.25rem); border: 0; border-radius: 16px; background: #1b1f34; }
+.home-cta h2 { color: #fbfbff; }
+.home-cta .btn { background: #fff; border-color: #fff; color: #1b1f34; box-shadow: none; }
+.home-cta .btn:hover { background: #e6e9f5; border-color: #e6e9f5; }
+.home-cta > div:last-child > a:last-child { color: #dfe3f2; }
 .home-cta h2 { max-width: 22ch; margin: 0; font-size: clamp(1.6rem, 1.4rem + 0.9vw, 2.25rem); line-height: 1.18; letter-spacing: -0.02em; }
 .home-cta > div:last-child { display: grid; justify-items: start; gap: 0.9rem; }
 .home-cta > div:last-child > a:last-child { font-size: 0.76rem; }
