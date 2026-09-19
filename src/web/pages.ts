@@ -217,24 +217,16 @@ siteApp.get('/', async (c) => {
     </ul>
   </section>
 
-  ${
-    topics
-      ? `<section class="home-section topics-section" aria-labelledby="topics-title">
-    <div class="section-heading centered"><h2 id="topics-title">W czym szukasz wsparcia?</h2><p>Wybierz obszar, a pokażemy osoby, które z nim pracują.</p></div>
-    <ul class="topic-links">${topics}</ul>
-  </section>`
-      : ''
-  }
-
   <section class="home-section steps-section" aria-labelledby="steps-title">
     <div class="section-heading centered">
       <h2 id="steps-title">Od kryteriów do spotkania</h2>
-      <p>Nie musisz wiedzieć wszystkiego o psychoterapii. Zacznij od tego, co jest dla Ciebie ważne.</p>
+      <p>Nie musisz znać się na psychoterapii. Zacznij od tego, w czym szukasz wsparcia.</p>
     </div>
+    ${topics ? `<ul class="topic-links" aria-label="Obszary pracy terapeutów">${topics}</ul>` : ''}
     <ol class="steps">
-      <li><span>1</span><h3>Wybierz kryteria</h3><p>Określ formę spotkań, lokalizację, budżet i dostępność.</p></li>
-      <li><span>2</span><h3>Przeczytaj strony terapeutów</h3><p>Poznaj doświadczenie, podejście i zasady współpracy.</p></li>
-      <li><span>3</span><h3>Zarezerwuj termin</h3><p>Wybierz dogodny termin i otrzymaj jasne potwierdzenie wizyty.</p></li>
+      <li><span>1</span><h3>Wybierz obszar</h3><p>Albo formę spotkań, miejscowość i budżet.</p></li>
+      <li><span>2</span><h3>Przeczytaj strony terapeutów</h3><p>Podejście, doświadczenie, cena i zasady.</p></li>
+      <li><span>3</span><h3>Zarezerwuj termin</h3><p>Wolny termin z kalendarza, jasne potwierdzenie.</p></li>
     </ol>
   </section>
 

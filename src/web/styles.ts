@@ -600,8 +600,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .steps-section { padding: clamp(2rem, 5vw, 3.5rem); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-alt); }
 .steps-section .section-heading { max-width: 40rem; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 2rem 0; padding: 0; list-style: none; background: var(--border-strong); }
-.steps li { position: relative; margin: 0; padding: 1.5rem; background: var(--surface-alt); }
-.steps li > span { display: grid; place-items: center; width: 2rem; height: 2rem; margin-bottom: 1.4rem; border: 1px solid var(--border-strong); border-radius: 50%; background: #fff; color: var(--accent-strong); font-size: 0.72rem; font-weight: 800; }
+.steps li { position: relative; margin: 0; padding: 1.25rem 1.5rem; background: var(--surface-alt); }
+.steps li > span { display: grid; place-items: center; width: 2rem; height: 2rem; margin-bottom: 0.8rem; border: 1px solid var(--border-strong); border-radius: 50%; background: #fff; color: var(--accent-strong); font-size: 0.72rem; font-weight: 800; }
 .steps-section .steps:last-child { margin-bottom: 0; }
 .steps h3 { margin: 0 0 0.6rem; font-size: 1.2rem; }
 .steps p { margin: 0; color: var(--text-muted); font-size: 0.83rem; line-height: 1.6; }
@@ -616,7 +616,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .offer-soon span { color: var(--text-muted); font-size: 0.8rem; line-height: 1.55; }
 .featured-grid { margin-top: 2rem; }
 @media (min-width: 64rem) {.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.topic-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; max-width: 52rem; margin: 1.75rem auto 0; padding: 0; list-style: none; }
+.topic-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; max-width: 52rem; margin: 1.5rem auto 0; padding: 0; list-style: none; }
 .topic-links li { margin: 0; }
 .topic-links a { display: block; padding: 0.55rem 1rem; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface-solid); color: var(--text); font-size: 0.88rem; font-weight: 600; text-decoration: none; }
 .topic-links a:hover { border-color: var(--accent-strong); background: var(--accent-soft); color: var(--accent-strong); }
