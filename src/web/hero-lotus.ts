@@ -1,6 +1,6 @@
 /** A lotus of light on dark water, drawn from the petal of the logo: rosettes
- * of petals round one root on the hero's top edge, large enough that only
- * arcs of them hang into the band, turning slowly like a
+ * of petals round one root under the hero's bottom edge, large enough that
+ * only the crown rises into the band, turning slowly like a
  * windmill. Matte pastels - sage, sand, clay, dusty rose - rather than neon.
  * Depth of field: only the inner rosette is sharp; the crown behind and four
  * petals in front are out of focus and turn at their own pace. */

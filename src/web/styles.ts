@@ -558,18 +558,19 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero > * { position: relative; z-index: 1; }
 /* The lotus takes the search column as its containing block (an absolutely
    positioned grid child does), so the flower keeps its place by the card: its
-   root sits on the hero's top edge, at the container's right edge, and the petals
-   hang into the band.
+   root sits 12rem under the hero's bottom edge, at the container's right edge, so
+   only the crown rises into the band - it grows from below, like a flower on water,
+   and leaves the top of the band dark against the white header.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
-  position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: auto / 2;
-  inset: 0 0 auto; pointer-events: none;
+  position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: 1 / auto;
+  inset: auto 0 -12rem; pointer-events: none; opacity: .75;
 }
 /* Square planes centred on the root (the view box is), so the mask below covers
-   the whole rosette. --w is 5 x 1.24: five columns of flower, plus the view box's margin. */
+   the whole rosette. --w is 4 x 1.24: four columns of flower, plus the view box's margin. */
 .hero-lotus svg {
-  --w: 620%;
+  --w: 496%;
   position: absolute; top: 0; left: calc(100% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
   will-change: transform; animation: lotus-turn 240s linear infinite;
   /* The pigment thins out in patches: low-frequency noise as an alpha mask, turning
