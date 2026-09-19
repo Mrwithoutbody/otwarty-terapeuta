@@ -576,14 +576,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c8cde4; font-size: 1rem; line-height: 1.65; }
 /* The search of the hero, after the pattern people know from booking a doctor:
    a switch above, one white bar with what, where and the button. */
-.hero-search { display: grid; gap: 0; align-self: center; }
-.hero-tabs { display: flex; gap: 0.25rem; margin: 0; padding: 0; border: 0; }
+.hero-search { display: grid; gap: 0.6rem; align-self: center; padding: 0.6rem; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
+.hero-tabs { display: flex; gap: 0.25rem; margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--border); }
 .hero-tabs label { cursor: pointer; }
 .hero-tabs input { position: absolute; opacity: 0; }
-.hero-tabs span { display: block; padding: 0.7rem 1.25rem; border-radius: 12px 12px 0 0; color: #dfe3f2; font-size: 0.9rem; font-weight: 600; }
-.hero-tabs input:checked + span { background: #fff; color: var(--text); }
+.hero-tabs span { display: block; margin-bottom: -1px; padding: 0.55rem 0.9rem; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
+.hero-tabs input:checked + span { border-bottom-color: var(--accent-strong); color: var(--text); }
 .hero-tabs input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: -2px; }
-.hero-search-fields { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.9fr) auto; gap: 0.5rem; padding: 0.6rem; border-radius: 0 14px 14px 14px; background: #fff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
+.hero-search-fields { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.9fr) auto; gap: 0.5rem; }
 .hero-search-fields input, .hero-search-fields select { min-height: 3.25rem; margin: 0; }
 .home-hero .hero-search .btn { min-height: 3.25rem; padding-inline: 1.2rem; justify-content: center; border-radius: 10px; background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
 .home-hero .hero-search .btn:hover { background: var(--text); border-color: var(--text); }

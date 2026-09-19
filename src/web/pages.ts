@@ -160,7 +160,7 @@ siteApp.get('/', async (c) => {
     <div class="hero-copy">
       <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
       <h1 id="home-title">Znajdź terapeutę na swoich warunkach.</h1>
-      <p class="lead">Każda osoba w katalogu prowadzi tu własną stronę: pisze, jak pracuje, komu pomaga, ile kosztuje sesja i kiedy ma wolny termin. Czytasz, porównujesz i rezerwujesz wizytę — bez pośredników i bez płatnych pozycji.</p>
+      <p class="lead">Każdy terapeuta prowadzi tu własną stronę: jak pracuje, ile kosztuje sesja, kiedy ma wolny termin. Bez płatnych pozycji.</p>
       <p class="hero-more"><a href="/terapeuci">Przeglądaj wszystkich</a> · <a href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a></p>
     </div>
 
