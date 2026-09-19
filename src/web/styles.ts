@@ -559,8 +559,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The lotus takes the search column as its containing block (an absolutely
    positioned grid child does), so the flower keeps its place by the card: its
    root sits under the column's right end, below the hero's bottom edge.
-   Three stacked planes; blur and drift are CSS on whole <svg> elements, so the
-   blur is rasterised once and the motion stays on the compositor. */
+   Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
+   the blur is rasterised once and the motion stays on the compositor. */
 .home-hero > .hero-lotus {
   position: absolute; z-index: 0; grid-column: 2 / 3; grid-row: 1 / auto;
   inset: auto 0 -5rem; pointer-events: none;
@@ -568,16 +568,19 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .hero-lotus svg {
   position: absolute; bottom: 0; left: -50%; width: 300%; overflow: visible;
   transform-origin: 50% 96.3%; will-change: transform;
-  animation: lotus-drift 9s ease-in-out infinite alternate;
+  animation: lotus-turn 240s linear infinite;
 }
-.lotus-plane-0 { filter: blur(7px); opacity: .85; --turn: 1.6deg; --rise: -10px; }
-.lotus-plane-1 { --turn: -2.2deg; --rise: -5px; animation-duration: 7s; }
-.lotus-plane-2 { filter: blur(20px); opacity: .65; --turn: 3deg; --rise: 8px; animation-duration: 13s; }
+.lotus-plane-0 { filter: blur(7px); opacity: .85; animation-duration: 320s; }
+.lotus-plane-2 { filter: blur(20px); opacity: .65; animation-duration: 190s; }
 .lotus-halo { filter: blur(9px); }
-.lotus-petal { mix-blend-mode: screen; }
-@keyframes lotus-drift {
-  from { transform: rotate(calc(var(--turn) * -1)); }
-  to { transform: rotate(var(--turn)) translateY(var(--rise)) scale(1.03); }
+@keyframes lotus-turn { to { transform: rotate(360deg); } }
+/* Suede: a tile of fine noise over the band, soft-light, so the pastels read as
+   a matte nap instead of as light. A data URI - img-src allows it, and the
+   turbulence is rasterised once per 220 px tile rather than across the hero. */
+.home-hero::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  opacity: .5; mix-blend-mode: soft-light;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.4 -.2'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .hero-copy { max-width: 34rem; min-width: 0; }
 /* What the site is, above the promise - the one line of label the hero keeps. */
