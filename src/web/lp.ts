@@ -138,15 +138,13 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     description: t.bio.replace(/[*_#>`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500) || undefined,
     knowsAbout: t.topics.map((x) => x.name),
     knowsLanguage: t.languages,
-    address: t.locations.map((l) => ({ '@type': 'PostalAddress', addressLocality: l.city, addressRegion: l.region ?? undefined, addressCountry: l.country })),
+    address: t.locations.map((l) => ({ '@type': 'PostalAddress', addressLocality: l.city, addressCountry: l.country })),
   };
   const head = [
     `<meta name="description" content="${escapeHtml(description)}">`,
     t.is_demo ? '<meta name="robots" content="noindex, nofollow">' : '',
     `<link rel="canonical" href="${escapeHtml(url)}">`,
     '<meta property="og:type" content="profile">',
-    '<meta property="og:site_name" content="Otwarty Terapeuta">',
-    '<meta property="og:locale" content="pl_PL">',
     `<meta property="og:title" content="${title}">`,
     `<meta property="og:description" content="${escapeHtml(description)}">`,
     `<meta property="og:url" content="${escapeHtml(url)}">`,
