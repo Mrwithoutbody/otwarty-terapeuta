@@ -65,6 +65,11 @@ export const APP_CSS = `
   --accent-strong: #3d6529;
   --accent-soft: #e8f3e2;
   --focus: #8b6415;
+  /* The banknote the accent comes from ('Dollar bill' green): the blue of its security
+     ribbon, measured from a scan at 226deg / 28% / 55% and taken darker, and a light gold
+     mixed from --focus. The hero's lotus is painted from these and --accent, nowhere else. */
+  --ribbon-blue: hsl(226 28% 46%);
+  --gold-light: color-mix(in srgb, var(--focus) 40%, #fff);
   --danger: #8a2f2f;
   --radius-sm: 10px;
   --radius: 14px;
@@ -584,6 +589,10 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .lotus-plane-1 { opacity: .8; }
 .lotus-plane-2 { filter: blur(20px); opacity: .5; animation-duration: 190s; }
 .lotus-halo { filter: blur(9px); }
+.lotus-blue { stop-color: var(--ribbon-blue); }
+.lotus-green { stop-color: var(--accent); }
+.lotus-teal { stop-color: color-mix(in oklch, var(--ribbon-blue), var(--accent)); }
+.lotus-gold { stop-color: var(--gold-light); }
 @keyframes lotus-turn { to { transform: rotate(360deg); } }
 /* Suede: a tile of fine grey noise over the band, overlay, so the pastels read as
    a matte nap instead of as light. A data URI - img-src allows it, and the

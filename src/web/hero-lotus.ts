@@ -1,9 +1,11 @@
 /** A lotus of light on dark water, drawn from the petal of the logo: rosettes
  * of petals round one root under the hero's bottom edge, large enough that
- * only the crown rises into the band, turning slowly like a
- * windmill. Matte tones of the site - its green and its navy, gold in the lines - not neon.
+ * only the crown rises into the band, turning slowly like a windmill.
  * Depth of field: only the inner rosette is sharp; the crown behind and four
- * petals in front are out of focus and turn at their own pace. */
+ * petals in front are out of focus and turn at their own pace.
+ * No colour lives here. Stops carry a class (lotus-blue, -green, -teal, -gold)
+ * and the stylesheet paints them from the tokens in :root; this file holds
+ * geometry and how thick the pigment lies. */
 export function renderHeroLotus(): string {
   const n = (value: number) => value.toFixed(1);
   // The logo's petal: pointed at both ends, widest below the middle.
@@ -12,44 +14,35 @@ export function renderHeroLotus(): string {
   // Three planes of one flower, each its own <svg> so CSS can blur and turn it
   // on the compositor: 0 far (out of focus), 1 in focus, 2 near (a soft foreground).
   // Full rosettes, because the planes turn like a windmill and every petal comes round.
-  const ring = (step: number, offset: number, length: number, width: number, depth: number) =>
-    Array.from({ length: 360 / step }, (_, k) => [offset + k * step, length, width, depth] as const);
-  const petals = [...ring(30, 0, 430, 100, 0), ...ring(30, 15, 292, 88, 1), ...ring(90, 66, 560, 150, 2)];
-  const defs = petals.map(([angle], i) => {
-    // The site's own two colours: the hue swings between 226° (the ribbon blue) and
-    // 105° (the accent green, measured 98°) every 30° of the rosette, so neighbouring petals
-    // alternate and the inner row lands on the teal between them. The band shows only some
-    // 80° of the wheel; a slower swing left it all blue for a minute at a time. Shifts go
-    // towards teal, never below 100°: the 60-95° band over navy is the olive mud of
-    // 2026-09-20. Yellow (48°) is the complement and stays in the lines and their halo only.
-    const green = 1 - Math.abs((angle % 60) / 30 - 1);
-    const hue = 226 - green * 121;
-    const ramp = (id: string, stops: [number, string, number][]) =>
-      `<linearGradient id="${id}${i}" x1="0" y1="1" x2="0" y2="0">` +
-      stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join('') + '</linearGradient>';
-    // Matte pastels: saturation stays under 50%, nothing is white-hot, nothing is screen-blended.
-    // Both ends are the banknote's: the blue of the $100 security ribbon, measured from a scan
-    // at 226° / 28% / 55%, and the accent green, which is 'Dollar bill' (#85bb65, 98° / 39%).
-    // Saturation follows the hue, so the blue stays the ribbon's slate and not a royal blue.
-    const tone = (shift: number, light: number) => `hsl(${n((hue + shift) % 360)} ${n(28 + green * 11)}% ${light}%)`;
-    const gold = (light: number) => `hsl(48 62% ${light}%)`;
-    return ramp('lf', [[0, gold(70), 0.3], [0.3, tone(15, 58), 0.24], [0.7, tone(0, 54), 0.17], [1, tone(25, 60), 0.06]]) +
-      ramp('lh', [[0, gold(70), 0], [0.35, gold(68), 0.1], [1, gold(72), 0.18]]) +
-      ramp('lr', [[0, gold(70), 0], [0.4, gold(74), 0.18], [1, gold(80), 0.38]]);
-  }).join('');
-  // A soft line over a wide blurred halo of its own colour.
+  // Neighbours alternate blue and green; the inner row is the teal between them. The band
+  // shows only some 80° of the wheel, so a slower change of colour left it all one hue.
+  const ring = (step: number, offset: number, length: number, width: number, depth: number, kinds: string[]) =>
+    Array.from({ length: 360 / step }, (_, k) => [offset + k * step, length, width, depth, kinds[k % kinds.length]!] as const);
+  const petals = [
+    ...ring(30, 0, 430, 100, 0, ['blue', 'green']),
+    ...ring(30, 15, 292, 88, 1, ['teal']),
+    ...ring(90, 66, 560, 150, 2, ['green', 'blue']),
+  ];
+  const ramp = (id: string, kind: string, opacities: number[]) =>
+    `<linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0">` +
+    opacities.map((a, k) => `<stop class="lotus-${kind}" offset="${n(k / (opacities.length - 1))}" stop-opacity="${a}"/>`).join('') +
+    '</linearGradient>';
+  // Blue lies thinner than green: at equal weight it took the band over.
+  const defs = ramp('lf-green', 'green', [0.3, 0.24, 0.16, 0.06]) + ramp('lf-teal', 'teal', [0.26, 0.2, 0.13, 0.05]) +
+    ramp('lf-blue', 'blue', [0.18, 0.14, 0.09, 0.03]) +
+    // A soft line over a wide blurred halo of its own colour - gold, the complement, and only here.
+    ramp('lh', 'gold', [0, 0.1, 0.18]) + ramp('lr', 'gold', [0, 0.18, 0.38]) +
+    '<radialGradient id="lotus-heart"><stop class="lotus-gold" stop-opacity=".18"/>' +
+    '<stop class="lotus-green" offset=".3" stop-opacity=".08"/><stop class="lotus-blue" offset="1" stop-opacity="0"/></radialGradient>';
+  // The halo is a plane of its own, blurred in CSS and turning in step with plane 1.
   const plane = (depth: number, halo = false, extra = '') =>
     `<svg class="lotus-plane-${depth}${halo ? ' lotus-halo' : ''}" viewBox="-620 -620 1240 1240" fill="none" focusable="false">` + extra +
-    petals.map(([angle, length, width, d], i) => d !== depth ? '' :
-      `<g transform="rotate(${angle})"><path class="lotus-petal" ` +
-      `d="M0 0${side(length!, width!)}C${n(-width! * 1.12)} ${n(-length! * 0.68)} ${n(-width!)} ${n(-length! * 0.22)} 0 0Z" ` +
-      (halo ? `stroke="url(#lh${i})" stroke-width="5"` :
-        `fill="url(#lf${i})"` + (depth === 2 ? '' : ` stroke="url(#${depth ? 'lr' : 'lh'}${i})" stroke-width="${depth ? 0.6 : 2.5}"`)) +
-      '/></g>').join('') + '</svg>';
-  return plane(0, false, '<defs>' + defs +
-      '<radialGradient id="lotus-heart"><stop stop-color="#e2cf86" stop-opacity=".18"/>' +
-      '<stop offset=".3" stop-color="#8fbf86" stop-opacity=".08"/><stop offset="1" stop-color="#5f78b8" stop-opacity="0"/></radialGradient>' +
-      '</defs>' +
-      '<ellipse rx="520" ry="400" fill="url(#lotus-heart)"/>') +
+    petals.map(([angle, length, width, d, kind]) => d !== depth ? '' :
+      `<path transform="rotate(${angle})" ` +
+      `d="M0 0${side(length, width)}C${n(-width * 1.12)} ${n(-length * 0.68)} ${n(-width)} ${n(-length * 0.22)} 0 0Z" ` +
+      (halo ? 'stroke="url(#lh)" stroke-width="5"' :
+        `fill="url(#lf-${kind})"` + (depth === 2 ? '' : ` stroke="url(#${depth ? 'lr' : 'lh'})" stroke-width="${depth ? 0.6 : 2.5}"`)) +
+      '/>').join('') + '</svg>';
+  return plane(0, false, '<defs>' + defs + '</defs><ellipse rx="520" ry="400" fill="url(#lotus-heart)"/>') +
     plane(1, true) + plane(1) + plane(2);
 }
