@@ -291,3 +291,14 @@ describe('head profilu', () => {
     expect(ld.name).toContain('Anna Kowalczyk');
   });
 });
+
+describe('najbliższy wolny termin', () => {
+  it('ignores slots of a withdrawn offer, as the calendar does', async () => {
+    const before = await (await SELF.fetch('https://example.com/terapeuci/marek-zielinski-demo')).text();
+    expect(before).toContain('najbliższy wolny termin');
+    await env.DB.prepare(`UPDATE session_offers SET active = 0 WHERE therapist_id = (SELECT id FROM therapists WHERE slug = 'marek-zielinski-demo')`).run();
+    const after = await (await SELF.fetch('https://example.com/terapeuci/marek-zielinski-demo')).text();
+    expect(after).not.toContain('najbliższy wolny termin');
+    expect(after).not.toContain('id="terminy"');
+  });
+});

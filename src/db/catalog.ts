@@ -134,10 +134,12 @@ async function loadRelated(env: Env, ids: string[]): Promise<Related> {
         ORDER BY price_minor`,
     ).bind(...ids),
     env.DB.prepare(
-      `SELECT therapist_id, MIN(starts_at_utc) AS next_start
-         FROM appointment_slots
-        WHERE therapist_id IN (${ph}) AND status = 'open' AND starts_at_utc > ?
-        GROUP BY therapist_id`,
+      // Ten sam warunek co listOpenSlots: termin wycofanej oferty nie jest do wzięcia, więc nie jest „najbliższym wolnym".
+      `SELECT s.therapist_id, MIN(s.starts_at_utc) AS next_start
+         FROM appointment_slots s
+         JOIN session_offers o ON o.id = s.offer_id AND o.active = 1
+        WHERE s.therapist_id IN (${ph}) AND s.status = 'open' AND s.starts_at_utc > ?
+        GROUP BY s.therapist_id`,
     ).bind(...ids, nowIso()),
   ]);
 
