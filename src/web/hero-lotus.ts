@@ -1,7 +1,7 @@
 /** A lotus of light on dark water, drawn from the petal of the logo: rosettes
- * of petals round one root that sits under the hero's bottom edge, large
- * enough to leave the hero at the top and on the right, turning slowly like a
- * windmill. Matte pastels - dusty blue, mauve, rose, sand - rather than neon.
+ * of petals round one root on the hero's top edge, large enough that only
+ * arcs of them hang into the band, turning slowly like a
+ * windmill. Matte pastels - sage, sand, clay, dusty rose - rather than neon.
  * Depth of field: only the inner rosette is sharp; the crown behind and four
  * petals in front are out of focus and turn at their own pace. */
 export function renderHeroLotus(): string {
@@ -16,10 +16,12 @@ export function renderHeroLotus(): string {
     Array.from({ length: 360 / step }, (_, k) => [offset + k * step, length, width, depth] as const);
   const petals = [...ring(30, 0, 430, 100, 0), ...ring(30, 15, 292, 88, 1), ...ring(90, 66, 560, 150, 2)];
   const defs = petals.map(([angle], i) => {
-    // Round the rosette the hue runs 200° (dusty blue) through 265° and 330° to 30° (sand)
-    // and back the same way, twice a turn - a triangle wave, so the wheel never passes
-    // through green and the whole palette is in view at any moment of the rotation.
-    const hue = (200 + (1 - Math.abs((angle % 180) / 90 - 1)) * 190) % 360;
+    // Round the rosette the hue runs 95° (sage) through 45° (sand) and 20° (clay) to 350°
+    // (dusty rose) and back, twice a turn - a triangle wave, so the whole palette is in view
+    // at any moment of the rotation. These are the site's own hues: surfaces sit at 56-95°,
+    // the illustrations at 30-45°. Measured 2026-09-20: the first palette (200-330°) shared
+    // no hue at all with the page under the hero.
+    const hue = (95 - (1 - Math.abs((angle % 180) / 90 - 1)) * 105 + 360) % 360;
     const ramp = (id: string, stops: [number, string, number][]) =>
       `<linearGradient id="${id}${i}" x1="0" y1="1" x2="0" y2="0">` +
       stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join('') + '</linearGradient>';
@@ -40,7 +42,7 @@ export function renderHeroLotus(): string {
       '/></g>').join('') + '</svg>';
   return plane(0, false, '<defs>' + defs +
       '<radialGradient id="lotus-heart"><stop stop-color="#d9b994" stop-opacity=".18"/>' +
-      '<stop offset=".3" stop-color="#c9907c" stop-opacity=".08"/><stop offset="1" stop-color="#a48cc4" stop-opacity="0"/></radialGradient>' +
+      '<stop offset=".3" stop-color="#c9907c" stop-opacity=".08"/><stop offset="1" stop-color="#a9b48c" stop-opacity="0"/></radialGradient>' +
       '</defs>' +
       '<ellipse rx="520" ry="400" fill="url(#lotus-heart)"/>') +
     plane(1, true) + plane(1) + plane(2);
