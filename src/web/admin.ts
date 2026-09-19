@@ -17,7 +17,7 @@ import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/chall
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
 import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayIn, zonedTimeToUtc, type CivilDate } from '../lib/time';
+import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayOf, zonedTimeToUtc, type CivilDate } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
@@ -26,6 +26,7 @@ import { createPage, getPage, listPages, listThemeChoices, pagesOrigin, slugOf, 
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
 import type { SectionCtx } from './host-blocks';
+import { AGE_GROUP_OPTIONS, SESSION_TYPE_OPTIONS } from './data-fields';
 
 /**
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
@@ -433,18 +434,7 @@ interface EditorContext {
   timeOff: Array<TimeOff & { id: string; booked: number }>;
 }
 
-const SESSION_TYPE_LABELS: RefTag[] = [
-  { slug: 'individual', name_pl: 'indywidualne' },
-  { slug: 'couples', name_pl: 'dla par' },
-  { slug: 'family', name_pl: 'rodzinne' },
-];
-
-const AGE_GROUP_LABELS: RefTag[] = [
-  { slug: 'adults', name_pl: 'dorośli' },
-  { slug: 'teens', name_pl: 'młodzież' },
-  { slug: 'children', name_pl: 'dzieci' },
-  { slug: 'seniors', name_pl: 'seniorzy' },
-];
+const refTags = (options: Array<[string, string]>): RefTag[] => options.map(([slug, name_pl]) => ({ slug, name_pl }));
 
 const PAGES_DOWN = 'Edytor stron jest chwilowo niedostępny. Twoje dane i strona publiczna działają; spróbuj za chwilę.';
 
@@ -459,7 +449,7 @@ async function previewContext(env: Env, therapistId: string): Promise<SectionCtx
 /** Poniedziałek tygodnia, w którym leży `key` (albo dziś), w kalendarzu terapeutki. */
 function mondayOf(timezone: string, key?: string): CivilDate {
   const day = key && isIsoDate(key) ? parseDay(key) : civilDateIn(timezone, new Date());
-  return addCivilDays(day, -((weekdayIn(timezone, day) + 6) % 7));
+  return addCivilDays(day, -((weekdayOf(day) + 6) % 7));
 }
 
 /** Granice lokalnych dni jako instanty UTC: od północy `from` do północy po `to`. */
@@ -911,9 +901,9 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
   </fieldset>
 
   <fieldset><legend>Typy spotkań</legend>
-    ${checkboxGrid('session_types', SESSION_TYPE_LABELS, sessionTypes)}</fieldset>
+    ${checkboxGrid('session_types', refTags(SESSION_TYPE_OPTIONS), sessionTypes)}</fieldset>
   <fieldset><legend>Grupy wiekowe</legend>
-    ${checkboxGrid('age_groups', AGE_GROUP_LABELS, ageGroups)}</fieldset>
+    ${checkboxGrid('age_groups', refTags(AGE_GROUP_OPTIONS), ageGroups)}</fieldset>
   <fieldset><legend>Języki</legend>
     ${checkboxGrid('languages', context.languages, context.chosenLanguages)}</fieldset>
   <fieldset><legend>Obszary pracy</legend>

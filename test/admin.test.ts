@@ -1,5 +1,5 @@
 import { SELF, env } from 'cloudflare:test';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createAdminSession, loadAdminSession } from '../src/auth/session';
 import { findOrCreateUserByEmail } from '../src/db/users';
 

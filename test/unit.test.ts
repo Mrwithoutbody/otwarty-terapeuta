@@ -12,7 +12,7 @@ import {
   civilDateIn,
   isValidTimezone,
   timezoneOffsetMs,
-  weekdayIn,
+  weekdayOf,
   zonedTimeToUtc,
 } from '../src/lib/time';
 import type { PublicTherapist } from '../src/db/types';
@@ -323,8 +323,8 @@ describe('timezones', () => {
   });
 
   it('reports the weekday as it reads locally', () => {
-    expect(weekdayIn('Europe/Warsaw', { year: 2027, month: 3, day: 28 })).toBe(0); // niedziela
-    expect(weekdayIn('Europe/Warsaw', { year: 2027, month: 3, day: 29 })).toBe(1); // poniedziałek
+    expect(weekdayOf({ year: 2027, month: 3, day: 28 })).toBe(0); // niedziela
+    expect(weekdayOf({ year: 2027, month: 3, day: 29 })).toBe(1); // poniedziałek
   });
 });
 

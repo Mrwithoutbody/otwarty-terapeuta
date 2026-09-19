@@ -63,11 +63,11 @@ export const LANGUAGE_OPTIONS: Array<[string, string]> = [
   ['de', 'niemiecki'], ['fr', 'francuski'], ['es', 'hiszpański'], ['be', 'białoruski'],
 ];
 
-const SESSION_TYPE_OPTIONS: Array<[string, string]> = [
+export const SESSION_TYPE_OPTIONS: Array<[string, string]> = [
   ['individual', 'indywidualne'], ['couples', 'dla par'], ['family', 'rodzinne'],
 ];
 
-const AGE_GROUP_OPTIONS: Array<[string, string]> = [
+export const AGE_GROUP_OPTIONS: Array<[string, string]> = [
   ['adults', 'dorośli'], ['teens', 'młodzież'], ['children', 'dzieci'], ['seniors', 'seniorzy'],
 ];
 

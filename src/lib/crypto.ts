@@ -60,17 +60,14 @@ async function hmacKey(secret: string): Promise<CryptoKey> {
   ]);
 }
 
-export async function hmacHex(secret: string, data: string): Promise<string> {
-  const key = await hmacKey(secret);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
-  return toHex(new Uint8Array(sig));
+async function hmac(secret: string, data: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(secret), enc.encode(data)));
 }
 
-export async function hmacBase64Url(secret: string, data: string): Promise<string> {
-  const key = await hmacKey(secret);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
-  return toBase64Url(new Uint8Array(sig));
-}
+export const hmacHex = async (secret: string, data: string): Promise<string> => toHex(await hmac(secret, data));
+
+export const hmacBase64Url = async (secret: string, data: string): Promise<string> =>
+  toBase64Url(await hmac(secret, data));
 
 // `lib: DOM` shadows the Workers `SubtleCrypto` (workers-types declares it as a
 // class, so the two do not merge). This module only ever runs in the Worker.

@@ -10,6 +10,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const DEFAULT_TIMEZONE = 'Europe/Warsaw';
 
+const LOCALE = 'pl-PL';
+
 export function isIsoDate(value: string): boolean {
   return ISO_DATE.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
@@ -34,8 +36,8 @@ export function nowIso(): string {
   return isoOf(new Date());
 }
 
-export function isoPlusSeconds(seconds: number, from = new Date()): string {
-  return isoOf(new Date(from.getTime() + seconds * 1000));
+export function isoPlusSeconds(seconds: number): string {
+  return isoOf(new Date(Date.now() + seconds * 1000));
 }
 
 export function hoursBetween(fromIso: string, toIso: string): number {
@@ -46,8 +48,8 @@ export function hoursBetween(fromIso: string, toIso: string): number {
  * Human-readable local time, e.g. "wtorek, 2 wrzesnia 2026, 10:00".
  * `timeZone` is the appointment's zone unless the caller overrides it.
  */
-export function formatDateTime(iso: string, timeZone = DEFAULT_TIMEZONE, locale = 'pl-PL'): string {
-  return new Intl.DateTimeFormat(locale, {
+export function formatDateTime(iso: string, timeZone = DEFAULT_TIMEZONE): string {
+  return new Intl.DateTimeFormat(LOCALE, {
     timeZone,
     weekday: 'long',
     day: 'numeric',
@@ -58,14 +60,14 @@ export function formatDateTime(iso: string, timeZone = DEFAULT_TIMEZONE, locale 
   }).format(new Date(iso));
 }
 
-export function formatTime(iso: string, timeZone = DEFAULT_TIMEZONE, locale = 'pl-PL'): string {
-  return new Intl.DateTimeFormat(locale, { timeZone, hour: '2-digit', minute: '2-digit' }).format(
+export function formatTime(iso: string, timeZone = DEFAULT_TIMEZONE): string {
+  return new Intl.DateTimeFormat(LOCALE, { timeZone, hour: '2-digit', minute: '2-digit' }).format(
     new Date(iso),
   );
 }
 
-export function formatDate(iso: string, timeZone = DEFAULT_TIMEZONE, locale = 'pl-PL'): string {
-  return new Intl.DateTimeFormat(locale, {
+export function formatDate(iso: string, timeZone = DEFAULT_TIMEZONE): string {
+  return new Intl.DateTimeFormat(LOCALE, {
     timeZone,
     weekday: 'long',
     day: 'numeric',
@@ -74,8 +76,8 @@ export function formatDate(iso: string, timeZone = DEFAULT_TIMEZONE, locale = 'p
 }
 
 /** Short zone label, e.g. "GMT+2", to disambiguate cross-timezone bookings. */
-export function timezoneLabel(iso: string, timeZone: string, locale = 'pl-PL'): string {
-  const part = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'shortOffset' })
+export function timezoneLabel(iso: string, timeZone: string): string {
+  const part = new Intl.DateTimeFormat(LOCALE, { timeZone, timeZoneName: 'shortOffset' })
     .formatToParts(new Date(iso))
     .find((p) => p.type === 'timeZoneName');
   return part?.value ?? timeZone;
@@ -156,8 +158,8 @@ export function zonedTimeToUtc(
   return new Date(secondPass);
 }
 
-/** Day of week (0 = Sunday) as it reads in `timeZone`. */
-export function weekdayIn(timeZone: string, date: CivilDate): number {
+/** Day of week (0 = Sunday) of a civil date. */
+export function weekdayOf(date: CivilDate): number {
   return new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay();
 }
 
@@ -171,9 +173,9 @@ export function addCivilDays(date: CivilDate, days: number): CivilDate {
   };
 }
 
-export function formatPrice(minor: number, currency: string, locale = 'pl-PL'): string {
+export function formatPrice(minor: number, currency: string): string {
   // Pełne złote bez groszy: cennik gabinetu to okrągłe kwoty, a "250,00 zł"
   // w wielkim kroju szablonu czyta się jak faktura.
   const fraction = minor % 100 === 0 ? 0 : 2;
-  return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: fraction }).format(minor / 100);
+  return new Intl.NumberFormat(LOCALE, { style: 'currency', currency, minimumFractionDigits: fraction }).format(minor / 100);
 }

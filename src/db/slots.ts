@@ -7,7 +7,7 @@ import {
   formatTime,
   isoOf,
   nowIso,
-  weekdayIn,
+  weekdayOf,
   zonedTimeToUtc,
   type CivilDate,
 } from '../lib/time';
@@ -78,7 +78,7 @@ export const parseDay = (key: string): CivilDate => {
 /** Dzień tygodnia i godzina terminu tak, jak widzi je terapeutka. */
 export function localSlot(iso: string, timezone: string): { weekday: number; hour: number } {
   return {
-    weekday: weekdayIn(timezone, civilDateIn(timezone, new Date(iso))),
+    weekday: weekdayOf(civilDateIn(timezone, new Date(iso))),
     hour: Number(formatTime(iso, timezone).split(':')[0]),
   };
 }
@@ -106,7 +106,7 @@ export function slotStatements(env: Env, therapistId: string, plan: SlotPlan): D
     const key = dayKey(day);
     if (plan.timeOff?.some((off) => off.starts_on <= key && key <= off.ends_on)) continue;
 
-    for (const hour of plan.week[weekdayIn(plan.timezone, day)] ?? []) {
+    for (const hour of plan.week[weekdayOf(day)] ?? []) {
       const start = zonedTimeToUtc(day, hour, 0, plan.timezone);
       const end = new Date(start.getTime() + plan.durationMinutes * 60_000);
       statements.push(

@@ -4,7 +4,7 @@ import { createAdminSession, loadAdminSession } from '../src/auth/session';
 import { cancelBooking, createBooking, previewBooking } from '../src/booking/service';
 import { dayKey, fillFromSchedules, HORIZON_DAYS, localSlot, parseWeek } from '../src/db/slots';
 import { findOrCreateUserByEmail } from '../src/db/users';
-import { addCivilDays, civilDateIn, weekdayIn } from '../src/lib/time';
+import { addCivilDays, civilDateIn, weekdayOf } from '../src/lib/time';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const MAREK = 'th_8b2d6e10f4a97c53d1e08b26';
@@ -247,7 +247,7 @@ describe('jeden widok: tydzień z grafikiem, kłódkami i rezerwacjami', () => {
   it('panel ma jedną siatkę: kratka niesie pola ofert, kłódkę terminu i rezerwację', async () => {
     await seedSchedule();
     const today = civilDateIn(WAW, new Date());
-    const nextMonday = dayKey(addCivilDays(today, 7 - ((weekdayIn(WAW, today) + 6) % 7)));
+    const nextMonday = dayKey(addCivilDays(today, 7 - ((weekdayOf(today) + 6) % 7)));
     const [slot, taken] = (await future('offer_id', 'of_01')).filter(
       (s) => s.status === 'open' && dayKey(civilDateIn(WAW, new Date(s.starts_at_utc))) >= nextMonday,
     );
