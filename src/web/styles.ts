@@ -61,9 +61,9 @@ export const APP_CSS = `
   --border-strong: #d1d8c1;
   --text: #344125;
   --text-muted: #636959;
-  --accent: #9cad00;
-  --accent-strong: #637200;
-  --accent-soft: #f0f3d6;
+  --accent: #85bb65;
+  --accent-strong: #3d6529;
+  --accent-soft: #e8f3e2;
   --focus: #8b6415;
   --danger: #8a2f2f;
   --radius-sm: 10px;
@@ -569,7 +569,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   padding: 0.35rem 0.7rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
   background: rgba(255,255,255,0.08); color: #ccd2ea; font-size: 0.8rem; font-weight: 550;
 }
-.eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #c7da4f; }
+.eyebrow > span { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #85bb65; }
 .home-hero .btn { background: #fff; border-color: #fff; color: #1b1f34; box-shadow: none; }
 .home-hero .btn:hover { background: #e6e9f5; border-color: #e6e9f5; }
 .home-hero .btn.secondary { background: transparent; border-color: rgba(255,255,255,0.32); color: #dfe3f2; }
@@ -622,6 +622,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .offer-soon span { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
 @media (max-width: 64rem) {.path-row { grid-template-columns: 1fr; } }
 .featured-grid { margin-top: 2rem; }
+.featured-grid + .section-action { margin-top: 2rem; }
 @media (min-width: 64rem) {.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .topic-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; max-width: 52rem; margin: 1.5rem auto 0; padding: 0; list-style: none; }
 .topic-links li { margin: 0; }
