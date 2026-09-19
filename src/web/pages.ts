@@ -118,25 +118,25 @@ function featuredTherapists(entries: PublicTherapist[]): PublicTherapist[] {
   return [...entries].sort((x, y) => rank(x) - rank(y)).slice(0, 3);
 }
 
-/** The areas most profiles in the catalogue work with, each a ready filter link. */
-function topicLinks(entries: PublicTherapist[]): string {
+/** Areas the catalogue's profiles work with, the most common first. */
+function catalogueTopics(entries: PublicTherapist[]): Array<{ slug: string; name: string }> {
   const counts = new Map<string, { name: string; n: number }>();
   for (const topic of entries.flatMap((t) => t.topics)) {
     const seen = counts.get(topic.slug) ?? { name: topic.name, n: 0 };
     seen.n += 1;
     counts.set(topic.slug, seen);
   }
-  return [...counts]
-    .sort((x, y) => y[1].n - x[1].n)
-    .slice(0, 10)
-    .map(([slug, { name }]) => `<li><a href="/terapeuci?obszar=${encodeURIComponent(slug)}">${escapeHtml(name)}</a></li>`)
-    .join('');
+  return [...counts].sort((x, y) => y[1].n - x[1].n).map(([slug, { name }]) => ({ slug, name }));
 }
 
 siteApp.get('/', async (c) => {
   const entries = await findCandidates(c.env, {});
   const facts = catalogueFacts(entries);
-  const topics = topicLinks(entries);
+  const allTopics = catalogueTopics(entries);
+  const topics = allTopics
+    .slice(0, 10)
+    .map((t) => `<li><a href="/terapeuci?obszar=${encodeURIComponent(t.slug)}">${escapeHtml(t.name)}</a></li>`)
+    .join('');
   const base = c.env.PUBLIC_BASE_URL;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -158,12 +158,17 @@ siteApp.get('/', async (c) => {
   <section class="home-hero" aria-labelledby="home-title">
     <div class="hero-copy">
       <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
-      <h1 id="home-title">Znajdź psychoterapeutę na swoich warunkach.</h1>
+      <h1 id="home-title">Znajdź terapeutę na swoich warunkach.</h1>
       <p class="lead">Każda osoba w katalogu prowadzi tu własną stronę: pisze, jak pracuje, komu pomaga, ile kosztuje sesja i kiedy ma wolny termin. Czytasz, porównujesz i rezerwujesz wizytę — bez pośredników i bez płatnych pozycji.</p>
-      <div class="hero-actions">
-        <a class="btn" href="/terapeuci">Przeglądaj terapeutów <span aria-hidden="true">→</span></a>
-        <a class="btn secondary" href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a>
-      </div>
+      <form class="hero-search" method="get" action="/terapeuci" role="search" aria-label="Szukaj terapeuty">
+        <div class="field"><label for="hero-szukaj">Kogo szukasz</label><input id="hero-szukaj" name="szukaj" type="search" maxlength="120" autocomplete="off" placeholder="imię, miasto albo nurt"></div>
+        <div class="field"><label for="hero-obszar">W czym</label><select id="hero-obszar" name="obszar"><option value="">dowolny obszar</option>${allTopics
+          .map((t) => `<option value="${escapeHtml(t.slug)}">${escapeHtml(t.name)}</option>`)
+          .join('')}</select></div>
+        <label class="hero-search-online"><input type="checkbox" name="online" value="1"> online</label>
+        <button class="btn" type="submit">Szukaj <span aria-hidden="true">→</span></button>
+      </form>
+      <p class="hero-more"><a href="/terapeuci">Przeglądaj wszystkich</a> · <a href="#co-znajdziesz">Co tu znajdziesz <span aria-hidden="true">↓</span></a></p>
     </div>
 
     <div class="finder-preview" aria-label="Przykładowy widok wyszukiwarki terapeutów">

@@ -574,8 +574,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero .btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5); }
 .home-hero h1 { max-width: 20ch; margin: 0 0 1rem; color: #fbfbff; font-size: clamp(1.95rem, 1.6rem + 1.6vw, 2.85rem); line-height: 1.14; letter-spacing: -0.025em; }
 .home-hero .lead { max-width: 44ch; margin: 0 0 1.5rem; color: #c8cde4; font-size: 1rem; line-height: 1.65; }
-.hero-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
-.hero-actions .btn { min-width: 11.5rem; }
+.hero-search { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0.75rem; align-items: end; max-width: 34rem; padding: 1rem; border-radius: var(--radius); background: #fff; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
+.hero-search .field { margin: 0; }
+.hero-search label { color: var(--text); font-size: 0.78rem; font-weight: 600; }
+.hero-search-online { display: flex; align-items: center; gap: 0.45rem; min-height: 2.75rem; }
+.home-hero .hero-search .btn { justify-content: center; background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+.home-hero .hero-search .btn:hover { background: var(--text); border-color: var(--text); }
+.hero-more { margin: 1rem 0 0; color: #a3abc6; font-size: 0.85rem; }
+.hero-more a { color: #dfe3f2; }
 .finder-preview {
   position: relative; width: 100%; padding: 1rem;
   border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
@@ -697,7 +703,7 @@ main { padding-block: 1rem 3.5rem; }
 .home-hero { min-height: 42rem; padding: 3.25rem 1rem 0; border-radius: 1rem 1rem 0 0; }
 .home-hero h1 { max-width: 12ch; font-size: clamp(2.6rem, 12vw, 3.65rem); }
 .home-hero .lead { font-size: 0.93rem; line-height: 1.65; }
-.hero-actions { width: 100%; }
+.hero-search { grid-template-columns: 1fr; }
 .finder-preview { width: 100%; margin-top: 2rem; padding: 0.7rem; border-radius: 1rem 1rem 0 0; }
 .preview-toolbar > span:nth-child(2) { max-width: 10rem; }
 .preview-filters { overflow-x: auto; }
