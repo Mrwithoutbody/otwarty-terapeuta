@@ -194,13 +194,6 @@ siteApp.get('/', async (c) => {
       <article><h3>Ceny i zasady przed decyzją</h3><p>Cena sesji, czas trwania, forma spotkania i zasady odwołania są jawne, zanim podasz jakiekolwiek dane.</p></article>
       <article><h3>Wolne terminy i rezerwacja</h3><p>Widzisz realny kalendarz i rezerwujesz online. Logowanie dopiero przy rezerwacji — przeglądasz anonimowo.</p></article>
     </div>
-    <div class="section-heading centered offer-next"><h3>Rozwijamy serwis</h3></div>
-    <ul class="offer-soon">
-      <li><strong>Opowiadania terapeutów i superwizorów</strong><span>Teksty o własnej pracy i superwizji. Zobaczysz, kto naprawdę pracuje nad sobą.</span></li>
-      <li><strong>Wirtualne gabinety</strong><span>Miejsce spotkań online prowadzone przez terapeutę.</span></li>
-      <li><strong>Wydarzenia</strong><span>Warsztaty, grupy i spotkania otwarte.</span></li>
-      <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
-    </ul>
   </section>
 
   <section class="home-section" aria-labelledby="featured-title">
@@ -212,6 +205,16 @@ siteApp.get('/', async (c) => {
       .map((t) => therapistCard(t, []))
       .join('')}</ul>
     <p class="section-action"><a class="btn" href="/terapeuci">Zobacz wszystkie profile <span aria-hidden="true">→</span></a></p>
+  </section>
+
+  <section class="home-section" aria-labelledby="next-title">
+    <div class="section-heading centered"><h2 id="next-title">Rozwijamy serwis</h2></div>
+    <ul class="offer-soon">
+      <li><strong>Opowiadania terapeutów i superwizorów</strong><span>Teksty o własnej pracy i superwizji. Zobaczysz, kto naprawdę pracuje nad sobą.</span></li>
+      <li><strong>Wirtualne gabinety</strong><span>Miejsce spotkań online prowadzone przez terapeutę.</span></li>
+      <li><strong>Wydarzenia</strong><span>Warsztaty, grupy i spotkania otwarte.</span></li>
+      <li><strong>Szkoły psychoterapii</strong><span>Gdzie kształcą się terapeuci i w jakich nurtach.</span></li>
+    </ul>
   </section>
 
   ${

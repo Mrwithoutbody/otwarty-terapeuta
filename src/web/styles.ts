@@ -610,9 +610,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .offer-grid article { padding: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-solid); box-shadow: var(--shadow-sm); }
 .offer-grid h3 { margin: 0 0 0.6rem; font-size: 1.12rem; }
 .offer-grid p { margin: 0; color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
-.offer-next { margin-top: 2.5rem; }
-.offer-next h3 { margin: 0; font-size: 1.15rem; }
-.offer-soon { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0 1.5rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+.offer-soon { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0 1.5rem; margin: 1.75rem 0 0; padding: 0; list-style: none; }
 .offer-soon li { display: grid; align-content: start; gap: 0.25rem; margin: 0; padding: 1rem 0; border-top: 1px solid var(--border-strong); }
 .offer-soon strong { font-size: 0.92rem; }
 .offer-soon span { color: var(--text-muted); font-size: 0.8rem; line-height: 1.55; }
