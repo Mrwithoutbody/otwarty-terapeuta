@@ -568,7 +568,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 .home-hero > .hero-lotus {
   --w: max(190rem, 260vw);
   position: absolute; z-index: 0; grid-column: 1 / -1; grid-row: 1 / auto;
-  inset: auto 0 calc(var(--w) * -0.1); pointer-events: none; opacity: .75;
+  inset: auto 0 calc(var(--w) * -0.1); pointer-events: none; opacity: .55;
 }
 /* Square planes centred on the root (the view box is), so the mask below covers
    the whole rosette. */
