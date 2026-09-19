@@ -16,18 +16,22 @@ export function renderHeroLotus(): string {
     Array.from({ length: 360 / step }, (_, k) => [offset + k * step, length, width, depth] as const);
   const petals = [...ring(30, 0, 430, 100, 0), ...ring(30, 15, 292, 88, 1), ...ring(90, 66, 560, 150, 2)];
   const defs = petals.map(([angle], i) => {
-    // The site's own two colours: the hue swings between 225° (the hero's navy, lifted) and
+    // The site's own two colours: the hue swings between 226° (the ribbon blue) and
     // 105° (the accent green, measured 98°) every 30° of the rosette, so neighbouring petals
     // alternate and the inner row lands on the teal between them. The band shows only some
-    // 80° of the wheel; a slower swing left it all blue for a minute at a time. Shifts go towards teal, never below 100°: the
-    // 60-95° band over navy is the olive mud of 2026-09-20. Yellow (48°) is the complement and
-    // stays in the lines and their halo only, never in a wash.
-    const hue = 225 - (1 - Math.abs((angle % 60) / 30 - 1)) * 120;
+    // 80° of the wheel; a slower swing left it all blue for a minute at a time. Shifts go
+    // towards teal, never below 100°: the 60-95° band over navy is the olive mud of
+    // 2026-09-20. Yellow (48°) is the complement and stays in the lines and their halo only.
+    const green = 1 - Math.abs((angle % 60) / 30 - 1);
+    const hue = 226 - green * 121;
     const ramp = (id: string, stops: [number, string, number][]) =>
       `<linearGradient id="${id}${i}" x1="0" y1="1" x2="0" y2="0">` +
       stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join('') + '</linearGradient>';
     // Matte pastels: saturation stays under 50%, nothing is white-hot, nothing is screen-blended.
-    const tone = (shift: number, light: number) => `hsl(${n((hue + shift) % 360)} 46% ${light}%)`;
+    // Both ends are the banknote's: the blue of the $100 security ribbon, measured from a scan
+    // at 226° / 28% / 55%, and the accent green, which is 'Dollar bill' (#85bb65, 98° / 39%).
+    // Saturation follows the hue, so the blue stays the ribbon's slate and not a royal blue.
+    const tone = (shift: number, light: number) => `hsl(${n((hue + shift) % 360)} ${n(28 + green * 11)}% ${light}%)`;
     const gold = (light: number) => `hsl(48 62% ${light}%)`;
     return ramp('lf', [[0, gold(70), 0.3], [0.3, tone(15, 58), 0.24], [0.7, tone(0, 54), 0.17], [1, tone(25, 60), 0.06]]) +
       ramp('lh', [[0, gold(70), 0], [0.35, gold(68), 0.1], [1, gold(72), 0.18]]) +
