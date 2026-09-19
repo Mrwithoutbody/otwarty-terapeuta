@@ -1,6 +1,6 @@
 /** A lotus of light on dark water, drawn from the petal of the logo: rosettes
- * of petals round one root under the hero's bottom edge, large enough that
- * only the crown rises into the band, turning slowly like a windmill.
+ * of petals round one root behind the hero's search card, which covers the
+ * heart, turning slowly like a windmill.
  * Depth of field: only the inner rosette is sharp; the crown behind and four
  * petals in front are out of focus and turn at their own pace.
  * No colour lives here. Stops carry a class (lotus-blue, -green, -teal, -gold)

@@ -565,24 +565,23 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   border: 0; border-radius: 0; background: var(--navy); color: #c8cde4;
 }
 .home-hero > * { position: relative; z-index: 1; }
-/* The lotus spans the grid's whole content box (an absolutely positioned grid
-   child takes its grid area as containing block), so "100%" is the container's
-   right edge in the two-column and the single-column layout alike - no overrides.
-   --w is the side of a plane: the rosette plus the view box's margin. It follows
-   the viewport, not a column, and the root hangs 7% of it under the hero's bottom
-   edge: the petals still rise through the band like shafts of light, but they
-   converge visibly, so the crown reads as the logo's flower and not as a glow.
+/* The lotus lives in the mosaic and takes the search card's grid area as its containing
+   block (an absolutely positioned grid child does), so its root is the centre of the form
+   in every layout, with nothing to override: the card covers the heart and the rosette
+   opens round it. The copy column is lifted above the mosaic's stacking context so the
+   petals pass under the text, never over it.
    Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
    the blur is rasterised once and the motion stays on the compositor. */
-.home-hero > .hero-lotus {
-  --w: max(100rem, 138vw);
-  position: absolute; z-index: 0; grid-column: 1 / -1; grid-row: 1 / auto;
-  inset: auto 0 calc(var(--w) * -0.073); pointer-events: none; opacity: .6;
+.home-hero > .hero-copy { z-index: 2; }
+.hero-bento > .hero-lotus {
+  position: absolute; z-index: -1; grid-column: 1 / -1; grid-row: 3; inset: 0;
+  pointer-events: none; opacity: .75;
 }
-/* Square planes centred on the root (the view box is), so the mask below covers
-   the whole rosette. */
+/* Square planes centred on the root (the view box is), so the mask below covers the
+   whole rosette. One size everywhere: the flower is as large on a phone as on a desk. */
 .hero-lotus svg {
-  position: absolute; top: 0; left: calc(100% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
+  --w: 110rem;
+  position: absolute; top: 50%; left: calc(50% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
   will-change: transform; animation: lotus-turn 240s linear infinite;
   /* The pigment thins out in patches: low-frequency noise as an alpha mask, turning
      with its plane. One 512 px tile stretched over the plane, rasterised once - the
@@ -600,9 +599,11 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 @keyframes lotus-turn { to { transform: rotate(360deg); } }
 /* Suede: a tile of fine grey noise over the band, overlay, so the pastels read as
    a matte nap instead of as light. A data URI - img-src allows it, and the
-   turbulence is rasterised once per 220 px tile rather than across the hero. */
+   turbulence is rasterised once per 220 px tile rather than across the hero.
+   It lies over everything in the band, the lotus inside the mosaic included; white stays
+   white under overlay, so the card and the headline are untouched. */
 .home-hero::after {
-  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   opacity: .2; mix-blend-mode: overlay;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.8 0 0 0 -.4 1.8 0 0 0 -.4 1.8 0 0 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
 }
