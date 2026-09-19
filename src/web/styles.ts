@@ -464,7 +464,15 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    area of work and the button. The other seven controls live in a fold that
    opens itself whenever one of them is on, so nothing applied is ever
    hidden - a native <details>, no script, works with JavaScript off. */
-.directory-page .filters { margin: 0; padding: clamp(1rem, 2.5vw, 1.4rem); border-radius: 14px; }
+/* The catalogue opens with the navy of the home hero; the filter card sits
+   half on the band, the way the search card does there. */
+.directory-page .page-head { margin-top: calc(clamp(2rem, 4vw, 3rem) * -1); padding-block: clamp(2rem, 4vw, 3rem) 5.5rem; background: #1b1f34; }
+.directory-page .page-head h1 { color: #fbfbff; }
+.directory-page .page-head .facts-strip { margin-top: 1.5rem; }
+.directory-page .page-head .facts-strip > div { border-left-color: rgba(255, 255, 255, 0.18); }
+.directory-page .page-head .facts-strip dt { color: #a3abc6; }
+.directory-page .page-head .facts-strip dd { color: #fff; }
+.directory-page .filters { position: relative; margin: calc(-3.5rem - clamp(2.5rem, 5vw, 3.5rem)) 0 0; background: var(--surface-solid); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18); padding: clamp(1rem, 2.5vw, 1.4rem); border-radius: 14px; }
 .filter-bar { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.75rem; align-items: end; }
 .filters .field { margin: 0; }
 .filters label { margin-bottom: 0.25rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
@@ -536,7 +544,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
 /* The band runs the full width of the window, the way a catalogue's does:
    the page sits in .wrap, so it is pulled back out with the usual full-bleed
    margin and given the gutter back as padding. */
-.home-hero, .home .facts-strip {
+.home-hero, .home .facts-strip, .directory-page .page-head {
   margin-inline: calc(50% - 50vw); width: 100vw;
   padding-inline: max(clamp(1rem, 3vw, 2.5rem), calc((100vw - var(--maxw)) / 2 + clamp(1rem, 3vw, 2.5rem)));
 }
@@ -667,6 +675,7 @@ header.site .wrap { min-height: 4.1rem; padding-block: 0.5rem; }
 .brand { font-size: 0.94rem; }
 .brand img { width: 2.1rem; height: 2.1rem; padding: 0.45rem; }
 main { padding-block: 1rem 3.5rem; }
+.directory-page .page-head { margin-top: -1rem; padding-top: 2rem; }
 .hero { min-height: 30rem; border-radius: var(--radius); padding-inline: var(--space-6); }
 .hero h1 { font-size: clamp(2.25rem, 10vw, 3rem); }
 .btn { width: 100%; }
