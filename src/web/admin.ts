@@ -31,7 +31,8 @@ import type { SectionCtx } from './host-blocks';
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
  *
  *  - `admin`     - everything;
- *  - `therapist` - only their own profile, photo, availability and pages;
+ *  - `therapist` - only their own pages (content is edited in the page editor),
+ *                  availability and bookings;
  *  - `support`   - bookings (minimal fields) and cancellation only. Support
  *                  never sees verification notes or contact details.
  */
@@ -213,6 +214,10 @@ adminApp.get('/', async (c) => {
   const session = await loadAdminSession(c.env, c.req.raw);
   if (!session) return page(c.env, 'Zaloguj się', loginForm(c.env), 200, true);
   const { user } = session;
+  // Terapeutka ma jedną stronę panelu - swoją - i wchodzi na nią prosto do edytora.
+  if (user.role === 'therapist' && user.therapist_id) {
+    return c.redirect(`/admin/terapeuci/${encodeURIComponent(user.therapist_id)}?edytor`, 302);
+  }
 
   const scopeClause = user.role === 'therapist' ? `WHERE id = ?` : '';
   const therapistsQuery = c.env.DB.prepare(
@@ -236,46 +241,6 @@ adminApp.get('/', async (c) => {
   // nie po jednym na wiersz. Agregat dobowy, bez identyfikatora osoby: to
   // odpowiedź na „ile razy oglądano", nie na „kto oglądał".
   const views = await viewsByTherapist(c.env);
-
-  const upcoming = await c.env.DB.prepare(
-    `SELECT b.id, b.public_ref, b.status, b.starts_at_utc, b.timezone, b.price_minor, b.currency,
-            b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc,
-            t.display_name
-       FROM bookings b JOIN therapists t ON t.id = b.therapist_id
-      ${user.role === 'therapist' ? 'WHERE b.therapist_id = ?' : ''}
-      ORDER BY b.starts_at_utc DESC LIMIT 25`,
-  )
-    .bind(...(user.role === 'therapist' ? [user.therapist_id ?? ''] : []))
-    .all<{
-      id: string;
-      public_ref: string;
-      status: string;
-      starts_at_utc: string;
-      timezone: string;
-      price_minor: number;
-      currency: string;
-      contact_name_enc: string | null;
-      contact_email_enc: string | null;
-      contact_phone_enc: string | null;
-      display_name: string;
-    }>();
-
-  /**
-   * Dane kontaktowe osoby rezerwującej. Terapeutka musi wiedzieć, kto przyjdzie;
-   * odszyfrowujemy je dopiero tutaj, na potrzeby jednego widoku, i tylko dla
-   * rezerwacji, które ten widok i tak pokazuje. Po 12 miesiącach retencja zeruje
-   * te kolumny i wiersz sam przestaje mieć co pokazać.
-   */
-  const contacts = new Map<string, string>();
-  for (const b of upcoming.results) {
-    const parts = await Promise.all(
-      [b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc].map((value) =>
-        value ? decryptPii(c.env.PII_ENC_KEY, value) : Promise.resolve(null),
-      ),
-    );
-    const shown = parts.filter((part): part is string => part !== null && part !== '');
-    if (shown.length > 0) contacts.set(b.id, shown.join(' · '));
-  }
 
   const pendingProfiles = therapists.results.filter(
     (t) => t.status === 'draft' && t.verification_status === 'unverified' && !t.is_demo,
@@ -325,7 +290,67 @@ ${
 </div>
 ${user.role === 'admin' ? `<p><a class="btn" href="/admin/terapeuci/nowy">Dodaj profil</a></p>` : ''}
 
-<h2>Rezerwacje</h2>
+${await bookingsSection(c.env, session, user.role === 'therapist' ? (user.therapist_id ?? '') : null)}
+
+${
+  user.role === 'admin'
+    ? `<h2>Administracja</h2>
+<ul>
+  <li><a href="/admin/kryzys">Zasoby kryzysowe i data weryfikacji</a></li>
+  <li><a href="/admin/uzytkownicy">Eksport i usunięcie danych użytkownika</a></li>
+  <li><a href="/admin/audyt">Historia operacji</a></li>
+</ul>`
+    : ''
+}`,
+  );
+});
+
+// --------------------------------------------------------------- bookings ---
+
+/**
+ * Rezerwacje: wszystkie na pulpicie, jej własne w zakładce jej profilu.
+ *
+ * Dane kontaktowe osoby rezerwującej. Terapeutka musi wiedzieć, kto przyjdzie;
+ * odszyfrowujemy je dopiero tutaj, na potrzeby jednego widoku, i tylko dla
+ * rezerwacji, które ten widok i tak pokazuje. Po 12 miesiącach retencja zeruje
+ * te kolumny i wiersz sam przestaje mieć co pokazać.
+ */
+async function bookingsSection(env: Env, session: AdminSession, therapistId: string | null): Promise<string> {
+  const upcoming = await env.DB.prepare(
+    `SELECT b.id, b.public_ref, b.status, b.starts_at_utc, b.timezone, b.price_minor, b.currency,
+            b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc,
+            t.display_name
+       FROM bookings b JOIN therapists t ON t.id = b.therapist_id
+      ${therapistId === null ? '' : 'WHERE b.therapist_id = ?'}
+      ORDER BY b.starts_at_utc DESC LIMIT 25`,
+  )
+    .bind(...(therapistId === null ? [] : [therapistId]))
+    .all<{
+      id: string;
+      public_ref: string;
+      status: string;
+      starts_at_utc: string;
+      timezone: string;
+      price_minor: number;
+      currency: string;
+      contact_name_enc: string | null;
+      contact_email_enc: string | null;
+      contact_phone_enc: string | null;
+      display_name: string;
+    }>();
+
+  const contacts = new Map<string, string>();
+  for (const b of upcoming.results) {
+    const parts = await Promise.all(
+      [b.contact_name_enc, b.contact_email_enc, b.contact_phone_enc].map((value) =>
+        value ? decryptPii(env.PII_ENC_KEY, value) : Promise.resolve(null),
+      ),
+    );
+    const shown = parts.filter((part): part is string => part !== null && part !== '');
+    if (shown.length > 0) contacts.set(b.id, shown.join(' · '));
+  }
+
+  return `<h2>Rezerwacje</h2>
 <div class="table-scroll">
 <table>
   <thead><tr><th scope="col">Numer</th><th scope="col">Terapeuta</th><th scope="col">Termin</th>
@@ -358,20 +383,8 @@ ${user.role === 'admin' ? `<p><a class="btn" href="/admin/terapeuci/nowy">Dodaj 
 </table>
 </div>
 <p class="hint">Dane kontaktowe służą wyłącznie do kontaktu w sprawie tej wizyty. W bazie są
-zaszyfrowane, a po 12 miesiącach od terminu usuwa je zadanie retencyjne.</p>
-
-${
-  user.role === 'admin'
-    ? `<h2>Administracja</h2>
-<ul>
-  <li><a href="/admin/kryzys">Zasoby kryzysowe i data weryfikacji</a></li>
-  <li><a href="/admin/uzytkownicy">Eksport i usunięcie danych użytkownika</a></li>
-  <li><a href="/admin/audyt">Historia operacji</a></li>
-</ul>`
-    : ''
-}`,
-  );
-});
+zaszyfrowane, a po 12 miesiącach od terminu usuwa je zadanie retencyjne.</p>`;
+}
 
 // -------------------------------------------------------- therapist editor ---
 
@@ -405,7 +418,6 @@ interface EditorContext {
   topicCount: number;
   credentials: CredentialInput[];
   offers: OfferRow[];
-  media: Array<{ id: string; url: string }>;
   pages: PageInfo[];
   looks: ThemeChoice[];
   /** Why there is no page list: the service is down, or the profile is not saved yet. */
@@ -445,7 +457,6 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
     topicCount: 0,
     credentials: [],
     offers: [],
-    media: [],
     pages: [],
     looks: [],
     pagesError: 'Najpierw zapisz profil.',
@@ -469,7 +480,7 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
     context.pagesError = PAGES_DOWN;
   }
 
-  const [topics, offers, media] = await Promise.all([
+  const [topics, offers] = await Promise.all([
     env.DB.prepare(`SELECT COUNT(*) AS n FROM therapist_specialties WHERE therapist_id = ?`)
       .bind(therapist.id)
       .first<{ n: number }>(),
@@ -479,16 +490,10 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
     )
       .bind(therapist.id)
       .all<OfferRow>(),
-    env.DB.prepare(
-      `SELECT id, url FROM therapist_media WHERE therapist_id = ? ORDER BY created_at DESC`,
-    )
-      .bind(therapist.id)
-      .all<{ id: string; url: string }>(),
   ]);
 
   context.topicCount = topics?.n ?? 0;
   context.offers = offers.results;
-  context.media = media.results;
 
   const timezone = therapist.timezone || DEFAULT_TIMEZONE;
   context.monday = mondayOf(timezone, week);
@@ -619,7 +624,7 @@ powstaną same na osiem tygodni do przodu. Pojedynczy termin zamkniesz kłódką
 
 ${
   activeOffers.length === 0
-    ? `<div class="notice warn"><p>Grafik układasz dla oferty — dodaj ją najpierw w cenniku na swojej stronie („Edytuj treść strony” w zakładce „Dane”).</p></div>`
+    ? `<div class="notice warn"><p>Grafik układasz dla oferty — dodaj ją najpierw w cenniku na swojej stronie („Edytuj swoją stronę” w zakładce „Strony”).</p></div>`
     : `<form method="post" action="/admin/terapeuci/${id}/grafik">
   ${csrfField(session)}
   <input type="hidden" name="tydzien" value="${dayKey(monday)}">
@@ -683,110 +688,32 @@ function segmented(name: string, current: string, options: RefTag[]): string {
     .join('')}</div>`;
 }
 
-/**
- * Every file ever uploaded for this profile, as its own row in the media
- * relation. The portrait is one of them; the rest wait for the gallery. Forms
- * live outside the profile form, one per action.
- */
-function mediaGallery(
-  session: AdminSession,
-  row: TherapistRow,
-  media: Array<{ id: string; url: string }>,
-): string {
-  if (media.length === 0) return '';
-  const items = media
-    .map((m) => {
-      const isPortrait = row.photo_url === m.url;
-      return `<li class="media-item${isPortrait ? ' is-portrait' : ''}">
-  <img src="${escapeHtml(m.url)}" alt="" loading="lazy">
-  ${isPortrait ? '<span class="media-tag">portret</span>' : `<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/media/${escapeHtml(m.id)}/portret">
-    <input type="hidden" name="csrf" value="${escapeHtml(session.csrfToken)}">
-    <button class="btn secondary" type="submit">Ustaw jako portret</button>
-  </form>`}
-  <form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}/media/${escapeHtml(m.id)}/usun"
-        data-confirm="Usunąć tę grafikę? Plik zniknie bezpowrotnie.">
-    <input type="hidden" name="csrf" value="${escapeHtml(session.csrfToken)}">
-    <button class="btn secondary danger" type="submit">Usuń</button>
-  </form>
-  <label class="media-address"><span class="visually-hidden">Adres tej grafiki</span>
-    <input value="${escapeHtml(m.url)}" readonly onfocus="this.select()"></label>
-</li>`;
-    })
-    .join('');
-  return `<fieldset class="media-gallery">
-  <legend>Grafiki profilu</legend>
-  <p class="hint">Każdy wgrany plik zostaje tutaj. Portret to jedna z grafik — podmiana nic nie kasuje.
-  Adres pod zdjęciem wklejasz w edytorze strony, w polu „Zdjęcie” bloku.</p>
-  <ul>${items}</ul>
-</fieldset>`;
-}
-
-function photoField(session: AdminSession, row: TherapistRow | null): string {
-  const current = escapeHtml(row?.photo_url ?? '');
-  if (!row) {
-    return `<div class="field">
-  <label for="photo_url">Adres zdjęcia</label>
-  <input id="photo_url" name="photo_url" maxlength="500" value="">
-  <p class="hint">Wgrywanie i kadrowanie pliku będzie dostępne po zapisaniu profilu.</p>
-</div>`;
-  }
-  return `<div class="field">
-  <label for="photo_url">Zdjęcie profilowe</label>
-  <div class="photo-row" data-crop data-crop-field="photo_url"
-       data-crop-action="/admin/terapeuci/${escapeHtml(row.id)}/zdjecie"
-       data-crop-csrf="${escapeHtml(session.csrfToken)}">
-    <img class="photo-preview" data-crop-preview alt="Podgląd zdjęcia profilowego"${
-      current ? ` src="${current}"` : ' hidden'
-    }>
-    <div class="photo-actions">
-      <input type="file" accept="image/png,image/jpeg,image/webp" class="visually-hidden" data-crop-file>
-      <p><button type="button" class="btn secondary" data-crop-pick>Wybierz zdjęcie i wykadruj…</button></p>
-      <input id="photo_url" name="photo_url" maxlength="500" value="${current}">
-      <p class="hint">Kadr jest kwadratowy, zapisywany w 512×512. Adres możesz też wpisać ręcznie.</p>
-    </div>
-    <dialog class="crop-dialog" aria-labelledby="crop-title">
-      <h2 id="crop-title">Wykadruj zdjęcie</h2>
-      <canvas class="crop-canvas" width="320" height="320" tabindex="0" data-crop-canvas
-              aria-label="Podgląd kadru. Przeciągnij myszą lub przesuń strzałkami."></canvas>
-      <div class="field">
-        <label for="crop-zoom">Powiększenie</label>
-        <input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1" data-crop-zoom>
-      </div>
-      <p class="crop-status" role="status" data-crop-status></p>
-      <div class="crop-actions">
-        <button type="button" class="btn secondary" data-crop-cancel>Anuluj</button>
-        <button type="button" class="btn" data-crop-save>Zapisz zdjęcie</button>
-      </div>
-    </dialog>
-  </div>
-</div>`;
-}
-
-/**
- * Tożsamość profilu i to, co należy do administratora. Treść - opis, gabinet,
- * obszary, nurty, pierwsze spotkanie, zasady odwołania - edytuje się w edytorze
- * stron (`data-fields.ts`), jednym formularzem nad tą samą bazą.
- */
-function therapistForm(session: AdminSession, row: TherapistRow | null, context: EditorContext): string {
-  const v = <K extends keyof TherapistRow>(key: K, fallback = ''): string =>
-    escapeHtml(row ? String(row[key] ?? fallback) : fallback);
-  const isAdmin = session.user.role === 'admin';
-
+/** Nowy profil: tylko imię i adres. Resztę - zdjęcie, opis, cennik - wpisuje się w edytorze strony. */
+function newProfileForm(session: AdminSession): string {
   return `
-<form method="post" action="/admin/terapeuci/${row ? escapeHtml(row.id) : 'nowy'}">
+<form method="post" action="/admin/terapeuci/nowy">
   ${csrfField(session)}
   <div class="field-row two">
     <div class="field"><label for="display_name">Imię i nazwisko</label>
-      <input id="display_name" name="display_name" required maxlength="120" value="${v('display_name')}"></div>
+      <input id="display_name" name="display_name" required maxlength="120"></div>
     <div class="field"><label for="slug">Adres profilu (slug)</label>
-      <input id="slug" name="slug" required maxlength="80" pattern="[a-z0-9-]+" value="${v('slug')}"></div>
+      <input id="slug" name="slug" required maxlength="80" pattern="[a-z0-9-]+"></div>
   </div>
+  <p><button class="btn" type="submit">Utwórz profil</button></p>
+</form>`;
+}
 
-  ${photoField(session, row)}
-  ${
-    isAdmin
-      ? `<fieldset data-repeat>
-    <legend>Kwalifikacje i ich weryfikacja (tylko administrator)</legend>
+/**
+ * To, co należy do administratora, nie do terapeutki: które kwalifikacje sprawdzono,
+ * czy profil jest zweryfikowany i czy stoi w katalogu. W edytorze strony tego nie ma,
+ * bo edytor otwiera ona sama.
+ */
+function verificationForm(session: AdminSession, row: TherapistRow, context: EditorContext): string {
+  return `
+<form method="post" action="/admin/terapeuci/${escapeHtml(row.id)}">
+  ${csrfField(session)}
+  <fieldset data-repeat>
+    <legend>Kwalifikacje i ich weryfikacja</legend>
     <div data-repeat-body>${[...context.credentials, { title: '', issuer: '', year: '', verified: false }]
       .map((entry, index) => credentialRow(entry, index))
       .join('')}</div>
@@ -794,29 +721,23 @@ function therapistForm(session: AdminSession, row: TherapistRow | null, context:
     <p><button type="button" class="btn secondary" data-repeat-add>Dodaj kwalifikację</button></p>
   </fieldset>
   <fieldset>
-    <legend>Weryfikacja i publikacja (tylko administrator)</legend>
+    <legend>Weryfikacja i publikacja</legend>
     <div class="field"><span class="seg-label">Status weryfikacji</span>
-      ${segmented(
-        'verification_status',
-        row?.verification_status ?? 'unverified',
-        [
-          { slug: 'unverified', name_pl: 'niezweryfikowany' },
-          { slug: 'verified', name_pl: 'zweryfikowany' },
-          { slug: 'rejected', name_pl: 'odrzucony' },
-        ],
-      )}</div>
+      ${segmented('verification_status', row.verification_status, [
+        { slug: 'unverified', name_pl: 'niezweryfikowany' },
+        { slug: 'verified', name_pl: 'zweryfikowany' },
+        { slug: 'rejected', name_pl: 'odrzucony' },
+      ])}</div>
     <div class="field"><label for="verification_notes">Notatki weryfikacyjne (prywatne, nigdy publiczne)</label>
-      <textarea id="verification_notes" name="verification_notes" rows="3">${v('verification_notes')}</textarea></div>
+      <textarea id="verification_notes" name="verification_notes" rows="3">${escapeHtml(row.verification_notes ?? '')}</textarea></div>
     <div class="field"><span class="seg-label">Status profilu</span>
-      ${segmented('status', row?.status ?? 'draft', [
+      ${segmented('status', row.status, [
         { slug: 'draft', name_pl: 'roboczy' },
         { slug: 'published', name_pl: 'opublikowany' },
         { slug: 'unpublished', name_pl: 'wycofany' },
       ])}
       <p class="hint">Katalog publiczny pokazuje wyłącznie profile opublikowane.</p></div>
-  </fieldset>`
-      : ''
-  }
+  </fieldset>
   <p><button class="btn" type="submit">Zapisz</button></p>
 </form>`;
 }
@@ -913,55 +834,56 @@ function profileGapsAdmin(row: TherapistRow, context: EditorContext): string[] {
   return gaps;
 }
 
-function therapistTabs(session: AdminSession, row: TherapistRow, context: EditorContext): string {
+/**
+ * Jej jedna strona w panelu. Treść profilu i podstron edytuje się w edytorze strony
+ * (dialog nad panelem); tutaj zostaje to, czego strona nie niesie: grafik, rezerwacje
+ * i - dla administratora - weryfikacja. Bez JavaScriptu zakładki leżą jedna pod drugą.
+ */
+function therapistTabs(
+  session: AdminSession,
+  row: TherapistRow,
+  context: EditorContext,
+  bookings: string,
+  openEditor: boolean,
+): string {
   const id = escapeHtml(row.id);
+  const isAdmin = session.user.role === 'admin';
+  const profile = context.pages.find((p) => p.slug === PROFILE_SLUG);
+  const profileEditor = profile ? `/admin/terapeuci/${id}/strony/${escapeHtml(profile.id)}` : '';
+  const gaps = profileGapsAdmin(row, context);
 
   return `
-<div class="tabs" data-tabs="terapeuta-v3">
-
-<section data-tab-panel data-tab-label="Dane" id="panel-profil">
-<h2 class="visually-hidden">O mnie</h2>
-<p class="panel-lead">Imię, adres profilu i zdjęcie. Opis, gabinet, obszary pracy, nurty, kwalifikacje,
-pierwsze spotkanie, cennik i pytania FAQ edytujesz na swojej stronie — widzisz je od razu tak, jak zobaczy je osoba szukająca pomocy.</p>
-${(() => {
-  const profile = context.pages.find((p) => p.slug === PROFILE_SLUG);
-  return profile
-    ? `<p><button class="btn" type="button" data-editor-open data-page-editor="/admin/terapeuci/${id}/strony/${escapeHtml(profile.id)}">Edytuj treść strony</button></p>`
-    : `<p class="notice">${escapeHtml(context.pagesError ?? PAGES_DOWN)}</p>`;
-})()}
-${
-  (() => {
-    const gaps = profileGapsAdmin(row, context);
-    return gaps.length === 0
-      ? ''
-      : `<div class="notice" role="status"><p><strong>Twoja strona ma ${gaps.length} ${
-          gaps.length === 1 ? 'brak' : 'braki'
-        }:</strong></p><ul>${gaps.map((gap) => `<li>${escapeHtml(gap)}</li>`).join('')}</ul></div>`;
-  })()
-}
-${therapistForm(session, row, context)}
-${row ? mediaGallery(session, row, context.media) : ''}
-</section>
-
-${availabilityTab(session, row, context)}
+<div class="panel-bar">
+  ${isAdmin ? '<a href="/admin">← Wszystkie profile</a>' : `<span class="meta">${escapeHtml(row.display_name)}</span>`}
+  <form method="post" action="/admin/logout" class="inline-form">${csrfField(session)}
+    <button class="btn secondary" type="submit">Wyloguj</button></form>
+</div>
+<div class="tabs" data-tabs="terapeuta-v4">
 
 <section data-tab-panel data-tab-label="Strony" id="panel-strony">
 <h2>Strony</h2>
-<p class="panel-lead">Profil i strony obok niego: landing pod kampanię, terapia grupowa, warsztat,
-wyjazd. Każda ma własny adres i własny układ; kalendarz, oferta i FAQ wchodzą na nią z Twoich danych.
-Kliknij tytuł albo adres, żeby otworzyć edytor.</p>
+<p class="panel-lead">Wszystko, co widzi osoba szukająca pomocy — imię, zdjęcie, opis, gabinet, cennik, pytania —
+zmieniasz w edytorze, na podglądzie swojej strony. Obok profilu możesz założyć landing pod kampanię, grupę albo warsztat.</p>
+${
+  gaps.length === 0
+    ? ''
+    : `<div class="notice" role="status"><p><strong>Twoja strona ma ${gaps.length} ${
+        gaps.length === 1 ? 'brak' : 'braki'
+      }:</strong></p><ul>${gaps.map((gap) => `<li>${escapeHtml(gap)}</li>`).join('')}</ul></div>`
+}
 ${
   context.pagesError
     ? `<p class="notice">${escapeHtml(context.pagesError)}</p>`
-    : `<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th></tr></thead><tbody>${context.pages
+    : `${profileEditor ? `<p><button class="btn" type="button" data-editor-open data-page-editor="${profileEditor}">Edytuj swoją stronę</button></p>` : ''}
+<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th></tr></thead><tbody>${context.pages
         .map((p) => {
-          const profile = p.slug === PROFILE_SLUG;
-          const href = `/terapeuci/${escapeHtml(row.slug)}${profile ? '' : `/${escapeHtml(p.slug)}`}`;
+          const isProfile = p.slug === PROFILE_SLUG;
+          const href = `/terapeuci/${escapeHtml(row.slug)}${isProfile ? '' : `/${escapeHtml(p.slug)}`}`;
           const editor = `/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}`;
-          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${profile ? 'Profil' : escapeHtml(p.title)}</button></td>
+          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${isProfile ? 'Profil' : escapeHtml(p.title)}</button></td>
              <td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${href}</button></td>
              <td>${p.status === 'published' ? 'opublikowana' : 'szkic — niewidoczna publicznie'}${
-               profile
+               isProfile
                  ? ''
                  : ` <form method="post" action="${editor}/status" class="inline-form">${csrfField(session)}
                <button class="btn secondary" name="status" value="${p.status === 'published' ? 'draft' : 'published'}" type="submit">
@@ -983,13 +905,29 @@ ${
 }
 </section>
 
+${availabilityTab(session, row, context)}
+
+<section data-tab-panel data-tab-label="Rezerwacje" id="panel-rezerwacje">
+${bookings}
+</section>
+
+${
+  isAdmin
+    ? `<section data-tab-panel data-tab-label="Weryfikacja" id="panel-weryfikacja">
+<h2>Weryfikacja</h2>
+${verificationForm(session, row, context)}
+</section>`
+    : ''
+}
+
 </div>
 ${
-  // Poza zakładkami: okno otwierają przyciski z „Dane” i ze „Strony”, a dialog
-  // w ukrytym panelu (display: none) nie pokazałby się mimo showModal().
+  // Poza zakładkami: dialog w ukrytym panelu (display: none) nie pokazałby się mimo showModal().
   context.pagesError
     ? ''
-    : `<dialog class="editor-dialog" data-editor-dialog data-editor-origin="${escapeHtml(context.editorOrigin)}" aria-label="Edytor strony">
+    : `<dialog class="editor-dialog" data-editor-dialog data-editor-origin="${escapeHtml(context.editorOrigin)}"${
+        openEditor && profileEditor ? ` data-editor-autoopen="${profileEditor}"` : ''
+      } aria-label="Edytor strony">
   <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
 </dialog>`
 }`;
@@ -998,14 +936,8 @@ ${
 adminApp.get('/terapeuci/nowy', async (c) => {
   const g = await screen(c, ['admin']);
   if ('response' in g) return g.response;
-  const session = g.session;
-  const context = await loadEditorContext(c.env, null);
   // No tabs here: availability and pages need a saved profile first.
-  return page(
-    c.env,
-    'Nowy profil',
-    `<h1>Nowy profil</h1>${therapistForm(session, null, context)}`,
-  );
+  return page(c.env, 'Nowy profil', `<h1>Nowy profil</h1>${newProfileForm(g.session)}`);
 });
 
 adminApp.get('/terapeuci/:id', async (c) => {
@@ -1027,127 +959,71 @@ adminApp.get('/terapeuci/:id', async (c) => {
     row.display_name,
     // Bez nagłówka nad zakładkami: imię i tak stoi w tytule karty, a wąska
     // linijka nad edytorem na całą szerokość okna wyglądała jak pomyłka.
-    therapistTabs(session, row, context),
+    // `?edytor` (wejście z logowania) otwiera od razu edytor jej profilu.
+    therapistTabs(session, row, context, await bookingsSection(c.env, session, row.id), c.req.query('edytor') !== undefined),
   );
 });
 
 /**
- * Linki do wizytówek w innych serwisach. `safeUrl` przepuszcza wyłącznie https,
- * więc `javascript:` albo `//evil` odpada zanim trafi do bazy i na profil.
+ * Zakładanie profilu i weryfikacja: oba należą do administratora. Treść - także imię
+ * i adres po założeniu - zmienia się w edytorze strony (`host-write.ts`).
  */
 adminApp.post('/terapeuci/:id', async (c) => {
   const body = await formValues(c.req.raw);
-  const id = c.req.param('id');
-  const isNew = id === 'nowy';
-  const g = await guard(c, body, isNew ? ['admin'] : ['admin', 'therapist']);
+  const g = await guard(c, body, ['admin']);
   if ('response' in g) return g.response;
   const { session } = g;
+  const id = c.req.param('id');
+  const at = nowIso();
 
-  if (!isNew && !ownsTherapist(session.user, id)) {
-    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
+  if (id === 'nowy') {
+    const slug = slugOf(body.get('slug') ?? '', 80, '');
+    const displayName = sanitizeLine(body.get('display_name') ?? '', 120);
+    if (!slug || !displayName) return page(c.env, 'Błąd', '<h1>Podaj imię i adres profilu</h1>', 400);
+    if (await c.env.DB.prepare(`SELECT 1 FROM therapists WHERE slug = ?`).bind(slug).first()) {
+      return page(c.env, 'Adres zajęty', `<h1>Adres „${escapeHtml(slug)}” ma już inny profil</h1>`, 409);
+    }
+    // Pozostałe kolumny biorą wartości domyślne: roboczy, niezweryfikowany, bez treści.
+    const created = randomId('th');
+    await c.env.DB.prepare(`INSERT INTO therapists (id, slug, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`)
+      .bind(created, slug, displayName, at, at)
+      .run();
+    await audit(c.env, {
+      actorType: 'admin',
+      actorId: session.user.id,
+      action: 'therapist.created',
+      subjectType: 'therapist',
+      subjectId: created,
+      meta: { to_status: 'draft', status: 'unverified' },
+    });
+    return c.redirect(`/admin/terapeuci/${created}`, 302);
   }
 
-  const therapistIdValue = isNew ? randomId('th') : id;
-  const at = nowIso();
-  const slug = sanitizeLine(body.get('slug') ?? '', 80)
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 80);
-  if (!slug) return page(c.env, 'Błąd', '<h1>Nieprawidłowy slug</h1>', 400);
-
-  const isAdmin = session.user.role === 'admin';
-  const existing = isNew ? null : await getTherapistRowForAdmin(c.env, id);
+  const existing = await getTherapistRowForAdmin(c.env, id);
+  if (!existing) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404);
   const pick = (name: string, allowed: string[], fallback: string): string =>
     allowed.includes(body.get(name) ?? '') ? (body.get(name) as string) : fallback;
+  const verification = pick('verification_status', ['unverified', 'verified', 'rejected'], 'unverified');
+  const status = pick('status', ['draft', 'published', 'unpublished'], 'draft');
+  const verifiedAt = verification === 'verified' ? (existing.verification_status === 'verified' ? existing.verified_at : at) : null;
 
-  const values = {
-    slug,
-    display_name: sanitizeLine(body.get('display_name') ?? '', 120),
-    photo_url: sanitizeLine(body.get('photo_url') ?? '', 500),
-    // Verification, publication and credential checks remain admin-only, whatever the form posts.
-    verification_status: isAdmin
-      ? pick('verification_status', ['unverified', 'verified', 'rejected'], 'unverified')
-      : (existing?.verification_status ?? 'unverified'),
-    verification_notes: isAdmin
-      ? sanitizeRichText(body.get('verification_notes') ?? '', 2000)
-      : (existing?.verification_notes ?? null),
-    status: isAdmin ? pick('status', ['draft', 'published', 'unpublished'], 'draft') : (existing?.status ?? 'draft'),
-    credentials: isAdmin ? collectCredentials(body) : (existing?.credentials ?? '[]'),
-  };
-  const verifiedAt =
-    values.verification_status === 'verified'
-      ? (existing?.verification_status === 'verified' ? existing.verified_at : at)
-      : null;
-
-  // Jeden zapis dla obu przypadków: SQLite scala po kluczu głównym. Treść profilu
-  // (opis, gabinet, obszary, oferta) należy do edytora stron, więc tutaj jej nie ma:
-  // nowy wiersz bierze wartości domyślne kolumn, a aktualizacja ich nie dotyka.
   await c.env.DB.prepare(
-    `INSERT INTO therapists (id, slug, display_name, photo_url, credentials, verification_status, verified_at,
-                             verification_notes, status, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)
-     ON CONFLICT(id) DO UPDATE SET
-       slug=excluded.slug, display_name=excluded.display_name, photo_url=excluded.photo_url,
-       credentials=excluded.credentials, verification_status=excluded.verification_status,
-       verified_at=excluded.verified_at, verification_notes=excluded.verification_notes, status=excluded.status,
-       updated_at=excluded.updated_at`,
+    `UPDATE therapists SET credentials = ?, verification_status = ?, verified_at = ?, verification_notes = ?, status = ?, updated_at = ?
+      WHERE id = ?`,
   )
-    .bind(
-      therapistIdValue,
-      values.slug,
-      values.display_name,
-      values.photo_url || null,
-      values.credentials,
-      values.verification_status,
-      verifiedAt,
-      values.verification_notes,
-      values.status,
-      at,
-      at,
-    )
+    .bind(collectCredentials(body), verification, verifiedAt, sanitizeRichText(body.get('verification_notes') ?? '', 2000), status, at, id)
     .run();
 
   await audit(c.env, {
-    actorType: session.user.role === 'admin' ? 'admin' : 'therapist',
+    actorType: 'admin',
     actorId: session.user.id,
-    action: isNew ? 'therapist.created' : 'therapist.updated',
+    action: 'therapist.updated',
     subjectType: 'therapist',
-    subjectId: therapistIdValue,
-    meta: { to_status: values.status, status: values.verification_status },
+    subjectId: id,
+    meta: { to_status: status, status: verification },
   });
-
-  return new Response(null, { status: 302, headers: { location: `/admin/terapeuci/${therapistIdValue}` } });
+  return c.redirect(`/admin/terapeuci/${id}#panel-weryfikacja`, 302);
 });
-
-// ----------------------------------------------------------- profile photo ---
-
-/**
- * Magic bytes, not the declared `Content-Type`. The browser sends whatever it
- * likes and `/media/:key` serves the stored type straight back, so the type is
- * decided here, from the file itself.
- */
-function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } | null {
-  const startsWith = (...signature: number[]): boolean =>
-    signature.every((byte, index) => bytes[index] === byte);
-
-  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: 'image/png', extension: 'png' };
-  if (startsWith(0xff, 0xd8, 0xff)) return { mime: 'image/jpeg', extension: 'jpg' };
-  if (
-    startsWith(0x52, 0x49, 0x46, 0x46) &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return { mime: 'image/webp', extension: 'webp' };
-  }
-  return null;
-}
-
-const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
-/** Thumbnail side, and the suffix that pairs it with its master key. */
-const PHOTO_THUMB_SUFFIX = '160';
 
 // ---------------------------------------------------------------- podstrony ---
 
@@ -1240,157 +1116,6 @@ adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
     if (!(err instanceof PagesUnavailable)) throw err;
     return page(c.env, 'Edytor niedostępny', `<h1>Edytor niedostępny</h1><p>${PAGES_DOWN}</p>`, 503);
   }
-});
-
-adminApp.post('/terapeuci/:id/zdjecie', async (c) => {
-  const fail = (message: string, status: number): Response =>
-    Response.json({ error: message }, { status, headers: { 'cache-control': 'no-store' } });
-
-  const session = await loadAdminSession(c.env, c.req.raw);
-  if (!session) return fail('Sesja wygasła. Odśwież stronę i zaloguj się ponownie.', 401);
-
-  // Multipart, so `formValues` (which drops File entries) cannot be used here.
-  let form: FormData;
-  try {
-    form = await c.req.raw.formData();
-  } catch {
-    return fail('Nieprawidłowe dane formularza.', 400);
-  }
-
-  if (!(await verifyCsrf(c.env, c.req.raw, String(form.get('csrf') ?? '')))) {
-    return fail('Nieprawidłowy token formularza. Odśwież stronę.', 403);
-  }
-
-  const id = c.req.param('id');
-  if (!['admin', 'therapist'].includes(session.user.role) || !ownsTherapist(session.user, id)) {
-    return fail('Brak uprawnień do tego profilu.', 403);
-  }
-  if (!c.env.MEDIA) {
-    return fail('Magazyn plików (R2) nie jest włączony w tym środowisku. Użyj pola z adresem zdjęcia.', 503);
-  }
-
-  const existing = await getTherapistRowForAdmin(c.env, id);
-  if (!existing) return fail('Nie znaleziono profilu.', 404);
-
-  /** Same checks for both renditions: a thumbnail is a file the browser sent too. */
-  const readImage = async (
-    field: string,
-  ): Promise<{ bytes: Uint8Array; kind: { mime: string; extension: string } } | Response> => {
-    const value = form.get(field);
-    if (!(value instanceof File)) return fail('Brak pliku.', 400);
-    if (value.size === 0 || value.size > PHOTO_MAX_BYTES) {
-      return fail('Plik musi mieć od 1 bajta do 2 MB.', 413);
-    }
-    const bytes = new Uint8Array(await value.arrayBuffer());
-    const kind = sniffImageType(bytes);
-    if (!kind) return fail('Obsługiwane formaty to PNG, JPEG i WebP.', 415);
-    return { bytes, kind };
-  };
-
-  const master = await readImage('photo');
-  if (master instanceof Response) return master;
-  // The thumbnail is optional only in the sense that an older client may omit it.
-  const thumbnail = form.has('photo_thumb') ? await readImage('photo_thumb') : null;
-  if (thumbnail instanceof Response) return thumbnail;
-
-  // Both renditions share one base key: the catalogue derives the thumbnail's
-  // address from the master's, so nothing extra is stored about it.
-  const base = `therapists/${id}/${randomId('img')}`;
-  const key = `${base}.${master.kind.extension}`;
-  await c.env.MEDIA.put(key, master.bytes, { httpMetadata: { contentType: master.kind.mime } });
-  if (thumbnail) {
-    await c.env.MEDIA.put(`${base}-${PHOTO_THUMB_SUFFIX}.${thumbnail.kind.extension}`, thumbnail.bytes, {
-      httpMetadata: { contentType: thumbnail.kind.mime },
-    });
-  }
-
-  const url = `/media/${key}`;
-  const at = nowIso();
-  await c.env.DB.prepare(`UPDATE therapists SET photo_url = ?, updated_at = ? WHERE id = ?`)
-    .bind(url, at, id)
-    .run();
-
-  // Every upload is a row in the media relation. The previous file is NOT
-  // deleted any more: it stays in the gallery and can be made the portrait
-  // again from the panel. Files leave the bucket only via the delete action.
-  await c.env.DB.prepare(
-    `INSERT INTO therapist_media (id, therapist_id, url, created_at) VALUES (?, ?, ?, ?)`,
-  )
-    .bind(randomId('med'), id, url, at)
-    .run();
-
-  await audit(c.env, {
-    actorType: session.user.role === 'admin' ? 'admin' : 'therapist',
-    actorId: session.user.id,
-    action: 'therapist.photo_updated',
-    subjectType: 'therapist',
-    subjectId: id,
-    meta: { field: master.kind.mime, count: master.bytes.length },
-  });
-
-  // The key carries fresh randomness, so the URL alone busts any cache.
-  return Response.json({ url }, { headers: { 'cache-control': 'no-store' } });
-});
-
-/**
- * The media relation's two verbs share one preamble: session, ownership and
- * the row itself. Setting the portrait only repoints therapists.photo_url;
- * deleting removes the row and - only for files this app uploaded - both
- * renditions from the bucket.
- */
-async function mediaTarget(
-  c: { env: Env; req: { raw: Request; param(name: string): string } },
-): Promise<Response | { session: AdminSession; id: string; row: { id: string; url: string } | null }> {
-  const body = await formValues(c.req.raw);
-  const g = await guard(c, body, ['admin', 'therapist']);
-  if ('response' in g) return g.response;
-  const id = c.req.param('id');
-  if (!ownsTherapist(g.session.user, id)) {
-    return page(c.env, 'Brak uprawnień', '<h1>Brak uprawnień</h1>', 403);
-  }
-  const row = await c.env.DB.prepare(`SELECT id, url FROM therapist_media WHERE id = ? AND therapist_id = ?`)
-    .bind(c.req.param('mid'), id)
-    .first<{ id: string; url: string }>();
-  return { session: g.session, id, row };
-}
-
-adminApp.post('/terapeuci/:id/media/:mid/portret', async (c) => {
-  const t = await mediaTarget(c);
-  if (t instanceof Response) return t;
-  if (t.row) {
-    await c.env.DB.prepare(`UPDATE therapists SET photo_url = ?, updated_at = ? WHERE id = ?`)
-      .bind(t.row.url, nowIso(), t.id)
-      .run();
-  }
-  return c.redirect(`/admin/terapeuci/${t.id}`, 303);
-});
-
-adminApp.post('/terapeuci/:id/media/:mid/usun', async (c) => {
-  const t = await mediaTarget(c);
-  if (t instanceof Response) return t;
-  const { id, row } = t;
-  const mid = row?.id ?? '';
-  if (row) {
-    await c.env.DB.prepare(`DELETE FROM therapist_media WHERE id = ?`).bind(mid).run();
-    // Portret wskazujący na usuwaną grafikę wraca do placeholdera.
-    await c.env.DB.prepare(`UPDATE therapists SET photo_url = NULL, updated_at = ? WHERE id = ? AND photo_url = ?`)
-      .bind(nowIso(), id, row.url)
-      .run();
-    if (c.env.MEDIA && row.url.startsWith(`/media/therapists/${id}/`)) {
-      const key = row.url.slice('/media/'.length);
-      const thumb = key.replace(/(\.[a-z]+)$/, `-${PHOTO_THUMB_SUFFIX}$1`);
-      await Promise.all([key, thumb].map((k) => c.env.MEDIA!.delete(k).catch(() => undefined)));
-    }
-    await audit(c.env, {
-      actorType: t.session.user.role === 'admin' ? 'admin' : 'therapist',
-      actorId: t.session.user.id,
-      action: 'therapist.media_deleted',
-      subjectType: 'therapist',
-      subjectId: id,
-      meta: { url: row.url },
-    });
-  }
-  return c.redirect(`/admin/terapeuci/${id}`, 303);
 });
 
 /** Wspólny początek zapisów zakładki „Dostępność": CSRF, rola, własny profil. */
@@ -1597,7 +1322,9 @@ adminApp.post('/rezerwacje/:id/anuluj', async (c) => {
     subjectId: row.id,
     meta: { reason_code: 'staff', to_status: 'cancelled' },
   });
-  return new Response(null, { status: 302, headers: { location: '/admin' } });
+  // Terapeutka odwołuje ze swojej zakładki i tam wraca; pulpit ma tylko zespół.
+  const back = g.session.user.role === 'therapist' ? `/admin/terapeuci/${row.therapist_id}#panel-rezerwacje` : '/admin';
+  return new Response(null, { status: 302, headers: { location: back } });
 });
 
 // ------------------------------------------------------------ crisis data ---

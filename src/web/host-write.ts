@@ -20,7 +20,7 @@ import { nowIso } from '../lib/time';
 import { FAQ_CATEGORIES, FAQ_ROWS, OFFER_ROWS, OFFER_TYPES, resolveAll, summarize } from './host-blocks';
 import { CREDENTIAL_ROWS, patchesFor } from './data-fields';
 import { profileContext } from './pages';
-import { savePageJson } from './pages-client';
+import { pagesOrigin, savePageJson } from './pages-client';
 
 /** Ile żyje prawo do zapisu. Tyle, ile sesja edycji po stronie usługi. */
 const TOKEN_TTL_SECONDS = 2 * 60 * 60;
@@ -44,6 +44,13 @@ async function therapistFromToken(env: Env, token: unknown): Promise<string | nu
   if (!Number.isFinite(Number(exp)) || Number(exp) * 1000 < Date.now()) return null;
   const expected = await hmacBase64Url(env.TOKEN_SIGNING_KEY, `hostwrite:${id}.${exp}`);
   return timingSafeEqual(expected, signature) ? id : null;
+}
+
+/** Odmowa zapisu z powodem, który edytor pokaże terapeutce. */
+class Refused extends Error {
+  constructor(readonly status: 400 | 409 | 413 | 415 | 502, message: string) {
+    super(message);
+  }
 }
 
 const str = (value: unknown, max: number): string => (typeof value === 'string' ? value.trim().slice(0, max) : '');
@@ -74,15 +81,98 @@ async function mergeCredentials(env: Env, id: string, sentJson: string): Promise
 }
 
 /**
+ * Magic bytes, not the declared `Content-Type`: `/media/:key` serves the stored
+ * type straight back, so the type is decided here, from the file itself.
+ */
+function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } | null {
+  const startsWith = (...signature: number[]): boolean => signature.every((byte, index) => bytes[index] === byte);
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: 'image/png', extension: 'png' };
+  if (startsWith(0xff, 0xd8, 0xff)) return { mime: 'image/jpeg', extension: 'jpg' };
+  if (startsWith(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+    return { mime: 'image/webp', extension: 'webp' };
+  }
+  return null;
+}
+
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Portret wybrany w oknie mediów edytora leży w magazynie usługi stron. Katalog
+ * jeszcze by go pokazał, ale widżet w ChatGPT wpuszcza obrazy tylko z tego serwisu,
+ * więc plik przechodzi do naszego R2, a w bazie zostaje nasz adres. Przyjmujemy
+ * wyłącznie pliki usługi (i własne): dowolny adres z sieci to pobieranie na zlecenie.
+ */
+async function adoptPhoto(env: Env, id: string, url: string): Promise<string> {
+  if (url === '' || url.startsWith('/media/')) return url;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Refused(400, 'Nieprawidłowy adres zdjęcia.');
+  }
+  if (parsed.origin === new URL(env.PUBLIC_BASE_URL).origin && parsed.pathname.startsWith('/media/')) return parsed.pathname;
+  if (parsed.origin !== pagesOrigin(env) || !parsed.pathname.startsWith('/media/')) {
+    throw new Refused(400, 'Zdjęcie wybierz albo wgraj w oknie mediów.');
+  }
+  // Środowisko bez magazynu (preview): adres usługi, który strona i katalog wpuszczają.
+  if (!env.MEDIA) return parsed.href;
+
+  // Usługa serwuje pliki wprost z R2; przekierowanie wyprowadziłoby pobieranie poza jej origin.
+  const res = await fetch(parsed.href, { redirect: 'manual', signal: AbortSignal.timeout(8000) }).catch(() => null);
+  if (!res?.ok) throw new Refused(502, 'Nie udało się pobrać zdjęcia. Spróbuj jeszcze raz.');
+  if (Number(res.headers.get('content-length') ?? 0) > PHOTO_MAX_BYTES) throw new Refused(413, 'Zdjęcie ma ponad 2 MB.');
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.length === 0 || bytes.length > PHOTO_MAX_BYTES) throw new Refused(413, 'Zdjęcie ma ponad 2 MB.');
+  const kind = sniffImageType(bytes);
+  if (!kind) throw new Refused(415, 'Zdjęcie musi być w formacie PNG, JPEG albo WebP.');
+
+  const own = `/media/therapists/${id}/${randomId('img')}.${kind.extension}`;
+  await env.MEDIA.put(own.slice('/media/'.length), bytes, { httpMetadata: { contentType: kind.mime } });
+  await env.DB.prepare(`INSERT INTO therapist_media (id, therapist_id, url, created_at) VALUES (?, ?, ?, ?)`)
+    .bind(randomId('med'), id, own, nowIso())
+    .run();
+  return own;
+}
+
+/**
+ * Jej pliki w naszym magazynie, których już nic nie używa: ani portret, ani żadna jej
+ * strona. Galerii do ręcznego sprzątania nie ma, więc stary portret znika przy zmianie.
+ * `instr`, nie `LIKE`: D1 odrzuca wzorzec dłuższy niż 50 znaków, a klucz pliku jest dłuższy.
+ */
+async function pruneMedia(env: Env, id: string, portrait: string): Promise<void> {
+  if (!env.MEDIA) return;
+  const { results } = await env.DB.prepare(`SELECT id, url FROM therapist_media WHERE therapist_id = ?`)
+    .bind(id)
+    .all<{ id: string; url: string }>();
+  for (const media of results) {
+    if (media.url === portrait || !media.url.startsWith(`/media/therapists/${id}/`)) continue;
+    const key = media.url.slice('/media/'.length);
+    const stem = key.replace(/\.[a-z]+$/, '');
+    const used = await env.DB.prepare(`SELECT 1 FROM therapist_pages WHERE therapist_id = ? AND instr(page_json, ?) > 0 LIMIT 1`)
+      .bind(id, stem)
+      .first();
+    if (used) continue;
+    await Promise.all([key, key.replace(/(\.[a-z]+)$/, '-160$1')].map((k) => env.MEDIA!.delete(k)));
+    await env.DB.prepare(`DELETE FROM therapist_media WHERE id = ?`).bind(media.id).run();
+  }
+}
+
+/**
  * Wartości z bloków w bazie. Co gdzie idzie, mówi `FIELDS` w `data-fields.ts`,
- * więc nowe pole nie wymaga zmiany w tym pliku. Wyjątkiem są kwalifikacje:
- * ich zapis zależy od stanu w bazie (`mergeCredentials`).
+ * więc nowe pole nie wymaga zmiany w tym pliku. Wyjątki zależą od stanu w bazie
+ * albo w magazynie: kwalifikacje (`mergeCredentials`), zajęty adres profilu i portret
+ * (`adoptPhoto`). Wszystkie sprawdzenia idą przed pierwszym zapisem.
  */
 async function writeFields(env: Env, id: string, data: Record<string, Values>): Promise<string[]> {
   const patches = Object.entries(data).flatMap(([type, sent]) => patchesFor(type, sent));
   const columns = patches.filter((p): p is { column: string; value: string | number } => 'column' in p);
   for (const patch of columns) {
     if (patch.column === 'credentials') patch.value = await mergeCredentials(env, id, String(patch.value));
+    if (patch.column === 'photo_url') patch.value = await adoptPhoto(env, id, String(patch.value));
+    if (patch.column === 'slug') {
+      const taken = await env.DB.prepare(`SELECT 1 FROM therapists WHERE slug = ? AND id != ?`).bind(patch.value, id).first();
+      if (taken) throw new Refused(409, `Adres „${patch.value}” ma już inny profil.`);
+    }
   }
   const relations = patches.filter((p): p is { relation: 'languages' | 'topics' | 'modalities'; values: string[] } => 'relation' in p);
 
@@ -110,6 +200,9 @@ async function writeFields(env: Env, id: string, data: Record<string, Values>): 
   for (const patch of patches) {
     if ('location' in patch) await writeLocation(env, id, patch.location);
   }
+
+  const portrait = columns.find((p) => p.column === 'photo_url');
+  if (portrait) await pruneMedia(env, id, String(portrait.value));
 
   return [
     ...columns.map((p) => p.column),
@@ -253,7 +346,13 @@ hostWriteApp.post('/host-blocks', async (c) => {
   }
 
   const data = (typeof body.data === 'object' && body.data !== null ? body.data : {}) as Record<string, Values>;
-  const touched = await writeFields(c.env, id, data);
+  let touched: string[];
+  try {
+    touched = await writeFields(c.env, id, data);
+  } catch (err) {
+    if (err instanceof Refused) return c.json({ error: err.message }, err.status);
+    throw err;
+  }
   if (data.offers && 'offer_rows' in data.offers) {
     if ((await writeOffers(c.env, id, rows(data.offers.offer_rows))) > 0) touched.push('offers');
   }

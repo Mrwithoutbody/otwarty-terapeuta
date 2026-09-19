@@ -176,10 +176,17 @@ edytora usługi. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
   i sprawdź `GET <adres edytora>/data` oraz zapis w D1. Zielone testy po obu stronach
   nie dowodzą, że usługi ze sobą rozmawiają (2026-09-19: cięcie zakładki „Dane" na tej
   podstawie, rollback po ~30 min).
-- Od 2026-09-19 edytor to **jedyna** droga edycji treści (opis, gabinet, obszary, cennik, FAQ,
-  pierwsze spotkanie). Panel trzyma tożsamość (imię, slug, zdjęcie z kadrowaniem i galerią),
-  weryfikację i publikację, grafik z urlopami i listę stron. Awaria usługi = brak edycji treści
-  do jej powrotu; strony stoją dalej z kopii w R2.
+- Od 2026-09-19 edytor to **jedyna** droga edycji treści: imię, adres profilu, zdjęcie, opis,
+  gabinet, obszary, cennik, FAQ, pierwsze spotkanie. Terapeutka po zalogowaniu ląduje w edytorze
+  swojego profilu (`/admin` → `/admin/terapeuci/<id>?edytor`); pod nim zakładki Strony, Dostępność,
+  Rezerwacje. W panelu zostaje tylko to, czego strona nie niesie albo czego terapeutka nie może
+  sama sobie nadać: grafik, rezerwacje (szyfrowane dane kontaktowe nie jadą do usługi stron),
+  weryfikacja i publikacja (zakładka administratora). Awaria usługi = brak edycji treści do jej
+  powrotu; strony stoją dalej z kopii w R2.
+- Zdjęcie wybrane w oknie mediów edytora leży w R2 usługi; `host-write.ts` kopiuje je przy
+  zapisie do naszego R2 (`adoptPhoto`), bo widżet ChatGPT wpuszcza obrazy tylko z naszego
+  originu, a zmiana `resourceDomains` wymaga ponownego podłączenia wtyczki. Przyjmuje wyłącznie
+  pliki z originu usługi. Stary portret, którego nie używa żadna jej strona, znika (`pruneMedia`).
 - Produkcja wymaga sekretu `PAGES_API_KEY` (klucz site'u `ot-02` w usłudze;
   `npm run site:create` po stronie x402Landings). Bez niego `assertConfig` odmawia.
 - Kolejność zmian w kontrakcie: najpierw usługa (testy + deploy), potem ot-02.

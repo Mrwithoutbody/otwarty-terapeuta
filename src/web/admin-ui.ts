@@ -5,10 +5,9 @@
  * served as a real file from `/assets/admin.js` and `/assets/admin.css`.
  *
  * Everything here is an enhancement: with JavaScript disabled the panel still
- * works. Tabs degrade to stacked sections, the bio editor degrades to the
- * plain textarea that holds the stored value, the photo cropper degrades to
- * the URL field next to it, and credential rows degrade to the fixed number
- * of rows the server rendered.
+ * works. Tabs degrade to stacked sections and credential rows degrade to the
+ * fixed number of rows the server rendered. The page editor needs JavaScript
+ * anyway: it is the service's own application, framed in a dialog.
  */
 
 import { SCHEDULE_HOURS } from '../db/slots';
@@ -40,6 +39,13 @@ export const ADMIN_JS = String.raw`(function () {
     document.querySelectorAll('[data-editor-open][data-page-editor]').forEach(function (button) {
       button.addEventListener('click', function () { open(button.getAttribute('data-page-editor')); });
     });
+    /* Wejście z logowania: edytor jej profilu od razu. Adres traci "?edytor",
+       żeby odświeżenie strony nie otwierało go drugi raz. */
+    var auto = dialog.getAttribute('data-editor-autoopen');
+    if (auto) {
+      open(auto);
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
     var close = dialog.querySelector('[data-editor-close]');
     if (close) close.addEventListener('click', function () { dialog.close(); });
     /* Esc naciśnięty w ramce: klawisz trafia do jej dokumentu, więc edytor
@@ -184,216 +190,6 @@ export const ADMIN_JS = String.raw`(function () {
     reindex();
   }
 
-  // ------------------------------------------------------------ photo crop ---
-
-  var CROP_VIEW = 320;
-  // Master kept generously large: the original never reaches the server, so a
-  // rendition that was not produced here can never be produced at all.
-  var CROP_OUTPUT = 768;
-  // Catalogue card renders at 72 CSS px, so 160 covers a 2x display.
-  var CROP_THUMB = 160;
-
-  function initCrop(wrap) {
-    var fileInput = wrap.querySelector('[data-crop-file]');
-    var pickButton = wrap.querySelector('[data-crop-pick]');
-    var dialog = wrap.querySelector('dialog');
-    var canvas = wrap.querySelector('[data-crop-canvas]');
-    var zoom = wrap.querySelector('[data-crop-zoom]');
-    var saveButton = wrap.querySelector('[data-crop-save]');
-    var cancelButton = wrap.querySelector('[data-crop-cancel]');
-    var status = wrap.querySelector('[data-crop-status]');
-    var preview = wrap.querySelector('[data-crop-preview]');
-    var urlField = document.getElementById(wrap.getAttribute('data-crop-field') || '');
-    if (!fileInput || !pickButton || !dialog || !canvas || !urlField) return;
-    if (typeof dialog.showModal !== 'function') return;
-
-    wrap.classList.add('crop-ready');
-    var context = canvas.getContext('2d');
-    var image = null;
-    var minScale = 1;
-    var scale = 1;
-    var offsetX = 0;
-    var offsetY = 0;
-
-    function clamp() {
-      var width = image.width * scale;
-      var height = image.height * scale;
-      offsetX = Math.min(0, Math.max(CROP_VIEW - width, offsetX));
-      offsetY = Math.min(0, Math.max(CROP_VIEW - height, offsetY));
-    }
-
-    function draw() {
-      if (!image) return;
-      clamp();
-      context.clearRect(0, 0, CROP_VIEW, CROP_VIEW);
-      context.drawImage(image, offsetX, offsetY, image.width * scale, image.height * scale);
-    }
-
-    // Zooming keeps the centre of the frame put.
-    function setScale(next) {
-      var previous = scale;
-      var centre = CROP_VIEW / 2;
-      scale = Math.max(minScale, Math.min(minScale * 4, next));
-      offsetX = centre - ((centre - offsetX) / previous) * scale;
-      offsetY = centre - ((centre - offsetY) / previous) * scale;
-      draw();
-    }
-
-    pickButton.addEventListener('click', function () { fileInput.click(); });
-
-    fileInput.addEventListener('change', function () {
-      var file = fileInput.files && fileInput.files[0];
-      if (!file) return;
-      if (file.size > 12 * 1024 * 1024) {
-        status.textContent = 'Plik jest za duży (limit 12 MB przed kadrowaniem).';
-        dialog.showModal();
-        return;
-      }
-      var reader = new FileReader();
-      reader.onload = function () {
-        var loaded = new Image();
-        loaded.onload = function () {
-          image = loaded;
-          minScale = CROP_VIEW / Math.min(loaded.width, loaded.height);
-          scale = minScale;
-          offsetX = (CROP_VIEW - loaded.width * scale) / 2;
-          offsetY = (CROP_VIEW - loaded.height * scale) / 2;
-          zoom.value = '1';
-          status.textContent = '';
-          saveButton.disabled = false;
-          dialog.showModal();
-          draw();
-        };
-        loaded.onerror = function () {
-          status.textContent = 'Nie udało się odczytać obrazu.';
-          saveButton.disabled = true;
-          dialog.showModal();
-        };
-        loaded.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-      fileInput.value = '';
-    });
-
-    zoom.addEventListener('input', function () {
-      if (!image) return;
-      setScale(minScale * Number(zoom.value));
-    });
-
-    var dragging = false;
-    var lastX = 0;
-    var lastY = 0;
-
-    canvas.addEventListener('pointerdown', function (event) {
-      if (!image) return;
-      dragging = true;
-      lastX = event.clientX;
-      lastY = event.clientY;
-      canvas.setPointerCapture(event.pointerId);
-    });
-    canvas.addEventListener('pointermove', function (event) {
-      if (!dragging) return;
-      offsetX += event.clientX - lastX;
-      offsetY += event.clientY - lastY;
-      lastX = event.clientX;
-      lastY = event.clientY;
-      draw();
-    });
-    function stopDrag() { dragging = false; }
-    canvas.addEventListener('pointerup', stopDrag);
-    canvas.addEventListener('pointercancel', stopDrag);
-
-    canvas.addEventListener('keydown', function (event) {
-      if (!image) return;
-      var step = event.shiftKey ? 20 : 5;
-      var handled = true;
-      if (event.key === 'ArrowLeft') offsetX -= step;
-      else if (event.key === 'ArrowRight') offsetX += step;
-      else if (event.key === 'ArrowUp') offsetY -= step;
-      else if (event.key === 'ArrowDown') offsetY += step;
-      else handled = false;
-      if (!handled) return;
-      event.preventDefault();
-      draw();
-    });
-
-    cancelButton.addEventListener('click', function () { dialog.close(); });
-
-    saveButton.addEventListener('click', function () {
-      if (!image) return;
-      saveButton.disabled = true;
-      status.textContent = 'Wysyłanie…';
-
-      // Side of the crop measured in the SOURCE image's own pixels. Rendering
-      // larger than this would invent detail, so it caps the output instead.
-      var available = Math.round(CROP_VIEW / scale);
-
-      function render(target) {
-        var side = Math.max(1, Math.min(target, available));
-        var canvasOut = document.createElement('canvas');
-        canvasOut.width = side;
-        canvasOut.height = side;
-        var ratio = side / CROP_VIEW;
-        var ctx = canvasOut.getContext('2d');
-        // Without this the browser does a single bilinear pass, which aliases
-        // badly once the source is more than about twice the target.
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(
-          image,
-          offsetX * ratio,
-          offsetY * ratio,
-          image.width * scale * ratio,
-          image.height * scale * ratio,
-        );
-        return new Promise(function (resolve) {
-          canvasOut.toBlob(resolve, 'image/webp', 0.85);
-        });
-      }
-
-      Promise.all([render(CROP_OUTPUT), render(CROP_THUMB)]).then(function (blobs) {
-          var blob = blobs[0];
-          var thumb = blobs[1];
-          if (!blob) {
-            status.textContent = 'Nie udało się przygotować pliku.';
-            saveButton.disabled = false;
-            return;
-          }
-          var extension = blob.type === 'image/webp' ? 'webp' : 'png';
-          var data = new FormData();
-          data.append('csrf', wrap.getAttribute('data-crop-csrf') || '');
-          data.append('photo', blob, 'profil.' + extension);
-          if (thumb) data.append('photo_thumb', thumb, 'profil-160.' + extension);
-          fetch(wrap.getAttribute('data-crop-action'), {
-            method: 'POST',
-            body: data,
-            credentials: 'same-origin',
-          })
-            .then(function (response) {
-              return response.json().then(function (payload) {
-                return { ok: response.ok, payload: payload };
-              });
-            })
-            .then(function (result) {
-              if (!result.ok) throw new Error(result.payload.error || 'Wysyłka nie powiodła się.');
-              urlField.value = result.payload.url;
-              if (preview) {
-                preview.src = result.payload.url;
-                preview.hidden = false;
-              }
-              status.textContent = '';
-              dialog.close();
-            })
-            .catch(function (error) {
-              status.textContent = error.message;
-            })
-            .then(function () {
-              saveButton.disabled = false;
-            });
-      });
-    });
-  }
-
   // ------------------------------------------------------------------ boot ---
 
   /* Grafik: jedna kratka dla wszystkich ofert, jak jeden kalendarz. Wybrana
@@ -514,16 +310,8 @@ export const ADMIN_JS = String.raw`(function () {
     document.querySelectorAll('[data-tabs]').forEach(initTabs);
     document.querySelectorAll('[data-editor-dialog]').forEach(initEditorDialog);
     document.querySelectorAll('[data-repeat]').forEach(initRepeat);
-    document.querySelectorAll('[data-crop]').forEach(initCrop);
   }
 
-  // Formularze z data-confirm pytają zanim wyślą — usuwanie grafik jest nieodwracalne.
-  document.addEventListener('submit', function (event) {
-    var form = event.target;
-    if (form instanceof HTMLFormElement && form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
-      event.preventDefault();
-    }
-  });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
@@ -706,46 +494,7 @@ button.axis[data-all] { font-size: 0.625rem; }
   .form-row { grid-template-columns: 1fr; }
 }
 
-/* Photo picker + crop dialog */
-.photo-row { display: flex; gap: 1.1rem; align-items: flex-start; flex-wrap: wrap; }
-/* Grafiki profilu: miniatury z akcjami, portret oznaczony. */
-.media-gallery ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem; }
-.media-gallery li { margin: 0; display: flex; flex-direction: column; gap: 0.4rem; align-items: stretch;
-  width: 8.5rem; }
-.media-gallery img { width: 8.5rem; height: 8.5rem; object-fit: cover; border-radius: 10px;
-  border: 1px solid var(--border, #d9d4cc); }
-.media-gallery .is-portrait img { outline: 3px solid var(--accent-strong, #4d6100); outline-offset: 2px; }
-.media-gallery .media-tag { font-size: 0.75rem; font-weight: 650; text-transform: uppercase;
-  letter-spacing: 0.06em; text-align: center; }
-.media-gallery form { margin: 0; display: contents; }
-.media-gallery .btn { font-size: 0.75rem; padding: 0.3rem 0.5rem; min-height: 0; }
-/* Adres pliku pod miniaturą: klik zaznacza całość, żeby dało się go wkleić
-   w polu „Zdjęcie" bloku w edytorze strony. */
-.media-address input {
-  width: 100%; font-size: 0.6875rem; padding: 0.25rem 0.35rem; min-height: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-muted);
-}
-.photo-preview {
-  width: 7rem; height: 7rem; border-radius: 50%; object-fit: cover;
-  border: 1px solid var(--border-strong); background: var(--surface-alt);
-}
-.photo-actions { flex: 1 1 16rem; min-width: 14rem; }
-[data-crop]:not(.crop-ready) [data-crop-pick] { display: none; }
-.crop-dialog {
-  border: 1px solid var(--border-strong); border-radius: var(--radius);
-  padding: 1.4rem; background: var(--surface-solid); color: var(--text); max-width: min(92vw, 26rem);
-}
-.crop-dialog::backdrop { background: rgba(24, 28, 12, 0.55); }
-.crop-dialog h2 { margin-top: 0; font-size: 1.15rem; }
-.crop-canvas {
-  display: block; width: 320px; max-width: 100%; height: 320px; touch-action: none; cursor: grab;
-  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-alt);
-}
-.crop-canvas:active { cursor: grabbing; }
-.crop-canvas:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-.crop-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
-.crop-status { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--danger); }
-
+.panel-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0 0 1rem; }
 /* Edytor stron w modalu: ramka w kolumnie panelu była za wąska, a nowa karta
    na każde kliknięcie mnożyła karty. Okno dialogowe daje prawie całe okno. */
 .editor-dialog { width: 96vw; max-width: none; height: 94dvh; padding: 0; border: 0; border-radius: 14px;

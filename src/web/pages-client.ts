@@ -129,9 +129,10 @@ export interface NewPage {
   status?: 'draft' | 'published';
 }
 
-export function slugOf(title: string): string {
+/** Adres z tytułu albo z tego, co wpisała: polskie litery bez ogonków, reszta w myślniki. */
+export function slugOf(title: string, max = 48, fallback = 'strona'): string {
   return title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'strona';
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, max).replace(/-$/, '') || fallback;
 }
 
 export async function createPage(env: Env, input: NewPage): Promise<PageInfo | 'slug_taken'> {

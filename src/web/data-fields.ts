@@ -17,6 +17,7 @@
 import type { PublicSlot, PublicTherapist, SessionType, AgeGroup } from '../db/types';
 import { formatPrice, formatDateTime } from '../lib/time';
 import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { slugOf } from './pages-client';
 
 export interface Field {
   kind: 'text' | 'textarea' | 'url' | 'select' | 'multiselect' | 'list' | 'media' | 'hidden' | 'computed';
@@ -172,12 +173,22 @@ function number(
 export const FIELDS: Record<string, DataField[]> = {
   'hero-profil': [
     col('display_name', 'Imię i nazwisko', (t) => t.display_name, { max: 120, required: true }),
+    {
+      // Zajęty adres odrzuca `host-write.ts`: tu nie ma bazy, żeby to sprawdzić.
+      field: { kind: 'text', name: 'slug', label: 'Adres profilu', max: 80, data: true,
+        hint: 'otwartyterapeuta.pl/terapeuci/<adres>. Zmiana adresu psuje linki, które ktoś już zapisał.' },
+      read: (t) => t.slug,
+      write: (value) => {
+        const slug = slugOf(String(value ?? ''), 80, '');
+        return slug === '' ? [] : [{ column: 'slug', value: slug }];
+      },
+    },
     col('headline', 'Nadtytuł: nagłówek zawodowy', (t) => t.headline ?? '', {
       hint: 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.',
     }),
     {
       field: { kind: 'media', name: 'photo_url', label: 'Zdjęcie profilowe', data: true,
-        hint: 'Adres pliku z galerii w panelu — plik wgrywa się tam, bo tam jest magazyn. Puste = rysunek zastępczy.' },
+        hint: 'Wybierz albo wgraj. Po zapisie zdjęcie widać też w katalogu i w ChatGPT. Puste = rysunek zastępczy.' },
       read: (t) => t.photo_url ?? '',
       write: (value) => {
         const raw = typeof value === 'object' && value !== null ? String((value as { url?: unknown }).url ?? '') : String(value ?? '');

@@ -46,8 +46,8 @@ Zasada (2026-09-04): pole w bloku mówi edytorowi, co i jak jest w bazie hosta.
 Pole związane z jedną wartością to zwykłe pole. Pole związane z rekordami to
 repeater, który sam wstawia, poprawia i usuwa (wiersz ma `usuń`). Wartość
 wyliczona z innych danych to pole `computed` — tylko do odczytu, z podpisem
-źródła. **Nic nie odsyła do panelu**; jedyny wyjątek to upload pliku (R2 jest
-po stronie hosta), gdzie pole bierze adres z galerii.
+źródła. **Nic nie odsyła do panelu**. Zdjęcie profilowe to pole `media`: edytor wgrywa plik
+do siebie, a host przy zapisie kopiuje go do swojego R2 (`adoptPhoto` w `host-write.ts`).
 
 Każde pole opisuje RAZ `src/web/data-fields.ts` (`FIELDS`): etykieta, rodzaj,
 `read` (wartość dla formularza) i `write` (łatka do bazy: kolumna, tabela
