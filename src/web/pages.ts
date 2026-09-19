@@ -236,7 +236,7 @@ siteApp.get('/', async (c) => {
   </aside>
 
   <section class="home-cta" aria-labelledby="cta-title">
-    <div><h2 id="cta-title">Znajdź terapeutę na swoich warunkach.</h2></div>
+    <div><h2 id="cta-title">Znajdź osobę, z którą chcesz porozmawiać.</h2></div>
     <div><a class="btn" href="/terapeuci">Przeglądaj terapeutów <span aria-hidden="true">→</span></a><a href="/pomoc-w-kryzysie">Potrzebuję pilnej pomocy</a></div>
   </section>
 
