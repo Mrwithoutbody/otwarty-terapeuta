@@ -22,37 +22,21 @@ const sendToConsole: SendNotification = async (message) => {
 };
 
 /** The body may echo the recipient address, so it is never logged raw. */
-async function postEmail(url: string, headers: HeadersInit, body: unknown): Promise<void> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Dostawca e-mail odrzucił wiadomość (HTTP ${res.status}).`);
-}
-
-const sendViaResend =
-  (apiKey: string, from: string): SendNotification =>
-  (message) =>
-    postEmail(
-      'https://api.resend.com/emails',
-      { authorization: `Bearer ${apiKey}` },
-      { from, to: [message.to], subject: message.subject, text: message.text },
-    );
-
 export const sendViaBrevo =
   (apiKey: string, from: string): SendNotification =>
-  (message) =>
-    postEmail(
-      'https://api.brevo.com/v3/smtp/email',
-      { accept: 'application/json', 'api-key': apiKey },
-      {
+  async (message) => {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json', 'api-key': apiKey },
+      body: JSON.stringify({
         sender: { email: from, name: 'Otwarty Terapeuta' },
         to: [{ email: message.to }],
         subject: message.subject,
         textContent: message.text,
-      },
-    );
+      }),
+    });
+    if (!res.ok) throw new Error(`Dostawca e-mail odrzucił wiadomość (HTTP ${res.status}).`);
+  };
 
 /**
  * Resolves the configured sender. Production never silently falls back to the
@@ -60,18 +44,14 @@ export const sendViaBrevo =
  * drain so a misconfiguration fails fast rather than burning a retry on every
  * queued row.
  */
-// ponytail: dwaj dostawcy w pełni zaimplementowani, produkcja używa jednego
-// (`EMAIL_PROVIDER`, sekret Wranglera — z repo nie widać którego). Sprawdzić
-// `wrangler secret list --env production`, zostawić używanego, drugiego dopisać
-// wtedy, gdy pierwszy zawiedzie.
 export function createNotificationSender(env: Env): SendNotification {
   const provider = env.EMAIL_PROVIDER ?? 'console';
-  if (provider === 'resend' || provider === 'brevo') {
+  if (provider === 'brevo') {
     const { EMAIL_API_KEY: apiKey, EMAIL_FROM: from } = env;
     if (!apiKey || !from) {
       throw new Error(`EMAIL_PROVIDER=${provider} wymaga sekretów EMAIL_API_KEY i EMAIL_FROM.`);
     }
-    return provider === 'brevo' ? sendViaBrevo(apiKey, from) : sendViaResend(apiKey, from);
+    return sendViaBrevo(apiKey, from);
   }
   if (env.ENVIRONMENT === 'production') {
     throw new Error(`Nieobsługiwany EMAIL_PROVIDER "${provider}" w środowisku produkcyjnym.`);

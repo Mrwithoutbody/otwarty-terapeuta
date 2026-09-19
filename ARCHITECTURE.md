@@ -228,7 +228,7 @@ przekazywanie mu informacji o tym, kto szuka terapeuty — dokładnie ten sygna�
 którego nie chcemy nikomu udostępniać. Logowanie jest bezhasłowe: nie ma hasła do
 wycieku ani do ponownego użycia gdzie indziej. **Konsekwencja:** dostępność
 logowania zależy od dostawcy poczty; na produkcji Worker odmawia startu, jeśli
-dostawca nie jest skonfigurowany (`createNotificationSender()`, dziś Brevo i Resend).
+dostawca nie jest skonfigurowany (`createNotificationSender()`, dziś Brevo).
 
 **Tokeny nieprzezroczyste zamiast JWT.** Weryfikacja offline jest niepotrzebna —
 resource server i authorization server to ten sam Worker z tą samą bazą. Tokeny

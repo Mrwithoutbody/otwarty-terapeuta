@@ -169,9 +169,9 @@ npx wrangler r2 bucket create otwarty-terapeuta-media-preview
 openssl rand -base64 32 | npx wrangler secret put PII_ENC_KEY --env preview
 openssl rand -base64 32 | npx wrangler secret put TOKEN_SIGNING_KEY --env preview
 npx wrangler secret put TURNSTILE_SECRET_KEY --env preview
-npx wrangler secret put EMAIL_PROVIDER --env preview      # "console", "brevo" lub "resend"
+npx wrangler secret put EMAIL_PROVIDER --env preview      # "console" albo "brevo"
 npx wrangler secret put EMAIL_FROM --env preview
-npx wrangler secret put EMAIL_API_KEY --env preview       # jeśli EMAIL_PROVIDER=brevo/resend
+npx wrangler secret put EMAIL_API_KEY --env preview       # jeśli EMAIL_PROVIDER=brevo
 npx wrangler secret put ADMIN_BOOTSTRAP_EMAILS --env preview
 npx wrangler secret put PAGES_API_KEY --env preview          # klucz site'u z x402Landings (`npm run site:create`)
 
@@ -226,8 +226,8 @@ Dodatkowo względem preview:
 | `PII_ENC_KEY` | AES-GCM dla danych kontaktowych | `openssl rand -base64 32` |
 | `TOKEN_SIGNING_KEY` | HMAC: tokeny potwierdzeń, tokeny OAuth, kody logowania, linki zarządzania rezerwacją, CSRF | `openssl rand -base64 32` |
 | `TURNSTILE_SECRET_KEY` | weryfikacja formularzy publicznych | panel Cloudflare → Turnstile |
-| `EMAIL_PROVIDER` | `console` (lokalnie), `brevo` albo `resend` | — |
-| `EMAIL_API_KEY` | klucz API Brevo/Resend | panel dostawcy |
+| `EMAIL_PROVIDER` | `console` (lokalnie) albo `brevo` | — |
+| `EMAIL_API_KEY` | klucz API Brevo | panel dostawcy |
 | `EMAIL_FROM` | adres nadawcy | — |
 | `ADMIN_BOOTSTRAP_EMAILS` | lista e-maili dostających rolę `admin` przy pierwszym logowaniu | — |
 

@@ -71,10 +71,10 @@ export function assertConfig(env: Env): void {
     if (!env.PAGES_API_KEY) missing.push('PAGES_API_KEY');
     if (!env.EMAIL_PROVIDER || env.EMAIL_PROVIDER === 'console') {
       missing.push('EMAIL_PROVIDER (must be a real provider in production)');
-    } else if (env.EMAIL_PROVIDER !== 'resend' && env.EMAIL_PROVIDER !== 'brevo') {
-      missing.push('EMAIL_PROVIDER (supported: resend, brevo)');
+    } else if (env.EMAIL_PROVIDER !== 'brevo') {
+      missing.push('EMAIL_PROVIDER (supported: brevo)');
     }
-    if ((env.EMAIL_PROVIDER === 'resend' || env.EMAIL_PROVIDER === 'brevo') && !env.EMAIL_API_KEY) {
+    if (env.EMAIL_PROVIDER === 'brevo' && !env.EMAIL_API_KEY) {
       missing.push('EMAIL_API_KEY');
     }
     if (!env.EMAIL_FROM) missing.push('EMAIL_FROM');

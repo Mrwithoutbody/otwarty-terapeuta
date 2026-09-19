@@ -137,7 +137,7 @@ cron / waitUntil → dostawca poczty → skrzynka użytkownika
 | --- | --- | --- |
 | Terapeuta | dane niezbędne do realizacji wizyty | odrębny administrator lub współadministrator — **do ustalenia prawnie** |
 | Cloudflare | cała infrastruktura i dane w tranzycie | procesor |
-| Dostawca poczty (np. Resend) | adres odbiorcy, treść potwierdzenia | procesor |
+| Dostawca poczty (Brevo) | adres odbiorcy, treść potwierdzenia | procesor |
 | ChatGPT / OpenAI | odpowiedzi narzędzi (dane publiczne + własne rezerwacje użytkownika) | poza naszą kontrolą; użytkownik świadomie łączy konto |
 
 **Nie sprzedajemy i nie udostępniamy danych do celów marketingowych.**
