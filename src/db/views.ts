@@ -15,7 +15,7 @@ import type { Env } from '../env';
  * po SQL API, a ta tabela zostaje jako agregat dobowy.
  */
 
-export type ViewSource = 'web' | 'mcp';
+type ViewSource = 'web' | 'mcp';
 
 /**
  * Nie blokuje odpowiedzi i nie może jej wywrócić: licznik odsłon jest mniej

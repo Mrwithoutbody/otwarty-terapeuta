@@ -89,7 +89,7 @@ export function securityHeaders(
   return headers;
 }
 
-export interface NavItem {
+interface NavItem {
   href: string;
   label: string;
 }
@@ -101,7 +101,7 @@ const NAV: NavItem[] = [
   { href: '/pomoc-w-kryzysie', label: 'Pomoc w kryzysie' },
 ];
 
-export interface PageOptions {
+interface PageOptions {
   title: string;
   description?: string;
   path: string;

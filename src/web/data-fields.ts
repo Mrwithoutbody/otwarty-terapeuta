@@ -33,7 +33,7 @@ export interface Field {
 }
 
 /** Co zapis ma zrobić z wartością: kolumna profilu, tabela wiążąca, adres gabinetu, kalendarz. */
-export type Patch =
+type Patch =
   | { column: string; value: string | number }
   | { relation: 'languages' | 'topics' | 'modalities'; values: string[] }
   | { location: { city: string; address: string } };
@@ -41,7 +41,7 @@ export type Patch =
 /** Listy zamknięte, które żyją w bazie (obszary, nurty) - wczytane przy synchronizacji bloków. */
 export type Dictionaries = Record<'topics' | 'modalities', Array<[string, string]>>;
 
-export interface DataField {
+interface DataField {
   field: Field;
   /** Opcje pola z bazy zamiast z kodu; `fieldsOf` je wstawia. */
   optionsFrom?: keyof Dictionaries;
@@ -52,7 +52,7 @@ export interface DataField {
 }
 
 /** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy. */
-export interface ReadCtx {
+interface ReadCtx {
   slots: PublicSlot[];
 }
 
@@ -62,18 +62,18 @@ export interface ReadCtx {
 export const CREDENTIAL_ROWS = 6;
 
 /** Listy zamknięte są wspólne dla wszystkich terapeutek, więc mogą siedzieć w definicji bloku. */
-export const LANGUAGE_OPTIONS: Array<[string, string]> = [
+const LANGUAGE_OPTIONS: Array<[string, string]> = [
   ['pl', 'polski'], ['en', 'angielski'], ['uk', 'ukraiński'], ['ru', 'rosyjski'],
   ['de', 'niemiecki'], ['fr', 'francuski'], ['es', 'hiszpański'], ['be', 'białoruski'],
 ];
 
-const SESSION_TYPE_OPTIONS: Array<[string, string]> = [
-  ['individual', 'indywidualne'], ['couples', 'dla par'], ['family', 'rodzinne'],
-];
+const SESSION_TYPE_OPTIONS = Object.entries({
+  individual: 'indywidualne', couples: 'dla par', family: 'rodzinne',
+} satisfies Record<SessionType, string>);
 
-const AGE_GROUP_OPTIONS: Array<[string, string]> = [
-  ['adults', 'dorośli'], ['teens', 'młodzież'], ['children', 'dzieci'], ['seniors', 'seniorzy'],
-];
+const AGE_GROUP_OPTIONS = Object.entries({
+  adults: 'dorośli', teens: 'młodzież', children: 'dzieci', seniors: 'seniorzy',
+} satisfies Record<AgeGroup, string>);
 
 const YES_NO: Array<[string, string]> = [['1', 'tak'], ['0', 'nie']];
 

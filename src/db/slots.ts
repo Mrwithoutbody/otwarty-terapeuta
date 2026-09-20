@@ -33,7 +33,7 @@ import {
  */
 
 /** Siedem list godzin, indeks = dzień tygodnia (0 = niedziela). */
-export type Week = number[][];
+type Week = number[][];
 
 /** Osiem tygodni do przodu; cron dokłada, gdy zostaje mniej niż siedem. */
 export const HORIZON_DAYS = 56;
@@ -88,7 +88,7 @@ export interface TimeOff {
   ends_on: string;
 }
 
-export interface SlotPlan {
+interface SlotPlan {
   offerId: string;
   durationMinutes: number;
   timezone: string;
@@ -96,7 +96,7 @@ export interface SlotPlan {
   timeOff?: TimeOff[];
 }
 
-export function slotStatements(env: Env, therapistId: string, plan: SlotPlan): D1PreparedStatement[] {
+function slotStatements(env: Env, therapistId: string, plan: SlotPlan): D1PreparedStatement[] {
   const at = nowIso();
   const today = civilDateIn(plan.timezone, new Date());
   const statements: D1PreparedStatement[] = [];
@@ -147,7 +147,7 @@ export async function listTimeOff(env: Env, therapistId: string): Promise<Array<
   return results;
 }
 
-export interface OfferSchedule {
+interface OfferSchedule {
   id: string;
   duration_minutes: number;
   week: Week;

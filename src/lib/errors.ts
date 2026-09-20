@@ -2,7 +2,7 @@
  * Errors that are safe to show a user, with a stable machine code so the
  * widget and the model can react without parsing Polish prose.
  */
-export type AppErrorCode =
+type AppErrorCode =
   | 'not_found'
   | 'invalid_input'
   | 'unauthorized'

@@ -1,8 +1,10 @@
 /** Shapes returned to the public: MCP tools, the widget and the website. */
 
-export type SessionType = 'individual' | 'couples' | 'family';
+export const SESSION_TYPES = ['individual', 'couples', 'family'] as const;
+export type SessionType = (typeof SESSION_TYPES)[number];
 export type SessionMode = 'online' | 'in_person';
-export type AgeGroup = 'adults' | 'teens' | 'children' | 'seniors';
+export const AGE_GROUPS = ['adults', 'teens', 'children', 'seniors'] as const;
+export type AgeGroup = (typeof AGE_GROUPS)[number];
 
 export interface PublicCredential {
   title: string;

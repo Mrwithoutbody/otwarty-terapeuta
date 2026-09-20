@@ -19,7 +19,7 @@ import { fnv1a } from '../lib/crypto';
  * reason is derived from a field the caller can see in the same response.
  */
 
-export interface RankedTherapist {
+interface RankedTherapist {
   therapist: PublicTherapist;
   score: number;
   match_reasons: string[];

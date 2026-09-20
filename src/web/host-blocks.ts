@@ -392,7 +392,7 @@ const photo = (ctx: SectionCtx): Values => {
 };
 
 /** A host block as the service is told about it, plus how this host fills it. */
-export interface HostDef {
+interface HostDef {
   label: string;
   hint: string;
   fields?: Field[];

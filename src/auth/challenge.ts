@@ -16,7 +16,7 @@ import { isoPlusSeconds, nowIso } from '../lib/time';
  * than from the form, so a tampered hidden field cannot change the outcome.
  */
 
-export type ChallengePurpose = 'oauth' | 'admin' | 'therapist_signup';
+type ChallengePurpose = 'oauth' | 'admin' | 'therapist_signup';
 
 const CODE_TTL_SECONDS = 900;
 const MAX_ATTEMPTS = 5;
@@ -55,7 +55,7 @@ export async function issueEmailCode(
  * challenge alike: the caller must not be able to tell those apart, or the
  * form becomes an oracle.
  */
-export type CodeVerdict =
+type CodeVerdict =
   | { ok: true; email: string; context: string }
   | { ok: false; reason: 'unknown' | 'expired' | 'attempts' | 'mismatch' };
 

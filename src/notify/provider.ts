@@ -8,7 +8,7 @@ export interface NotificationMessage {
   text: string;
 }
 
-export type SendNotification = (message: NotificationMessage) => Promise<void>;
+type SendNotification = (message: NotificationMessage) => Promise<void>;
 
 /**
  * Local/dev sender. Prints the message instead of sending it and says so, so

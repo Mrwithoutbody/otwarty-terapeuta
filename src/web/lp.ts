@@ -49,7 +49,7 @@ const CRISIS = {
 };
 
 /** The frame: her name, the catalogue, her other pages (the service lists nothing itself), the crisis numbers. */
-export function chromeFor(t: PublicTherapist, pages: PageInfo[] = []): Record<string, unknown> {
+function chromeFor(t: PublicTherapist, pages: PageInfo[] = []): Record<string, unknown> {
   const profileHref = `/terapeuci/${t.slug}`;
   return {
     brand: { label: t.display_name, href: profileHref },
@@ -61,7 +61,7 @@ export function chromeFor(t: PublicTherapist, pages: PageInfo[] = []): Record<st
   };
 }
 
-export interface ServedPage {
+interface ServedPage {
   html: string;
   /** Served from the R2 copy because the service did not answer. */
   stale: boolean;

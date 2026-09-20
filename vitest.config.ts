@@ -27,7 +27,7 @@ export default defineConfig({
           EMAIL_FROM: 'test@example.invalid',
           ADMIN_BOOTSTRAP_EMAILS: 'admin@example.invalid',
           // The pages service runs in-process on an in-memory store.
-          PAGES_URL: 'memory://',
+          PAGES_URL: 'https://pages.test',
           PAGES_API_KEY: 'test-key',
         },
       },

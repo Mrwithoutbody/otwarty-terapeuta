@@ -28,7 +28,7 @@ export interface Env {
   PRIVACY_VERSION: string;
   TURNSTILE_SITE_KEY: string;
   SUPPORT_EMAIL: string;
-  /** The pages service (templates, editor, render). `memory://` runs it in-process, for tests. */
+  /** The pages service (templates, editor, render). Tests answer for it in-process (`test/setup.ts`). */
   PAGES_URL: string;
 
   // --- secrets ---

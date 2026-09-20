@@ -35,7 +35,7 @@ const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600;
 const AUTH_CODE_TTL_SECONDS = 300;
 
-export interface AuthorizeParams {
+interface AuthorizeParams {
   client_id: string;
   redirect_uri: string;
   scope: string;

@@ -24,7 +24,7 @@ export const CONTROLLER = {
   dpo: '',
 };
 
-export type Controller = typeof CONTROLLER;
+type Controller = typeof CONTROLLER;
 
 /**
  * Tożsamość administratora jako lista par. Pola bez wartości wypadają.

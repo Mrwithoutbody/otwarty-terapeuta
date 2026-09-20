@@ -8,7 +8,7 @@
  * validation.
  */
 
-export interface HostMessage {
+interface HostMessage {
   jsonrpc: '2.0';
   id?: string | number;
   method?: string;

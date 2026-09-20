@@ -22,7 +22,7 @@ import type { Env } from '../env';
  */
 const CUTOFF = `strftime('%Y-%m-%dT%H:%M:%SZ','now',?)`;
 
-export interface PurgeResult {
+interface PurgeResult {
   outbox: number;
   bookingContacts: number;
   auditEvents: number;

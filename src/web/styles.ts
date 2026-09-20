@@ -210,26 +210,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
 .footer-legal { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-strong); }
 .footer-legal p { color: var(--text-muted); font-size: 0.76rem; line-height: 1.55; margin: 0; }
 .footer-legal p:first-child { max-width: 80ch; }
-.hero {
-  isolation: isolate; position: relative; overflow: hidden;
-  min-height: clamp(31rem, 52vw, 38rem); display: grid; place-content: center;
-  margin-bottom: clamp(3rem, 7vw, 5rem); padding: clamp(2rem, 6vw, 5rem);
-  border: 1px solid rgba(209, 216, 193, 0.62); border-radius: var(--radius-lg);
-  background:
-    linear-gradient(rgba(255, 254, 249, 0.3), rgba(255, 254, 249, 0.3)),
-    #fbfaf3;
-  box-shadow: 0 12px 35px rgba(62, 76, 31, 0.045);
-  text-align: center;
-}
-.hero::before, .hero::after {
-  content: ""; position: absolute; z-index: -1; border: 1px solid rgba(120, 141, 8, 0.12);
-  border-radius: 50%; pointer-events: none;
-}
-.hero::before { width: 28rem; height: 28rem; left: -16rem; top: 4rem; box-shadow: 0 0 0 4rem rgba(255,255,255,0.07); }
-.hero::after { width: 35rem; height: 35rem; right: -22rem; top: -8rem; box-shadow: 0 0 0 5rem rgba(255,255,255,0.07); }
-.hero h1 { max-width: 16ch; margin-inline: auto; }
-.hero p { margin-inline: auto; }
-.hero p.lead { max-width: 52ch; color: #686f5f; font-size: clamp(1rem, 0.96rem + 0.25vw, 1.125rem); line-height: 1.7; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   min-height: 2.75rem; padding: 0.625rem 1.25rem; border: 1px solid var(--accent-strong);

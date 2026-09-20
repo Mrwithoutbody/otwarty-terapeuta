@@ -9,7 +9,7 @@ import { AppError } from './errors';
  * any other sensitive value - only identifiers and the commercial terms that
  * `create_booking` must re-verify against the database.
  */
-export interface ConfirmationPayload {
+interface ConfirmationPayload {
   v: 1;
   /** User the preview was issued to. A token is worthless to anybody else. */
   uid: string;

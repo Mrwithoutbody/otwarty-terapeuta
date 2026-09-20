@@ -2,9 +2,9 @@ import type { Env } from '../env';
 import { randomId } from './crypto';
 import { nowIso } from './time';
 
-export type ActorType = 'user' | 'admin' | 'therapist' | 'support' | 'system' | 'anonymous';
+type ActorType = 'user' | 'admin' | 'therapist' | 'support' | 'system' | 'anonymous';
 
-export interface AuditInput {
+interface AuditInput {
   actorType: ActorType;
   actorId?: string | null;
   action: string;

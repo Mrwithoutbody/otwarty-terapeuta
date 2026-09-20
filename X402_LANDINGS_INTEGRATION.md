@@ -25,7 +25,7 @@ nagłówek zostaje.
 ## Klient: `src/web/pages-client.ts`
 
 `PAGES_URL` (var). Bez klucza: usługa składa każdemu, a sesję edycji otwiera tylko
-hostom z listy `HOSTS` po jej stronie. `memory://` = x402L w procesie (testy).
+hostom z listy `HOSTS` po jej stronie. W testach `https://pages.test` = x402L w procesie (`test/setup.ts`).
 
 ```
 POST /v1/render/page   {owner, slug, title, theme, variant, page, resolved, chrome, industry} → HTML

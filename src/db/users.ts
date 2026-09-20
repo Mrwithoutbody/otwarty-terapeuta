@@ -2,7 +2,7 @@ import type { Env } from '../env';
 import { decryptPii, emailLookupHash, encryptPii, randomId } from '../lib/crypto';
 import { nowIso } from '../lib/time';
 
-export type Role = 'user' | 'support' | 'therapist' | 'admin';
+type Role = 'user' | 'support' | 'therapist' | 'admin';
 
 export interface UserRow {
   id: string;

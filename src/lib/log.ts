@@ -37,7 +37,7 @@ const ALLOWED_FIELDS = new Set([
   'environment',
 ]);
 
-export type LogFields = Record<string, string | number | boolean | undefined>;
+type LogFields = Record<string, string | number | boolean | undefined>;
 
 function project(fields: LogFields): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};

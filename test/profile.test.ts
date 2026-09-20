@@ -33,7 +33,7 @@ describe('the profile page, typeset by the pages service', () => {
   it('serves the last good copy when the service is down, and a page with the crisis numbers when there is none', async () => {
     const t = (await getTherapist(env, { therapist_id: ANNA }))!;
     const ctx = await profileContext(env, t);
-    const down = { ...env, PAGES_URL: 'memory://down' };
+    const down = { ...env, PAGES_URL: 'https://pages.down' };
 
     await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo'); // writes the copy
     const stale = await serveTherapistPage(down, t, ctx, 'profil');

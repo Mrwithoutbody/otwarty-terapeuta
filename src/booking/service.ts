@@ -43,7 +43,7 @@ export interface BookingSummary {
   privacy_url: string;
 }
 
-export interface PreviewResult {
+interface PreviewResult {
   summary: BookingSummary;
   confirmation_token: string;
   confirmation_token_expires_at: string;
@@ -136,7 +136,7 @@ export async function previewBooking(
   };
 }
 
-export interface CreateBookingInput {
+interface CreateBookingInput {
   confirmation_token: string;
   idempotency_key: string;
   contact_name?: string;
@@ -148,7 +148,7 @@ export interface CreateBookingInput {
   accepted_privacy_version: string;
 }
 
-export interface CreateBookingResult {
+interface CreateBookingResult {
   booking_id: string;
   public_ref: string;
   status: 'confirmed';
@@ -385,7 +385,7 @@ async function loadSummary(env: Env, bookingId: string): Promise<BookingSummary>
   };
 }
 
-export interface MyBooking {
+interface MyBooking {
   booking_id: string;
   public_ref: string;
   status: 'confirmed' | 'cancelled';
@@ -443,7 +443,7 @@ export async function listMyBookings(
   }));
 }
 
-export interface CancelResult {
+interface CancelResult {
   booking_id: string;
   public_ref: string;
   status: 'cancelled';

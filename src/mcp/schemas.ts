@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AGE_GROUPS, SESSION_TYPES } from '../db/types';
 import { isIsoDate, isValidTimezone } from '../lib/time';
 
 /**
@@ -18,9 +19,9 @@ import { isIsoDate, isValidTimezone } from '../lib/time';
  * więc opłaca się dopiero razem z inną zmianą kontraktu.
  */
 
-const SESSION_TYPE = z.enum(['individual', 'couples', 'family']);
+const SESSION_TYPE = z.enum(SESSION_TYPES);
 const SESSION_MODE = z.enum(['online', 'in_person']);
-const AGE_GROUP = z.enum(['adults', 'teens', 'children', 'seniors']);
+const AGE_GROUP = z.enum(AGE_GROUPS);
 
 const slug = z
   .string()

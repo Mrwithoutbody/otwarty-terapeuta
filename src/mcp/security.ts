@@ -8,7 +8,7 @@
  * SDK compatibility shape.
  */
 
-export type ToolSecurityScheme =
+type ToolSecurityScheme =
   | { type: 'noauth' }
   | { type: 'oauth2'; scopes: string[] };
 

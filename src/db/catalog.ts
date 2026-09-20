@@ -1,6 +1,7 @@
 import type { Env } from '../env';
 import { normalizeForSearch, safeUrl } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
+import { AGE_GROUPS, SESSION_TYPES } from './types';
 import type {
   AgeGroup,
   CrisisResource,
@@ -35,9 +36,6 @@ function parseJsonArray<T>(raw: string, allowed: readonly string[]): T[] {
     return [];
   }
 }
-
-const AGE_GROUPS = ['adults', 'teens', 'children', 'seniors'] as const;
-const SESSION_TYPES = ['individual', 'couples', 'family'] as const;
 
 /** Linki wpisuje człowiek w panelu, więc adres jest walidowany jeszcze raz przy odczycie. */
 function parseLinks(raw: string): PublicLink[] {
@@ -439,7 +437,7 @@ export async function getPublishedFaq(
   return scored.map((entry) => entry.item);
 }
 
-export interface SlotQuery {
+interface SlotQuery {
   therapist_id: string;
   from_utc: string;
   to_utc: string;

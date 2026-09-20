@@ -7,9 +7,6 @@
  * and travels to the service in every request, next to her data (`resolved`)
  * and the frame (`chrome`). This module is the only place that knows the wire
  * shape; everything else asks for a page, an editor link or HTML.
- *
- * In tests `PAGES_URL` is `memory://`: the service runs in-process, so the suite
- * exercises the real render with no network.
  */
 import type { Env } from '../env';
 import { randomId } from '../lib/crypto';
@@ -39,42 +36,18 @@ export class PagesUnavailable extends Error {
   override name = 'PagesUnavailable';
 }
 
-/** The in-process service for tests. Lives as long as the isolate. */
-let memory: Promise<{ fetch(req: Request): Promise<Response> }> | null = null;
-async function memoryService() {
-  memory ??= (async () => {
-    // Ścieżka w zmiennej: `tsc` hosta nie sprawdza wtedy źródeł usługi (inne flagi ścisłości).
-    const entry = 'x402l/src/index';
-    const { app } = (await import(/* @vite-ignore */ entry)) as { app: { fetch(req: Request, env: unknown): Promise<Response> } };
-    const serviceEnv = { DB: undefined, TOKEN_SECRET: 'test' };
-    return {
-      fetch: async (req: Request) => {
-        // An edit session needs the service's own D1; the tests need only its address.
-        if (new URL(req.url).pathname === '/v1/edit-session') return Response.json({ url: 'https://pages.test/edit/test.0.0' });
-        return app.fetch(req, serviceEnv);
-      },
-    };
-  })();
-  return memory;
-}
-
 /** One call to the service. Network trouble becomes `PagesUnavailable`; an answer, any answer, is returned. */
-export async function pagesFetch(env: Env, path: string, init: RequestInit & { json?: unknown } = {}): Promise<Response> {
+async function pagesFetch(env: Env, path: string, init: RequestInit & { json?: unknown } = {}): Promise<Response> {
   const { json, ...rest } = init;
   const headers = new Headers(rest.headers);
   if (json !== undefined) headers.set('content-type', 'application/json');
-  const base = env.PAGES_URL.startsWith('memory://') ? 'https://pages.test' : env.PAGES_URL.replace(/\/$/, '');
-  const request = new Request(`${base}${path}`, {
+  const request = new Request(`${env.PAGES_URL.replace(/\/$/, '')}${path}`, {
     ...rest,
     headers,
     body: json === undefined ? rest.body : JSON.stringify(json),
     signal: AbortSignal.timeout(8000),
   });
   try {
-    // `memory://down` is the service that never answers - the outage tests use it,
-    // because a refused socket makes workerd throw once more after the catch.
-    if (env.PAGES_URL === 'memory://down') throw new PagesUnavailable('pages service unreachable: down');
-    if (env.PAGES_URL.startsWith('memory://')) return await (await memoryService()).fetch(request);
     const res = await fetch(request);
     if (res.status >= 500) throw new PagesUnavailable(`pages service answered ${res.status}`);
     return res;
@@ -108,7 +81,7 @@ export async function getPage(env: Env, id: string): Promise<PageInfo | null> {
   return row ? fromRow(row) : null;
 }
 
-export async function findPage(env: Env, owner: string, slug: string): Promise<PageInfo | null> {
+async function findPage(env: Env, owner: string, slug: string): Promise<PageInfo | null> {
   const row = await env.DB.prepare(`SELECT * FROM therapist_pages WHERE therapist_id = ? AND slug = ?`).bind(owner, slug).first<PageRow>();
   return row ? fromRow(row) : null;
 }
@@ -120,7 +93,7 @@ export async function listThemeChoices(env: Env): Promise<ThemeChoice[]> {
   return ((await res.json()) as Array<{ slug: string; label: string; hint: string }>).map((t) => ({ theme: t.slug, label: t.label, hint: t.hint }));
 }
 
-export interface NewPage {
+interface NewPage {
   owner: string;
   title: string;
   slug?: string;
@@ -167,7 +140,7 @@ export async function setPageStatus(env: Env, owner: string, id: string, status:
     .bind(status, nowIso(), id, owner).run();
 }
 
-export interface RenderRequest {
+interface RenderRequest {
   owner: string;
   slug: string;
   resolved: Record<string, unknown>;
@@ -187,7 +160,7 @@ export async function renderPage(env: Env, input: RenderRequest): Promise<string
   return res.text();
 }
 
-export interface EditSessionInput {
+interface EditSessionInput {
   resolved: Record<string, unknown>;
   chrome: Record<string, unknown>;
   /** Gdzie usługa odeśle stronę po zapisie, i czym się przy tym wylegitymuje. */
@@ -211,7 +184,6 @@ export async function editSession(env: Env, page: PageInfo, input: EditSessionIn
 
 /** The service's origin, for the CSP of pages that link its stylesheet. */
 export function pagesOrigin(env: Env): string | null {
-  if (env.PAGES_URL.startsWith('memory://')) return 'https://pages.test';
   try {
     return new URL(env.PAGES_URL).origin;
   } catch {
