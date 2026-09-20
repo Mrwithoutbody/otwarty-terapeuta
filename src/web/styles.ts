@@ -217,7 +217,6 @@ footer.site a:hover { color: var(--accent-strong); text-decoration: underline; }
   border: 1px solid rgba(209, 216, 193, 0.62); border-radius: var(--radius-lg);
   background:
     linear-gradient(rgba(255, 254, 249, 0.3), rgba(255, 254, 249, 0.3)),
-    url("/illustrations/therapy-conversation.webp") center / cover no-repeat,
     #fbfaf3;
   box-shadow: 0 12px 35px rgba(62, 76, 31, 0.045);
   text-align: center;
@@ -696,9 +695,6 @@ a.hero-face:hover img, a.hero-face:focus-visible img { transform: scale(1.06); }
 .chat-note > div { flex: 1 1 22rem; }
 .chat-note h2 { margin: 0 0 0.3rem; font-size: 1.1rem; }
 .chat-note p { margin: 0; color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
-/* The three illustrations are the only warm thing on the page: measured on
-   their pixels, 96.6-98.7% of their colour sits between 15 and 60 degrees,
-   peaking at 45 (amber, sand). Everything else here is the service green. */
 .home-cta { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 2rem; align-items: center; margin-top: clamp(3rem, 6vw, 4.75rem); padding: clamp(2rem, 5vw, 3.25rem); border: 0; border-radius: 16px; background: var(--navy); }
 .home-cta h2 { color: #fbfbff; }
 .home-cta .btn { background: #fff; border-color: #fff; color: var(--navy); box-shadow: none; }

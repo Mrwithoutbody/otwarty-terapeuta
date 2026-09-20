@@ -565,7 +565,7 @@ describe('static media', () => {
     const sources = [...html.matchAll(/src="([^"]+)"/g)].map((m) => m[1] as string);
     expect(sources.length).toBeGreaterThan(0);
     for (const src of new Set(sources)) {
-      expect(src, src).toMatch(/^\/(avatar-placeholder\.webp|media\/|logo\.svg|illustrations\/)/);
+      expect(src, src).toMatch(/^\/(avatar-placeholder\.webp|media\/|logo\.svg)/);
     }
   });
 
