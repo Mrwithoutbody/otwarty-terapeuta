@@ -9,6 +9,7 @@ export default tseslint.config(
       'node_modules/**',
       'worker-configuration.d.ts',
       'src/widget/generated.ts',
+      'src/authored/tool-generated.ts',
     ],
   },
   js.configs.recommended,

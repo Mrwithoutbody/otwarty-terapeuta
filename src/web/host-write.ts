@@ -84,7 +84,7 @@ async function mergeCredentials(env: Env, id: string, sentJson: string): Promise
  * Magic bytes, not the declared `Content-Type`: `/media/:key` serves the stored
  * type straight back, so the type is decided here, from the file itself.
  */
-function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } | null {
+export function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } | null {
   const startsWith = (...signature: number[]): boolean => signature.every((byte, index) => bytes[index] === byte);
   if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: 'image/png', extension: 'png' };
   if (startsWith(0xff, 0xd8, 0xff)) return { mime: 'image/jpeg', extension: 'jpg' };
@@ -94,7 +94,7 @@ function sniffImageType(bytes: Uint8Array): { mime: string; extension: string } 
   return null;
 }
 
-const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 
 /**
  * Portret wybrany w oknie mediów edytora leży w magazynie usługi stron. Katalog

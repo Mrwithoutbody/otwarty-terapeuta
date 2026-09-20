@@ -58,3 +58,27 @@ await writeFile(
 );
 
 console.log(`widget: ${(html.length / 1024).toFixed(1)} kB -> src/widget/generated.ts`);
+
+/**
+ * Narzędzie stron autorskich (`src/authored/tool.ts`): jeden plik JS dla panelu.
+ * Importuje `core.ts`, czyli ten sam renderer i strażnik faktów, których używa Worker.
+ */
+const tool = await build({
+  entryPoints: [resolve(root, 'src/authored/tool.ts')],
+  bundle: true,
+  format: 'iife',
+  target: ['es2022'],
+  platform: 'browser',
+  minify: true,
+  write: false,
+  legalComments: 'none',
+  logLevel: 'warning',
+});
+const toolJs = tool.outputFiles?.[0]?.text ?? '';
+if (toolJs.length === 0) throw new Error('esbuild nie wyprodukował bundla narzędzia stron.');
+await writeFile(
+  resolve(root, 'src/authored/tool-generated.ts'),
+  `/* GENERATED FILE - do not edit. Produced by scripts/build-widget.mjs. */\n` + `/* eslint-disable */\n` + `export const TOOL_JS = ${JSON.stringify(toolJs)};\n`,
+  'utf8',
+);
+console.log(`narzędzie stron: ${(toolJs.length / 1024).toFixed(1)} kB -> src/authored/tool-generated.ts`);

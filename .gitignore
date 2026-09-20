@@ -20,3 +20,4 @@ src/widget/generated.ts
 
 # Uploads land here in local dev; they are somebody's photograph, not source.
 public/media/demo/_tmp-*
+src/authored/tool-generated.ts

@@ -25,6 +25,7 @@ import { editorUrl, ensureProfilePage, PagesUnavailable, PROFILE_SLUG } from './
 import { createPage, getPage, listPages, listThemeChoices, pagesOrigin, setPageStatus, slugOf, type PageInfo, type ThemeChoice } from './pages-client';
 import { getTherapist } from '../db/catalog';
 import { profileContext } from './pages';
+import { authoredPanel } from '../authored/panel';
 import type { SectionCtx } from './host-blocks';
 
 /**
@@ -38,6 +39,9 @@ import type { SectionCtx } from './host-blocks';
  */
 
 export const adminApp = new Hono<{ Bindings: Env }>();
+
+// Strona autorska: osobny dokument z narzędziem i własne trasy zapisu (`src/authored/panel.ts`).
+adminApp.route('/terapeuci/:id/strona', authoredPanel);
 
 
 function page(env: Env, title: string, body: string, status = 200, turnstile = false): Response {
@@ -862,6 +866,9 @@ function therapistTabs(
 
 <section data-tab-panel data-tab-label="Strony" id="panel-strony">
 <h2>Strony</h2>
+<div class="notice"><p><strong>Strona o mnie, pisana własnymi słowami.</strong> Odpowiadasz na pytania, które pacjenci naprawdę zadają,
+a strona składa się sama. Ceny, terminy i kwalifikacje pokazujemy z Twoich danych.</p>
+<p><a class="btn" href="/admin/terapeuci/${id}/strona">Napisz swoją stronę</a></p></div>
 <p class="panel-lead">Wszystko, co widzi osoba szukająca pomocy — imię, zdjęcie, opis, gabinet, cennik, pytania —
 zmieniasz w edytorze, na podglądzie swojej strony. Obok profilu możesz założyć landing pod kampanię, grupę albo warsztat.</p>
 ${
