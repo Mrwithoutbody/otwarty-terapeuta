@@ -21,6 +21,7 @@ import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
 import { log } from '../lib/log';
 import { htmlResponse, renderPage } from './layout';
+import { serveAuthored } from '../authored/site';
 import { PROFILE_SLUG, serveTherapistPage, unavailablePage, withSeoHead, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
 
@@ -527,6 +528,11 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
   if (pageSlug === PROFILE_SLUG) {
     // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
     c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
+  }
+  if (pageSlug === PROFILE_SLUG) {
+    // Strona pisana jej słowami ma pierwszeństwo; bez niej profil niesie usługa stron, jak dotąd.
+    const authored = await serveAuthored(c.env, t, ctx.slots);
+    if (authored) return htmlResponse(c.env, withSeoHead(c.env, authored, t, pageSlug));
   }
   try {
     const served = await serveTherapistPage(c.env, t, ctx, pageSlug);

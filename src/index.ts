@@ -22,6 +22,7 @@ import { siteApp } from './web/pages';
 import { htmlResponse, renderPage, securityHeaders } from './web/layout';
 import { APP_CSS } from './web/styles';
 import { ADMIN_CSS, ADMIN_JS } from './web/admin-ui';
+import { AUTHORED_CSS } from './authored/page-css';
 import { fillFromSchedules } from './db/slots';
 import { log } from './lib/log';
 import { purgeExpiredData } from './db/retention';
@@ -51,6 +52,15 @@ const VERSIONED = 'public, max-age=31536000, immutable';
 
 app.get('/assets/app.css', () =>
   new Response(APP_CSS, {
+    headers: {
+      'content-type': 'text/css; charset=utf-8',
+      'cache-control': VERSIONED,
+    },
+  }),
+);
+
+app.get('/assets/strona.css', () =>
+  new Response(AUTHORED_CSS, {
     headers: {
       'content-type': 'text/css; charset=utf-8',
       'cache-control': VERSIONED,
