@@ -490,8 +490,24 @@ button.axis[data-all] { font-size: 0.625rem; }
 /* Jeden wiersz: tytuł bierze resztę szerokości, motyw i przycisk tyle, ile potrzebują. */
 .form-row { display: grid; gap: 0.5rem 0.75rem; align-items: end; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; }
 .form-row .field, .form-row .btn { margin: 0; }
+/* Dane i cennik: sekcje faktów, wiersze list (cennik, dyplomy), grupy pól wyboru. */
+.form-section { padding: 1.25rem 0; border-top: 1px solid var(--border); }
+.form-section h3 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+.form-section > .hint { margin: 0 0 0.9rem; }
+.list-row { border: 0; padding: 0; margin: 0 0 0.6rem; grid-template-columns: minmax(10rem, 2.4fr) repeat(4, minmax(5.5rem, 1fr)); align-items: end; }
+.list-row .field label { font-size: 0.72rem; }
+.list-row + .list-row .field label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.checks { border: 0; padding: 0; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.4rem 0.5rem; }
+.checks legend { padding: 0; margin-bottom: 0.45rem; font-weight: 600; font-size: 0.85rem; }
+.checks .hint { flex-basis: 100%; }
+.check { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.5rem; padding: 0.3rem 0.75rem; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); font-size: 0.85rem; cursor: pointer; }
+.check:has(input:checked) { background: var(--accent-soft); border-color: var(--accent-strong); }
+.check input { width: auto; margin: 0; }
 @media (max-width: 720px) {
   .form-row { grid-template-columns: 1fr; }
+  .list-row { grid-template-columns: 1fr 1fr; padding-bottom: 0.75rem; border-bottom: 1px dashed var(--border); }
+  .list-row .field:first-of-type { grid-column: 1 / -1; }
+  .list-row + .list-row .field label { position: static; width: auto; height: auto; clip-path: none; }
 }
 
 .panel-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0 0 1rem; }

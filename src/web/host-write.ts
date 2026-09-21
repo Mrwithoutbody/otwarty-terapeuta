@@ -331,6 +331,27 @@ async function writeFaq(env: Env, id: string, list: Values[]): Promise<number> {
  * `resolved` i `summary`, więc edytor zaraz po zapisie pokazuje nowe liczby,
  * a nie te sprzed dwóch godzin z migawki sesji.
  */
+/**
+ * Fakty profilu z formularza: pola bloków (`FIELDS`), cennik i FAQ. Jedna droga
+ * zapisu dla edytora usługi stron i dla zakładki „Dane i cennik” w panelu.
+ */
+export async function writeProfileData(env: Env, id: string, data: Record<string, Values>): Promise<{ touched: string[] } | { error: string; status: number }> {
+  let touched: string[];
+  try {
+    touched = await writeFields(env, id, data);
+  } catch (err) {
+    if (err instanceof Refused) return { error: err.message, status: err.status };
+    throw err;
+  }
+  if (data.offers && 'offer_rows' in data.offers) {
+    if ((await writeOffers(env, id, rows(data.offers.offer_rows))) > 0) touched.push('offers');
+  }
+  if (data['faq-profil'] && 'faq_rows' in data['faq-profil']) {
+    if ((await writeFaq(env, id, rows(data['faq-profil'].faq_rows))) > 0) touched.push('faq');
+  }
+  return { touched };
+}
+
 hostWriteApp.post('/host-blocks', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { token?: unknown; data?: unknown; page?: unknown } | null;
   if (!body) return c.json({ error: 'invalid_json' }, 400);
@@ -346,19 +367,9 @@ hostWriteApp.post('/host-blocks', async (c) => {
   }
 
   const data = (typeof body.data === 'object' && body.data !== null ? body.data : {}) as Record<string, Values>;
-  let touched: string[];
-  try {
-    touched = await writeFields(c.env, id, data);
-  } catch (err) {
-    if (err instanceof Refused) return c.json({ error: err.message }, err.status);
-    throw err;
-  }
-  if (data.offers && 'offer_rows' in data.offers) {
-    if ((await writeOffers(c.env, id, rows(data.offers.offer_rows))) > 0) touched.push('offers');
-  }
-  if (data['faq-profil'] && 'faq_rows' in data['faq-profil']) {
-    if ((await writeFaq(c.env, id, rows(data['faq-profil'].faq_rows))) > 0) touched.push('faq');
-  }
+  const written = await writeProfileData(c.env, id, data);
+  if ('error' in written) return c.json({ error: written.error }, written.status as 400);
+  const touched = written.touched;
 
   const therapist = await getTherapist(c.env, { therapist_id: id }, { drafts: true });
   if (!therapist) return c.json({ error: 'not_found' }, 404);

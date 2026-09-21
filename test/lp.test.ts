@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createAdminSession, loadAdminSession } from '../src/auth/session';
 import { findOrCreateUserByEmail } from '../src/db/users';
 import { writeToken } from '../src/web/host-write';
+import { createPage, type PageInfo } from '../src/web/pages-client';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const MAREK = 'th_8b2d6e10f4a97c53d1e08b26';
@@ -36,14 +37,14 @@ describe('podstrony terapeutki', () => {
   it('creates, saves the editor\'s page and lists a subpage', async () => {
     const anna = await actor('anna-pages@example.invalid', ANNA);
 
-    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Grupa wsparcia dla rodziców'], ['look', 'lex']]);
-    expect(created.status).toBe(303);
-    const back = created.headers.get('location')!;
-    expect(back).toBe(`/admin/terapeuci/${ANNA}#panel-strony`);
+    // Nowych podstron panel już nie zakłada; te, które istnieją, zostają dostępne pod „Dodatkowe strony”.
+    const made = (await createPage(env, { owner: ANNA, title: 'Grupa wsparcia dla rodziców', theme: 'lex' })) as PageInfo;
+    expect((await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Nowa']])).status).toBe(404);
 
     // The panel lists it; its row opens the editor through this host, which sends her to the service.
-    const fresh = await (await SELF.fetch(`https://localhost${back}`, { headers: { cookie: anna.cookie } })).text();
+    const fresh = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie: anna.cookie } })).text();
     const pid = new RegExp(`data-page-editor="/admin/terapeuci/${ANNA}/strony/(pg_[a-f0-9]+)">Grupa wsparcia`).exec(fresh)![1]!;
+    expect(pid).toBe(made.id);
     const hop = await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/strony/${pid}`, { headers: { cookie: anna.cookie }, redirect: 'manual' });
     expect(hop.status).toBe(303);
     expect(hop.headers.get('location')).toMatch(/^https:\/\/pages\.test\/edit\//);
@@ -95,13 +96,12 @@ describe('podstrony terapeutki', () => {
   });
 
   it('keeps one therapist out of another one\'s subpages', async () => {
-    const anna = await actor('anna-pages-2@example.invalid', ANNA);
     const marek = await actor('marek-pages@example.invalid', MAREK);
-    const created = await post(anna, `/admin/terapeuci/${ANNA}/strony`, [['title', 'Warsztat']]);
-    const editor = created.headers.get('location')!;
+    const made = (await createPage(env, { owner: ANNA, title: 'Warsztat' })) as PageInfo;
+    const editor = `/admin/terapeuci/${ANNA}/strony/${made.id}`;
 
     expect((await SELF.fetch(`https://localhost${editor}`, { headers: { cookie: marek.cookie } })).status).toBe(403);
-    expect((await post(marek, `/admin/terapeuci/${ANNA}/strony`, [['title', 'x']])).status).toBe(403);
+    expect((await post(marek, `${editor}/status`, [['status', 'published']])).status).toBe(403);
     expect((await SELF.fetch(`https://localhost${editor}`)).status).toBe(401);
     // Marek's own panel cannot open Anna's page by id either.
     const pid = editor.split('/').pop()!;

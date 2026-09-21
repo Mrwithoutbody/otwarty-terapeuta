@@ -100,8 +100,8 @@ const dock = (primary: string, note = ''): string =>
 
 const MANAGE: Record<FactDef['id'], [string, string]> = {
   creds: ['Dokumenty sprawdza serwis', ''],
-  offers: ['Zmień w cenniku', '#panel-cennik'],
-  slots: ['Zmień w kalendarzu', '#panel-dostepnosc'],
+  offers: ['Zmień w cenniku', '#panel-dane'],
+  slots: ['Zmień w kalendarzu', '#panel-terminy'],
 };
 function factPreview(f: FactDef): string {
   if (f.id === 'offers') return person.offers.map((o) => `${o.title} — ${o.price_minor / 100} zł`).join(' · ') || 'Cennik jest jeszcze pusty';

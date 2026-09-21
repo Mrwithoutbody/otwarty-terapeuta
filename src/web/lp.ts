@@ -165,7 +165,7 @@ export function unavailablePage(t: PublicTherapist): string {
 
 /** A link into the service's editor for one of her pages, with her data for the preview. */
 /** Obszary i nurty z bazy: opcje pól wyboru w edytorze. */
-async function dictionaries(env: Env): Promise<Record<'topics' | 'modalities', Array<[string, string]>>> {
+export async function dictionaries(env: Env): Promise<Record<'topics' | 'modalities', Array<[string, string]>>> {
   const [topics, modalities] = await Promise.all([
     env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<{ slug: string; name_pl: string }>(),
     env.DB.prepare(`SELECT slug, name_pl FROM modalities ORDER BY name_pl`).all<{ slug: string; name_pl: string }>(),

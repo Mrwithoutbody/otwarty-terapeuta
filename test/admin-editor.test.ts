@@ -1,6 +1,7 @@
 import { SELF, env } from 'cloudflare:test';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createAdminSession, loadAdminSession } from '../src/auth/session';
+import { getTherapist } from '../src/db/catalog';
 import { findOrCreateUserByEmail } from '../src/db/users';
 import { writeToken } from '../src/web/host-write';
 import { ensureProfilePage } from '../src/web/lp';
@@ -75,31 +76,71 @@ describe('panel terapeutki: strony, grafik, rezerwacje', () => {
     anna = await actor('editor-anna@example.invalid', 'therapist', ANNA);
   });
 
-  it('nie ma formularza treści; wszystko prowadzi do edytora strony', async () => {
+  it('słowa pisze w narzędziu strony, fakty w zakładce „Dane i cennik”; edytora bloków już nie ma', async () => {
     const html = await editorHtml(admin);
-    for (const id of ['display_name', 'slug', 'photo_url', 'headline', 'bio', 'city', 'first_meeting_course', 'cancellation_policy']) {
-      expect(html).not.toContain(`id="${id}"`);
-    }
-    for (const tab of ['Strony', 'Dostępność', 'Rezerwacje', 'Weryfikacja']) expect(html).toContain(`data-tab-label="${tab}"`);
-    for (const tab of ['Dane', 'Oferta', 'FAQ']) expect(html).not.toContain(`data-tab-label="${tab}"`);
-    expect(html).toMatch(/data-editor-open data-page-editor="\/admin\/terapeuci\/th_[a-z0-9]+\/strony\/[^"]+">Edytuj swoją stronę/);
-    // Dialog w ukrytym panelu nie otworzyłby się: okno leży za zakładkami.
-    expect(html).toMatch(/<\/section>\s*<\/div>\s*<dialog class="editor-dialog" data-editor-dialog/);
+    // Opis, nagłówek, zdjęcie i pierwsze spotkanie należą do strony pisanej własnymi słowami.
+    for (const name of ['headline', 'bio', 'photo_url', 'first_meeting_course', 'slug']) expect(html).not.toContain(`name="hero-profil.${name}"`);
+    expect(html).not.toContain('name="intro.bio"');
+    for (const tab of ['Strona', 'Dane i cennik', 'Dostępność', 'Rezerwacje', 'Weryfikacja']) expect(html).toContain(`data-tab-label="${tab}"`);
+    expect(html).toContain(`href="/admin/terapeuci/${ANNA}/strona"`);
+    expect(html).not.toContain('Edytuj swoją stronę');
     expect(html).not.toContain('data-editor-autoopen');
+    // Fakty: imię, cennik z jej ofertami, gabinet, obszary.
+    expect(html).toContain('name="hero-profil.display_name"');
+    expect(html).toContain('name="offers.offer_rows.0.price" maxlength="10" value="220"');
+    expect(html).toContain('name="gabinet.city"');
+    expect(html).toMatch(/name="topics\.topics" value="[a-z-]+" checked/);
   });
 
-  it('terapeutka po wejściu do panelu ląduje w edytorze swojego profilu', async () => {
+  it('terapeutka po wejściu do panelu ląduje w pisaniu swojej strony', async () => {
     const home = await SELF.fetch('https://localhost/admin', { headers: { cookie: anna.cookie }, redirect: 'manual' });
     expect(home.status).toBe(302);
-    expect(home.headers.get('location')).toBe(`/admin/terapeuci/${ANNA}?edytor`);
+    expect(home.headers.get('location')).toBe(`/admin/terapeuci/${ANNA}/strona`);
 
-    const html = await editorHtml(anna, '?edytor');
-    expect(html).toMatch(new RegExp(`data-editor-autoopen="/admin/terapeuci/${ANNA}/strony/[^"]+"`));
+    const html = await editorHtml(anna);
     expect(html).toContain('data-tab-label="Rezerwacje"');
     expect(html).toContain('action="/admin/logout"');
     // Weryfikacja należy do zespołu.
     expect(html).not.toContain('data-tab-label="Weryfikacja"');
     expect(html).not.toContain('cred_title_0');
+  });
+
+  it('zmienia cenę, dopisuje sesję i odznacza ostatni język w zakładce „Dane i cennik”', async () => {
+    const before = (await getTherapist(env, { therapist_id: ANNA }))!;
+    const body = new URLSearchParams({ csrf: anna.csrf, 'hero-profil.display_name': before.display_name, 'gabinet.city': 'Warszawa', 'gabinet.address_line': 'ul. Długa 1' });
+    before.offers.forEach((o, i) => {
+      for (const [k, v] of Object.entries({ id: o.offer_id, title: o.title, type: o.session_type, price: i === 0 ? '240' : String(o.price_minor / 100), minutes: String(o.duration_minutes), mode: o.mode })) body.set(`offers.offer_rows.${i}.${k}`, v);
+    });
+    const n = before.offers.length;
+    for (const [k, v] of Object.entries({ id: '', title: 'Konsultacja dla par', type: 'couples', price: '300', minutes: '80', mode: 'in_person' })) body.set(`offers.offer_rows.${n}.${k}`, v);
+    // Pełny formularz: czego nie przyśle, to odznaczone - więc obszary i nurty jadą razem z resztą.
+    for (const x of before.topics) body.append('topics.topics', x.slug);
+    for (const x of before.modalities) body.append('topics.modalities', x.slug);
+    for (const x of before.session_types) body.append('dane.session_types', x);
+    for (const x of before.age_groups) body.append('dane.age_groups', x);
+    body.append('dane.languages', 'pl');
+    body.set('dane.offers_online', '1');
+    body.set('dane.offers_in_person', '1');
+    body.set('dane.accepting_new_clients', '1');
+
+    const stranger = await actor('obcy-dane@example.invalid', 'therapist', 'th_8b2d6e10f4a97c53d1e08b26');
+    const foreign = new URLSearchParams(body);
+    foreign.set('csrf', stranger.csrf);
+    expect((await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/dane`, { method: 'POST', headers: { cookie: stranger.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: foreign.toString(), redirect: 'manual' })).status).toBe(403);
+
+    const res = await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}/dane`, { method: 'POST', headers: { cookie: anna.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString(), redirect: 'manual' });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(`/admin/terapeuci/${ANNA}?zapisano#panel-dane`);
+
+    const after = (await getTherapist(env, { therapist_id: ANNA }))!;
+    expect(after.offers.find((o) => o.offer_id === before.offers[0]!.offer_id)?.price_minor).toBe(24000);
+    expect(after.offers.map((o) => o.title)).toContain('Konsultacja dla par');
+    expect(after.languages).toEqual(['pl']);
+    expect(after.locations[0]?.address_line).toBe('ul. Długa 1');
+    expect(after.topics.map((x) => x.slug)).toEqual(before.topics.map((x) => x.slug));
+    // Słów strony ten formularz nie dotyka.
+    expect(after.bio).toBe(before.bio);
+    expect(after.headline).toBe(before.headline);
   });
 
   it('terapeutka nie zapisze formularza weryfikacji', async () => {
