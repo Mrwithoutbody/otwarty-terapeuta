@@ -549,16 +549,14 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    in every layout, with nothing to override: the card covers the heart and the rosette
    opens round it. The copy column is lifted above the mosaic's stacking context so the
    petals pass under the text, never over it.
-   Three stacked planes; blur is CSS on whole <svg> elements. The flower turns as one
-   layer, so blur and mask are painted into it once: turning each plane on its own redrew
-   seven blurred, masked passes every frame and the page flickered. */
+   Three stacked planes; blur is CSS on whole <svg> elements. The flower stands still: a turn
+   of 1.5° a second went unnoticed, while the browser repainted blurred, masked layers every
+   frame - battery on a phone, and once a flicker. */
 .home-hero > .hero-copy { z-index: 2; }
 .hero-bento > .hero-lotus {
   position: absolute; z-index: -1; grid-column: 1 / -1; grid-row: 3; inset: 0;
   pointer-events: none; opacity: .75;
-  will-change: transform; animation: lotus-turn 240s linear infinite;
 }
-@keyframes lotus-turn { to { transform: rotate(360deg); } }
 /* Square planes centred on the root (the view box is), so the mask below covers the
    whole rosette. One size everywhere: the flower is as large on a phone as on a desk. */
 .hero-lotus svg {
