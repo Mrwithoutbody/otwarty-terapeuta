@@ -275,8 +275,14 @@ const ph = (p: Person, cls = ''): string =>
     ? `<img class="ph ${cls}" src="${esc(p.photo)}" alt="${esc(p.name)} — zdjęcie" width="480" height="600" loading="eager">`
     : `<span class="ph mono ${cls}" aria-hidden="true">${esc(initials(p.name))}</span>`;
 
-/** Jej tekst w HTML: escapowany, a `**tak**` - jak w dawnych formularzach profilu - staje się pogrubieniem. */
-const inline = (s: string): string => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+/**
+ * Jej tekst w HTML: escapowany, a `**tak**` - jak w dawnych formularzach profilu - staje się pogrubieniem,
+ * adres `https://` linkiem (jej artykuły gdzie indziej). Tylko https, więc `javascript:` nie ma którędy wejść.
+ */
+const inline = (s: string): string =>
+  esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/https:\/\/[^\s<]*[^\s<.,;:!?)]/g, (u) => `<a href="${u}" rel="noopener">${u.slice('https://'.length)}</a>`);
 
 /** Kształt wynika z tego, JAK ktoś napisał: jedno krótkie zdanie → cytat; krótkie linie → lista lub kroki; reszta → akapity. */
 export function shape(text: string): string {

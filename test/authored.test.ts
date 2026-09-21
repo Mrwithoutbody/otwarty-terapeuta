@@ -86,6 +86,13 @@ describe('the page', () => {
     expect(renderPublic(person, d, 'wrzesień 2026')).toContain('id="f-creds"');
   });
 
+  it('links an https address she wrote, and nothing else', () => {
+    const html = shape('Pisałam o tym tu: https://opsychologii.pl/trauma.html. A to nie: javascript:alert(1) ani http://x.pl i dłuższe zdanie.');
+    expect(html).toContain('<a href="https://opsychologii.pl/trauma.html" rel="noopener">opsychologii.pl/trauma.html</a>.');
+    expect(html).not.toContain('href="javascript');
+    expect(html).not.toContain('href="http://');
+  });
+
   it('takes its shape from how she wrote', () => {
     expect(shape('Nie trzeba.')).toContain('class="say"');
     expect(shape('Najpierw pytam.\nPotem dopytuję.\nNa koniec mówię, co myślę.')).toContain('<ol class="steps">');
