@@ -87,10 +87,11 @@ export const TYPES: Record<string, PageType> = {
       { id: 'start', q: 'Jak zacząć?', stage: 'start', why: 'Pierwszy krok, bez zgadywania.', starters: ['Najpierw…'] },
     ],
     stages: [
-      { id: 'co', title: 'Czym to jest' },
-      { id: 'jak', title: 'Jak to wygląda' },
-      { id: 'kto', title: 'Kto prowadzi' },
-      { id: 'start', title: 'Jak zacząć' },
+      // Nazwy etapów nie powtarzają pytań pod nimi - „Jak to wygląda” nad „Jak to wygląda?” czytało się jak błąd.
+      { id: 'co', title: 'Zanim przyjdziesz' },
+      { id: 'jak', title: 'Na spotkaniu' },
+      { id: 'kto', title: 'Z kim się spotkasz' },
+      { id: 'start', title: 'Pierwszy krok' },
       { id: 'termin', title: 'Wybierasz termin' },
       { id: 'inne', title: 'Jeszcze pytania' },
     ],
