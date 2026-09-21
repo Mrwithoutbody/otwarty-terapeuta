@@ -534,9 +534,15 @@ export async function listSitemapEntries(env: Env): Promise<Array<{ slug: string
        FROM therapists t
       WHERE ${PUBLISHED} AND t.is_demo = 0
      UNION ALL
+     SELECT t.slug, a.slug, a.published_at FROM authored_pages a
+       JOIN therapists t ON t.id = a.therapist_id
+      WHERE ${PUBLISHED} AND t.is_demo = 0 AND a.type = 'podstrona' AND a.slug IS NOT NULL AND a.published_json IS NOT NULL
+     UNION ALL
      SELECT t.slug, p.slug, p.updated_at FROM therapist_pages p
        JOIN therapists t ON t.id = p.therapist_id
       WHERE ${PUBLISHED} AND t.is_demo = 0 AND p.status = 'published' AND p.slug != 'profil'
+        -- Adres zajęty przez stronę autorską niesie ona; dawna kopia nie wchodzi drugi raz.
+        AND NOT EXISTS (SELECT 1 FROM authored_pages a WHERE a.therapist_id = p.therapist_id AND a.slug = p.slug AND a.published_json IS NOT NULL)
       ORDER BY 1, 2`,
   ).all<{ slug: string; page: string | null; updated_at: string }>();
   return results;

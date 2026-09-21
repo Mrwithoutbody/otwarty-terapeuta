@@ -143,6 +143,11 @@ kryzysowa jest stałą renderera, nie treścią strony.
   do `headline`, `bio`, `first_meeting_*` i FAQ, więc wtyczka ChatGPT czyta ten sam tekst.
 - `/terapeuci/:slug`: strona autorska, jeśli jest opublikowana; inaczej dawny render usługi
   stron. Podstrony `/terapeuci/:slug/:page` nadal niesie usługa (`x402Landings`).
+- **Podstrony autorskie (2026-09-22)**: typ `podstrona` w `TYPES` (tytuł zamiast imienia w H1),
+  wiersz `authored_pages` z `slug`. Trasa `/terapeuci/:slug/:strona` bierze najpierw stronę
+  autorską, x402L tylko gdy jej nie ma. Pierwsza: grupa Eweliny (`grupa-wsparcia-dla-rodzicow`,
+  wiersz `ap_mig_sub_*`; dawny wiersz x402L z literówką w adresie zdjęty do szkicu). Edycji
+  podstron w narzędziu panelu jeszcze nie ma. **Nie poprawiaj niczego w x402L** - przenoś.
 - Panel: po zalogowaniu terapeutka ląduje w `/admin/terapeuci/:id/strona`. Fakty zmienia
   w zakładce „Dane i cennik” (formularz z `FIELDS`, zapis przez `writeProfileData`).
 - Migracja 2026-09-21: 8 profili z katalogu dostało stronę z tego, co już było w bazie
@@ -180,7 +185,7 @@ w `HOST_SECTIONS` potrzebuje po stronie x402L wpisu w `themes/<motyw>/sklad.json
 kategorii. Na produkcję idą razem albo wcale: usługa pierwsza, host po niej. Sam host
 z blokiem, którego wdrożony motyw nie zna, wychodzi gorzej niż stan sprzed zmiany.
 
-## Usługa stron: dziś tylko podstrony (2026-09-03, zawężone 2026-09-21)
+## Usługa stron x402L: wygaszana (2026-09-03, zawężone 2026-09-21, 2026-09-22)
 
 Od 2026-09-21 profil jest stroną autorską (sekcja wyżej). Poniższe dotyczy podstron
 założonych w dawnym edytorze i profili bez opublikowanej strony autorskiej.

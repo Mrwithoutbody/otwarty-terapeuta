@@ -151,6 +151,59 @@ describe('publishing', () => {
   });
 });
 
+describe('a subpage', () => {
+  const SUB = `${PROFILE}/grupa-wsparcia`;
+  const page = {
+    type: 'podstrona', title: 'Grupa wsparcia dla rodziców', form: 'droga', top: 'twarz', line: 'Miejsce dla rodziców.', order: ['what', 'start', 'c_1'],
+    answers: { what: 'Rozmawiamy o tym, co trudne.', start: 'Najpierw konsultacja.', c_1: 'Nie. Mówisz tyle, ile chcesz.' },
+    custom: [{ id: 'c_1', q: 'Czy muszę mówić przy innych?' }],
+  };
+  const insert = (slug: string, published: boolean): Promise<unknown> =>
+    env.DB.prepare(
+      `INSERT OR REPLACE INTO authored_pages (id, therapist_id, type, slug, draft_json, published_json, published_at, created_at, updated_at) VALUES (?, ?, 'podstrona', ?, ?, ?, ?, ?, ?)`,
+    ).bind(`ap_t_${slug}`, ANNA, slug, JSON.stringify(page), published ? JSON.stringify(page) : null, published ? '2026-09-22T08:00:00Z' : null, '2026-09-22T08:00:00Z', '2026-09-22T08:00:00Z').run();
+
+  it('is served at its address in her words, ahead of the pages service, and leads back to her profile', async () => {
+    await insert('grupa-wsparcia', true);
+    const res = await SELF.fetch(SUB);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('<h1>Grupa wsparcia dla rodziców</h1>');
+    expect(html).toContain('Rozmawiamy o tym, co trudne.');
+    expect(html).toContain('Czy muszę mówić przy innych?');
+    expect(html).toContain('/assets/strona.css');
+    expect(html).not.toContain('https://pages.test/');
+    expect(html).toContain('116 123');
+    expect(html).toContain('<a href="/terapeuci/anna-kowalczyk-demo">Anna Kowalczyk');
+    expect(html).toContain('<title>Grupa wsparcia dla rodziców — Anna Kowalczyk');
+    expect(html).toContain('<meta name="description" content="Grupa wsparcia dla rodziców. Miejsce dla rodziców.');
+    expect(html).toContain(`<link rel="canonical" href="${env.PUBLIC_BASE_URL}/terapeuci/anna-kowalczyk-demo/grupa-wsparcia">`);
+  });
+
+  it('stays out of sight until published', async () => {
+    await insert('warsztaty', false);
+    expect((await SELF.fetch(`${PROFILE}/warsztaty`)).status).toBe(404);
+  });
+
+  it('takes the address over from the pages service: one link on her profile, one entry in the sitemap', async () => {
+    await publish(env, ANNA, { order: ['who'], answers: { who: 'Pracuję z osobami w kryzysie.' } });
+    await createPage(env, { owner: ANNA, title: 'Grupa wsparcia', status: 'published' });
+    await insert('grupa-wsparcia', true);
+    await env.DB.prepare(`UPDATE therapists SET is_demo = 0 WHERE id = ?`).bind(ANNA).run();
+
+    const profile = await (await SELF.fetch(PROFILE)).text();
+    expect(profile.split('href="/terapeuci/anna-kowalczyk-demo/grupa-wsparcia"').length - 1).toBe(1);
+    expect(profile).toContain('>Grupa wsparcia dla rodziców</a>');
+    expect(await (await SELF.fetch(SUB)).text()).not.toContain('https://pages.test/');
+    const xml = await (await SELF.fetch('https://localhost/sitemap.xml')).text();
+    expect(xml.split('/terapeuci/anna-kowalczyk-demo/grupa-wsparcia</loc>').length - 1).toBe(1);
+  });
+
+  it('keeps prices out of its title too', () => {
+    expect(pageFlags(normalizeDraft({ ...page, title: 'Grupa za 200 zł' }, 'podstrona'))).toMatchObject([{ where: 'title', kind: 'kwota' }]);
+  });
+});
+
 describe('the tool in her panel', () => {
   const TOOL = `https://localhost/admin/terapeuci/${ANNA}/strona`;
   async function actor(email: string, role: string, therapistId: string | null): Promise<{ cookie: string; csrf: string }> {

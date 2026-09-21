@@ -17,8 +17,8 @@ export interface Question {
   id: string;
   q: string;
   stage: string;
-  /** Kolumna profilu, do której trafia odpowiedź przy publikacji; `faq` = wpis w FAQ. */
-  field: 'bio' | 'first_meeting_course' | 'first_meeting_prep' | 'first_meeting_decision' | 'faq';
+  /** Kolumna profilu, do której trafia odpowiedź przy publikacji; `faq` = wpis w FAQ. Podstrona nie pisze do profilu. */
+  field?: 'bio' | 'first_meeting_course' | 'first_meeting_prep' | 'first_meeting_decision' | 'faq';
   why: string;
   starters: string[];
 }
@@ -74,6 +74,31 @@ export const TYPES: Record<string, PageType> = {
       { id: 'slots', ask: 'Kiedy jest najbliższy wolny termin?', stage: 'termin', after: 'end', title: 'Wolne terminy', source: 'z kalendarza' },
     ],
   },
+  // Grupa, warsztat, jedna specjalizacja: tytuł zamiast imienia w nagłówku, słowa zostają na tej stronie.
+  podstrona: {
+    label: 'Podstrona',
+    lineLabel: 'Jedno zdanie pod tytułem',
+    lineHint: 'O czym jest ta strona — tak, jak mówisz to komuś, kto pyta pierwszy raz.',
+    questions: [
+      { id: 'what', q: 'Co to jest?', stage: 'co', why: 'Jednym, dwoma akapitami: czym to jest i co z tego ma ktoś, kto przyjdzie.', starters: ['To miejsce dla…', 'Spotykamy się, żeby…'] },
+      { id: 'for', q: 'Dla kogo to jest?', stage: 'co', why: 'Ktoś czyta i sprawdza, czy to o nim. Krótkie linie staną się listą.', starters: ['Dla osób, które…'] },
+      { id: 'how', q: 'Jak to wygląda?', stage: 'jak', why: 'Co się dzieje na miejscu. Bez dat i cen — te pokazujemy z danych.', starters: ['Na spotkaniu…'] },
+      { id: 'who', q: 'Kto prowadzi?', stage: 'kto', why: 'Dwa, trzy zdania o Tobie w tym kontekście. Resztę mówi Twój profil.', starters: ['Jestem…'] },
+      { id: 'start', q: 'Jak zacząć?', stage: 'start', why: 'Pierwszy krok, bez zgadywania.', starters: ['Najpierw…'] },
+    ],
+    stages: [
+      { id: 'co', title: 'Czym to jest' },
+      { id: 'jak', title: 'Jak to wygląda' },
+      { id: 'kto', title: 'Kto prowadzi' },
+      { id: 'start', title: 'Jak zacząć' },
+      { id: 'termin', title: 'Wybierasz termin' },
+      { id: 'inne', title: 'Jeszcze pytania' },
+    ],
+    facts: [
+      { id: 'offers', ask: 'Ile to kosztuje?', stage: 'start', after: 'end', title: 'Ceny i zasady', source: 'z cennika' },
+      { id: 'slots', ask: 'Kiedy jest najbliższy wolny termin?', stage: 'termin', after: 'end', title: 'Wolne terminy', source: 'z kalendarza' },
+    ],
+  },
 };
 
 /** Dwie decyzje w kroku „Ułóż”: JAK witasz (4) × CO widać najpierw (3). */
@@ -94,6 +119,8 @@ export type TopId = (typeof TOPS)[number]['id'];
 /** To, co pisze autorka. Niczego poza tym strona od niej nie bierze. */
 export interface PageDraft {
   type: string;
+  /** Nagłówek podstrony; profil ma w tym miejscu jej imię. */
+  title: string;
   form: FormId;
   top: TopId;
   line: string;
@@ -125,7 +152,7 @@ export interface Person {
 }
 
 /** Takie jak w dawnych formularzach profilu (nagłówek 200, opis 4000, FAQ: 20 pytań po 200 znaków), żeby przeniesienie niczego nie ucięło. */
-export const LIMITS = { line: 200, answer: 4000, question: 200, custom: 20 };
+export const LIMITS = { title: 140, line: 200, answer: 4000, question: 200, custom: 20 };
 
 export const esc = (s: unknown): string =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -133,7 +160,7 @@ const zl = (minor: number): string => `${(minor / 100).toLocaleString('pl-PL')} 
 const initials = (n: string): string => n.split(' ').map((w) => w[0]).join('').slice(0, 2);
 
 export function emptyDraft(type = 'profil'): PageDraft {
-  return { type, form: 'rozmowa', top: 'twarz', line: '', order: [], answers: {}, custom: [] };
+  return { type, title: '', form: 'rozmowa', top: 'twarz', line: '', order: [], answers: {}, custom: [] };
 }
 
 // Znaki sterujące poza \n i \t; z `new RegExp`, jak w lib/sanitize.ts.
@@ -155,6 +182,7 @@ export function normalizeDraft(raw: unknown, type = 'profil'): PageDraft {
   for (const id of order) answers[id] = text(given[id], LIMITS.answer);
   return {
     type,
+    title: text(r.title, LIMITS.title).replace(/\n+/g, ' ').trim(),
     form: FORMS.some((f) => f.id === r.form) ? (r.form as FormId) : 'rozmowa',
     top: TOPS.some((t) => t.id === r.top) ? (r.top as TopId) : 'twarz',
     line: text(r.line, LIMITS.line).replace(/\n+/g, ' ').trim(),
@@ -223,7 +251,10 @@ export interface PageFlag extends Flag {
 }
 /** Wszystko, co w szkicu blokuje publikację. */
 export function pageFlags(page: PageDraft): PageFlag[] {
-  const out: PageFlag[] = guard(page.line).map((g) => ({ ...g, where: 'line', label: TYPES[page.type]!.lineLabel }));
+  const out: PageFlag[] = [
+    ...guard(page.title).map((g) => ({ ...g, where: 'title', label: 'Tytuł' })),
+    ...guard(page.line).map((g) => ({ ...g, where: 'line', label: TYPES[page.type]!.lineLabel })),
+  ];
   for (const id of page.order) {
     const q = questionOf(page, id);
     if (!q) continue;
@@ -349,7 +380,7 @@ function sequence(p: Person, facts: FactDef[], its: Item[]): Array<{ id?: string
 }
 
 type Opening = ReturnType<typeof opening>;
-const head = (p: Person, page: PageDraft): string => `<h1>${esc(p.name)}</h1>${page.line ? `<p class="line">${esc(page.line)}</p>` : ''}${badge(p)}`;
+const head = (p: Person, page: PageDraft): string => `<h1>${esc(page.type === 'profil' ? p.name : page.title || p.name)}</h1>${page.line ? `<p class="line">${esc(page.line)}</p>` : ''}${badge(p)}`;
 
 const RENDER: Record<FormId, (p: Person, page: PageDraft, facts: FactDef[], its: Item[], o: Opening, month: string) => string> = {
   rozmowa: (p, page, facts, its, o) => `<header class="hero">${ph(p, o.big)}<div>${head(p, page)}${chips(p)}</div></header>
@@ -405,7 +436,7 @@ const CRISIS = `<footer class="crisis" aria-label="Pomoc w kryzysie"><div><h2>Po
  * bo list nosi datę publikacji, a nie datę renderu.
  */
 export function renderPublic(person: Person, draft: PageDraft, month: string): string {
-  const page = { ...draft, line: clean(draft.line) };
+  const page = { ...draft, title: clean(draft.title), line: clean(draft.line) };
   // Karta kwalifikacji bez ani jednego dokumentu przeczyłaby plakietce weryfikacji - wtedy jej nie ma.
   const facts = TYPES[page.type]!.facts.filter((f) => f.id !== 'creds' || person.credentials.length > 0);
   const its = items(page);

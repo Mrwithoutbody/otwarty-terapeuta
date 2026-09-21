@@ -29,10 +29,10 @@ interface Row {
   updated_at: string;
 }
 
-const parse = (json: string | null): PageDraft | null => {
+const parse = (json: string | null, type = 'profil'): PageDraft | null => {
   if (!json) return null;
   try {
-    return normalizeDraft(JSON.parse(json));
+    return normalizeDraft(JSON.parse(json), type);
   } catch {
     return null;
   }
@@ -53,6 +53,28 @@ export async function getPublished(env: Env, therapistId: string): Promise<{ pag
     .first<{ published_json: string; published_at: string }>();
   const page = parse(row?.published_json ?? null);
   return page && row ? { page, published_at: row.published_at } : null;
+}
+
+/** Jej opublikowana podstrona pod tym adresem; bez niej adres zostaje dawnej usłudze stron. */
+export async function getPublishedSubpage(env: Env, therapistId: string, slug: string): Promise<{ page: PageDraft; published_at: string } | null> {
+  const row = await env.DB.prepare(`SELECT published_json, published_at FROM authored_pages WHERE therapist_id = ? AND slug = ? AND type = 'podstrona' AND published_json IS NOT NULL`)
+    .bind(therapistId, slug)
+    .first<{ published_json: string; published_at: string }>();
+  const page = parse(row?.published_json ?? null, 'podstrona');
+  return page && row ? { page, published_at: row.published_at } : null;
+}
+
+/** Adresy i tytuły jej opublikowanych podstron, do nawigacji. */
+export async function listPublishedSubpages(env: Env, therapistId: string): Promise<Array<{ slug: string; title: string }>> {
+  const { results } = await env.DB.prepare(
+    `SELECT slug, published_json FROM authored_pages WHERE therapist_id = ? AND type = 'podstrona' AND slug IS NOT NULL AND published_json IS NOT NULL ORDER BY created_at`,
+  )
+    .bind(therapistId)
+    .all<{ slug: string; published_json: string }>();
+  return results.flatMap((r) => {
+    const page = parse(r.published_json, 'podstrona');
+    return page ? [{ slug: r.slug, title: page.title || r.slug }] : [];
+  });
 }
 
 /**
