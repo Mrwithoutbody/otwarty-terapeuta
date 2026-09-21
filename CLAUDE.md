@@ -127,12 +127,29 @@ Trzy rundy cofania.
 domysłów. Przy zmianie odcienia sprawdź, czy nowa wartość leży na osi serwisu
 (wszystkie powierzchnie: odcień 56–95, większość 64–70), zanim ją wdrożysz.
 
-## Aktualny system stron i motywów
+## Aktualny system stron: profil pisany własnymi słowami (2026-09-21)
 
-Strony terapeutek i landingi renderuje `x402Landings`. Motyw jest tam folderem
-plików Mustache (`theme.json`, `layout.html`, `style.css`, bloki i partials),
-który można wgrać przez API. `ot-02` nie zawiera rendererów ani CSS-u tych stron;
-przekazuje dane bloków i korzysta z kontraktu w `X402_LANDINGS_INTEGRATION.md`.
+Profil terapeutki to **strona autorska** (`src/authored/`), renderowana w ot-02, bez usługi
+stron. Terapeutka odpowiada własnymi słowami na pytania pacjentów; strona składa się sama
+z odpowiedzi (cztery sposoby przywitania × trzy otwarcia). Fakty - cennik, wolne terminy,
+kwalifikacje z oznaczeniem weryfikacji - renderują się z tabel przy każdym żądaniu. Stopka
+kryzysowa jest stałą renderera, nie treścią strony.
+
+- `core.ts` bez DOM i bez bazy: ten sam renderer i strażnik faktów w Workerze i w narzędziu
+  (bundel esbuild w `scripts/build-widget.mjs` → `tool-generated.ts`, nie w gicie).
+- Strażnik blokuje **tylko ceny i terminy** wpisane prozą. Kwalifikacji nie rusza: reguła na
+  „certyfik/superwizor” ukryłaby zdania u 7 z 8 realnych osób (sprawdzone przed migracją).
+- `authored_pages`: szkic i wersja opublikowana obok siebie. Publikacja przepisuje jej słowa
+  do `headline`, `bio`, `first_meeting_*` i FAQ, więc wtyczka ChatGPT czyta ten sam tekst.
+- `/terapeuci/:slug`: strona autorska, jeśli jest opublikowana; inaczej dawny render usługi
+  stron. Podstrony `/terapeuci/:slug/:page` nadal niesie usługa (`x402Landings`).
+- Panel: po zalogowaniu terapeutka ląduje w `/admin/terapeuci/:id/strona`. Fakty zmienia
+  w zakładce „Dane i cennik” (formularz z `FIELDS`, zapis przez `writeProfileData`).
+- Migracja 2026-09-21: 8 profili z katalogu dostało stronę z tego, co już było w bazie
+  (wiersze `ap_mig_*`); Aleksandra Mazek bez tekstu - sam szkic, zostaje na dawnym renderze.
+  Dane profili, FAQ i strony usługi zostały nietknięte (porównane hashami przed i po).
+  Cofnięcie treści: `DELETE FROM authored_pages WHERE id LIKE 'ap_mig_%'` - profile wracają
+  na dawny render. Kod: rollback do `217d7771-1534-4d50-93cd-999e4f8e5de8`.
 
 ## Deploy: produkcja leży na koncie Cloudflare `b1277ebcf49382e42bc5c111cd6adce3`
 
@@ -160,7 +177,10 @@ w `HOST_SECTIONS` potrzebuje po stronie x402L wpisu w `themes/<motyw>/sklad.json
 kategorii. Na produkcję idą razem albo wcale: usługa pierwsza, host po niej. Sam host
 z blokiem, którego wdrożony motyw nie zna, wychodzi gorzej niż stan sprzed zmiany.
 
-## Strony terapeutek żyją w usłudze stron (2026-09-03)
+## Usługa stron: dziś tylko podstrony (2026-09-03, zawężone 2026-09-21)
+
+Od 2026-09-21 profil jest stroną autorską (sekcja wyżej). Poniższe dotyczy podstron
+założonych w dawnym edytorze i profili bez opublikowanej strony autorskiej.
 
 Profil i podstrony to strony w `x402landings.space` (repo `x402Landings`), nie
 w D1 ot-02. ot-02 tylko przysyła dane bloków (`host-blocks.ts`) i linkuje do
@@ -174,7 +194,8 @@ edytora usługi. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
   i sprawdź `GET <adres edytora>/data` oraz zapis w D1. Zielone testy po obu stronach
   nie dowodzą, że usługi ze sobą rozmawiają (2026-09-19: cięcie zakładki „Dane" na tej
   podstawie, rollback po ~30 min).
-- Od 2026-09-19 edytor to **jedyna** droga edycji treści: imię, adres profilu, zdjęcie, opis,
+- (Nieaktualne od 2026-09-21: treść profilu pisze się w narzędziu strony autorskiej.)
+  Od 2026-09-19 edytor był **jedyną** drogą edycji treści: imię, adres profilu, zdjęcie, opis,
   gabinet, obszary, cennik, FAQ, pierwsze spotkanie. Terapeutka po zalogowaniu ląduje w edytorze
   swojego profilu (`/admin` → `/admin/terapeuci/<id>?edytor`); pod nim zakładki Strony, Dostępność,
   Rezerwacje. W panelu zostaje tylko to, czego strona nie niesie albo czego terapeutka nie może
