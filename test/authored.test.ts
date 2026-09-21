@@ -76,6 +76,15 @@ describe('the page', () => {
     expect(html).not.toContain('<script>');
   });
 
+  it('bolds what she marked with ** and omits a qualifications card with nothing in it', () => {
+    const d = normalizeDraft({ order: ['who'], answers: { who: '**„Człowiekiem jestem”** i dłuższe zdanie, żeby to był zwykły akapit, a nie krótki cytat na stronie.' } });
+    const html = renderPublic({ ...person, credentials: [] }, d, 'wrzesień 2026');
+    expect(html).toContain('<strong>„Człowiekiem jestem”</strong>');
+    expect(html).not.toContain('**');
+    expect(html).not.toContain('id="f-creds"');
+    expect(renderPublic(person, d, 'wrzesień 2026')).toContain('id="f-creds"');
+  });
+
   it('takes its shape from how she wrote', () => {
     expect(shape('Nie trzeba.')).toContain('class="say"');
     expect(shape('Najpierw pytam.\nPotem dopytuję.\nNa koniec mówię, co myślę.')).toContain('<ol class="steps">');

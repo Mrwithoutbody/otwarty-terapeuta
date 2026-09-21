@@ -243,16 +243,19 @@ const ph = (p: Person, cls = ''): string =>
     ? `<img class="ph ${cls}" src="${esc(p.photo)}" alt="${esc(p.name)} — zdjęcie" width="480" height="600" loading="eager">`
     : `<span class="ph mono ${cls}" aria-hidden="true">${esc(initials(p.name))}</span>`;
 
+/** Jej tekst w HTML: escapowany, a `**tak**` - jak w dawnych formularzach profilu - staje się pogrubieniem. */
+const inline = (s: string): string => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
 /** Kształt wynika z tego, JAK ktoś napisał: jedno krótkie zdanie → cytat; krótkie linie → lista lub kroki; reszta → akapity. */
 export function shape(text: string): string {
   const lines = text.trim().split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 1 && lines[0]!.length <= 70) return `<p class="say">${esc(lines[0])}</p>`;
+  if (lines.length === 1 && lines[0]!.length <= 70) return `<p class="say">${inline(lines[0]!)}</p>`;
   if (lines.length >= 3 && lines.every((l) => l.length <= 120)) {
     const ordered = lines.some((l) => /^(\d+[.)]|najpierw|potem|następnie|na koniec)/i.test(l));
-    const li = lines.map((l) => `<li>${esc(l.replace(/^([-–•*]|\d+[.)])\s*/, ''))}</li>`).join('');
+    const li = lines.map((l) => `<li>${inline(l.replace(/^([-–•*]|\d+[.)])\s+/, ''))}</li>`).join('');
     return ordered ? `<ol class="steps">${li}</ol>` : `<ul class="ticks">${li}</ul>`;
   }
-  return lines.map((l) => `<p>${esc(l)}</p>`).join('');
+  return lines.map((l) => `<p>${inline(l)}</p>`).join('');
 }
 
 const dayOf = (iso: string, tz: string, opts: Intl.DateTimeFormatOptions): string => new Date(iso).toLocaleDateString('pl-PL', { ...opts, timeZone: tz });
@@ -315,7 +318,7 @@ function opening(p: Person, page: PageDraft, its: Item[]): { big: string; quote:
   let strip = '';
   if (page.top === 'slowa' && its[0]) {
     const s = (sentences(its[0].a)[0] ?? '').trim();
-    if (s && s.length <= 230) quote = `<blockquote class="open">${esc(s)}</blockquote>`;
+    if (s && s.length <= 230) quote = `<blockquote class="open">${esc(s.replace(/\*\*/g, ''))}</blockquote>`;
   }
   if (page.top === 'fakty') {
     const ok = p.credentials.filter((c) => c.verified).length;
@@ -403,7 +406,8 @@ const CRISIS = `<footer class="crisis" aria-label="Pomoc w kryzysie"><div><h2>Po
  */
 export function renderPublic(person: Person, draft: PageDraft, month: string): string {
   const page = { ...draft, line: clean(draft.line) };
-  const facts = TYPES[page.type]!.facts;
+  // Karta kwalifikacji bez ani jednego dokumentu przeczyłaby plakietce weryfikacji - wtedy jej nie ma.
+  const facts = TYPES[page.type]!.facts.filter((f) => f.id !== 'creds' || person.credentials.length > 0);
   const its = items(page);
   return `<article class="pub"><div class="pg f-${page.form} t-${page.top}">${RENDER[page.form](person, page, facts, its, opening(person, page, its), month)}</div>
     <div class="ctabar"><a class="cta" href="#terminy">Zobacz wolne terminy</a></div>
