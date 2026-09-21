@@ -549,33 +549,34 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
    in every layout, with nothing to override: the card covers the heart and the rosette
    opens round it. The copy column is lifted above the mosaic's stacking context so the
    petals pass under the text, never over it.
-   Three stacked planes; blur and rotation are CSS on whole <svg> elements, so
-   the blur is rasterised once and the motion stays on the compositor. */
+   Three stacked planes; blur is CSS on whole <svg> elements. The flower turns as one
+   layer, so blur and mask are painted into it once: turning each plane on its own redrew
+   seven blurred, masked passes every frame and the page flickered. */
 .home-hero > .hero-copy { z-index: 2; }
 .hero-bento > .hero-lotus {
   position: absolute; z-index: -1; grid-column: 1 / -1; grid-row: 3; inset: 0;
   pointer-events: none; opacity: .75;
+  will-change: transform; animation: lotus-turn 240s linear infinite;
 }
+@keyframes lotus-turn { to { transform: rotate(360deg); } }
 /* Square planes centred on the root (the view box is), so the mask below covers the
    whole rosette. One size everywhere: the flower is as large on a phone as on a desk. */
 .hero-lotus svg {
   --w: 110rem;
   position: absolute; top: 50%; left: calc(50% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
-  will-change: transform; animation: lotus-turn 240s linear infinite;
-  /* The pigment thins out in patches: low-frequency noise as an alpha mask, turning
-     with its plane. One 512 px tile stretched over the plane, rasterised once - the
+  /* The pigment thins out in patches: low-frequency noise as an alpha mask over
+     its plane. One 512 px tile stretched over the plane, rasterised once - the
      same fade as an SVG filter on the petals froze the renderer. Edges stay true. */
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 2.6 0 -.55'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23m)'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
 }
-.lotus-plane-0 { filter: blur(7px); opacity: .7; animation-duration: 320s; }
+.lotus-plane-0 { filter: blur(7px); opacity: .7; }
 .lotus-plane-1 { opacity: .8; }
-.lotus-plane-2 { filter: blur(20px); opacity: .5; animation-duration: 190s; }
+.lotus-plane-2 { filter: blur(20px); opacity: .5; }
 .lotus-halo { filter: blur(9px); }
 .lotus-blue { stop-color: var(--ribbon-blue); }
 .lotus-green { stop-color: var(--accent); }
 .lotus-teal { stop-color: color-mix(in oklch, var(--ribbon-blue), var(--accent)); }
 .lotus-gold { stop-color: var(--gold-light); }
-@keyframes lotus-turn { to { transform: rotate(360deg); } }
 /* Suede: a tile of fine grey noise over the band, overlay, so the pastels read as
    a matte nap instead of as light. A data URI - img-src allows it, and the
    turbulence is rasterised once per 220 px tile rather than across the hero.

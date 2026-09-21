@@ -1,8 +1,8 @@
 /** A lotus of light on dark water, drawn from the petal of the logo: rosettes
  * of petals round one root behind the hero's search card, which covers the
- * heart, turning slowly like a windmill.
+ * heart, turning slowly as one piece.
  * Depth of field: only the inner rosette is sharp; the crown behind and four
- * petals in front are out of focus and turn at their own pace.
+ * petals in front are out of focus.
  * No colour lives here. Stops carry a class (lotus-blue, -green, -teal, -gold)
  * and the stylesheet paints them from the tokens in :root; this file holds
  * geometry and how thick the pigment lies. */
@@ -11,9 +11,7 @@ export function renderHeroLotus(): string {
   // The logo's petal: pointed at both ends, widest below the middle.
   const side = (length: number, width: number) =>
     `C${n(width)} ${n(-length * 0.22)} ${n(width * 1.12)} ${n(-length * 0.68)} 0 ${n(-length)}`;
-  // Three planes of one flower, each its own <svg> so CSS can blur and turn it
-  // on the compositor: 0 far (out of focus), 1 in focus, 2 near (a soft foreground).
-  // Full rosettes, because the planes turn like a windmill and every petal comes round.
+  // Three planes of one flower, each its own <svg> so CSS can blur it: 0 far (out of focus), 1 in focus, 2 near (a soft foreground).
   // Neighbours alternate blue and green; the inner row is the teal between them. The band
   // shows only some 80° of the wheel, so a slower change of colour left it all one hue.
   const ring = (step: number, offset: number, length: number, width: number, depth: number, kinds: string[]) =>
@@ -34,7 +32,7 @@ export function renderHeroLotus(): string {
     ramp('lh', 'gold', [0, 0.1, 0.18]) + ramp('lr', 'gold', [0, 0.18, 0.38]) +
     '<radialGradient id="lotus-heart"><stop class="lotus-gold" stop-opacity=".18"/>' +
     '<stop class="lotus-green" offset=".3" stop-opacity=".08"/><stop class="lotus-blue" offset="1" stop-opacity="0"/></radialGradient>';
-  // The halo is a plane of its own, blurred in CSS and turning in step with plane 1.
+  // The halo is a plane of its own, blurred in CSS.
   const plane = (depth: number, halo = false, extra = '') =>
     `<svg class="lotus-plane-${depth}${halo ? ' lotus-halo' : ''}" viewBox="-620 -620 1240 1240" fill="none" focusable="false">` + extra +
     petals.map(([angle, length, width, d, kind]) => d !== depth ? '' :
