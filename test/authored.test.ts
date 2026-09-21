@@ -18,9 +18,13 @@ const person: Person = {
 
 describe('the fact guard', () => {
   it('stops prices, dates, hours and credentials written as prose', () => {
-    for (const s of ['Sesja kosztuje 180 zł.', 'Biorę dwieście złotych za spotkanie.', 'Wolny termin mam we wtorek.', 'Przyjmuję o 17:00.', 'Jestem certyfikowaną superwizorką.', 'Zapraszam 12 października.']) {
+    for (const s of ['Sesja kosztuje 180 zł.', 'Biorę dwieście złotych za spotkanie.', 'Wolny termin mam we wtorek.', 'Przyjmuję o 17:00.', 'Zapraszam 12 października.']) {
       expect(guard(s), s).toHaveLength(1);
     }
+  });
+
+  it('lets her say how she trained and who supervises her - that is her own description', () => {
+    expect(guard('Jestem certyfikowaną psychoterapeutką Gestalt. Pracuję pod stałą superwizją superwizora PTP. dr J. Kabat-Zinn.')).toEqual([]);
   });
 
   it('lets her talk about her work', () => {

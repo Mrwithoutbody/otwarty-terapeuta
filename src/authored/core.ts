@@ -8,7 +8,8 @@
  * wpisany prozą, ani w tym, jak strona wygląda.
  *
  * Dwie rzeczy są poza zasięgiem autorki i siedzą tutaj na stałe:
- * - fakty (cennik, terminy, kwalifikacje) renderują się z danych, nigdy z tekstu;
+ * - ceny i wolne terminy renderują się z danych, nigdy z tekstu; kwalifikacje także
+ *   stoją na stronie z danych, z oznaczeniem, czy dokument sprawdził serwis;
  * - stopka kryzysowa nie należy do stanu strony, więc nie da się jej usunąć.
  */
 
@@ -167,7 +168,10 @@ export const questionOf = (page: PageDraft, id: string): Pick<Question, 'id' | '
   TYPES[page.type]!.questions.find((q) => q.id === id) ?? page.custom.map((c) => ({ ...c, stage: 'inne' })).find((c) => c.id === id);
 
 /* ---------- STRAŻNIK FAKTÓW ----------
-   Ceny, terminy i kwalifikacje nie mogą wejść na stronę prozą. Dwie zapory:
+   Ceny i terminy nie mogą wejść na stronę prozą: dezaktualizują się i mogłyby przeczyć
+   cennikowi albo kalendarzowi. O kwalifikacjach pisze śmiało - to jej opis siebie, a to,
+   co potwierdził dokument, pokazuje osobno karta z danych. (Reguła na kwalifikacje ukryłaby
+   2026-09-21 zdania o certyfikacji i superwizji u 7 z 8 realnych osób.) Dwie zapory:
    1) narzędzie pokazuje takie zdanie, a serwer nie opublikuje strony, dopóki nie zniknie;
    2) renderer i tak go nie wypisze (`clean`), więc stary zapis też nie wycieknie.
    ponytail: reguły to wyrażenia regularne — łapią typowe sformułowania, nie wszystkie („stówka”,
@@ -187,13 +191,11 @@ const RULES: Array<{ kind: GuardKind; re: RegExp[] }> = [
       new RegExp(`${WEEK}[^\\n]*(?:woln|termin|przyjmuj|zapisy)|(?:woln|termin|przyjmuj|zapisy)[^\\n]*${WEEK}`, 'i'),
     ],
   },
-  { kind: 'kwalifikacje', re: [/certyfik|superwizor|dyplom|akredyt|magist|doktorat|rekomendacj|zweryfikowan|pttpb|(?<![a-ząćęłńóśźż])(?:dr|ptp)(?![a-ząćęłńóśźż])/i] },
 ];
-export type GuardKind = 'kwota' | 'termin' | 'kwalifikacje';
+export type GuardKind = 'kwota' | 'termin';
 export const GUARD_MSG: Record<GuardKind, [string, string]> = {
   kwota: ['To wygląda na cenę', 'Ceny pokazujemy sami, prosto z cennika. Inaczej po zmianie cennika strona mówiłaby dwie różne rzeczy.'],
   termin: ['To wygląda na termin albo godzinę', 'Wolne terminy pokazujemy sami, z kalendarza — zawsze aktualne, więc nikt nie przyjdzie na zajęty.'],
-  kwalifikacje: ['To wygląda na kwalifikacje', 'Na stronie są tylko kwalifikacje potwierdzone dokumentem — dlatego pacjent może im ufać. O tym, jak pracujesz, pisz śmiało.'],
 };
 export interface Flag {
   i: number;

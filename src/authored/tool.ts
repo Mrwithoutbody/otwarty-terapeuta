@@ -41,7 +41,7 @@ const plural = (n: number): string => (n === 1 ? 'odpowiedź' : 'odpowiedzi');
 const day = (iso: string): string => new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' });
 const month = (): string => new Date(publishedAt ?? Date.now()).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
 const go = (hash: string): void => void (location.hash = hash);
-const KIND: Record<GuardKind, string> = { kwota: 'cena w tekście', termin: 'termin w tekście', kwalifikacje: 'kwalifikacje w tekście' };
+const KIND: Record<GuardKind, string> = { kwota: 'cena w tekście', termin: 'termin w tekście' };
 
 function toast(msg: string): void {
   const t = $('#toast')!;
@@ -149,7 +149,7 @@ function stepAnswer(): string {
     ${todo.length ? `<ul class="qlist">${todo.slice(0, 3).map(card).join('')}</ul>` : ''}
     ${rest > 0 ? `<details class="more"><summary>Pokaż jeszcze ${rest} ${rest === 1 ? 'pytanie' : rest < 5 ? 'pytania' : 'pytań'}</summary><ul class="qlist">${todo.slice(3).map(card).join('')}</ul></details>` : ''}
     ${P.custom.length < LIMITS.custom ? `<form class="ownq" data-form="ownq"><label>Pacjenci pytają Cię o coś innego? Dopisz to pytanie<input name="q" required maxlength="${LIMITS.question}" placeholder="np. Czy mogę przyjść z dzieckiem?" autocomplete="off"></label><button class="btn ghost">Dodaj pytanie</button></form>` : ''}
-    <h2 class="sec">Na te pytania odpowiadamy za Ciebie</h2><p class="hint">Ceny, terminy i kwalifikacje bierzemy prosto z Twoich danych. Nie da się ich tu pomylić ani zapomnieć zaktualizować.</p>
+    <h2 class="sec">Na te pytania odpowiadamy za Ciebie</h2><p class="hint">Ceny i terminy bierzemy prosto z Twoich danych, więc nie da się ich pomylić ani zapomnieć zaktualizować. Przy kwalifikacjach pokazujemy, które dokumenty sprawdził serwis.</p>
     <ul class="qlist locked">${T.facts
       .map(
         (f) => `<li><div class="qcard lock"><span class="qq">${esc(f.ask)}</span><span class="qprev">${esc(factPreview(f))}</span>
@@ -221,7 +221,7 @@ function stepPublish(): string {
     <ul class="check"><li class="${n >= 1 ? 'ok' : 'no'}">${n} ${plural(n)} Twoimi słowami${n < 1 ? ' — napisz choć jedną, pusta strona nikomu nie pomoże' : ''}</li>
       ${person.photo ? '<li class="ok">Twoje zdjęcie</li>' : '<li class="no">Bez zdjęcia — pacjent chce zobaczyć, do kogo idzie. <a href="#/">Dodaj zdjęcie</a></li>'}
       ${T.facts.map((f) => `<li class="ok">${esc(f.title)} — ${esc(f.source)}</li>`).join('')}
-      <li class="${flags.length ? 'no' : 'ok'}">${flags.length ? `${flags.length === 1 ? 'Jedno zdanie' : `${flags.length} zdania`} w Twoim tekście podaje ceny, terminy albo kwalifikacje — popraw poniżej` : 'W Twoim tekście nie ma cen, terminów ani kwalifikacji — te pokazujemy z danych'}</li>
+      <li class="${flags.length ? 'no' : 'ok'}">${flags.length ? `${flags.length === 1 ? 'Jedno zdanie' : `${flags.length} zdania`} w Twoim tekście podaje ceny albo terminy — popraw poniżej` : 'W Twoim tekście nie ma cen ani terminów — te pokazujemy z danych'}</li>
       <li class="ok">Telefony pomocy kryzysowej na dole strony — zawsze, nie trzeba o nich pamiętać</li></ul>
     ${
       flags.length
