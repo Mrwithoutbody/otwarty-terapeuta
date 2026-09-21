@@ -142,7 +142,7 @@ kryzysowa jest stałą renderera, nie treścią strony.
 - `authored_pages`: szkic i wersja opublikowana obok siebie. Publikacja przepisuje jej słowa
   do `headline`, `bio`, `first_meeting_*` i FAQ, więc wtyczka ChatGPT czyta ten sam tekst.
 - `/terapeuci/:slug`: strona autorska, jeśli jest opublikowana; inaczej dawny render usługi
-  stron. Podstrony `/terapeuci/:slug/:page` nadal niesie usługa (`x402Landings`).
+  stron. Tak samo `/terapeuci/:slug/:page` (niżej).
 - **Podstrony autorskie (2026-09-22)**: typ `podstrona` w `TYPES` (tytuł zamiast imienia w H1),
   wiersz `authored_pages` z `slug`. Trasa `/terapeuci/:slug/:strona` bierze najpierw stronę
   autorską, x402L tylko gdy jej nie ma. Pierwsza: grupa Eweliny (`grupa-wsparcia-dla-rodzicow`,
