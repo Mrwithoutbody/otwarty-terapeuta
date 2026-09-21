@@ -129,6 +129,12 @@ export async function publish(env: Env, therapistId: string, raw: unknown): Prom
     .map((x) => ({ q: x.known?.q ?? x.own!.q, a: text(x.id) }))
     .filter((x) => x.q !== '');
 
+  // Kategoria FAQ (czyta ją wtyczka) zostaje przy pytaniu, które już ją miało.
+  const { results: before } = await env.DB.prepare(`SELECT question, category FROM faq_items WHERE therapist_id = ? AND status = 'published'`)
+    .bind(therapistId)
+    .all<{ question: string; category: string }>();
+  const categoryOf = (q: string): string => before.find((f) => f.question === q)?.category ?? 'general';
+
   await env.DB.batch([
     env.DB.prepare(`UPDATE authored_pages SET published_json = draft_json, published_at = ?, updated_at = ? WHERE therapist_id = ? AND type = 'profil'`).bind(at, at, therapistId),
     env.DB.prepare(
@@ -138,8 +144,8 @@ export async function publish(env: Env, therapistId: string, raw: unknown): Prom
     ...faq.map((item, position) =>
       env.DB.prepare(
         `INSERT INTO faq_items (id, therapist_id, question, answer, category, position, status, approved_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'general', ?, 'published', ?, ?, ?)`,
-      ).bind(randomId('faq'), therapistId, item.q, item.a, position, at, at, at),
+         VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?)`,
+      ).bind(randomId('faq'), therapistId, item.q, item.a, categoryOf(item.q), position, at, at, at),
     ),
   ]);
   return { ok: true, published_at: at };

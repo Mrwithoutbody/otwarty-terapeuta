@@ -44,7 +44,7 @@ describe('a draft from the browser', () => {
     expect(draft.top).toBe('fakty');
     expect(draft.line).toBe('Psychoterapeutka Warszawa');
     expect(draft.order).toEqual(['who', 'c_1']);
-    expect(draft.answers.who).toHaveLength(2400);
+    expect(draft.answers.who).toHaveLength(4000);
     expect(Object.keys(draft)).not.toContain('facts');
   });
 });

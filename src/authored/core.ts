@@ -123,7 +123,8 @@ export interface Person {
   booking_href: string;
 }
 
-export const LIMITS = { line: 160, answer: 2400, question: 140, custom: 8 };
+/** Takie jak w dawnych formularzach profilu (nagłówek 200, opis 4000, FAQ: 20 pytań po 200 znaków), żeby przeniesienie niczego nie ucięło. */
+export const LIMITS = { line: 200, answer: 4000, question: 200, custom: 20 };
 
 export const esc = (s: unknown): string =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
