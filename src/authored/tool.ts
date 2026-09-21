@@ -18,6 +18,7 @@ interface Boot {
   public_url: string;
   panel_url: string;
   can_upload: boolean;
+  in_catalogue: boolean;
 }
 
 const boot = JSON.parse(document.getElementById('boot')!.textContent!) as Boot;
@@ -237,7 +238,9 @@ function stepPublish(): string {
           ? '<div class="card"><h2>Gotowe, żeby pokazać?</h2><p>Nic się nie zepsuje: po publikacji dalej możesz poprawiać, a pacjenci zobaczą zmiany dopiero, gdy klikniesz jeszcze raz.</p><button class="btn big" data-act="publish">Opublikuj stronę</button></div>'
           : dirty()
             ? `<div class="card"><h2>Masz nowe zmiany</h2><p>Pacjenci wciąż widzą wersję z ${day(publishedAt!)}.</p><p class="row"><button class="btn big" data-act="publish">Opublikuj zmiany</button><button class="btn ghost" data-act="revert">Wróć do wersji opublikowanej</button></p></div>`
-            : `<div class="card okcard"><h2>Strona jest opublikowana</h2><p>Adres: <b>${esc(boot.public_url.replace(/^https?:\/\//, ''))}</b></p><a class="btn big" href="${esc(boot.public_url)}" target="_blank" rel="noopener">Zobacz ją jak pacjent</a></div>`
+            : boot.in_catalogue
+              ? `<div class="card okcard"><h2>Strona jest opublikowana</h2><p>Adres: <b>${esc(boot.public_url.replace(/^https?:\/\//, ''))}</b></p><a class="btn big" href="${esc(boot.public_url)}" target="_blank" rel="noopener">Zobacz ją jak pacjent</a></div>`
+              : '<div class="card okcard"><h2>Strona jest gotowa</h2><p>Pacjenci zobaczą ją, gdy Twój profil trafi do katalogu — po sprawdzeniu dokumentów przez serwis. Niczego więcej nie musisz robić.</p><button class="btn ghost" data-act="peek">Zobacz, jak będzie wyglądać</button></div>'
     }
     </section>${dock('')}`;
 }

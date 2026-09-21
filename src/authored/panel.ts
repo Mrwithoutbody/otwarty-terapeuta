@@ -53,7 +53,12 @@ authoredPanel.get('/', async (c) => {
   const o = await owner(c, false);
   if (o instanceof Response) return o;
   const { session, t } = o;
-  const [page, faq, slots] = await Promise.all([getAuthored(c.env, t.therapist_id), getPublishedFaq(c.env, t.therapist_id), slotsOf(c.env, t)]);
+  const [page, faq, slots, row] = await Promise.all([
+    getAuthored(c.env, t.therapist_id),
+    getPublishedFaq(c.env, t.therapist_id),
+    slotsOf(c.env, t),
+    c.env.DB.prepare(`SELECT status FROM therapists WHERE id = ?`).bind(t.therapist_id).first<{ status: string }>(),
+  ]);
   const boot = {
     draft: page?.draft ?? seedDraft(t, faq),
     published: page?.published ?? null,
@@ -64,6 +69,8 @@ authoredPanel.get('/', async (c) => {
     public_url: `${c.env.PUBLIC_BASE_URL}/terapeuci/${t.slug}`,
     panel_url: `/admin/terapeuci/${t.therapist_id}`,
     can_upload: Boolean(c.env.MEDIA),
+    // „Opublikuj” publikuje treść; do katalogu profil wpuszcza administrator po weryfikacji.
+    in_catalogue: row?.status === 'published',
   };
   const html = `<!doctype html>
 <html lang="pl">
