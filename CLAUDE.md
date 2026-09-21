@@ -167,6 +167,9 @@ właściciela **przed** deployem, razem ze zdaniem, ilu realnych terapeutek dotk
 (katalog `/terapeuci` minus profile `-demo`). Notuj id wdrożonej wersji od razu: rollback
 to wtedy `npx wrangler rollback <id> --env production --message "<powód>"`, jedna komenda.
 Host renderuje na żywo, więc deploy zmienia strony wszystkim w tej samej sekundzie.
+Wersje w `deployments list` nie niosą SHA (`Message: -`), więc deployuj z
+`--message "$(git rev-parse --short HEAD)"`. Bez tego zaległe commity ustala się po czasie
+i sygnaturze w żywym kodzie (2026-09-22: `daf76ebd` = `74f6f7d`, ostatni deploy bez SHA).
 (2026-09-17: deploy na prośbę „zdeployuj hosta" wypuścił dziesięć dni zaległych commitów
 i przestawił wygląd jedenastu profili, w tym siedmiu realnych osób; rollback po 7 min 48 s.)
 
