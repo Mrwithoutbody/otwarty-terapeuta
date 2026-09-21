@@ -81,6 +81,9 @@ export async function getPage(env: Env, id: string): Promise<PageInfo | null> {
   return row ? fromRow(row) : null;
 }
 
+/** Her subpages a patient may open: published, the profile aside. */
+export const publishedSubpages = (pages: PageInfo[]): PageInfo[] => pages.filter((p) => p.slug !== 'profil' && p.status === 'published');
+
 async function findPage(env: Env, owner: string, slug: string): Promise<PageInfo | null> {
   const row = await env.DB.prepare(`SELECT * FROM therapist_pages WHERE therapist_id = ? AND slug = ?`).bind(owner, slug).first<PageRow>();
   return row ? fromRow(row) : null;

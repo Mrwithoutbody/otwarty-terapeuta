@@ -11,12 +11,14 @@ import { fnv1a } from '../lib/crypto';
 import { esc, renderPublic } from './core';
 import { AUTHORED_CSS } from './page-css';
 import { getPublished, personOf } from './store';
+import { listPages, publishedSubpages } from '../web/pages-client';
 
 export const AUTHORED_CSS_VERSION = fnv1a(AUTHORED_CSS).toString(36);
 
 const monthOf = (iso: string, timeZone: string): string => new Date(iso).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric', timeZone });
 
-export function authoredDocument(title: string, article: string): string {
+/** `pages`: her published subpages - the only road to them besides the sitemap. */
+export function authoredDocument(title: string, article: string, pages: Array<{ href: string; title: string }> = []): string {
   return `<!doctype html>
 <html lang="pl">
 <head>
@@ -29,7 +31,7 @@ export function authoredDocument(title: string, article: string): string {
 </head>
 <body>
 <a class="skip" href="#tresc">Przejdź do treści</a>
-<div class="top"><a class="brand" href="/">Otwarty Terapeuta</a><a href="/terapeuci">‹ Wszyscy terapeuci</a></div>
+<div class="top"><a class="brand" href="/">Otwarty Terapeuta</a><nav aria-label="Strony">${pages.map((p) => `<a href="${esc(p.href)}">${esc(p.title)}</a>`).join('')}<a href="/terapeuci">‹ Wszyscy terapeuci</a></nav></div>
 <div id="tresc">${article}</div>
 </body>
 </html>`;
@@ -40,5 +42,6 @@ export async function serveAuthored(env: Env, t: PublicTherapist, slots: PublicS
   const published = await getPublished(env, t.therapist_id);
   if (!published) return null;
   const person = personOf(t, slots.map((s) => s.starts_at_utc), '/jak-to-dziala');
-  return authoredDocument(t.display_name, renderPublic(person, published.page, monthOf(published.published_at, t.timezone)));
+  const pages = publishedSubpages(await listPages(env, t.therapist_id)).map((p) => ({ href: `/terapeuci/${t.slug}/${p.slug}`, title: p.title }));
+  return authoredDocument(t.display_name, renderPublic(person, published.page, monthOf(published.published_at, t.timezone)), pages);
 }

@@ -14,7 +14,7 @@
 import type { Env } from '../env';
 import type { PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
-import { createPage, editSession, listPages, PagesUnavailable, renderPage, type PageInfo } from './pages-client';
+import { createPage, editSession, listPages, PagesUnavailable, publishedSubpages, renderPage, type PageInfo } from './pages-client';
 import { HOST_LOCKS, hostDataFields, resolveAll, type SectionCtx } from './host-blocks';
 import { writeToken } from './host-write';
 import { hmacBase64Url } from '../lib/crypto';
@@ -49,13 +49,15 @@ const CRISIS = {
 };
 
 /** The frame: her name, the catalogue, her other pages (the service lists nothing itself), the crisis numbers. */
-function chromeFor(t: PublicTherapist, pages: PageInfo[] = []): Record<string, unknown> {
+function chromeFor(t: PublicTherapist, pages: PageInfo[] = [], current = PROFILE_SLUG): Record<string, unknown> {
   const profileHref = `/terapeuci/${t.slug}`;
   return {
     brand: { label: t.display_name, href: profileHref },
     links: [
       { label: 'Katalog', href: '/terapeuci' },
-      ...pages.filter((p) => p.slug !== PROFILE_SLUG && p.status === 'published').map((p) => ({ label: p.title, href: `${profileHref}/${p.slug}` })),
+      // The theme prints the brand without its href: without this link a subpage never leads back to her profile.
+      ...(current === PROFILE_SLUG ? [] : [{ label: 'Profil', href: profileHref }]),
+      ...publishedSubpages(pages).map((p) => ({ label: p.title, href: `${profileHref}/${p.slug}`, current: p.slug === current })),
     ],
     footerNote: CRISIS,
   };
@@ -83,7 +85,7 @@ export async function serveTherapistPage(
     owner: t.therapist_id,
     slug,
     resolved: resolveAll(ctx),
-    chrome: chromeFor(t, await listPages(env, t.therapist_id)),
+    chrome: chromeFor(t, await listPages(env, t.therapist_id), slug),
   };
   try {
     let html = await renderPage(env, request);
@@ -105,6 +107,34 @@ export async function serveTherapistPage(
   }
 }
 
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+/** Text of an HTML fragment the service typeset: tags out, entities back to characters, so it can be escaped once. */
+function textOf(fragment: string): string {
+  return fragment
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&#(x?)([0-9a-f]+);/gi, (_, hex: string, n: string) => {
+      const code = parseInt(n, hex ? 16 : 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ' ';
+    })
+    .replace(/&([a-z]+);/gi, (m, name: string) => ENTITIES[name] ?? m)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * A subpage in its own words: its headline and the paragraph under it. Without this
+ * every subpage repeated her profile's description, and the two competed for one query.
+ */
+function ownDescription(html: string): string {
+  const body = html.slice(Math.max(0, html.indexOf('<body')));
+  const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>([\s\S]*)/.exec(body);
+  const heading = textOf(h1?.[1] ?? '');
+  if (!heading) return '';
+  const lead = textOf(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/.exec(h1![2]!)?.[1] ?? '');
+  return [/[.!?…]$/.test(heading) ? heading : `${heading}.`, lead].filter(Boolean).join(' ').slice(0, 300);
+}
+
 /**
  * What a search engine reads before it reads the page. The service typesets the body
  * and knows nothing of the address the page lives at, her city or her prices - the host
@@ -122,7 +152,7 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     ? escapeHtml(`${t.display_name} — psychoterapia${place ? `, ${place}` : ''} — Otwarty Terapeuta`)
     : `${own} — ${escapeHtml(t.display_name)} — Otwarty Terapeuta`;
   const topics = t.topics.slice(0, 4).map((x) => x.name.toLowerCase()).join(', ');
-  const description = [
+  const description = (!profile && ownDescription(html)) || [
     `${t.display_name}${t.headline ? ` — ${t.headline.replace(/[.\s]+$/, '')}` : ''}.`,
     topics ? `Obszary pracy: ${topics}.` : '',
     place ? `Psychoterapia: ${place}.` : '',

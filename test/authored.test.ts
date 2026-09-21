@@ -5,6 +5,7 @@ import { getPublishedFaq, getTherapist } from '../src/db/catalog';
 import { findOrCreateUserByEmail } from '../src/db/users';
 import { cut, guard, normalizeDraft, pageFlags, renderPublic, shape, type Person } from '../src/authored/core';
 import { getAuthored, publish, saveDraft, seedDraft } from '../src/authored/store';
+import { createPage } from '../src/web/pages-client';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const PROFILE = 'https://localhost/terapeuci/anna-kowalczyk-demo';
@@ -129,6 +130,13 @@ describe('publishing', () => {
     expect(html).toContain('220 zł');
     expect(html).toContain('116 123');
     expect(html).toContain('<link rel="canonical"');
+
+    // Her published subpages hang off her page; a draft does not.
+    await createPage(env, { owner: ANNA, title: 'Grupa wsparcia', status: 'published' });
+    await createPage(env, { owner: ANNA, title: 'Warsztaty', status: 'draft' });
+    const linked = await (await SELF.fetch(PROFILE)).text();
+    expect(linked).toContain('<a href="/terapeuci/anna-kowalczyk-demo/grupa-wsparcia">Grupa wsparcia</a>');
+    expect(linked).not.toContain('/terapeuci/anna-kowalczyk-demo/warsztaty');
 
     const t = (await getTherapist(env, { therapist_id: ANNA }))!;
     expect(t.bio).toBe('Pracuję z osobami w kryzysie.\n\nNazywamy problem i sprawdzamy, co pomaga.');

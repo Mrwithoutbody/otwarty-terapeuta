@@ -76,6 +76,7 @@ describe('podstrony terapeutki', () => {
         page: {
           theme: 'spokoj',
           blocks: [
+            { id: 'navbar', type: 'navbar', kind: 'pasek', layout: 'lista', tone: 'base', data: {} },
             { id: 'hero-profil', type: 'hero', kind: 'siatka', layout: 'srodek', tone: 'base', data: { heading: 'Nie musisz tego dźwigać sama' } },
             { id: 'terminy', type: 'calendar', kind: 'siatka', layout: 'lista', tone: 'base', data: {} },
           ],
@@ -87,6 +88,10 @@ describe('podstrony terapeutki', () => {
     expect(html).toContain('Nie musisz tego dźwigać sama');
     expect(html).toContain('data-t="spokoj"');
     expect(html).toContain('id="terminy"');
+    // This theme prints her name without a link: the road back to her profile is the host's.
+    expect(html).toContain('href="/terapeuci/anna-kowalczyk-demo"');
+    // Its own description, not a copy of the profile's.
+    expect(html).toContain('<meta name="description" content="Nie musisz tego dźwigać sama.');
 
     // The profile links to it; the panel lists it.
     const profile = await (await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo')).text();

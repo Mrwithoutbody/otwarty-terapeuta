@@ -180,6 +180,7 @@ p { margin: 0 0 .8em; } a { color: var(--green); }
 }
 
 .book { font-weight: 600; }
-.top { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: .92rem; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: .92rem; }
+.top nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .top a { text-decoration: none; font-weight: 600; } .top .brand { font-family: var(--serif); color: var(--ink); }
 `;
