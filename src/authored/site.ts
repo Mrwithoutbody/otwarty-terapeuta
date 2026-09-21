@@ -28,6 +28,8 @@ export function authoredDocument(title: string, article: string, pages: Array<{ 
 <link rel="stylesheet" href="/assets/strona.css?v=${AUTHORED_CSS_VERSION}">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#f7f8f1">
 </head>
 <body>
 <a class="skip" href="#tresc">Przejdź do treści</a>

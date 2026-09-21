@@ -185,6 +185,10 @@ describe('a subpage', () => {
     expect(html).toContain('<title>Grupa wsparcia dla rodziców — Anna Kowalczyk');
     expect(html).toContain('<meta name="description" content="Grupa wsparcia dla rodziców. Miejsce dla rodziców.');
     expect(html).toContain(`<link rel="canonical" href="${env.PUBLIC_BASE_URL}/terapeuci/anna-kowalczyk-demo/grupa-wsparcia">`);
+    // Ta sama głowa co strony serwisu: podgląd linku, ikona, okruszki w wyniku wyszukiwania.
+    for (const tag of ['name="twitter:card"', 'property="og:site_name"', 'property="og:locale"', 'rel="apple-touch-icon"', 'name="theme-color"']) expect(html).toContain(tag);
+    const crumbs = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => JSON.parse(m[1]!)).find((j) => j['@type'] === 'BreadcrumbList');
+    expect(crumbs.itemListElement.map((i: { name: string }) => i.name)).toEqual(['Otwarty Terapeuta', 'Terapeuci', expect.stringContaining('Anna Kowalczyk'), 'Grupa wsparcia dla rodziców']);
   });
 
   it('stays out of sight until published', async () => {

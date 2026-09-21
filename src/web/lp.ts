@@ -170,6 +170,19 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     knowsLanguage: t.languages,
     address: t.locations.map((l) => ({ '@type': 'PostalAddress', addressLocality: l.city, addressCountry: l.country })),
   };
+  // Okruszki: Google pokazuje je w wyniku zamiast gołego adresu z identyfikatorem.
+  const crumbs: Array<[string, string]> = [
+    ['Otwarty Terapeuta', `${env.PUBLIC_BASE_URL}/`],
+    ['Terapeuci', `${env.PUBLIC_BASE_URL}/terapeuci`],
+    [t.display_name, `${env.PUBLIC_BASE_URL}/terapeuci/${t.slug}`],
+    ...(profile ? [] : [[textOf(own), url] as [string, string]]),
+  ];
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map(([name, item], i) => ({ '@type': 'ListItem', position: i + 1, name, item })),
+  };
+  const ld = (data: unknown): string => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
   const head = [
     `<meta name="description" content="${escapeHtml(description)}">`,
     t.is_demo ? '<meta name="robots" content="noindex, nofollow">' : '',
@@ -180,8 +193,12 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     `<meta property="og:url" content="${escapeHtml(url)}">`,
     // Bez jej zdjęcia podgląd linku dostaje obraz serwisu; Person w JSON-LD zostaje bez `image`, bo to nie ona.
     `<meta property="og:image" content="${escapeHtml(image ?? `${env.PUBLIC_BASE_URL}/og-image.jpg`)}">`,
+    '<meta property="og:site_name" content="Otwarty Terapeuta">',
+    '<meta property="og:locale" content="pl_PL">',
+    '<meta name="twitter:card" content="summary_large_image">',
     // `<` escaped so nothing in her bio can close the script element.
-    `<script type="application/ld+json">${JSON.stringify(person).replace(/</g, '\\u003c')}</script>`,
+    ld(person),
+    ld(breadcrumb),
   ].join('');
   return html.replace(/<title>[^<]*<\/title>/, () => `<title>${title}</title>`).replace('</head>', () => `${head}</head>`);
 }
