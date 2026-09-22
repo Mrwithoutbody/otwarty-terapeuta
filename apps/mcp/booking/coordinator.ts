@@ -174,10 +174,12 @@ export class TherapistBookingCoordinator implements DurableObject {
     }
 
     // 3. One atomic batch: book the slot, write the booking, record idempotency.
-    //    `slot_id` is bound as `(SELECT ? WHERE changes() = 1)`, so if the
-    //    UPDATE above matched no row — someone blocked or booked the slot
-    //    between the re-read and here — it resolves to NULL, `NOT NULL` fails,
-    //    and the batch (idempotency row included) rolls back into the catch.
+    //    `slot_id` is read back from the row the UPDATE above was supposed to
+    //    touch, matched on this batch's `at`. If that UPDATE matched no row —
+    //    someone blocked or booked the slot between the re-read and here — the
+    //    subquery is NULL, `NOT NULL` fails, and the batch (idempotency row
+    //    included) rolls back into the catch. Deliberately not `changes()`:
+    //    that would depend on statement-to-statement state inside a D1 batch.
     const at = nowIso();
     try {
       await db.batch([
@@ -193,12 +195,15 @@ export class TherapistBookingCoordinator implements DurableObject {
                                    mode, starts_at_utc, ends_at_utc, timezone, price_minor, currency,
                                    contact_name_enc, contact_email_enc, contact_phone_enc,
                                    terms_version, privacy_version, manage_token_hash, created_at, updated_at)
-             VALUES (?, ?, (SELECT ? WHERE changes() = 1), ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?,
+                     (SELECT id FROM appointment_slots WHERE id = ? AND status = 'booked' AND updated_at = ?),
+                     ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             command.bookingId,
             command.publicRef,
             command.slotId,
+            at,
             command.therapistId,
             command.userId,
             command.sessionType,
