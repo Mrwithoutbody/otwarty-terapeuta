@@ -26,9 +26,9 @@ Pliki: `src/authored/{core,store,site,panel,tool,page-css,tool-css}.ts`,
 `migrations/0020_authored_pages.sql`, `test/authored.test.ts`, `src/web/admin-dane.ts`,
 `src/web/admin.ts` (zakładki), `scripts/build-widget.mjs` (bundel narzędzia).
 
-## Do zrobienia w Google Search Console (od 2026-09-22, po 9:00)
+## Do zrobienia w Google Search Console (od 2026-09-23, po 9:00)
 
-Limit próśb o zindeksowanie (~10 dziennie) wyczerpany 2026-09-21 wieczorem. W Chrome właściciela,
+Limit próśb o zindeksowanie (~10 dziennie) wyczerpany 2026-09-21 wieczorem i znowu 2026-09-22 (o 17:45 „Przekroczono limit” już przy pierwszym adresie). W Chrome właściciela,
 „Sprawdzenie adresu URL” → „Poproś o zindeksowanie”, po kolei:
 
 1. `https://otwartyterapeuta.pl/psychoterapeuta/warszawa` - nowa strona, Google jej nie zna.
