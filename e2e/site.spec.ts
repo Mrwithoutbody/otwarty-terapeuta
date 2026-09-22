@@ -43,10 +43,13 @@ test('the catalogue filters work without JavaScript', async ({ browser }) => {
   await page.goto('/terapeuci');
 
   await page.selectOption('#miasto', 'Warszawa');
-  await page.getByRole('button', { name: 'Pokaż wyniki' }).click();
+  // The submit outside <details>: the one in "Więcej filtrów" is collapsed, so
+  // without JavaScript it cannot be clicked at all.
+  await page.getByRole('button', { name: 'Szukaj' }).click();
 
   await expect(page).toHaveURL(/miasto=Warszawa/);
-  await expect(page.getByRole('heading', { name: /^Wyniki/ })).toBeVisible();
+  await expect(page.locator('#miasto')).toHaveValue('Warszawa');
+  await expect(page.locator('.directory-results .card').first()).toBeVisible();
   await context.close();
 });
 
@@ -67,12 +70,14 @@ test('every profile is labelled as verified, declared or demo data', async ({ pa
 
 test('the profile page shows price, FAQ provenance and cancellation rules', async ({ page }) => {
   await page.goto('/terapeuci/anna-kowalczyk-demo');
-  await expect(page.getByRole('heading', { name: 'Jedna cena, bez gwiazdek' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Kiedy musisz odwołać' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ile to kosztuje?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Jakie są zasady odwoływania wizyt?' })).toBeVisible();
   // Provenance must stay visible without expanding anything: it is the whole
-  // claim behind publishing a therapist's FAQ at all.
-  await expect(page.getByText('Odpowiedzi pochodzą wprost od terapeuty.')).toBeVisible();
-  await expect(page.locator('.offer-card').first()).toContainText('zł');
+  // claim behind publishing a therapist's answers at all.
+  await expect(page.getByText('i odpowiedzi własnymi słowami')).toBeVisible();
+  // Prices and the cancellation rule render from the data, never from prose.
+  await expect(page.locator('#f-offers')).toContainText('zł');
+  await expect(page.locator('#f-offers .src')).toContainText('z cennika');
 });
 
 test('the crisis page leads with the emergency number', async ({ page }) => {
