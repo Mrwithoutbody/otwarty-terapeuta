@@ -65,15 +65,10 @@ export const APP_CSS = `
   --accent-strong: #3d6529;
   --accent-soft: #e8f3e2;
   --focus: #8b6415;
-  /* The banknote the accent comes from ('Dollar bill' green): the blue of its security
-     ribbon, measured from a scan at 226deg / 28% / 55% and taken darker, and a light gold
-     mixed from --focus. The hero's lotus is painted from these and --accent, nowhere else. */
   /* The one dark ground of the site: hero, directory head, emergency panel, closing CTA.
-     The ribbon's hue at 21% light: 15% read as black, 28% as washed out. Faintest hero
+     Hue 226 at 21% light: 15% read as black, 28% as washed out. Faintest hero
      text (#a3abc6) keeps 6.3:1 on it, the lead 8.6:1 - Lighthouse asks for 4.5:1. */
   --navy: hsl(226 30% 21%);
-  --ribbon-blue: hsl(226 28% 46%);
-  --gold-light: color-mix(in srgb, var(--focus) 40%, #fff);
   --danger: #8a2f2f;
   --radius-sm: 10px;
   --radius: 14px;
