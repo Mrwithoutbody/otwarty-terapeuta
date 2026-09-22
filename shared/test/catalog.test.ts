@@ -234,3 +234,43 @@ describe('licznik odsłon profilu', () => {
     expect((await viewsByTherapist(env)).get(ANNA)?.web ?? 0).toBeGreaterThan(before);
   });
 });
+
+describe('a catalogue larger than one query', () => {
+  // D1 binds at most 100 parameters per query. The related-data loader asks for
+  // every id on the page at once, so a page of a hundred profiles used to fail
+  // outright. The seed has 7; this puts 120 more in front of the same code.
+  it('loads related data for more than a hundred profiles at once', async () => {
+    const base = (await env.DB.prepare('SELECT * FROM therapists WHERE id = ?')
+      .bind(ANNA)
+      .first<Record<string, unknown>>())!;
+    const columns = Object.keys(base);
+    const insert = `INSERT INTO therapists (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`;
+    const ids = Array.from({ length: 120 }, (_, i) => `th_bulk${String(i).padStart(18, '0')}`);
+
+    try {
+      await env.DB.batch(
+        ids.map((id, i) =>
+          env.DB.prepare(insert).bind(
+            ...columns.map((c) =>
+              c === 'id' ? id : c === 'slug' ? `bulk-${i}-demo` : (base[c] as string | number | null),
+            ),
+          ),
+        ),
+      );
+
+      const all = await findCandidates(env, {});
+      expect(all.length).toBe(127);
+      expect(all.filter((t) => t.slug.startsWith('bulk-')).length).toBe(120);
+      // The seeded profile still carries its related rows, so the chunks merge.
+      expect(all.find((t) => t.therapist_id === ANNA)?.offers.length).toBeGreaterThan(0);
+    } finally {
+      await env.DB.prepare(`DELETE FROM therapists WHERE id LIKE 'th_bulk%'`).run();
+    }
+  });
+
+  it('cuts a search term that would exceed the LIKE pattern limit', async () => {
+    // Longer than D1's 50-byte ceiling for a LIKE pattern: must search, not throw.
+    const found = await findCandidates(env, { text: 'a'.repeat(200) });
+    expect(Array.isArray(found)).toBe(true);
+  });
+});

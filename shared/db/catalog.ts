@@ -101,9 +101,23 @@ function rows<T>(result: D1Result<T> | undefined): T[] {
   return result?.results ?? [];
 }
 
+/**
+ * D1 accepts at most 100 bound parameters per query, and the nextSlot statement
+ * binds the clock on top of the ids - so the ids are asked for in chunks. Without
+ * this the catalogue stops answering the moment a page lists a hundred profiles.
+ */
+const IDS_PER_QUERY = 90;
+
 async function loadRelated(env: Env, ids: string[]): Promise<Related> {
   const related = emptyRelated();
-  if (ids.length === 0) return related;
+  for (let from = 0; from < ids.length; from += IDS_PER_QUERY) {
+    await loadRelatedChunk(env, ids.slice(from, from + IDS_PER_QUERY), related);
+  }
+  return related;
+}
+
+async function loadRelatedChunk(env: Env, ids: string[], related: Related): Promise<void> {
+  if (ids.length === 0) return;
   const ph = placeholders(ids.length);
 
   const [locs, langs, specs, mods, offers, slots] = await env.DB.batch<Record<string, string | number>>([
@@ -185,7 +199,6 @@ async function loadRelated(env: Env, ids: string[]): Promise<Related> {
   for (const row of rows(slots)) {
     if (row.next_start) related.nextSlot.set(String(row.therapist_id), String(row.next_start));
   }
-  return related;
 }
 
 /**
@@ -273,7 +286,15 @@ function folded(expr: string): string {
 
 /** LIKE wildcards typed by a visitor are literal characters, not operators. */
 function likeTerm(term: string): string {
-  return `%${normalizeForSearch(term).replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+  const pattern = (text: string) => `%${text.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+  // D1 refuses a LIKE pattern over 50 bytes with a query error, so a very long
+  // word is cut rather than searched: the visitor gets results for its
+  // beginning instead of a broken page.
+  let text = normalizeForSearch(term);
+  while (text.length > 0 && new TextEncoder().encode(pattern(text)).length > 50) {
+    text = text.slice(0, -1);
+  }
+  return pattern(text);
 }
 
 /** Hard filters run in SQL; ranking runs in TypeScript so it stays explainable. */
