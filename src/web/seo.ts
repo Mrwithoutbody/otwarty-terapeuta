@@ -21,14 +21,12 @@ export function snippet(text: string, max = 155): string {
 }
 
 // Ludzie szukają „psychoterapeuta gestalt warszawa”, nie „psychoterapia”. Humanistyczna to parasol nad kilkoma nurtami - tylko gdy nic innego.
-const SHORT_MODALITY: Record<string, string> = {
-  gestalt: 'Gestalt', integracyjna: 'integracyjna', 'poznawczo-behawioralna': 'CBT', psychodynamiczna: 'psychodynamiczna', systemowa: 'systemowa',
-  schematu: 'schematu', act: 'ACT', dbt: 'DBT', emdr: 'EMDR', humanistyczna: 'humanistyczna',
-};
+// Poza tymi pięcioma nazwą w tytule jest sam identyfikator nurtu („integracyjna”, „systemowa”).
+const SHORT_MODALITY: Record<string, string> = { gestalt: 'Gestalt', 'poznawczo-behawioralna': 'CBT', act: 'ACT', dbt: 'DBT', emdr: 'EMDR' };
 
 /** „psychoterapia Gestalt i integracyjna” - z nurtów, które sama zaznaczyła; bez nich samo „psychoterapia”. */
 export function practiceOf(t: Pick<PublicTherapist, 'modalities'>): string {
-  const named = t.modalities.map((m) => SHORT_MODALITY[m.slug]).filter((x): x is string => Boolean(x));
+  const named = t.modalities.map((m) => SHORT_MODALITY[m.slug] ?? m.slug);
   const specific = named.filter((x) => x !== 'humanistyczna');
   const pick = (specific.length > 0 ? specific : named).slice(0, 2);
   return pick.length > 0 ? `psychoterapia ${pick.join(' i ')}` : 'psychoterapia';

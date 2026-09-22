@@ -307,7 +307,7 @@ function catalogueFacts(entries: PublicTherapist[]): string {
   const cities = new Set(entries.flatMap((t) => t.locations.map((l) => l.city)));
   if (cities.size > 0) facts.push(['Miejscowości', String(cities.size)]);
 
-  const prices = entries.flatMap((t) => (sessionFrom(t) === null ? [] : [sessionFrom(t)!]));
+  const prices = entries.map(sessionFrom).filter((p): p is number => p !== null);
   if (prices.length > 0) facts.push(['Sesja od', formatPrice(Math.min(...prices), 'PLN')]);
 
   const slots = entries.map((t) => t.next_available_slot_utc).filter((s): s is string => s !== null);
@@ -576,7 +576,7 @@ siteApp.get('/psychoterapeuta/:miasto', async (c) => {
   };
   const modalities = tally((t) => t.modalities);
   const topics = tally((t) => t.topics).slice(0, 12);
-  const prices = entries.flatMap((t) => (sessionFrom(t) === null ? [] : [sessionFrom(t)!]));
+  const prices = entries.map(sessionFrom).filter((p): p is number => p !== null);
   const online = entries.filter((t) => t.offers_online).length;
   // Nie każda osoba z miasta ma gabinet - obie liczby z danych, żadna nie jest obietnicą.
   const inPerson = entries.filter((t) => t.offers_in_person).length;

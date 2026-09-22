@@ -133,7 +133,7 @@ function ownDescription(html: string): string {
   const heading = textOf(h1?.[1] ?? '');
   if (!heading) return '';
   const lead = textOf(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/.exec(h1![2]!)?.[1] ?? '');
-  return [/[.!?…]$/.test(heading) ? heading : `${heading}.`, lead].filter(Boolean).join(' ').slice(0, 300);
+  return [/[.!?…]$/.test(heading) ? heading : `${heading}.`, lead].filter(Boolean).join(' ');
 }
 
 /**
@@ -153,12 +153,13 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     ? escapeHtml(`${t.display_name} — ${practiceOf(t)}${place ? `, ${place}` : ''} — Otwarty Terapeuta`)
     : `${own} — ${escapeHtml(t.display_name)} — Otwarty Terapeuta`;
   const topics = t.topics.slice(0, 4).map((x) => x.name.toLowerCase()).join(', ');
+  const from = sessionFrom(t);
   // Najpierw to, po czym ktoś wybiera: kto, jak pracuje, gdzie, za ile - Google tnie po ~155 znakach.
   const description = snippet(
     (!profile && ownDescription(html)) ||
       [
         `${t.display_name} — ${practiceOf(t)}${place ? `, ${place}` : ''}.`,
-        sessionFrom(t) !== null ? `Sesja od ${sessionFrom(t)! / 100} zł.` : '',
+        from !== null ? `Sesja od ${from / 100} zł.` : '',
         topics ? `Obszary: ${topics}.` : t.headline ? `${t.headline.replace(/[.\s]+$/, '')}.` : '',
       ].filter(Boolean).join(' '),
   );

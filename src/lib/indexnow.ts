@@ -11,11 +11,6 @@ import { log } from './log';
 
 export const INDEXNOW_KEY = '71f406899159b10e0f21a3fcd1bc302f';
 
-/** What goes to the endpoint: our host, the key and where to find it, full addresses. */
-export function indexNowBody(base: string, paths: string[]): { host: string; key: string; keyLocation: string; urlList: string[] } {
-  return { host: new URL(base).host, key: INDEXNOW_KEY, keyLocation: `${base}/${INDEXNOW_KEY}.txt`, urlList: [...new Set(paths)].map((p) => `${base}${p}`) };
-}
-
 /**
  * Tells the search engines these paths changed. Production only - a preview or a test
  * run has no addresses worth announcing. Never throws: a ping that fails costs a few
@@ -23,11 +18,13 @@ export function indexNowBody(base: string, paths: string[]): { host: string; key
  */
 export async function pingIndexNow(env: Env, paths: string[]): Promise<void> {
   if (env.ENVIRONMENT !== 'production' || paths.length === 0) return;
+  const base = env.PUBLIC_BASE_URL;
   try {
     const res = await fetch('https://api.indexnow.org/indexnow', {
       method: 'POST',
       headers: { 'content-type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(indexNowBody(env.PUBLIC_BASE_URL, paths)),
+      // Our host, the key and where to find it, full addresses.
+      body: JSON.stringify({ host: new URL(base).host, key: INDEXNOW_KEY, keyLocation: `${base}/${INDEXNOW_KEY}.txt`, urlList: [...new Set(paths)].map((p) => `${base}${p}`) }),
       signal: AbortSignal.timeout(5000),
     });
     // 200 and 202 both mean accepted; anything else is worth seeing in the log.

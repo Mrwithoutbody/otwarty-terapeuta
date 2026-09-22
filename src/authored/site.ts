@@ -20,7 +20,7 @@ export const AUTHORED_CSS_VERSION = fnv1a(AUTHORED_CSS).toString(36);
 const monthOf = (iso: string, timeZone: string): string => new Date(iso).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric', timeZone });
 
 /** `pages`: jej pozostałe strony - jedyna droga do nich poza sitemapą. */
-export function authoredDocument(title: string, article: string, pages: Array<{ href: string; title: string }> = []): string {
+export function authoredDocument(title: string, article: string, pages: Array<{ href: string; title: string }>): string {
   return `<!doctype html>
 <html lang="pl">
 <head>
