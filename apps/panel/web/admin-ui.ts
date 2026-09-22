@@ -469,6 +469,8 @@ button.link { background: none; border: 0; padding: 0; font: inherit; font-weigh
  * next to the bytes they hash, so the shared layout needs no knowledge of the
  * panel at all.
  */
-export const ADMIN_ASSET_TAGS = ((v: string) =>
-  `<link rel="stylesheet" href="/assets/admin.css?v=${v}">\n` +
-  `<script src="/assets/admin.js?v=${v}" defer></script>`)(assetVersion(ADMIN_CSS, ADMIN_JS));
+const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
+
+export const ADMIN_ASSET_TAGS =
+  `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
+  `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`;

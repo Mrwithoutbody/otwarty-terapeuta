@@ -2,22 +2,13 @@ import { Hono } from 'hono';
 import type { Env } from '../../shared/env';
 import { INDEXNOW_KEY } from '../../shared/lib/indexnow';
 import { AUTHORED_CSS } from '../../shared/authored/page-css';
+import { assetResponse } from '../../shared/web/layout';
 import { siteApp } from './web/pages';
 
 /** The public website: the catalogue, the authored pages, robots, media. */
 export const portalApp = new Hono<{ Bindings: Env }>();
 
-// Every one of these is linked with `?v=<content hash>`, so a change is a new URL.
-const VERSIONED = 'public, max-age=31536000, immutable';
-
-portalApp.get('/assets/strona.css', () =>
-  new Response(AUTHORED_CSS, {
-    headers: {
-      'content-type': 'text/css; charset=utf-8',
-      'cache-control': VERSIONED,
-    },
-  }),
-);
+portalApp.get('/assets/strona.css', () => assetResponse(AUTHORED_CSS, 'text/css; charset=utf-8'));
 
 // IndexNow: wyszukiwarka sprawdza tu, że powiadomienie o zmianie przyszło od nas (`lib/indexnow.ts`).
 portalApp.get(`/${INDEXNOW_KEY}.txt`, () => new Response(INDEXNOW_KEY, { headers: { 'content-type': 'text/plain; charset=utf-8' } }));

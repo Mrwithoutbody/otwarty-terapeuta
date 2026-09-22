@@ -241,6 +241,17 @@ export async function formValues(request: Request): Promise<URLSearchParams> {
   return new URLSearchParams([...form].filter((e): e is [string, string] => typeof e[1] === 'string'));
 }
 
+/**
+ * A built-in asset (CSS or JS held in the bundle, not in `public/`). Every one
+ * is linked with `?v=<content hash>`, so a change is a new URL and the year of
+ * caching below is safe.
+ */
+export function assetResponse(body: string, type: string): Response {
+  return new Response(body, {
+    headers: { 'content-type': type, 'cache-control': 'public, max-age=31536000, immutable' },
+  });
+}
+
 export function htmlResponse(
   env: Env,
   html: string,
