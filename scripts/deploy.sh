@@ -8,6 +8,7 @@ git fetch -q origin main
 npm ci
 d=$(ls migrations | cut -d_ -f1 | uniq -d); [ -z "$d" ] || { echo "Zdublowany numer migracji: $d" >&2; exit 1; }
 npm run typecheck
+npm run lint
 npm test
 npm run db:migrate:prod
 npm run build:widget

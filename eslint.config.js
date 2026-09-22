@@ -32,10 +32,10 @@ export default tseslint.config(
   // Granice obszarów: apps/<x> importuje tylko z shared/, shared/ nie sięga do apps/.
   // Testy i worker.ts (korzeń kompozycji) są wolne.
   ...[
-    ['shared', '(^|/)apps/', 'shared/ nie importuje z apps/.'],
-    ['apps/portal', '(^|/)(panel|mcp)/', 'Obszar importuje tylko z shared/.'],
-    ['apps/panel', '(^|/)(portal|mcp)/', 'Obszar importuje tylko z shared/.'],
-    ['apps/mcp', '(^|/)(portal|panel)/', 'Obszar importuje tylko z shared/.'],
+    ['shared', '(^|/)apps(/|$)', 'shared/ nie importuje z apps/.'],
+    ['apps/portal', '(^|/)(panel|mcp)(/|$)', 'Obszar importuje tylko z shared/.'],
+    ['apps/panel', '(^|/)(portal|mcp)(/|$)', 'Obszar importuje tylko z shared/.'],
+    ['apps/mcp', '(^|/)(portal|panel)(/|$)', 'Obszar importuje tylko z shared/.'],
   ].map(([dir, regex, message]) => ({
     files: [`${dir}/**/*.{ts,tsx}`],
     ignores: [`${dir}/**/test/**`],
