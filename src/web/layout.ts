@@ -130,6 +130,7 @@ export function renderPage(env: Env, options: PageOptions): string {
   const share = options.noindex
     ? ''
     : `<link rel="canonical" href="${escapeHtml(url)}">
+<meta name="robots" content="max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Otwarty Terapeuta">
 <meta property="og:locale" content="pl_PL">

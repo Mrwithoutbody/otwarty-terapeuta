@@ -185,7 +185,8 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
   const ld = (data: unknown): string => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
   const head = [
     `<meta name="description" content="${escapeHtml(description)}">`,
-    t.is_demo ? '<meta name="robots" content="noindex, nofollow">' : '',
+    // Google pokazuje przy wyniku dużą miniaturę jej zdjęcia tylko wtedy, gdy strona na to pozwala.
+    `<meta name="robots" content="${t.is_demo ? 'noindex, nofollow' : 'max-image-preview:large'}">`,
     `<link rel="canonical" href="${escapeHtml(url)}">`,
     '<meta property="og:type" content="profile">',
     `<meta property="og:title" content="${title}">`,
