@@ -541,48 +541,43 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-soft) 38%, trans
   margin-top: calc(clamp(2rem, 4vw, 3rem) * -1);
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr); gap: clamp(2rem, 4vw, 3.5rem);
   padding-block: clamp(2.5rem, 5vw, 4rem) clamp(3rem, 5.5vw, 4.5rem);
-  border: 0; border-radius: 0; background: var(--navy); color: #c8cde4;
+  border: 0; border-radius: 0; color: #c8cde4;
+  background:
+    linear-gradient(90deg, rgba(17, 26, 22, .86) 0%, rgba(18, 29, 31, .72) 34%, rgba(18, 29, 31, .28) 61%, rgba(18, 29, 31, .18) 100%),
+    linear-gradient(180deg, rgba(20, 29, 23, .08), rgba(20, 29, 23, .36)),
+    url("/media/site/hero-abstract-oil.webp") 68% center / cover no-repeat,
+    var(--navy);
+}
+.home-hero.hero-art-a {
+  background:
+    linear-gradient(90deg, rgba(17, 26, 22, .86) 0%, rgba(18, 29, 31, .72) 34%, rgba(18, 29, 31, .28) 61%, rgba(18, 29, 31, .18) 100%),
+    linear-gradient(180deg, rgba(20, 29, 23, .08), rgba(20, 29, 23, .36)),
+    url("/media/site/hero-abstract-oil.webp") 68% center / cover no-repeat,
+    var(--navy);
+}
+.home-hero.hero-art-b {
+  background:
+    linear-gradient(90deg, rgba(17, 26, 22, .82) 0%, rgba(18, 29, 31, .67) 34%, rgba(18, 29, 31, .24) 62%, rgba(18, 29, 31, .16) 100%),
+    linear-gradient(180deg, rgba(20, 29, 23, .06), rgba(20, 29, 23, .34)),
+    url("/media/site/hero-wave-oil.webp") 72% center / cover no-repeat,
+    var(--navy);
+}
+.home-hero.hero-art-c {
+  background:
+    linear-gradient(90deg, rgba(17, 26, 22, .88) 0%, rgba(18, 29, 31, .73) 34%, rgba(18, 29, 31, .28) 62%, rgba(18, 29, 31, .16) 100%),
+    linear-gradient(180deg, rgba(20, 29, 23, .06), rgba(20, 29, 23, .34)),
+    url("/media/site/hero-vangogh-oil.webp") 72% center / cover no-repeat,
+    var(--navy);
 }
 .home-hero > * { position: relative; z-index: 1; }
-/* The lotus lives in the mosaic and takes the search card's grid area as its containing
-   block (an absolutely positioned grid child does), so its root is the centre of the form
-   in every layout, with nothing to override: the card covers the heart and the rosette
-   opens round it. The copy column is lifted above the mosaic's stacking context so the
-   petals pass under the text, never over it.
-   Three stacked planes; blur is CSS on whole <svg> elements. The flower stands still: a turn
-   of 1.5° a second went unnoticed, while the browser repainted blurred, masked layers every
-   frame - battery on a phone, and once a flicker. */
+/* The copy column is lifted above the background and mosaic. */
 .home-hero > .hero-copy { z-index: 2; }
-.hero-bento > .hero-lotus {
-  position: absolute; z-index: -1; grid-column: 1 / -1; grid-row: 3; inset: 0;
-  pointer-events: none; opacity: .75;
-}
-/* Square planes centred on the root (the view box is), so the mask below covers the
-   whole rosette. One size everywhere: the flower is as large on a phone as on a desk. */
-.hero-lotus svg {
-  --w: 110rem;
-  position: absolute; top: 50%; left: calc(50% - var(--w) / 2); width: var(--w); margin-top: calc(var(--w) / -2);
-  /* The pigment thins out in patches: low-frequency noise as an alpha mask over
-     its plane. One 512 px tile stretched over the plane, rasterised once - the
-     same fade as an SVG filter on the petals froze the renderer. Edges stay true. */
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 2.6 0 -.55'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23m)'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-}
-.lotus-plane-0 { filter: blur(7px); opacity: .7; }
-.lotus-plane-1 { opacity: .8; }
-.lotus-plane-2 { filter: blur(20px); opacity: .5; }
-.lotus-halo { filter: blur(9px); }
-.lotus-blue { stop-color: var(--ribbon-blue); }
-.lotus-green { stop-color: var(--accent); }
-.lotus-teal { stop-color: color-mix(in oklch, var(--ribbon-blue), var(--accent)); }
-.lotus-gold { stop-color: var(--gold-light); }
 /* Suede: a tile of fine grey noise over the band, overlay, so the pastels read as
    a matte nap instead of as light. A data URI - img-src allows it, and the
-   turbulence is rasterised once per 220 px tile rather than across the hero.
-   It lies over everything in the band, the lotus inside the mosaic included; white stays
-   white under overlay, so the card and the headline are untouched. */
+   turbulence is rasterised once per 220 px tile rather than across the hero. */
 .home-hero::after {
   content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-  opacity: .2; mix-blend-mode: overlay;
+  opacity: .1; mix-blend-mode: overlay;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.8 0 0 0 -.4 1.8 0 0 0 -.4 1.8 0 0 0 -.4 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .hero-copy { max-width: 34rem; min-width: 0; }
@@ -713,7 +708,7 @@ main { padding-block: 1rem 3.5rem; }
 .btn { width: 100%; }
 .card:hover { transform: none; }
 .home-hero { padding: 3.25rem 1rem 3rem; }
-.home-hero h1 { max-width: 12ch; font-size: clamp(2.6rem, 12vw, 3.65rem); }
+.home-hero h1 { max-width: 10.5ch; font-size: clamp(2.35rem, 10.5vw, 3.05rem); }
 .home-hero .lead { font-size: 0.93rem; line-height: 1.65; }
 .hero-search-fields { grid-template-columns: 1fr; }
 .home-section { margin-top: 4.5rem; }

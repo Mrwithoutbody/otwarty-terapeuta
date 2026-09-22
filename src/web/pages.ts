@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { renderHeroLotus } from './hero-lotus';
 import type { Env } from '../env';
 import {
   findCandidates,
@@ -160,6 +159,7 @@ siteApp.get('/', async (c) => {
     .map((t) => `<li><a href="/terapeuci?obszar=${encodeURIComponent(t.slug)}">${escapeHtml(t.name)}</a></li>`)
     .join('');
   const base = c.env.PUBLIC_BASE_URL;
+  const heroArt = ['hero-art-a', 'hero-art-b', 'hero-art-c'][Math.floor(Math.random() * 3)];
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -177,7 +177,7 @@ siteApp.get('/', async (c) => {
       head: `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
       body: `
 <div class="home">
-  <section class="home-hero" aria-labelledby="home-title">
+  <section class="home-hero ${heroArt}" aria-labelledby="home-title">
     <div class="hero-copy">
       <p class="eyebrow"><span aria-hidden="true"></span> Psychoterapeuci, ich strony i wolne terminy</p>
       <h1 id="home-title">Znajdź osobę, z którą chcesz porozmawiać.</h1>
@@ -186,7 +186,6 @@ siteApp.get('/', async (c) => {
     </div>
 
     <div class="hero-bento">
-    <div class="hero-lotus" aria-hidden="true">${renderHeroLotus()}</div>
     <form class="hero-search" method="get" action="/terapeuci" role="search" aria-label="Szukaj terapeuty">
       <fieldset class="hero-tabs"><legend class="visually-hidden">Forma spotkań</legend>
         <label><input type="radio" name="tryb" value="gabinet" checked><span>W gabinecie</span></label>
