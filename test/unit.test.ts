@@ -1,7 +1,7 @@
 import { SELF, env } from 'cloudflare:test';
 import { INDEXNOW_KEY, pingIndexNow } from '../src/lib/indexnow';
 import { cityName } from '../src/lib/sanitize';
-import { practiceOf, snippet } from '../src/web/seo';
+import { practiceOf, sessionFrom, snippet } from '../src/web/seo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { escapeHtml, isEmail, isPhone, normalizeForSearch, safeUrl, sanitizeRichText } from '../src/lib/sanitize';
 import { signConfirmationToken, verifyConfirmationToken } from '../src/lib/tokens';
@@ -480,6 +480,13 @@ describe('words of a search result', () => {
     expect(cut.endsWith('…')).toBe(true);
     expect(long.startsWith(cut.slice(0, -1))).toBe(true);
     expect(snippet('Krótko.')).toBe('Krótko.');
+  });
+
+  it('prices a session from the cheapest paid offer - a free first talk is not a session price', () => {
+    const o = (...prices: number[]) => ({ offers: prices.map((price_minor) => ({ price_minor })) }) as unknown as Parameters<typeof sessionFrom>[0];
+    expect(sessionFrom(o(0, 26000, 22000))).toBe(22000);
+    expect(sessionFrom(o(0))).toBeNull();
+    expect(sessionFrom(o())).toBeNull();
   });
 
   it('names her practice from the modalities she chose; the humanistic umbrella only alone', () => {

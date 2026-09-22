@@ -5,6 +5,15 @@
  */
 import type { PublicTherapist } from '../db/types';
 
+/**
+ * Najniższa cena płatnej sesji. Bezpłatna rozmowa wstępna to nie cena sesji: „sesja od 0 zł”
+ * obiecywałoby darmową terapię. Rozmowę wstępną i tak widać na karcie i w cenniku.
+ */
+export function sessionFrom(t: Pick<PublicTherapist, 'offers'>): number | null {
+  const paid = t.offers.map((o) => o.price_minor).filter((p) => p > 0);
+  return paid.length > 0 ? Math.min(...paid) : null;
+}
+
 /** Opis dla wyniku wyszukiwania: całe słowa, najwyżej tyle, ile Google pokaże. */
 export function snippet(text: string, max = 155): string {
   if (text.length <= max) return text;

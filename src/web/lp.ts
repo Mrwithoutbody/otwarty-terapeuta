@@ -18,7 +18,7 @@ import { createPage, editSession, listPages, PagesUnavailable, publishedSubpages
 import { HOST_LOCKS, hostDataFields, resolveAll, type SectionCtx } from './host-blocks';
 import { writeToken } from './host-write';
 import { hmacBase64Url } from '../lib/crypto';
-import { practiceOf, snippet } from './seo';
+import { practiceOf, sessionFrom, snippet } from './seo';
 
 export { PagesUnavailable };
 export type { SectionCtx };
@@ -158,7 +158,7 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
     (!profile && ownDescription(html)) ||
       [
         `${t.display_name} — ${practiceOf(t)}${place ? `, ${place}` : ''}.`,
-        t.price_min_minor !== null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
+        sessionFrom(t) !== null ? `Sesja od ${sessionFrom(t)! / 100} zł.` : '',
         topics ? `Obszary: ${topics}.` : t.headline ? `${t.headline.replace(/[.\s]+$/, '')}.` : '',
       ].filter(Boolean).join(' '),
   );

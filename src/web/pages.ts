@@ -26,7 +26,7 @@ import { serveAuthored, serveAuthoredSubpage } from '../authored/site';
 import { PROFILE_SLUG, serveTherapistPage, unavailablePage, withSeoHead, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
 import { slugOf } from './pages-client';
-import { snippet } from './seo';
+import { sessionFrom, snippet } from './seo';
 
 /**
  * The public website. Everything is server rendered with escaped text and no
@@ -307,12 +307,8 @@ function catalogueFacts(entries: PublicTherapist[]): string {
   const cities = new Set(entries.flatMap((t) => t.locations.map((l) => l.city)));
   if (cities.size > 0) facts.push(['Miejscowości', String(cities.size)]);
 
-  const priced = entries.filter((t) => t.price_min_minor !== null);
-  const cheapest = priced.reduce<PublicTherapist | null>(
-    (best, t) => (best === null || t.price_min_minor! < best.price_min_minor! ? t : best),
-    null,
-  );
-  if (cheapest) facts.push(['Sesja od', formatPrice(cheapest.price_min_minor!, cheapest.currency)]);
+  const prices = entries.flatMap((t) => (sessionFrom(t) === null ? [] : [sessionFrom(t)!]));
+  if (prices.length > 0) facts.push(['Sesja od', formatPrice(Math.min(...prices), 'PLN')]);
 
   const slots = entries.map((t) => t.next_available_slot_utc).filter((s): s is string => s !== null);
   if (slots.length > 0) {
@@ -580,7 +576,7 @@ siteApp.get('/psychoterapeuta/:miasto', async (c) => {
   };
   const modalities = tally((t) => t.modalities);
   const topics = tally((t) => t.topics).slice(0, 12);
-  const prices = entries.flatMap((t) => (t.price_min_minor === null ? [] : [t.price_min_minor]));
+  const prices = entries.flatMap((t) => (sessionFrom(t) === null ? [] : [sessionFrom(t)!]));
   const online = entries.filter((t) => t.offers_online).length;
   const inCity = `/terapeuci?miasto=${encodeURIComponent(city)}`;
   const chip = (param: string, tag: { slug: string; name: string; n: number }): string =>
