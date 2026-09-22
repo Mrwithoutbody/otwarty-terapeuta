@@ -22,6 +22,7 @@ import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPric
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
+import { ADMIN_ASSET_TAGS } from './admin-ui';
 import { getTherapist } from '../db/catalog';
 import { authoredPanel } from '../authored/panel';
 import { dictionaries, factsForm, factsFromForm } from './admin-dane';
@@ -46,7 +47,7 @@ adminApp.route('/terapeuci/:id/strona', authoredPanel);
 function page(env: Env, title: string, body: string, status = 200, turnstile = false): Response {
   return htmlResponse(
     env,
-    renderPage(env, { title, path: '/admin', noindex: true, body, adminAssets: true }),
+    renderPage(env, { title, path: '/admin', noindex: true, body, assets: ADMIN_ASSET_TAGS }),
     { status },
     turnstile,
   );

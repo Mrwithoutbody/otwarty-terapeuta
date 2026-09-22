@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import type { Env } from '../env';
 import { fnv1a } from '../lib/crypto';
 import { escapeHtml } from '../lib/sanitize';
-import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
 import { APP_CSS } from './styles';
 
@@ -15,10 +14,9 @@ import { APP_CSS } from './styles';
  * edit that keeps the byte count - `68rem` to `46rem` is the same size, so the
  * URL never changed and browsers kept serving the old stylesheet for an hour.
  */
-const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000')).toString(36);
+export const assetVersion = (...parts: string[]): string => fnv1a(parts.join('\u0000')).toString(36);
 
 const APP_CSS_VERSION = assetVersion(APP_CSS);
-const ADMIN_ASSET_VERSION = assetVersion(ADMIN_CSS, ADMIN_JS);
 
 /**
  * Public pages carry the stylesheet inline: a linked one blocks the first paint
@@ -102,12 +100,22 @@ interface PageOptions {
   /** Extra markup for <head>, already escaped - structured data of a page. */
   head?: string;
   /**
-   * Loads the admin stylesheet and the admin enhancement script. Both are
-   * same-origin files, so the `script-src 'self'` policy stays untouched.
+   * Linked asset tags for a panel page (`ADMIN_ASSET_TAGS`), already escaped.
+   * Set means the linked stylesheet instead of the inline one. Both files are
+   * same-origin, so the `script-src 'self'` policy stays untouched.
    */
-  adminAssets?: boolean;
+  assets?: string;
 }
 
+
+/**
+ * The header of a page: its title, and whatever real content belongs next to
+ * it - a button, a document version. No kicker above it and no reassuring
+ * sentence under it; four near-identical headers used to carry both.
+ */
+export function pageHead(title: string, extra = ''): string {
+  return `<header class="page-head"><h1>${escapeHtml(title)}</h1>${extra}</header>`;
+}
 
 export function renderPage(env: Env, options: PageOptions): string {
   const nav = NAV.map(
@@ -146,10 +154,8 @@ ${options.head ?? ''}
 <link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/lora-latin-variable.woff2" as="font" type="font/woff2" crossorigin>
 ${
-  options.adminAssets
-    ? `<link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">\n` +
-      `<link rel="stylesheet" href="/assets/admin.css?v=${ADMIN_ASSET_VERSION}">\n` +
-      `<script src="/assets/admin.js?v=${ADMIN_ASSET_VERSION}" defer></script>`
+  options.assets
+    ? `<link rel="stylesheet" href="/assets/app.css?v=${APP_CSS_VERSION}">\n` + options.assets
     : `<style>${APP_CSS}</style>`
 }
 <link rel="icon" href="/favicon.ico" sizes="48x48">

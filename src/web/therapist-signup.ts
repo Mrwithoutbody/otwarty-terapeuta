@@ -9,8 +9,7 @@ import { escapeHtml, isEmail, normalizeForSearch, sanitizeLine, sanitizeRichText
 import { nowIso } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
-import { formValues, htmlResponse, renderPage } from './layout';
-import { pageHead } from './pages';
+import { formValues, htmlResponse, pageHead, renderPage } from './layout';
 
 export const therapistSignupApp = new Hono<{ Bindings: Env }>();
 

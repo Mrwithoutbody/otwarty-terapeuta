@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:test';
+import { SELF, env } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { cancelBooking, createBooking, listMyBookings, previewBooking } from '../src/booking/service';
 import { findOrCreateUserByEmail, type UserRow } from '../src/db/users';
@@ -399,6 +399,28 @@ describe('my bookings', () => {
 
     expect((await listMyBookings(env, alice)).length).toBe(1);
     expect(await listMyBookings(env, bob)).toEqual([]);
+  });
+});
+
+describe('strona rezerwacji z maila', () => {
+  // service.ts zapisuje manage_token_hash, booking/receipt.ts go weryfikuje.
+  // Bez tego testu kontrakt obu stron tokena nie był niczym przypięty.
+  it('otwiera się linkiem z maila, a bez poprawnego k zwraca 404', async () => {
+    const [alice] = await pair();
+    const preview = await previewBooking(env, alice, { slot_id: await anyOpenSlot() });
+    const booking = await createBooking(env, alice, {
+      confirmation_token: preview.confirmation_token,
+      idempotency_key: `receipt-${seq}`,
+      ...acceptance(),
+    });
+
+    const url = new URL(booking.manage_url);
+    const ok = await SELF.fetch(`https://example.com${url.pathname}${url.search}`);
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toContain(booking.public_ref);
+
+    const bad = await SELF.fetch(`https://example.com${url.pathname}?k=nie-ten-sekret`);
+    expect(bad.status).toBe(404);
   });
 });
 

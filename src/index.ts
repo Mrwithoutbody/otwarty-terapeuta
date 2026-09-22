@@ -12,7 +12,7 @@ import {
   type AuthMetadataOptions,
 } from '@modelcontextprotocol/server';
 import { ALL_SCOPES, assertConfig, ConfigError, type Env } from './env';
-import { authorizationServerMetadata, oauthApp, purgeExpiredAuthState } from './auth/oauth';
+import { authorizationServerMetadata, oauthApp } from './auth/oauth';
 import { D1TokenVerifier } from './auth/verifier';
 import { createServerFactory } from './mcp/server';
 import { addToolSecuritySchemes, isOAuthToolName } from './mcp/security';
@@ -26,8 +26,9 @@ import { AUTHORED_CSS } from './authored/page-css';
 import { PANEL_CSS, TOOL_JS } from './authored/panel';
 import { fillFromSchedules } from './db/slots';
 import { log } from './lib/log';
-import { purgeExpiredData } from './db/retention';
+import { purgeExpiredAuthState, purgeExpiredData } from './db/retention';
 import { drainOutbox } from './notify/outbox';
+import { receiptPage } from './booking/receipt';
 
 
 export { TherapistBookingCoordinator } from './booking/coordinator';
@@ -146,6 +147,9 @@ app.get('/media/:key{.+}', async (c) => {
     },
   });
 });
+
+/** Booking receipt, reached from the link in the confirmation e-mail. */
+app.get('/rezerwacja/:ref', receiptPage);
 
 // -------------------------------------------------------------- sub-apps ---
 

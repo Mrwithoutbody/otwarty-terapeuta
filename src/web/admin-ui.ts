@@ -10,6 +10,7 @@
  */
 
 import { SCHEDULE_HOURS } from '../db/slots';
+import { assetVersion } from './layout';
 
 export const ADMIN_JS = String.raw`(function () {
   'use strict';
@@ -462,3 +463,12 @@ button.link { background: none; border: 0; padding: 0; font: inherit; font-weigh
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
 /* With drag available the numbers are redundant, so JS hides them. */
 `;
+
+/**
+ * The two linked panel assets, versioned by their own bytes. They live here,
+ * next to the bytes they hash, so the shared layout needs no knowledge of the
+ * panel at all.
+ */
+export const ADMIN_ASSET_TAGS = ((v: string) =>
+  `<link rel="stylesheet" href="/assets/admin.css?v=${v}">\n` +
+  `<script src="/assets/admin.js?v=${v}" defer></script>`)(assetVersion(ADMIN_CSS, ADMIN_JS));

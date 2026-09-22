@@ -93,7 +93,10 @@ export const SCOPES = {
 
 export const ALL_SCOPES: string[] = [SCOPES.catalogRead, SCOPES.bookingRead, SCOPES.bookingWrite];
 
-/** Versioned URI of the MCP Apps UI resource. Bump the suffix on breaking UI changes. */
+/**
+ * Versioned URI of the MCP Apps UI resource.
+ * NIE ZMIENIAĆ: ChatGPT trzyma adres w cache; nowy kod widżetu wchodzi zwykłym deployem (CLAUDE.md).
+ */
 export const WIDGET_URI = 'ui://otwarty-terapeuta/widget/v1.html';
 
 /** MIME type for MCP Apps HTML resources. */

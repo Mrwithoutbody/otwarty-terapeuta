@@ -766,21 +766,3 @@ oauthApp.post('/revoke', async (c) => {
   // RFC 7009: always 200, so the endpoint cannot be used to probe token validity.
   return new Response(null, { status: 200, headers: { 'cache-control': 'no-store' } });
 });
-
-/** Housekeeping for the scheduled handler. */
-export async function purgeExpiredAuthState(env: Env): Promise<void> {
-  const at = nowIso();
-  await env.DB.batch([
-    env.DB.prepare(`DELETE FROM oauth_auth_codes WHERE expires_at < ?`).bind(at),
-    env.DB.prepare(`DELETE FROM login_challenges WHERE expires_at < ?`).bind(at),
-    env.DB.prepare(`DELETE FROM oauth_tokens WHERE expires_at < ?`).bind(at),
-    env.DB.prepare(`DELETE FROM admin_sessions WHERE expires_at < ?`).bind(at),
-    env.DB.prepare(
-      `DELETE FROM users
-         WHERE email_hash LIKE 'anonymous:%'
-           AND NOT EXISTS (SELECT 1 FROM oauth_auth_codes WHERE oauth_auth_codes.user_id = users.id)
-           AND NOT EXISTS (SELECT 1 FROM oauth_tokens WHERE oauth_tokens.user_id = users.id)
-           AND NOT EXISTS (SELECT 1 FROM bookings WHERE bookings.user_id = users.id)`,
-    ),
-  ]);
-}
