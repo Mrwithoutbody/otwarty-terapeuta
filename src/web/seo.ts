@@ -1,0 +1,26 @@
+/**
+ * Words a search result is made of - the title and the grey text under it. Kept apart
+ * from the page renderers: the profile head (`lp.ts`) and the authored page (`authored/site.ts`)
+ * both need them, and neither may import the other.
+ */
+import type { PublicTherapist } from '../db/types';
+
+/** Opis dla wyniku wyszukiwania: całe słowa, najwyżej tyle, ile Google pokaże. */
+export function snippet(text: string, max = 155): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).replace(/\s+\S*$/, '').replace(/[\s,.;:—–-]+$/, '')}…`;
+}
+
+// Ludzie szukają „psychoterapeuta gestalt warszawa”, nie „psychoterapia”. Humanistyczna to parasol nad kilkoma nurtami - tylko gdy nic innego.
+const SHORT_MODALITY: Record<string, string> = {
+  gestalt: 'Gestalt', integracyjna: 'integracyjna', 'poznawczo-behawioralna': 'CBT', psychodynamiczna: 'psychodynamiczna', systemowa: 'systemowa',
+  schematu: 'schematu', act: 'ACT', dbt: 'DBT', emdr: 'EMDR', humanistyczna: 'humanistyczna',
+};
+
+/** „psychoterapia Gestalt i integracyjna” - z nurtów, które sama zaznaczyła; bez nich samo „psychoterapia”. */
+export function practiceOf(t: Pick<PublicTherapist, 'modalities'>): string {
+  const named = t.modalities.map((m) => SHORT_MODALITY[m.slug]).filter((x): x is string => Boolean(x));
+  const specific = named.filter((x) => x !== 'humanistyczna');
+  const pick = (specific.length > 0 ? specific : named).slice(0, 2);
+  return pick.length > 0 ? `psychoterapia ${pick.join(' i ')}` : 'psychoterapia';
+}

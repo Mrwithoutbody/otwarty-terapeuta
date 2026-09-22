@@ -1,5 +1,7 @@
 import { SELF, env } from 'cloudflare:test';
 import { INDEXNOW_KEY, pingIndexNow } from '../src/lib/indexnow';
+import { cityName } from '../src/lib/sanitize';
+import { practiceOf, snippet } from '../src/web/seo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { escapeHtml, isEmail, isPhone, normalizeForSearch, safeUrl, sanitizeRichText } from '../src/lib/sanitize';
 import { signConfirmationToken, verifyConfirmationToken } from '../src/lib/tokens';
@@ -460,5 +462,31 @@ describe('IndexNow', () => {
   it('never fails the save it follows', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     await expect(pingIndexNow({ ...env, ENVIRONMENT: 'production' }, ['/terapeuci/x'])).resolves.toBeUndefined();
+  });
+});
+
+describe('words of a search result', () => {
+  it('writes a city the way people do, whatever case it came in', () => {
+    expect(cityName('WARSZAWA')).toBe('Warszawa');
+    expect(cityName('nowy sącz')).toBe('Nowy Sącz');
+    expect(cityName('BIELSKO-BIAŁA')).toBe('Bielsko-Biała');
+    expect(cityName('Kraków')).toBe('Kraków');
+  });
+
+  it('cuts a description on a whole word, within what Google shows', () => {
+    const long = 'Ewelina Mastalerz — psychoterapia integracyjna i Gestalt, Warszawa i online. Sesja od 260 zł. Obszary: doświadczenia traumatyczne, kryzys w związku, lęk i niepokój.';
+    const cut = snippet(long);
+    expect(cut.length).toBeLessThanOrEqual(156);
+    expect(cut.endsWith('…')).toBe(true);
+    expect(long.startsWith(cut.slice(0, -1))).toBe(true);
+    expect(snippet('Krótko.')).toBe('Krótko.');
+  });
+
+  it('names her practice from the modalities she chose; the humanistic umbrella only alone', () => {
+    const m = (...slugs: string[]) => ({ modalities: slugs.map((slug) => ({ slug, name: slug })) });
+    expect(practiceOf(m('integracyjna', 'gestalt', 'humanistyczna', 'poznawczo-behawioralna'))).toBe('psychoterapia integracyjna i Gestalt');
+    expect(practiceOf(m('gestalt', 'humanistyczna'))).toBe('psychoterapia Gestalt');
+    expect(practiceOf(m('humanistyczna'))).toBe('psychoterapia humanistyczna');
+    expect(practiceOf(m())).toBe('psychoterapia');
   });
 });

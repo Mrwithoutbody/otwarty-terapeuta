@@ -10,6 +10,7 @@ import {
 } from '../src/db/catalog';
 import { rankTherapists } from '../src/matching/rank';
 import { nowIso } from '../src/lib/time';
+import { publish } from '../src/authored/store';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const UNPUBLISHED = 'th_0a1b2c3d4e5f60718293a4b5';
@@ -300,5 +301,44 @@ describe('najbliższy wolny termin', () => {
     const after = await (await SELF.fetch('https://example.com/terapeuci/marek-zielinski-demo')).text();
     expect(after).not.toContain('najbliższy wolny termin');
     expect(after).not.toContain('id="terminy"');
+  });
+});
+
+describe('a city page', () => {
+  const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
+  const JULIA = 'th_c93e5a4187b6f20d94a1c3f5';
+  const PIOTR = 'th_1e07b8d3629af45c0d2e7a91';
+
+  it('stands only where three real people practise, lists them, and every profile leads to it', async () => {
+    // Trzecia osoba zapisała miasto wielkimi literami - to nadal ta sama Warszawa.
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, is_primary) VALUES ('loc_t_j', ?, 'Warszawa', 'warszawa', 'PL', 1)`).bind(JULIA),
+      env.DB.prepare(`INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, is_primary) VALUES ('loc_t_p', ?, 'WARSZAWA', 'warszawa', 'PL', 0)`).bind(PIOTR),
+    ]);
+    expect((await SELF.fetch('https://example.com/psychoterapeuta/warszawa')).status).toBe(404); // demo się nie liczy
+    await env.DB.prepare(`UPDATE therapists SET is_demo = 0 WHERE id IN (?, ?, ?)`).bind(ANNA, JULIA, PIOTR).run();
+
+    const res = await SELF.fetch('https://example.com/psychoterapeuta/warszawa');
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('<h1>Psychoterapeuta Warszawa</h1>');
+    expect(html).toContain('<title>Psychoterapeuta Warszawa — ceny i wolne terminy — Otwarty Terapeuta</title>');
+    expect(html).toContain('"@type":"ItemList"');
+    for (const slug of ['anna-kowalczyk-demo', 'julia-nowak-demo', 'piotr-adamski-demo']) expect(html).toContain(`href="/terapeuci/${slug}"`);
+    expect(html).not.toContain('WARSZAWA');
+    expect((await SELF.fetch('https://example.com/psychoterapeuta/krakow')).status).toBe(404);
+
+    expect(await (await SELF.fetch('https://example.com/sitemap.xml')).text()).toContain(`<loc>${env.PUBLIC_BASE_URL}/psychoterapeuta/warszawa</loc>`);
+    const catalogue = await (await SELF.fetch('https://example.com/terapeuci')).text();
+    expect(catalogue).toContain('<a href="/psychoterapeuta/warszawa">Warszawa</a> (3)');
+    expect(catalogue.match(/<option value="Warszawa"/g)).toHaveLength(1);
+    expect(catalogue).not.toContain('WARSZAWA');
+
+    await publish(env, ANNA, { order: ['who'], answers: { who: 'Pracuję z osobami w kryzysie.' } });
+    const profile = await (await SELF.fetch('https://example.com/terapeuci/anna-kowalczyk-demo')).text();
+    expect(profile).toContain('Inni terapeuci · Warszawa');
+    expect(profile).toContain('href="/terapeuci/julia-nowak-demo"');
+    expect(profile).toContain('<a href="/psychoterapeuta/warszawa">');
+    expect(profile).toMatch(/<title>Anna Kowalczyk[^<]* — psychoterapia[^<]*, Warszawa i online — Otwarty Terapeuta<\/title>/);
   });
 });

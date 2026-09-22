@@ -182,5 +182,12 @@ p { margin: 0 0 .8em; } a { color: var(--green); }
 .book { font-weight: 600; }
 .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: .92rem; }
 .top nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.others { max-width: 720px; margin: 40px auto 24px; padding: 0 16px; }
+.others h2 { font-size: 1.15rem; margin: 0 0 12px; }
+.others ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.others li a { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--ink); background: var(--paper); min-height: 44px; }
+.others li a:hover { border-color: currentColor; }
+.others span { font-size: .88rem; opacity: .75; }
+.others p { margin: 12px 0 0; }
 .top a { text-decoration: none; font-weight: 600; } .top .brand { font-family: var(--serif); color: var(--ink); }
 `;

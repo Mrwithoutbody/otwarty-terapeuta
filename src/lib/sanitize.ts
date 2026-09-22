@@ -68,6 +68,17 @@ export function sanitizeLine(value: string, maxLength = 200): string {
     .trim();
 }
 
+/**
+ * A city as people write it: „WARSZAWA” or „nowy sącz” becomes „Warszawa”, „Nowy Sącz”.
+ * Mixed case is left alone - „Bielsko-Biała” was already right. Without this one
+ * therapist's caps made a second Warszawa in the catalogue's city list.
+ */
+export function cityName(value: string): string {
+  const city = value.trim();
+  if (city !== city.toUpperCase() && city !== city.toLowerCase()) return city;
+  return city.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
 /** Lowercase, diacritics folded - used for city matching. */
 export function normalizeForSearch(value: string): string {
   return String(value ?? '')

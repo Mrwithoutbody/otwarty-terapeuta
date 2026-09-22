@@ -7,6 +7,7 @@ import {
   getPublishedFaq,
   getTherapist,
   listCities,
+  listCityPages,
   listOpenSlots,
   listSitemapEntries,
   listVocabulary,
@@ -24,6 +25,8 @@ import { htmlResponse, renderPage } from './layout';
 import { serveAuthored, serveAuthoredSubpage } from '../authored/site';
 import { PROFILE_SLUG, serveTherapistPage, unavailablePage, withSeoHead, type SectionCtx } from './lp';
 import { languageList, pluginCta } from './host-blocks';
+import { slugOf } from './pages-client';
+import { snippet } from './seo';
 
 /**
  * The public website. Everything is server rendered with escaped text and no
@@ -327,9 +330,10 @@ const SITEMAP_STATIC = ['/', '/terapeuci', '/jak-to-dziala', '/bezpieczenstwo', 
 
 siteApp.get('/sitemap.xml', async (c) => {
   const base = c.env.PUBLIC_BASE_URL;
-  const entries = await listSitemapEntries(c.env);
+  const [entries, cities] = await Promise.all([listSitemapEntries(c.env), listCityPages(c.env)]);
   const urls = [
     ...SITEMAP_STATIC.map((path) => `<url><loc>${base}${path}</loc></url>`),
+    ...cities.map((x) => `<url><loc>${base}/psychoterapeuta/${slugOf(x.city)}</loc></url>`),
     ...entries.map(
       (e) =>
         `<url><loc>${base}/terapeuci/${escapeHtml(e.slug)}${e.page ? `/${escapeHtml(e.page)}` : ''}</loc><lastmod>${escapeHtml(e.updated_at)}</lastmod></url>`,
@@ -362,10 +366,11 @@ siteApp.get('/terapeuci', async (c) => {
     delete filters.price_max;
   }
 
-  const [candidates, cities, vocab] = await Promise.all([
+  const [candidates, cities, vocab, cityPages] = await Promise.all([
     findCandidates(c.env, filters),
     listCities(c.env),
     listVocabulary(c.env),
+    listCityPages(c.env),
   ]);
   const ranked = rankTherapists(candidates, filters);
   const facts = catalogueFacts(ranked.map((entry) => entry.therapist));
@@ -392,6 +397,11 @@ siteApp.get('/terapeuci', async (c) => {
       body: `
 <div class="directory-page">
 ${pageHead('Katalog terapeutów', facts)}
+${
+  cityPages.length === 0
+    ? ''
+    : `<p class="meta">Według miasta: ${cityPages.map((x) => `<a href="/psychoterapeuta/${slugOf(x.city)}">${escapeHtml(x.city)}</a> (${x.count})`).join(' · ')}</p>`
+}
 
 <form class="filters" method="get" action="/terapeuci" aria-label="Filtry katalogu">
   <div class="filter-bar">
@@ -545,6 +555,65 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
   }
 }
 
+// ------------------------------------------------------------ city pages ---
+
+/** 2, 3, 4 profile; 5 profili; 22 profile. */
+const profiles = (n: number): string => `${n} ${n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'profile' : 'profili'}`;
+
+/**
+ * „Psychoterapeuta Warszawa”: jedyna fraza ogólna, na którą mamy czym odpowiedzieć - realne
+ * profile z ceną i terminem. Tylko miasta z `listCityPages`; w innym wypadku 404, nie pusta lista.
+ */
+siteApp.get('/psychoterapeuta/:miasto', async (c) => {
+  const found = (await listCityPages(c.env)).find((x) => slugOf(x.city) === c.req.param('miasto'));
+  if (!found) {
+    return htmlResponse(c.env, renderPage(c.env, { title: 'Nie znaleziono', path: '/terapeuci', body: `<h1>Nie znaleziono</h1><p><a href="/terapeuci">Wróć do katalogu</a></p>`, noindex: true }), { status: 404 });
+  }
+  const { city } = found;
+  const path = `/psychoterapeuta/${slugOf(city)}`;
+  const filters: SearchFilters = { location: city };
+  const entries = rankTherapists((await findCandidates(c.env, filters)).filter((t) => !t.is_demo), filters).map((e) => e.therapist);
+  const tally = (pick: (t: PublicTherapist) => Array<{ slug: string; name: string }>): Array<{ slug: string; name: string; n: number }> => {
+    const seen = new Map<string, { slug: string; name: string; n: number }>();
+    for (const tag of entries.flatMap(pick)) seen.set(tag.slug, { ...tag, n: (seen.get(tag.slug)?.n ?? 0) + 1 });
+    return [...seen.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'pl'));
+  };
+  const modalities = tally((t) => t.modalities);
+  const topics = tally((t) => t.topics).slice(0, 12);
+  const prices = entries.flatMap((t) => (t.price_min_minor === null ? [] : [t.price_min_minor]));
+  const online = entries.filter((t) => t.offers_online).length;
+  const inCity = `/terapeuci?miasto=${encodeURIComponent(city)}`;
+  const chip = (param: string, tag: { slug: string; name: string; n: number }): string =>
+    `<li class="tag"><a href="${escapeHtml(`${inCity}&${param}=${encodeURIComponent(tag.slug)}`)}">${escapeHtml(tag.name)} (${tag.n})</a></li>`;
+  const list = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Psychoterapeuta ${city}`,
+    itemListElement: entries.map((t, i) => ({ '@type': 'ListItem', position: i + 1, url: t.profile_url, name: t.display_name })),
+  };
+  return htmlResponse(
+    c.env,
+    renderPage(c.env, {
+      title: `Psychoterapeuta ${city} — ceny i wolne terminy`,
+      description: snippet(
+        `Psychoterapia: ${city} i online — ${profiles(entries.length)} z jawną ceną${prices.length ? ` od ${formatPrice(Math.min(...prices), 'PLN')}` : ''} i najbliższym wolnym terminem. Nurty: ${modalities.slice(0, 4).map((m) => m.name).join(', ')}.`,
+      ),
+      path,
+      head: `<script type="application/ld+json">${JSON.stringify(list).replace(/</g, '\\u003c')}</script>`,
+      body: `
+<div class="directory-page city-page">
+${pageHead(`Psychoterapeuta ${city}`, catalogueFacts(entries))}
+<p class="lead">${escapeHtml(`${profiles(entries.length)} osób, które przyjmują w gabinecie: ${city}${online ? `; ${online} z nich pracuje też online` : ''}. Przy każdym profilu cena sesji i najbliższy wolny termin prosto z kalendarza. Przeglądasz anonimowo, logowanie dopiero przy rezerwacji.`)}</p>
+<section class="directory-results" aria-labelledby="wyniki"><h2 id="wyniki" class="visually-hidden">Profile: ${escapeHtml(city)}</h2>
+<ul class="grid cols-2">${entries.map((t) => therapistCard(t, [])).join('')}</ul></section>
+${modalities.length ? `<section aria-labelledby="nurty"><h2 id="nurty">Nurty</h2><ul class="tags">${modalities.map((m) => chip('nurt', m)).join('')}</ul></section>` : ''}
+${topics.length ? `<section aria-labelledby="obszary"><h2 id="obszary">Z czym można przyjść</h2><ul class="tags">${topics.map((t) => chip('obszar', t)).join('')}</ul></section>` : ''}
+<p><a class="btn secondary" href="${escapeHtml(inCity)}">Filtruj w katalogu: cena, język, forma spotkań</a></p>
+</div>`,
+    }),
+  );
+});
+
 siteApp.get('/terapeuci/:slug', (c) => therapistPage(c, c.req.param('slug'), PROFILE_SLUG));
 siteApp.get('/terapeuci/:slug/:page', (c) => therapistPage(c, c.req.param('slug'), c.req.param('page')));
 
@@ -642,8 +711,10 @@ siteApp.get('/pomoc-w-kryzysie', async (c) => {
   return htmlResponse(
     c.env,
     renderPage(c.env, {
-      title: 'Pomoc w kryzysie',
-      description: 'Numery i miejsca pomocy w kryzysie psychicznym w Polsce.',
+      // Ludzie szukają numeru, nie „pomocy w kryzysie” - tytuł i opis mówią ich słowami.
+      title: 'Telefon zaufania i pomoc w kryzysie',
+      description:
+        'Telefon zaufania 116 123, Centrum Wsparcia 800 70 2222, dzieci i młodzież 116 111, zagrożenie życia 112. Bezpłatne numery pomocy w kryzysie psychicznym.',
       path: '/pomoc-w-kryzysie',
       body: `
 <div class="subpage crisis-page">

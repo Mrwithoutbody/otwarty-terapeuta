@@ -440,14 +440,15 @@ const CRISIS = `<footer class="crisis" aria-label="Pomoc w kryzysie"><div><h2>Po
 
 /**
  * Cała strona publiczna jako `<article>`. `month` („wrzesień 2026”) przychodzi z zewnątrz,
- * bo list nosi datę publikacji, a nie datę renderu.
+ * bo list nosi datę publikacji, a nie datę renderu. `after` - gotowy HTML serwisu pod jej
+ * treścią, przed stopką kryzysową (inni terapeuci z miasta); narzędzie w panelu nic tu nie daje.
  */
-export function renderPublic(person: Person, draft: PageDraft, month: string): string {
+export function renderPublic(person: Person, draft: PageDraft, month: string, after = ''): string {
   const page = { ...draft, title: clean(draft.title), line: clean(draft.line) };
   // Karta kwalifikacji bez ani jednego dokumentu przeczyłaby plakietce weryfikacji - wtedy jej nie ma.
   const facts = TYPES[page.type]!.facts.filter((f) => f.id !== 'creds' || person.credentials.length > 0);
   const its = items(page);
   return `<article class="pub"><div class="pg f-${page.form} t-${page.top}">${RENDER[page.form](person, page, facts, its, opening(person, page, its), month)}</div>
-    <div class="ctabar"><a class="cta" href="#terminy">Zobacz wolne terminy</a></div>
+    ${after}<div class="ctabar"><a class="cta" href="#terminy">Zobacz wolne terminy</a></div>
     ${CRISIS}<p class="demo-note">Otwarty Terapeuta${person.is_demo ? ' · profil demonstracyjny, osoba fikcyjna' : ''}</p></div></footer></article>`;
 }

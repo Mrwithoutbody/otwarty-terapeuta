@@ -15,7 +15,7 @@ import type { Env } from '../env';
 import { getTherapist } from '../db/catalog';
 import { audit } from '../lib/audit';
 import { hmacBase64Url, randomId, timingSafeEqual } from '../lib/crypto';
-import { normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { cityName, normalizeForSearch, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
 import { FAQ_CATEGORIES, FAQ_ROWS, OFFER_ROWS, OFFER_TYPES, resolveAll, summarize } from './host-blocks';
 import { CREDENTIAL_ROWS, patchesFor } from './data-fields';
@@ -219,7 +219,7 @@ async function writeLocation(env: Env, id: string, loc: { city: string; address:
       env.DB.prepare(
         `INSERT INTO therapist_locations (id, therapist_id, city, city_norm, country, address_line, is_primary)
          VALUES (?, ?, ?, ?, 'PL', ?, 1)`,
-      ).bind(randomId('loc'), id, loc.city, normalizeForSearch(loc.city), loc.address),
+      ).bind(randomId('loc'), id, cityName(loc.city), normalizeForSearch(loc.city), loc.address),
     );
   }
   await env.DB.batch(statements);

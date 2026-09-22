@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import { normalizeForSearch, safeUrl } from '../lib/sanitize';
+import { cityName, normalizeForSearch, safeUrl } from '../lib/sanitize';
 import { nowIso } from '../lib/time';
 import { AGE_GROUPS, SESSION_TYPES } from './types';
 import type {
@@ -145,7 +145,7 @@ async function loadRelated(env: Env, ids: string[]): Promise<Related> {
     const id = String(row.therapist_id);
     const list = related.locations.get(id) ?? [];
     list.push({
-      city: String(row.city),
+      city: cityName(String(row.city)),
       region: row.region === null ? null : String(row.region),
       country: String(row.country),
       address_line: row.address_line === null ? null : String(row.address_line),
@@ -520,7 +520,22 @@ export async function listCities(env: Env): Promise<string[]> {
        JOIN therapists t ON t.id = l.therapist_id
       WHERE ${PUBLISHED} ORDER BY l.city`,
   ).all<{ city: string }>();
-  return results.map((r) => r.city);
+  // „WARSZAWA” i „Warszawa” to jedno miasto w filtrze (dopasowanie idzie po `city_norm`).
+  return [...new Set(results.map((r) => cityName(r.city)))];
+}
+
+/**
+ * Miasta, które niosą własną stronę (`/psychoterapeuta/<miasto>`): co najmniej `min` realnych
+ * profili. Mniej to pusta strona - dla pacjenta i dla Google. Demo to fikcja i się nie liczy.
+ */
+export async function listCityPages(env: Env, min = 3): Promise<Array<{ city: string; count: number }>> {
+  const { results } = await env.DB.prepare(
+    `SELECT MAX(l.city) AS city, COUNT(DISTINCT t.id) AS n FROM therapist_locations l
+       JOIN therapists t ON t.id = l.therapist_id
+      WHERE ${PUBLISHED} AND t.is_demo = 0
+      GROUP BY l.city_norm HAVING n >= ? ORDER BY n DESC, city`,
+  ).bind(min).all<{ city: string; n: number }>();
+  return results.map((r) => ({ city: cityName(r.city), count: r.n }));
 }
 
 /**

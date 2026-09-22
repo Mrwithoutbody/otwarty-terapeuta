@@ -18,6 +18,7 @@ import { createPage, editSession, listPages, PagesUnavailable, publishedSubpages
 import { HOST_LOCKS, hostDataFields, resolveAll, type SectionCtx } from './host-blocks';
 import { writeToken } from './host-write';
 import { hmacBase64Url } from '../lib/crypto';
+import { practiceOf, snippet } from './seo';
 
 export { PagesUnavailable };
 export type { SectionCtx };
@@ -149,15 +150,18 @@ export function withSeoHead(env: Env, html: string, t: PublicTherapist, pageSlug
   const place = [city, t.offers_online ? 'online' : ''].filter(Boolean).join(' i ');
   const own = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? escapeHtml(t.display_name);
   const title = profile
-    ? escapeHtml(`${t.display_name} — psychoterapia${place ? `, ${place}` : ''} — Otwarty Terapeuta`)
+    ? escapeHtml(`${t.display_name} — ${practiceOf(t)}${place ? `, ${place}` : ''} — Otwarty Terapeuta`)
     : `${own} — ${escapeHtml(t.display_name)} — Otwarty Terapeuta`;
   const topics = t.topics.slice(0, 4).map((x) => x.name.toLowerCase()).join(', ');
-  const description = (!profile && ownDescription(html)) || [
-    `${t.display_name}${t.headline ? ` — ${t.headline.replace(/[.\s]+$/, '')}` : ''}.`,
-    topics ? `Obszary pracy: ${topics}.` : '',
-    place ? `Psychoterapia: ${place}.` : '',
-    t.price_min_minor !== null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
-  ].filter(Boolean).join(' ').slice(0, 300);
+  // Najpierw to, po czym ktoś wybiera: kto, jak pracuje, gdzie, za ile - Google tnie po ~155 znakach.
+  const description = snippet(
+    (!profile && ownDescription(html)) ||
+      [
+        `${t.display_name} — ${practiceOf(t)}${place ? `, ${place}` : ''}.`,
+        t.price_min_minor !== null ? `Sesja od ${t.price_min_minor / 100} zł.` : '',
+        topics ? `Obszary: ${topics}.` : t.headline ? `${t.headline.replace(/[.\s]+$/, '')}.` : '',
+      ].filter(Boolean).join(' '),
+  );
   const person = {
     '@context': 'https://schema.org',
     '@type': 'Person',

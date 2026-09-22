@@ -11,7 +11,9 @@ import { fnv1a } from '../lib/crypto';
 import { esc, renderPublic, type PageDraft } from './core';
 import { AUTHORED_CSS } from './page-css';
 import { getPublished, getPublishedSubpage, listPublishedSubpages, personOf } from './store';
-import { listPages, publishedSubpages } from '../web/pages-client';
+import { listPages, publishedSubpages, slugOf } from '../web/pages-client';
+import { findCandidates } from '../db/catalog';
+import { practiceOf } from '../web/seo';
 
 export const AUTHORED_CSS_VERSION = fnv1a(AUTHORED_CSS).toString(36);
 
@@ -53,9 +55,26 @@ async function navFor(env: Env, t: PublicTherapist, current: string | null): Pro
   return current === null ? pages : [{ href: profile, title: t.display_name }, ...pages];
 }
 
+/**
+ * Pod profilem: do czterech innych realnych osób z jej miasta i droga do strony miasta.
+ * Pacjent widzi alternatywy, a Google - że profile tworzą jeden katalog, nie osobne wyspy.
+ */
+async function othersNearby(env: Env, t: PublicTherapist): Promise<string> {
+  const city = t.locations[0]?.city;
+  if (!city) return '';
+  const all = (await findCandidates(env, { location: city })).filter((o) => !o.is_demo);
+  const others = all.filter((o) => o.therapist_id !== t.therapist_id).slice(0, 4);
+  if (others.length === 0) return '';
+  // Strona miasta istnieje od trzech realnych profili (`listCityPages`).
+  const cityLink = all.length >= 3 ? `<p><a href="/psychoterapeuta/${esc(slugOf(city))}">Wszyscy terapeuci · ${esc(city)}</a></p>` : '';
+  return `<section class="others" aria-labelledby="inni"><h2 id="inni">Inni terapeuci · ${esc(city)}</h2><ul>${others
+    .map((o) => `<li><a href="/terapeuci/${esc(o.slug)}"><strong>${esc(o.display_name)}</strong><span>${esc(practiceOf(o))}</span></a></li>`)
+    .join('')}</ul>${cityLink}</section>`;
+}
+
 async function render(env: Env, t: PublicTherapist, slots: PublicSlot[], published: { page: PageDraft; published_at: string }, current: string | null): Promise<string> {
   const person = personOf(t, slots.map((s) => s.starts_at_utc), '/jak-to-dziala');
-  const article = renderPublic(person, published.page, monthOf(published.published_at, t.timezone));
+  const article = renderPublic(person, published.page, monthOf(published.published_at, t.timezone), current === null ? await othersNearby(env, t) : '');
   return authoredDocument(current === null ? t.display_name : published.page.title || t.display_name, article, await navFor(env, t, current));
 }
 
