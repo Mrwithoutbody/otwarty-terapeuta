@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
 
@@ -7,13 +8,16 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
  * database created from the same migrations production uses and loaded with
  * the same demo seed. Nothing here is mocked except the clock-free bits.
  */
-const migrations = await readD1Migrations('./migrations');
-const seedSql = await readFile('./seed/seed.sql', 'utf8');
+// Absolute, so `npx vitest run` also works when started from a subfolder.
+const at = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+const migrations = await readD1Migrations(at('./migrations'));
+const seedSql = await readFile(at('./seed/seed.sql'), 'utf8');
 
 export default defineConfig({
   plugins: [
     cloudflareTest({
-      wrangler: { configPath: './wrangler.jsonc' },
+      wrangler: { configPath: at('./wrangler.jsonc') },
       miniflare: {
         bindings: {
           TEST_MIGRATIONS: migrations,
@@ -30,10 +34,11 @@ export default defineConfig({
       },
     }),
   ],
+  root: at('.'),
   test: {
     // Playwright owns `e2e/`; this pool only runs the in-runtime tests.
-    include: ['test/**/*.test.ts'],
-    setupFiles: ['./test/setup.ts'],
+    include: ['shared/test/**/*.test.ts', 'apps/*/test/**/*.test.ts'],
+    setupFiles: ['./shared/test/setup.ts'],
     testTimeout: 30_000,
   },
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bundles the React widget into ONE self-contained HTML document and writes it
- * to `src/widget/generated.ts` as a plain string export.
+ * to `apps/mcp/widget/generated.ts` as a plain string export.
  *
  * Self-contained is a hard requirement: the MCP Apps resource is served with a
  * strict CSP that allows no external script, style, font or image origin, so
@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const result = await build({
-  entryPoints: [resolve(root, 'src/widget/main.tsx')],
+  entryPoints: [resolve(root, 'apps/mcp/widget/main.tsx')],
   bundle: true,
   format: 'iife',
   target: ['es2022'],
@@ -31,7 +31,7 @@ const result = await build({
 const js = result.outputFiles?.[0]?.text ?? '';
 if (js.length === 0) throw new Error('esbuild nie wyprodukował bundla widgetu.');
 
-const css = await readFile(resolve(root, 'src/widget/widget.css'), 'utf8');
+const css = await readFile(resolve(root, 'apps/mcp/widget/widget.css'), 'utf8');
 
 const html = `<!doctype html>
 <html lang="pl">
@@ -47,7 +47,7 @@ const html = `<!doctype html>
 </body>
 </html>`;
 
-const outPath = resolve(root, 'src/widget/generated.ts');
+const outPath = resolve(root, 'apps/mcp/widget/generated.ts');
 await mkdir(dirname(outPath), { recursive: true });
 await writeFile(
   outPath,
@@ -57,14 +57,14 @@ await writeFile(
   'utf8',
 );
 
-console.log(`widget: ${(html.length / 1024).toFixed(1)} kB -> src/widget/generated.ts`);
+console.log(`widget: ${(html.length / 1024).toFixed(1)} kB -> apps/mcp/widget/generated.ts`);
 
 /**
- * Narzędzie stron autorskich (`src/authored/tool.ts`): jeden plik JS dla panelu.
+ * Narzędzie stron autorskich (`apps/panel/authored/tool.ts`): jeden plik JS dla panelu.
  * Importuje `core.ts`, czyli ten sam renderer i strażnik faktów, których używa Worker.
  */
 const tool = await build({
-  entryPoints: [resolve(root, 'src/authored/tool.ts')],
+  entryPoints: [resolve(root, 'apps/panel/authored/tool.ts')],
   bundle: true,
   format: 'iife',
   target: ['es2022'],
@@ -77,8 +77,8 @@ const tool = await build({
 const toolJs = tool.outputFiles?.[0]?.text ?? '';
 if (toolJs.length === 0) throw new Error('esbuild nie wyprodukował bundla narzędzia stron.');
 await writeFile(
-  resolve(root, 'src/authored/tool-generated.ts'),
+  resolve(root, 'apps/panel/authored/tool-generated.ts'),
   `/* GENERATED FILE - do not edit. Produced by scripts/build-widget.mjs. */\n` + `/* eslint-disable */\n` + `export const TOOL_JS = ${JSON.stringify(toolJs)};\n`,
   'utf8',
 );
-console.log(`narzędzie stron: ${(toolJs.length / 1024).toFixed(1)} kB -> src/authored/tool-generated.ts`);
+console.log(`narzędzie stron: ${(toolJs.length / 1024).toFixed(1)} kB -> apps/panel/authored/tool-generated.ts`);

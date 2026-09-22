@@ -8,8 +8,8 @@ export default tseslint.config(
       '.wrangler/**',
       'node_modules/**',
       'worker-configuration.d.ts',
-      'src/widget/generated.ts',
-      'src/authored/tool-generated.ts',
+      'apps/mcp/widget/generated.ts',
+      'apps/panel/authored/tool-generated.ts',
     ],
   },
   js.configs.recommended,
@@ -23,7 +23,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'test/**/*.ts'],
+    files: ['scripts/**/*.mjs', '**/test/**/*.ts'],
     languageOptions: {
       globals: { console: 'readonly', process: 'readonly', URL: 'readonly' },
     },

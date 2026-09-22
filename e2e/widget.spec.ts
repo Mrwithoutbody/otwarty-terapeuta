@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { WIDGET_HTML } from '../src/widget/generated';
+import { WIDGET_HTML } from '../apps/mcp/widget/generated';
 
 /**
  * The widget is exercised exactly the way a host exercises it: the document is
