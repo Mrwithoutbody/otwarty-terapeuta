@@ -174,6 +174,10 @@ export class TherapistBookingCoordinator implements DurableObject {
     }
 
     // 3. One atomic batch: book the slot, write the booking, record idempotency.
+    //    `slot_id` is bound as `(SELECT ? WHERE changes() = 1)`, so if the
+    //    UPDATE above matched no row — someone blocked or booked the slot
+    //    between the re-read and here — it resolves to NULL, `NOT NULL` fails,
+    //    and the batch (idempotency row included) rolls back into the catch.
     const at = nowIso();
     try {
       await db.batch([
@@ -189,7 +193,7 @@ export class TherapistBookingCoordinator implements DurableObject {
                                    mode, starts_at_utc, ends_at_utc, timezone, price_minor, currency,
                                    contact_name_enc, contact_email_enc, contact_phone_enc,
                                    terms_version, privacy_version, manage_token_hash, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, (SELECT ? WHERE changes() = 1), ?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             command.bookingId,

@@ -1,4 +1,4 @@
-import { SELF, env } from 'cloudflare:test';
+import { SELF, env, runInDurableObject } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { cancelBooking, createBooking, listMyBookings, previewBooking } from '../booking/service';
 import { findOrCreateUserByEmail, type UserRow } from '../../../shared/db/users';
@@ -205,6 +205,74 @@ describe('booking flow', () => {
         ...acceptance(),
       }),
     ).rejects.toMatchObject({ code: 'slot_unavailable' });
+  });
+
+  // The one window the Durable Object cannot serialise: the panel writes to D1
+  // directly, so a slot can be blocked between the coordinator's re-read and
+  // its batch. Swapping the DB binding for the duration of one `batch` call
+  // puts the panel's write exactly there.
+  it('rolls the whole batch back when the slot is blocked inside the race window', async () => {
+    const slotId = await anyOpenSlot();
+    const idemKey = `blocked-window-${seq}`;
+    const preview = await previewBooking(env, alice, { slot_id: slotId });
+
+    const stub = env.BOOKING_COORDINATOR.get(env.BOOKING_COORDINATOR.idFromName(ANNA));
+    type Patchable = { env: { DB: D1Database } };
+    let coordinator!: Patchable;
+    let realEnv!: Patchable['env'];
+
+    await runInDurableObject(stub, (instance) => {
+      coordinator = instance as unknown as Patchable;
+      realEnv = coordinator.env;
+      const realDb = realEnv.DB;
+      let armed = true;
+      coordinator.env = {
+        ...realEnv,
+        DB: {
+          prepare: (sql: string) => realDb.prepare(sql),
+          batch: async (statements: D1PreparedStatement[]) => {
+            if (armed) {
+              armed = false;
+              await env.DB.prepare(
+                `UPDATE appointment_slots SET status = 'blocked', updated_at = ? WHERE id = ?`,
+              )
+                .bind(nowIso(), slotId)
+                .run();
+            }
+            return realDb.batch(statements);
+          },
+        } as unknown as D1Database,
+      };
+    });
+
+    try {
+      await expect(
+        createBooking(env, alice, {
+          confirmation_token: preview.confirmation_token,
+          idempotency_key: idemKey,
+          ...acceptance(),
+        }),
+      ).rejects.toMatchObject({ code: 'slot_unavailable' });
+    } finally {
+      await runInDurableObject(stub, () => {
+        coordinator.env = realEnv;
+      });
+    }
+
+    const booked = await env.DB.prepare(`SELECT COUNT(*) AS n FROM bookings WHERE slot_id = ?`)
+      .bind(slotId)
+      .first<{ n: number }>();
+    expect(booked?.n).toBe(0);
+
+    const idem = await env.DB.prepare(`SELECT COUNT(*) AS n FROM booking_idempotency WHERE idem_key = ?`)
+      .bind(idemKey)
+      .first<{ n: number }>();
+    expect(idem?.n).toBe(0);
+
+    const slot = await env.DB.prepare(`SELECT status FROM appointment_slots WHERE id = ?`)
+      .bind(slotId)
+      .first<{ status: string }>();
+    expect(slot?.status).toBe('blocked');
   });
 
   it('refuses a confirmation token issued to another account', async () => {
