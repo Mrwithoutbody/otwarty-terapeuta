@@ -342,3 +342,14 @@ describe('a city page', () => {
     expect(profile).toMatch(/<title>Anna Kowalczyk[^<]* — psychoterapia[^<]*, Warszawa i online — Otwarty Terapeuta<\/title>/);
   });
 });
+
+describe('the home page', () => {
+  it('puts a different person first from visit to visit, real people before demo ones', async () => {
+    const firsts = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      const html = await (await SELF.fetch('https://example.com/')).text();
+      firsts.add(/hero-face hero-face-1" href="\/terapeuci\/([a-z0-9-]+)"/.exec(html)?.[1] ?? '');
+    }
+    expect(firsts.size).toBeGreaterThan(1);
+  });
+});

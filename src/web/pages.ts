@@ -150,8 +150,22 @@ function catalogueTopics(entries: PublicTherapist[]): Array<{ slug: string; name
   return [...counts].sort((x, y) => y[1].n - x[1].n).map(([slug, { name }]) => ({ slug, name }));
 }
 
+/**
+ * Kolejność przy każdym wejściu inna: nikt nie ma na stałe dużego kafla ani miejsca w trzech
+ * kartach. Sortowania w `heroFaces` i `featuredTherapists` są stabilne, więc ich grupy
+ * (realne osoby przed demo, ze zdjęciem przed bez) zostają - losuje się kolejność w grupie.
+ */
+function shuffled<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
 siteApp.get('/', async (c) => {
-  const entries = await findCandidates(c.env, {});
+  const entries = shuffled(await findCandidates(c.env, {}));
   const allTopics = catalogueTopics(entries);
   const cities = [...new Set(entries.flatMap((t) => t.locations.map((l) => l.city)))].sort((x, y) => x.localeCompare(y, 'pl'));
   const topics = allTopics
