@@ -235,5 +235,7 @@ DROP TABLE _seed_photos;
 INSERT INTO therapist_media SELECT * FROM _seed_media;
 DROP TABLE _seed_media;
 
--- Układ i treść stron demo mieszkają w usłudze stron (x402landings.space),
--- nie w tej bazie; scripts/pages-migrate.mjs przeniósł je tam 2026-09-03.
+-- Seed nie zakłada wierszy `authored_pages`. Profil bez opublikowanej strony
+-- renderuje się z tego, co już jest w danych (`seedDraft` w shared/authored/),
+-- więc /terapeuci/<slug> działa dla każdego profilu demo. Podstrona bez
+-- opublikowanego wiersza daje 404 - i tak ma być.

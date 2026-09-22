@@ -67,9 +67,9 @@ MCP) trzeba zaznaczyć, żeby „Utwórz" się odblokowało.
 
 Zasady:
 
-- **Nie zmieniaj `WIDGET_URI`** (`src/env.ts`). Podbicie `v1` → `v2` daje
+- **Nie zmieniaj `WIDGET_URI`** (`shared/env.ts`). Podbicie `v1` → `v2` daje
   `Błąd podczas ładowania aplikacji — Failed to fetch template`, bo klient trzyma
-  stary adres. Nowy kod widżetu wchodzi zwykłym `wrangler deploy`.
+  stary adres. Nowy kod widżetu wchodzi zwykłym deployem.
 - Po każdej zmianie w `_meta.ui` (zwłaszcza `csp.resourceDomains`): w ustawieniach
   wtyczki `…` → **Odłącz** → **Połącz** → „Kontynuuj bez konta". Bez tego poprawka
   wygląda na nieskuteczną.
@@ -109,7 +109,7 @@ Dwa razy pusty wynik brał się z tego, że model zgadywał wartości:
 - **Słowniki.** `topics` przyjmował dowolny slug, a opis odsyłał do zasobu
   `otwarty-terapeuta://slowniki`. Model nigdy go nie otworzył i wysłał angielskie
   `["anxiety","stress"]` → cicho zero wyników. Naprawione przez `z.enum` z pełną
-  listą w `src/mcp/schemas.ts` — wartości jadą wtedy w JSON Schema, a błędna
+  listą w `apps/mcp/schemas.ts` — wartości jadą wtedy w JSON Schema, a błędna
   wartość daje czytelny błąd walidacji zamiast pustki.
 
 **Reguła ogólna: nigdy nie odsyłaj modelu do zasobu po dozwolone wartości.
@@ -120,12 +120,12 @@ i `modalities` — przy nowej migracji słownikowej dopisz wartość też tam.
 
 - Dane przychodzą przez `window.openai.toolOutput`, a host ogłasza każde
   przypisanie zdarzeniem **`openai:set_globals`**. Kanał `ui/*` po `postMessage`
-  w ChatGPT nie wystarcza. Most w `src/widget/bridge.ts` obsługuje oba plus
+  w ChatGPT nie wystarcza. Most w `apps/mcp/widget/bridge.ts` obsługuje oba plus
   krótki odpyt awaryjny.
 - Objaw braku danych: widżet stoi na **„Wczytuję dane…"**.
 - Obrazy: widżet renderuje się na origin ChatGPT, więc **ścieżka względna trafia
-  w zły host**. Adresy zdjęć absolutyzuje `absolutePhoto` w `src/mcp/server.ts` —
-  na granicy MCP, nie w `src/db/catalog.ts`, bo tamten DTO karmi też stronę,
+  w zły host**. Adresy zdjęć absolutyzuje `absolutePhoto` w `apps/mcp/server.ts` —
+  na granicy MCP, nie w `shared/db/catalog.ts`, bo tamten DTO karmi też stronę,
   która potrzebuje ścieżek względnych (testy to pilnują).
 - CSP: `csp.resourceDomains` musi zawierać origin z `PUBLIC_BASE_URL`, inaczej
   zdjęcie jest blokowane. Czerwona plakietka **„CSP wył."** przy nazwie aplikacji
@@ -141,15 +141,15 @@ i `modalities` — przy nowej migracji słownikowej dopisz wartość też tam.
 - Wtyczka **osobista** (utworzona przez `+`): menu `…` ma aktywne
   **Usuń**, **Odłącz** i — co najważniejsze — **Publikuj**.
 - **„Publikuj"** to droga do publicznego katalogu, czyli do celu z §0. Nie klikaj,
-  dopóki `PLUGIN_SUBMISSION_CHECKLIST.md` §10 nie jest zamknięte — w szczególności
+  dopóki `apps/mcp/PLUGIN_SUBMISSION_CHECKLIST.md` §10 nie jest zamknięte — w szczególności
   scenariusze kryzysowe z §7.2.
 
 ## 8. Kolejność pracy
 
 ```
 zmiana w kodzie
-  → npm run build:widget && npx tsc --noEmit && npx vitest run
-  → npx wrangler deploy --env production
+  → npm run typecheck && npm test
+  → npm run deploy   (procedura: skill deploy-produkcja)
   → curl: sprawdź, czy serwer zwraca to, czego oczekujesz
   → jeśli ruszałeś _meta.ui: Odłącz → Połącz → „Kontynuuj bez konta"
   → nowy czat, podepnij wtyczkę, sprawdź plakietkę w dymku

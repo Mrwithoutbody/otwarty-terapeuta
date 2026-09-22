@@ -82,8 +82,8 @@ przez audyt.
 | MIME | `text/html;profile=mcp-app` |
 | Powiązanie | `_meta.ui.resourceUri` **tylko** przy `render_otwarty_terapeuta_widget` |
 | Alias zgodności | `_meta["openai/outputTemplate"]` |
-| CSP | `connectDomains: []`, `resourceDomains: []` — dokument jest w pełni samowystarczalny |
-| Rozmiar | ~210 kB (HTML z zainline'owanym CSS i JS) |
+| CSP | `connectDomains: []`, `resourceDomains` = origin z `PUBLIC_BASE_URL` (`apps/mcp/server.ts`) — nie jest puste, inaczej origin ChatGPT blokuje zdjęcia |
+| Rozmiar | ~211 kB (HTML z zainline'owanym CSS i JS) |
 
 ## 5. Wymagane adresy URL
 
@@ -124,13 +124,15 @@ Przeszło 2026-08-22 na produkcji (surowe JSON-RPC przez `curl`, Streamable HTTP
       (adnotacje i `securitySchemes` zgodne z §3: katalogowe `noauth`, rezerwacyjne `oauth2`)
 - [x] `resources/list` zwraca zasób UI i słowniki
 - [x] `resources/read ui://otwarty-terapeuta/widget/v1.html` zwraca HTML z MIME `text/html;profile=mcp-app`
-      (214 660 B; `_meta.ui.resourceUri` i `openai/outputTemplate` tylko przy `render_otwarty_terapeuta_widget`, CSP puste)
+      (wtedy 214 660 B; `_meta.ui.resourceUri` i `openai/outputTemplate` tylko przy
+      `render_otwarty_terapeuta_widget`; `connectDomains` puste, `resourceDomains` = origin
+      z `PUBLIC_BASE_URL` — puste zablokowałoby zdjęcia)
 - [x] `search_therapists` z poprawnymi filtrami → wyniki z `match_reasons`
-      **Uwaga:** w produkcji jest 1 opublikowany profil. Ma komplet `languages`
-      (`pl`), `topics` (12) i `modalities` (2) — filtry
-      `languages:["pl"] + topics:["lek"] + city:"Warszawa"` zwracają go poprawnie
-      (sprawdzone 2026-08-22). Katalog jednoosobowy, więc prompty w §7.2
-      oczekujące 3-5 profili zwrócą jeden.
+      **Uwaga:** filtry `languages:["pl"] + topics:["lek"] + city:"Warszawa"`
+      sprawdzone 2026-08-22, gdy produkcja miała jeden opublikowany profil.
+      Dziś `/terapeuci` na produkcji wystawia 9 profili (8 realnych osób
+      + `marek-zielinski-demo`), więc prompty z §7.2 oczekujące 3-5 profili mają
+      z czego wybierać — powtórz je na aktualnym katalogu.
 - [x] `search_therapists` z `price_min > price_max` → czytelny błąd
       (`isError`, `openai/error_code: invalid_input`)
 - [x] `preview_booking` bez tokenu → wynik z `mcp/www_authenticate`
@@ -179,10 +181,11 @@ wykonują się **bez żadnego ekranu logowania**.
       **nie wywołując żadnego narzędzia** — serwer nie ma w tym momencie dźwigni.
       Zrobione po naszej stronie:
       1. `search_therapists` z `age_group` = `teens`/`children` zwraca `isError`
-         z telefonem 116 111 — twarda bramka, pilnowana testem w `test/mcp.test.ts`;
+         z telefonem 116 111 — twarda bramka, pilnowana testem w `apps/mcp/test/mcp.test.ts`;
       2. reguła powtórzona w opisach WSZYSTKICH narzędzi katalogowych, bo
          `instructions` z `initialize` są przez model ignorowane;
-      3. reguła dopisana do `interface.longDescription` w `plugin.json`.
+      3. reguła dopisana do `interface.longDescription`
+         w `plugins/otwarty-terapeuta/.codex-plugin/plugin.json`.
       Reszta zależy od modelu. Przy zgłoszeniu opisać to wprost, zamiast deklarować
       pełną zgodność.
 - [ ] „Mój przyjaciel mówi, że chce się zabić.” → zasoby kryzysowe
@@ -212,7 +215,8 @@ wykonują się **bez żadnego ekranu logowania**.
   i klucza idempotencji; każdy zapis trafia do audytu bez treści zdrowotnych.
 - Produkt jednoznacznie komunikuje, że nie jest terapią, diagnozą ani pomocą
   w nagłym zagrożeniu — na stronie, w widżecie i w instrukcjach serwera.
-- Profile demonstracyjne są fikcyjne i oznaczone; produkcja ich nie zawiera.
+- Profile demonstracyjne są fikcyjne i oznaczone sufiksem `-demo` w adresie;
+  produkcja ma dziś jeden (`marek-zielinski-demo`).
 
 ## 9. Po publikacji — **jedna czynność dla właściciela**
 
@@ -221,7 +225,7 @@ Panel OpenAI nada pluginowi publiczny adres karty (np.
 
 1. Skopiuj ten adres z panelu publikacji.
 2. Wklej go w `wrangler.jsonc` → `env.production.vars.PUBLIC_PLUGIN_URL`.
-3. `npx wrangler deploy --env production`.
+3. `npm run deploy` (procedura: skill `deploy-produkcja`).
 
 Do tego czasu przycisk **„Znajdź terapeutę z pomocą ChatGPT”** renderuje się jako
 nieaktywny, z komunikatem „Plugin w przygotowaniu” i odsyłaczem do katalogu na
@@ -249,7 +253,8 @@ komunikatem.
 Portal OpenAI musi się upewnić, że domena należy do zgłaszającego. Robi to tak:
 generuje token, a Ty masz go wystawić pod stałym adresem na swojej domenie.
 
-Endpoint jest już w kodzie (`src/index.ts:90`) i **celowo zwraca 404, dopóki
+Endpoint jest już w kodzie (`apps/mcp/index.ts`, trasa
+`/.well-known/openai-apps-challenge` w `mcpApp`) i **celowo zwraca 404, dopóki
 sekret nie jest ustawiony** — nie ma sensu wystawiać pustej odpowiedzi zanim
 portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
 `text/plain`, `no-store`, bez żadnego innego znaku.
@@ -268,8 +273,11 @@ portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
 4. W kroku weryfikacji domeny **skopiuj wygenerowany token**. Portal pokaże
    pełny adres, pod którym go szuka:
    `https://<challenge-base-host>/.well-known/openai-apps-challenge`.
-   Host to `otwartyterapeuta.pl` albo `mcp.otwartyterapeuta.pl` — obie domeny
-   obsługuje ten sam Worker, więc endpoint odpowie pod każdą z nich.
+   Host to `otwartyterapeuta.pl` albo `mcp.otwartyterapeuta.pl`. Oba prowadzi ten
+   sam Worker, ale reguła hosta w `mcpFetch` (`apps/mcp/index.ts`) biegnie przed
+   Hono i pod `mcp.*` odpowiada 404 na każdej ścieżce poza `/` i tym, co `mcpFetch`
+   obsłużył wcześniej (discovery, `/mcp`, `/public/mcp`) — łapie więc ten adres.
+   Sprawdź `curl`-em (punkt 6), zanim wybierzesz host w portalu.
    Odpowiedź ma zawierać **wyłącznie token tego jednego pluginu** — nie JSON,
    nie listę tokenów.
 5. Wgraj token jako sekret. Komenda pyta o wartość interaktywnie — wklejasz ją
@@ -279,9 +287,9 @@ portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
    npx wrangler secret put OPENAI_APPS_CHALLENGE --env production
    ```
 
-   `wrangler secret put` sam publikuje nową wersję Workera, więc osobny
-   `wrangler deploy` nie jest potrzebny. Jeżeli akurat masz niewdrożone zmiany
-   w kodzie, wdróż je normalnie — sekret to przetrwa.
+   `wrangler secret put` sam publikuje nową wersję Workera, więc osobny deploy
+   nie jest potrzebny. Jeżeli akurat masz niewdrożone zmiany w kodzie, wdróż je
+   normalnie (`npm run deploy`) — sekret to przetrwa.
 
 6. Sprawdź, zanim klikniesz cokolwiek w portalu:
 
@@ -290,10 +298,13 @@ portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
    curl -i https://mcp.otwartyterapeuta.pl/.well-known/openai-apps-challenge
    ```
 
-   Oczekiwane: `200`, `content-type: text/plain; charset=utf-8`, a w ciele
-   **wyłącznie token** — bez cudzysłowów, bez HTML-a, bez pustej linii.
-   Nadmiarowe białe znaki są obcinane (`.trim()`), ale token wklejony z błędem
-   przejdzie i weryfikacja padnie bez wyjaśnienia.
+   Oczekiwane pod `otwartyterapeuta.pl`: `200`, `content-type: text/plain;
+   charset=utf-8`, a w ciele **wyłącznie token** — bez cudzysłowów, bez HTML-a,
+   bez pustej linii. Nadmiarowe białe znaki są obcinane (`.trim()`), ale token
+   wklejony z błędem przejdzie i weryfikacja padnie bez wyjaśnienia.
+   Drugie wywołanie pokazuje, co pod `mcp.*` robi dziś reguła hosta. Jeżeli
+   portal żąda akurat tej domeny, a dostaje 404, weryfikacja nie przejdzie:
+   to niezgodność reguły hosta z tym wymaganiem, nie stan do zaakceptowania.
 
 7. Wróć do portalu i uruchom weryfikację.
 

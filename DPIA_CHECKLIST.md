@@ -96,8 +96,8 @@ przetwarzania danych realnych osób.
 ## 7. Retencja
 
 - [ ] Zatwierdzenie okresów z `RETENTION_POLICY.md`.
-- [ ] **Wdrożenie automatycznego usuwania** (dziś działa tylko czyszczenie stanu
-      autoryzacji — SQL do dopisania jest w `RETENTION_POLICY.md` §5).
+- [ ] **Test automatycznego usuwania na preview, z realistycznym wolumenem**
+      (sam kod działa — `RETENTION_POLICY.md` §5, poz. 8 bramki niżej).
 - [ ] Polityka kopii zapasowych i objęcie ich usuwaniem danych.
 
 ## 8. Bezpieczeństwo
@@ -155,12 +155,12 @@ blokujące nie są spełnione.
 | --- | --- | --- | --- |
 | 1 | Sekcje 1–4 zamknięte (role i podstawy prawne, lokalizacja danych, granice kliniczne, weryfikacja terapeutów) | prawnik + klinicysta | §1–§4 tego dokumentu |
 | 2 | DPIA przeprowadzona i udokumentowana | prawnik | §0 |
-| 3 | Ustalony administrator danych: operator, terapeuta czy współadministrowanie | prawnik | operator wskazany przez zarząd: **Blockbox sp. z o.o.** (`src/web/controller.ts`); do rozstrzygnięcia zostaje status terapeuty i ewentualne współadministrowanie — §1 tego dokumentu |
+| 3 | Ustalony administrator danych: operator, terapeuta czy współadministrowanie | prawnik | operator wskazany przez zarząd: **Blockbox sp. z o.o.** (`shared/web/controller.ts`); do rozstrzygnięcia zostaje status terapeuty i ewentualne współadministrowanie — §1 tego dokumentu |
 | 4 | Podstawa prawna dla każdej kategorii (art. 6 i 9 RODO), w tym czy powiązanie osoba ↔ terapeuta to dane o zdrowiu | prawnik | §1 tego dokumentu; kategorie danych w `PRIVACY_DATA_MAP.md` §3 |
 | 5 | Umowy powierzenia podpisane (Cloudflare, dostawca poczty) | prawnik | `PRIVACY_DATA_MAP.md` §5 |
 | 6 | Rejestr czynności przetwarzania | prawnik | — |
 | 7 | Polityka prywatności i regulamin zatwierdzone prawnie | prawnik | obecne wersje to roboczy opis techniczny |
-| 8 | Automatyczna retencja wdrożona i przetestowana na preview | inżynieria | kod wdrożony (`src/db/retention.ts`, cron co 5 min, test w `test/booking.test.ts`); zostaje test na preview z realistycznym wolumenem i zatwierdzenie okresów przez prawnika |
+| 8 | Automatyczna retencja wdrożona i przetestowana na preview | inżynieria | kod wdrożony (`shared/db/retention.ts`, cron co 5 min, test w `apps/mcp/test/booking.test.ts`); zostaje test na preview z realistycznym wolumenem i zatwierdzenie okresów przez prawnika |
 | 9 | Potwierdzona procedura kopii zapasowych D1 — usunięcie musi obejmować kopie | inżynieria | `RETENTION_POLICY.md` §6 |
 | 10 | Konsultacja kliniczna ścieżki kryzysowej | klinicysta | §3 tego dokumentu |
 | 11 | Testy akceptacyjne scenariuszy kryzysowych zaliczone z udziałem klinicysty | klinicysta | — |

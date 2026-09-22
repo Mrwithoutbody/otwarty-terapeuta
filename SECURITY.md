@@ -48,7 +48,7 @@ tej skrzynki: adres z `SUPPORT_EMAIL` w `wrangler.jsonc`).
 | --- | --- |
 | Transport | wyłącznie HTTPS; HSTS na produkcji |
 | CSP strony WWW | `default-src 'none'`, brak `unsafe-inline`, brak `unsafe-eval`; jedyna zewnętrzna domena to Turnstile i tylko na stronach z formularzem |
-| CSP widżetu | `_meta.ui.csp` z pustymi `connectDomains` i `resourceDomains` |
+| CSP widżetu | `_meta.ui.csp`: `connectDomains` puste, `resourceDomains` = wyłącznie origin `PUBLIC_BASE_URL` (zdjęcia profilowe); sam dokument widżetu jest samowystarczalny |
 | Nagłówki | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` |
 | XSS | React (widżet) + `escapeHtml()` (strona WWW) na każdym polu pochodzącym od użytkownika lub terapeuty |
 | Linki | `safeUrl()` / `safeHref()` — przechodzą tylko `https:`, `mailto:` i ścieżki własnego pochodzenia |
@@ -60,7 +60,7 @@ tej skrzynki: adres z `SUPPORT_EMAIL` w `wrangler.jsonc`).
 | Manipulacja ceną | cena w podpisanym tokenie **i** ponownie czytana z bazy; niezgodność → `price_changed` |
 | Manipulacja formularzem OAuth | parametry brane z wiersza `login_challenges`, nie z ukrytych pól |
 | Rate limiting | `RL_PUBLIC` 120/min per IP (`/mcp`), `RL_WRITE` 10/min per użytkownik (zapisy), `RL_AUTH` 8/min per IP (logowanie, rejestracja klienta) |
-| Turnstile | wszystkie publiczne formularze (logowanie OAuth, logowanie do panelu) |
+| Turnstile | wszystkie publiczne formularze: logowanie OAuth (`/oauth/authorize`), logowanie do panelu (`/admin/login`), zgłoszenie terapeuty (`/dla-terapeutow`) |
 | DNS rebinding | walidacja nagłówków `Host` i `Origin` przed obsługą żądania MCP |
 | Szyfrowanie danych kontaktowych | AES-256-GCM (Web Crypto), losowy IV, klucz w sekrecie |
 | Wyszukiwanie po e-mailu | HMAC adresu, nie sam adres |
@@ -198,7 +198,7 @@ npx wrangler d1 export otwarty-terapeuta-prod --env production --output backup.s
 
 # 4. Ustaw nowy klucz i wdroż:
 npx wrangler secret put TOKEN_SIGNING_KEY --env production
-npx wrangler deploy --env production
+npm run deploy
 
 # 5. Unieważnij stan zależny od starego klucza:
 npx wrangler d1 execute otwarty-terapeuta-prod --env production --remote --command \

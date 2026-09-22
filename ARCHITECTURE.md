@@ -4,7 +4,7 @@ Jak to działa i dlaczego akurat tak. Każda sekcja trzyma razem mechanizm
 i uzasadnienie — rozdzielone żyły osobno i się rozjeżdżały.
 
 Czego tu nie ma: listy tabel (`migrations/*.sql`), listy testów (nazwy `it()`
-w `test/` i `e2e/`), listy blokerów wydania (`DPIA_CHECKLIST.md` §11).
+w `shared/test/`, `apps/*/test/` i `e2e/`), listy blokerów wydania (`DPIA_CHECKLIST.md` §11).
 
 ## 1. Widok z lotu ptaka
 
@@ -27,8 +27,14 @@ Jeden Worker Cloudflare obsługuje trzy powierzchnie:
 ```
 
 Dodatkowo: Turnstile (formularze publiczne), bindingi rate limit (`RL_PUBLIC`,
-`RL_WRITE`, `RL_AUTH`) i cron co 5 minut (ponawianie powiadomień + czyszczenie
-wygasłego stanu autoryzacji).
+`RL_WRITE`, `RL_AUTH`) i cron co 5 minut (ponawianie powiadomień, czyszczenie
+wygasłego stanu autoryzacji, retencja i wypełnianie terminów z grafiku).
+
+Te trzy powierzchnie to trzy obszary kodu — `apps/portal`, `apps/panel`, `apps/mcp`
+— każdy montujący własne trasy we własnym `index.ts`. `worker.ts` tylko je składa,
+waliduje konfigurację i trzyma `scheduled`. Kod używany przez więcej niż jeden
+obszar mieszka w `shared/`; import w poprzek obszarów blokuje ESLint. Układ katalogów:
+`README.md`, „Struktura repozytorium".
 
 **Bezstanowość dotyczy transportu.** `createMcpHandler()` tworzy świeżą instancję
 `McpServer` na każde żądanie HTTP. Stan biznesowy żyje wyłącznie w D1, a
@@ -76,12 +82,12 @@ z samego DDL nie widać.
 
 Jedno wyzwanie e-mailowe obsługuje trzy powierzchnie: panel, zgodę OAuth
 i rejestrację terapeuty (`login_challenges.purpose`, dane tymczasowe w `context`).
-Cała logika w `src/auth/challenge.ts` — wcześniej były trzy kopie i osobna tabela.
+Cała logika w `shared/auth/challenge.ts` — wcześniej były trzy kopie i osobna tabela.
 
 ### 3.1. Czas: terapeuta pracuje w zegarze ściennym, nie w UTC
 
 Panel przyjmuje **lokalną datę i lokalną godzinę**, dopiero potem wyznacza chwilę
-UTC, którą one oznaczają (`zonedTimeToUtc` w `src/lib/time.ts`). „10:00 w
+UTC, którą one oznaczają (`zonedTimeToUtc` w `shared/lib/time.ts`). „10:00 w
 Europe/Warsaw” zostaje 10:00 po obu stronach zmiany czasu, choć zapisany instant
 UTC przesuwa się o godzinę.
 
@@ -103,7 +109,7 @@ godzinę później; godzina niejednoznaczna jesienią rozwiązuje się na pierws
 
 ## 4. Katalog: projekcja publiczna i ranking
 
-Cały odczyt publiczny przechodzi przez `src/db/catalog.ts`. `toPublicTherapist()`
+Cały odczyt publiczny przechodzi przez `shared/db/catalog.ts`. `toPublicTherapist()`
 jest jedynym miejscem, w którym wiersz bazy staje się obiektem widocznym na
 zewnątrz, a jej typ zwracany (`PublicTherapist`) **nie zawiera** pól
 `verification_notes` ani `contact_email_enc`. Dodanie prywatnej kolumny w
@@ -111,7 +117,7 @@ przyszłości nie wycieknie więc przez rozpakowanie wiersza.
 
 ### Ranking
 
-`src/matching/rank.ts`, funkcja czysta i deterministyczna dla trójki
+`shared/matching/rank.ts`, funkcja czysta i deterministyczna dla trójki
 `(profile, filtry, dayKey)`.
 
 1. **Wykluczenia** — w SQL: profil opublikowany, grupa wiekowa, język (wszystkie
@@ -135,7 +141,8 @@ model może je zacytować, a użytkownik zweryfikować.
 
 ### 4.1. Strony terapeutek
 
-Profil i podstrony to strony autorskie (`src/authored/`), renderowane w tym Workerze
+Profil i podstrony to strony autorskie (renderer i strażnik faktów w `shared/authored/`,
+publiczny render w `apps/portal/authored/site.ts`), renderowane w tym Workerze
 przy każdym żądaniu: słowa terapeutki z `authored_pages`, fakty (cennik, wolne
 terminy, kwalifikacje) z tabel, stopka kryzysowa jako stała renderera. Żadnej
 zewnętrznej usługi po drodze - jeżeli D1 odpowiada, strona stoi.
@@ -207,7 +214,7 @@ zamiast rzucać 401 na całe żądanie. Nieprawidłowy token przedstawiony jawni
 kończy się natomiast pełnym `401` z nagłówkiem `WWW-Authenticate` i wskazaniem
 `resource_metadata` — czyli poprawnym wyzwaniem OAuth, nie ogólnym błędem.
 
-### Serwer autoryzacji (`src/auth/oauth.ts`)
+### Serwer autoryzacji (`apps/mcp/auth/oauth.ts`)
 
 - `/.well-known/oauth-protected-resource[/mcp]` i `/.well-known/oauth-authorization-server`
   serwuje SDK (`oauthMetadataResponse`), więc kształt dokumentów zawsze zgadza się
@@ -247,10 +254,15 @@ ciasteczka, nie wyliczy tokenu.
 - Powiązany **wyłącznie** z `render_otwarty_terapeuta_widget` przez `_meta.ui.resourceUri`,
   z aliasem zgodności `_meta["openai/outputTemplate"]` dla ChatGPT. Ustawiamy oba,
   plus `_meta.ui.prefersBorder`, `_meta.ui.csp` i `_meta["openai/toolInvocation/*"]`.
-- `_meta.ui.csp` deklaruje puste `connectDomains` i `resourceDomains`: dokument jest
-  w pełni samowystarczalny. `scripts/build-widget.mjs` buduje Reacta esbuildem
-  i wkleja JS oraz CSS do jednego pliku HTML — żadnego zewnętrznego fontu ani
-  skryptu, a bundle jest tym samym artefaktem w testach i w produkcji.
+- `_meta.ui.csp` deklaruje puste `connectDomains` (widżet nie wykonuje żadnego
+  żądania sieciowego) oraz `resourceDomains` z **jednym** wpisem: origin
+  `PUBLIC_BASE_URL` (`apps/mcp/server.ts`). Sam dokument jest samowystarczalny —
+  `scripts/build-widget.mjs` buduje Reacta esbuildem i wkleja JS oraz CSS do
+  jednego pliku HTML, bez zewnętrznego fontu i skryptu, a bundle jest tym samym
+  artefaktem w testach i w produkcji. Z zewnątrz ładują się wyłącznie zdjęcia
+  profilowe, którym `absolutePhoto()` dokleja ten sam origin.
+  Zmiana `_meta.ui` nie wchodzi samym deployem — ChatGPT trzyma ją w cache do
+  ponownego połączenia wtyczki.
 - Dane trafiają do widżetu w `structuredContent`, nie w `_meta`: host dostarcza
   widżetowi **wynik narzędzia** (w ChatGPT `window.openai.toolOutput`). Koperta
   `{ view, title, data, generated_at, item_count }` jest więc zwracana jako
@@ -275,8 +287,8 @@ z architektury:
 - Serwer nie ma **żadnego** pola przyjmującego transkrypt, opis objawów czy
   historię leczenia. Filtry to enumy i słowniki, i nie są zapisywane ani wiązane
   z kontem.
-- Logger (`src/lib/log.ts`) przyjmuje tylko listę dozwolonych pól o niskiej
-  kardynalności i redaguje e-maile, telefony oraz tokeny. Audyt (`src/lib/audit.ts`)
+- Logger (`shared/lib/log.ts`) przyjmuje tylko listę dozwolonych pól o niskiej
+  kardynalności i redaguje e-maile, telefony oraz tokeny. Audyt (`shared/lib/audit.ts`)
   ma własną listę dozwolonych kluczy `meta`; wolny tekst użytkownika nigdy tam nie trafia.
 - Eksport i usunięcie danych użytkownika są wbudowane w panel.
 
@@ -327,18 +339,29 @@ a walidację hostów robimy jawnie (`hostHeaderValidationResponse()`,
 `originValidationResponse()` z tego samego pakietu). Identyczne zachowanie
 transportu, o jedną dużą zależność mniej (`agents` ciągnie warstwę Durable Objects
 i klienta MCP, z których nic nie używamy), a walidacja jest widoczna w
-`src/index.ts` zamiast schowana w konfiguracji.
+`apps/mcp/index.ts` zamiast schowana w konfiguracji.
 
 SDK v2 dało nam gotowe `McpServer`, `createMcpHandler`, `verifyBearerToken`,
 `bearerAuthChallengeResponse`, `oauthMetadataResponse`,
 `getOAuthProtectedResourceMetadataUrl` — nie piszemy własnych dokumentów
 RFC 9728 / RFC 8414 ani własnego parsera nagłówka `Authorization`.
 
-**Strona WWW bez JavaScriptu.** Katalog, filtry i cały panel są renderowane po
-stronie serwera. Dzięki temu CSP nie potrzebuje `unsafe-inline` ani nonce'ów,
-strona działa przy wyłączonym JS, a jedyny zewnętrzny skrypt (Turnstile) pojawia
-się wyłącznie na stronach z formularzem. Pilnuje tego `e2e/site.spec.ts`
-(kontekst z `javaScriptEnabled: false`).
+**Strona WWW bez JavaScriptu.** Katalog, filtry, profile i strony panelu są
+renderowane po stronie serwera. Dzięki temu CSP nie potrzebuje `unsafe-inline`
+ani nonce'ów, strona działa przy wyłączonym JS, a jedyny zewnętrzny skrypt
+(Turnstile) pojawia się wyłącznie na stronach z formularzem. Filtrów katalogu
+pilnuje `e2e/site.spec.ts` (kontekst z `javaScriptEnabled: false`).
+
+`/assets/admin.js` (`apps/panel/web/admin-ui.ts`) jest wyłącznie wzbogaceniem:
+bez JS zakładki degradują się do sekcji jedna pod drugą, a wiersze kwalifikacji
+do liczby wierszy wyrenderowanej przez serwer.
+
+**Jeden wyjątek: narzędzie strony.** `/admin/terapeuci/:id/strona`
+(`apps/panel/authored/`) serwuje puste `<main id="app">` i buduje całe UI w
+przeglądarce z `/assets/strona-panel.js`, żeby podgląd rysował dokładnie ten sam
+`renderPublic` i liczył dokładnie ten sam strażnik faktów co serwer. Bez JS ta
+jedna strona jest pusta. To świadomy kompromis: alternatywą była druga
+implementacja renderera, która rozjechałaby się z pierwszą.
 
 ## 10. Znane długi techniczne
 
@@ -346,9 +369,9 @@ Dług, który **nie** blokuje wydania. Co blokuje — wyłącznie `DPIA_CHECKLIS
 
 | Miejsce | Ograniczenie | Kiedy naprawić |
 | --- | --- | --- |
-| `src/matching/rank.ts` | punktacja na maks. 200 kandydatach z SQL | gdy katalog przekroczy kilkaset profili na zapytanie |
-| `src/web/admin-ui.ts` | skrypt panelu w idiomach ES5 (`var`, `function ()`) | przy najbliższej realnej zmianie w tym pliku |
-| `seed/seed.sql` | pojedyncze `;` na końcu linii są kontraktem dla `test/setup.ts` | przy przejściu na parser SQL zamiast dzielenia po `;\n` |
+| `shared/matching/rank.ts` | punktacja na maks. 200 kandydatach z SQL | gdy katalog przekroczy kilkaset profili na zapytanie |
+| `apps/panel/web/admin-ui.ts` | skrypt panelu w idiomach ES5 (`var`, `function ()`) | przy najbliższej realnej zmianie w tym pliku |
+| `seed/seed.sql` | pojedyncze `;` na końcu linii są kontraktem dla `shared/test/setup.ts` | przy przejściu na parser SQL zamiast dzielenia po `;\n` |
 | `seed/seed.sql` — godziny slotów | SQLite nie ma bazy IANA, więc dane demonstracyjne są liczone w UTC i przesuwają się o godzinę po zmianie czasu | tylko jeśli seed miałby kiedykolwiek trafić poza demo |
 
 ## 11. Świadome ograniczenia i czego NIE zrobiliśmy

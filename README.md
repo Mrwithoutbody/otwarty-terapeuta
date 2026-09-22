@@ -28,18 +28,19 @@ nie kwalifikuje do leczenia i nie zastępuje pomocy w nagłym zagrożeniu życia
 
 | Element | Gdzie |
 | --- | --- |
-| Publiczna strona WWW (PL, bez JS, ścisły CSP) | `src/web/pages.ts` |
-| Samodzielne zgłoszenie terapeuty (kod e-mail, szkic) | `src/web/therapist-signup.ts` |
-| Panel administratora (role: admin / therapist / support) | `src/web/admin.ts` |
-| Strony terapeutek (pisane własnymi słowami, render i narzędzie) | `src/authored/` |
-| Fakty profilu: formularz „Dane i cennik” i zapis | `src/web/admin-dane.ts`, `src/web/data-fields.ts`, `src/web/profile-write.ts` |
-| Serwer MCP (Streamable HTTP, stateless) pod `/mcp` | `src/mcp/server.ts` |
-| Widżet MCP Apps (React, samowystarczalny HTML) | `src/widget/` |
-| Serwer autoryzacji OAuth 2.1 (PKCE S256, DCR, RFC 8707) | `src/auth/oauth.ts` |
-| Durable Object serializujący rezerwacje | `src/booking/coordinator.ts` |
+| Publiczna strona WWW (PL, bez JS, ścisły CSP) | `apps/portal/web/pages.ts` |
+| Samodzielne zgłoszenie terapeuty (kod e-mail, szkic) | `apps/panel/web/therapist-signup.ts` |
+| Panel administratora (role: admin / therapist / support) | `apps/panel/web/admin.ts` |
+| Strony terapeutek: renderer i strażnik faktów | `shared/authored/` |
+| Strony terapeutek: render publiczny i narzędzie w panelu | `apps/portal/authored/site.ts`, `apps/panel/authored/` |
+| Fakty profilu: formularz „Dane i cennik” i zapis | `apps/panel/web/admin-dane.ts`, `apps/panel/web/data-fields.ts`, `apps/panel/web/profile-write.ts` |
+| Serwer MCP (Streamable HTTP, stateless) pod `/mcp` | `apps/mcp/server.ts` |
+| Widżet MCP Apps (React, samowystarczalny HTML) | `apps/mcp/widget/` |
+| Serwer autoryzacji OAuth 2.1 (PKCE S256, DCR, RFC 8707) | `apps/mcp/auth/oauth.ts` |
+| Durable Object serializujący rezerwacje | `apps/mcp/booking/coordinator.ts` |
 | Migracje i dane referencyjne D1 | `migrations/` |
-| Dane demonstracyjne (8 fikcyjnych profili + 1 nieopublikowany) | `seed/seed.sql` |
-| Testy w runtime Workers (Vitest) | `test/` |
+| Dane demonstracyjne (8 fikcyjnych profili: 7 opublikowanych + 1 nieopublikowany) | `seed/seed.sql` |
+| Testy w runtime Workers (Vitest) | `shared/test/`, `apps/*/test/` |
 | Testy przeglądarkowe (Playwright) | `e2e/` |
 
 ---
@@ -139,7 +140,8 @@ npm run build     # build widżetu + `wrangler deploy --dry-run`
 `npm run test:e2e` sam podnosi `wrangler dev` na porcie 8788. Baza musi być
 wcześniej zmigrowana i zaseedowana (`npm run db:reset:local`).
 
-Co pokrywają testy — nazwy `it()` w `test/` i `e2e/`.
+Co pokrywają testy — nazwy `it()` w `shared/test/`, `apps/*/test/` i `e2e/`.
+Jeden obszar: `npm test -- apps/portal`.
 
 ---
 
@@ -177,7 +179,7 @@ npx wrangler secret put ADMIN_BOOTSTRAP_EMAILS --env preview
 npm run db:migrate:preview
 npm run db:seed:preview     # POMIŃ, jeżeli preview ma zawierać dane realne
 
-# 6. Wdrożenie
+# 6. Wdrożenie (preview wdraża się wprost; produkcja tylko przez `npm run deploy`)
 npm run build:widget
 npx wrangler deploy --env preview
 #    -> wrangler wypisze adres *.workers.dev
@@ -212,8 +214,11 @@ Dodatkowo względem preview:
    brakuje `PII_ENC_KEY`, `TOKEN_SIGNING_KEY`, `TURNSTILE_SECRET_KEY`,
    `EMAIL_FROM` albo gdy `EMAIL_PROVIDER` to `console`. To zamierzone:
    nie udajemy wysłanego potwierdzenia rezerwacji.
-4. Migracje: `npm run db:migrate:prod`. **Nie ładuj `seed/seed.sql` na produkcję.**
-5. `npm run build:widget && npx wrangler deploy --env production`.
+4. `npm run deploy` (`scripts/deploy.sh`): sprawdza czyste drzewo i `HEAD == origin/main`,
+   potem `npm ci`, typecheck, testy, migracja produkcyjna, build widżetu i wdrożenie
+   z krótkim SHA w `--message`. Nie wdrażaj `wranglerem` wprost — deploy wypuszcza
+   wszystko, co wypchnięte, więc guardy z tego skryptu są jedynym hamulcem.
+   **Nie ładuj `seed/seed.sql` na produkcję.**
 
 ---
 
@@ -255,7 +260,7 @@ Rotacja i reakcja na incydent: [`SECURITY.md`](./SECURITY.md).
 Każde narzędzie zwraca zarówno `content` (tekst), jak i `structuredContent`,
 więc cały przepływ działa również w kliencie bez interfejsu graficznego.
 
-Szczegóły i uzasadnienie adnotacji: [`PLUGIN_SUBMISSION_CHECKLIST.md`](./PLUGIN_SUBMISSION_CHECKLIST.md).
+Szczegóły i uzasadnienie adnotacji: [`apps/mcp/PLUGIN_SUBMISSION_CHECKLIST.md`](./apps/mcp/PLUGIN_SUBMISSION_CHECKLIST.md).
 
 ---
 
@@ -281,29 +286,51 @@ statusu na `published`; weryfikacja kwalifikacji pozostaje osobną decyzją admi
 
 ## Struktura repozytorium
 
+Trzy obszary w `apps/`, kod wspólny w `shared/`. Każdy obszar montuje własne trasy
+we własnym `index.ts`; `worker.ts` tylko je składa.
+
 ```
 .
+├── worker.ts              # walidacja konfiguracji, montaż trzech obszarów, cron
+├── apps/
+│   ├── portal/            # strona publiczna: /, /terapeuci, /terapeuci/:slug(/:strona),
+│   │   │                  # /psychoterapeuta/:miasto, strony prawne, sitemapa, /media
+│   │   ├── web/           # pages.ts (HTML), seo.ts, labels.ts
+│   │   ├── authored/      # site.ts — publiczny render strony terapeutki
+│   │   └── test/
+│   ├── panel/             # /admin (admin / therapist / support) i /dla-terapeutow
+│   │   ├── web/           # admin.ts, admin-dane.ts, data-fields.ts, profile-write.ts
+│   │   ├── authored/      # narzędzie „strona o mnie” — jedyna część panelu wymagająca JS
+│   │   ├── auth/          # sesje panelu (ciasteczko __Host-, CSRF)
+│   │   ├── db/slots.ts    # grafik, urlopy, wypełnianie terminów z cronu
+│   │   └── test/
+│   └── mcp/               # /mcp, /public/mcp, /oauth/*, /.well-known/*, /rezerwacja/:ref
+│       ├── server.ts      # narzędzia i zasoby MCP
+│       ├── schemas.ts     # schematy Zod wejść narzędzi
+│       ├── security.ts    # securitySchemes per narzędzie (noauth / oauth2)
+│       ├── auth/          # serwer autoryzacji OAuth 2.1 + weryfikator tokenów
+│       ├── booking/       # Durable Object, preview/create/cancel, strona rezerwacji
+│       ├── widget/        # widżet React + most MCP Apps (+ wygenerowany bundle)
+│       ├── test/
+│       └── PLUGIN_SUBMISSION_CHECKLIST.md
+├── shared/                # env.ts, db/, lib/, web/ (layout z CSP, style, kontroler),
+│                          # auth/challenge.ts, authored/ (renderer + strażnik faktów),
+│                          # matching/rank.ts, notify/, test/
 ├── migrations/            # wersjonowane migracje D1 (schemat + dane referencyjne)
 ├── seed/seed.sql          # dane demonstracyjne, wszystkie oznaczone is_demo = 1
 ├── scripts/
-│   └── build-widget.mjs   # esbuild -> jeden samowystarczalny HTML widżetu
-├── src/
-│   ├── index.ts           # Worker: routing, MCP, discovery OAuth, cron
-│   ├── env.ts             # bindingi, sekrety, stałe, walidacja konfiguracji
-│   ├── auth/              # serwer autoryzacji OAuth 2.1, weryfikator tokenów, sesje panelu
-│   ├── booking/           # Durable Object + logika preview/create/cancel
-│   ├── db/                # projekcje publiczne, zapytania katalogu, użytkownicy
-│   ├── lib/               # crypto, czas, sanityzacja, błędy, logi, audyt, Turnstile
-│   ├── matching/rank.ts   # deterministyczny, wyjaśnialny ranking
-│   ├── mcp/               # schematy Zod + rejestracja narzędzi i zasobów
-│   ├── notify/            # wysyłka poczty + outbox z ponawianiem
-│   ├── web/               # strona publiczna, panel, layout z CSP, style
-│   └── widget/            # widżet React + most MCP Apps (+ wygenerowany bundle)
-├── test/                  # testy w runtime Workers (Vitest)
+│   ├── build-widget.mjs   # esbuild -> HTML widżetu + bundel narzędzia strony
+│   └── deploy.sh          # `npm run deploy`: guardy -> migracja -> build -> wdrożenie
+├── plugins/otwarty-terapeuta/  # pakiet zgłoszeniowy pluginu (ścieżka narzucona z zewnątrz)
 ├── e2e/                   # testy przeglądarkowe (Playwright)
 ├── wrangler.jsonc         # local / preview / production
 └── .dev.vars.example      # szablon sekretów, bez wartości
 ```
+
+**Granica obszarów:** `apps/<obszar>` importuje wyłącznie z `shared/`, a `shared/`
+nigdy z `apps/`. Pilnuje tego `no-restricted-imports` w `eslint.config.js` (testy
+i `worker.ts` są zwolnione). Kod potrzebny w dwóch obszarach przenieś do `shared/`
+zamiast importować w poprzek.
 
 ---
 
@@ -314,4 +341,4 @@ statusu na `published`; weryfikacja kwalifikacji pozostaje osobną decyzją admi
 - [`DPIA_CHECKLIST.md`](./DPIA_CHECKLIST.md) — ocena prawna i **jedyna bramka wydania** (§11)
 - [`PRIVACY_DATA_MAP.md`](./PRIVACY_DATA_MAP.md) — mapa danych osobowych
 - [`RETENTION_POLICY.md`](./RETENTION_POLICY.md) — polityka retencji
-- [`PLUGIN_SUBMISSION_CHECKLIST.md`](./PLUGIN_SUBMISSION_CHECKLIST.md) — zgłoszenie pluginu w OpenAI
+- [`apps/mcp/PLUGIN_SUBMISSION_CHECKLIST.md`](./apps/mcp/PLUGIN_SUBMISSION_CHECKLIST.md) — zgłoszenie pluginu w OpenAI

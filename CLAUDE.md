@@ -1,193 +1,135 @@
-# Otwarty Terapeuta — reguły projektu
+# Otwarty Terapeuta — reguły każdej instancji
+
+Jeden Worker, trzy obszary (`apps/portal`, `apps/panel`, `apps/mcp`) i `shared/`. Kilka instancji
+Claude pracuje równolegle, każda we własnym worktree.
 
 ## Odbiorca: KAŻDY użytkownik ChatGPT. Także darmowy.
 
-**Twarde wymaganie produktowe.**
+Punkt dostarczenia: **publiczny katalog aplikacji w ChatGPT**. Wtyczka w przestrzeni Business albo
+w trybie programisty to wyłącznie etap testowy, nigdy „dostarczone". Rozwiązanie wymagające płatnego
+konta, zaproszenia do workspace albo ręcznego wklejania adresu MCP jest niezgodne z wymaganiem.
 
-Docelowo wtyczkę ma móc dodać i użyć **dowolna osoba szukająca terapeuty** —
-z konta darmowego, Plus, Pro czy Business, bez zaproszenia do jakiejkolwiek
-przestrzeni roboczej i bez trybu programisty. Punktem dostarczenia jest
-**publiczny katalog aplikacji w ChatGPT**.
-
-Z tego wynika, co jest, a co nie jest ukończoną pracą:
-
-- Wtyczka w przestrzeni roboczej Business albo w trybie programisty to
-  **wyłącznie etap testowy**. Nigdy nie jest to dostarczenie produktu i nigdy
-  nie należy tego tak raportować.
-- Rozwiązanie, które wymaga od osoby szukającej terapeuty płatnego konta,
-  zaproszenia do workspace albo ręcznego wklejania adresu serwera MCP, jest
-  **niezgodne z wymaganiem** — nawet jeżeli technicznie działa.
-- Każda decyzja techniczna (uwierzytelnianie łącznika, zakresy, widżet,
-  instrukcje serwera) ma być podejmowana pod kątem anonimowego użytkownika
-  z darmowego konta, który pierwszy raz widzi tę aplikację.
-
-**Dlaczego:** produkt istnieje po to, żeby osoba w kryzysie znalazła terapeutę.
-Zamknięcie go za płatnym planem albo za firmową przestrzenią roboczą przekreśla
-sens całego przedsięwzięcia.
-
-**Jak to stosować:** przy planowaniu prac mierz postęp odległością od publikacji
-w katalogu OpenAI, nie od działającego demo u siebie. Kolejność: naprawa
-konfiguracji → testy §7 w trybie programisty → zgłoszenie publiczne → dopiero
-wtedy `PUBLIC_PLUGIN_URL` i CTA na stronie.
+**Każda decyzja techniczna** (uwierzytelnianie łącznika, zakresy, widżet, instrukcje serwera)
+**ma być podejmowana pod kątem anonimowego użytkownika z darmowego konta**, który pierwszy raz widzi
+tę aplikację. Przy planowaniu **mierz postęp odległością od publikacji** w katalogu OpenAI, nie od
+działającego demo u siebie. **Dlaczego:** produkt ma doprowadzić osobę w kryzysie do terapeuty.
 
 ## Logowanie: TYLKO przy operacjach zapisu. Nigdy do przeglądania.
 
-**Twarde ograniczenie produktowe. Nie podlega negocjacji.**
+Anonimowo, bez wyjątku: `search_therapists`, `get_therapist_profile`, `get_therapist_faq`,
+`list_available_slots`, `get_crisis_resources`, `render_otwarty_terapeuta_widget`. Logowanie dopiero
+gdy użytkownik sam zaczyna operację prywatną albo zapis: `preview_booking` i `list_my_bookings`
+(`booking:read`), `create_booking` i `cancel_booking` (`booking:write`).
 
-Przeglądanie katalogu MUSI działać w pełni anonimowo:
+Wymuszanie logowania po to, żeby **zobaczyć profil terapeutki**, jest zabronione. **Dlaczego:** ekran
+proszący o e-mail, zanim pokaże się cokolwiek z katalogu, czyta się jak phishing.
 
-- wyszukanie terapeutów (`search_therapists`)
-- odczyt profilu (`get_therapist_profile`)
-- odczyt FAQ (`get_therapist_faq`)
-- lista wolnych terminów (`list_available_slots`)
-- zasoby kryzysowe (`get_crisis_resources`)
-- widżet (`render_otwarty_terapeuta_widget`)
+Serwer zbudowany poprawnie: `apps/mcp/security.ts` daje katalogowi `noauth`, prywatne narzędzia
+oddają `_meta["mcp/www_authenticate"]`. Pułapka siedzi w konfiguracji łącznika — `apps/mcp/CLAUDE.md`.
 
-Prośba o e-mail, hasło albo jakiekolwiek logowanie jest dozwolona **wyłącznie**
-wtedy, gdy użytkownik sam inicjuje operację prywatną lub zapis:
+## Niezmienne adresy
 
-- utworzenie rezerwacji (`create_booking`)
-- odwołanie rezerwacji (`cancel_booking`)
-- podsumowanie przed rezerwacją (`preview_booking`)
-- lista własnych rezerwacji (`list_my_bookings`)
-- dodanie opinii
+Zmiana tylko za zgodą właściciela: `/`, `/terapeuci`, `/terapeuci/:slug(/:strona)`,
+`/psychoterapeuta/:miasto`, `/jak-to-dziala`, `/bezpieczenstwo`, `/pomoc-w-kryzysie`,
+`/polityka-prywatnosci`, `/regulamin`, `/sitemap.xml`, `/robots.txt`, `/media/:key`,
+`/71f406899159b10e0f21a3fcd1bc302f.txt` (klucz IndexNow), `/rezerwacja/:ref?k=` (adres z maili),
+`/mcp`, `/public/mcp`, `/oauth/*`, `/.well-known/*`, issuer `https://otwartyterapeuta.pl`
+(= `PUBLIC_BASE_URL`) i `WIDGET_URI` (`ui://otwarty-terapeuta/widget/v1.html`, `shared/env.ts`).
 
-Wymuszanie logowania po to, żeby **zobaczyć profil terapeuty**, jest **zabronione**.
+## Obszary
 
-**Dlaczego:** to rdzeń obietnicy produktu („logowanie wymagane dopiero przy
-rezerwacji"). Ekran proszący o e-mail, zanim pokaże się cokolwiek z katalogu,
-czyta się jak phishing i właściciel produktu zgłosiłby go jako phishing. Osoby
-szukające terapeuty są w trudnym momencie — żądanie danych kontaktowych za sam
-podgląd publicznego profilu niszczy zaufanie i łamie minimalizację danych z
-`DPIA_CHECKLIST.md`.
+| Obszar | Zakres | Testy | Dev i e2e |
+| --- | --- | --- | --- |
+| `apps/portal` | strony publiczne, katalog, strony autorskie, SEO, `/media` | `npm test -- apps/portal` | `npm run dev:portal` (:8791), `E2E_PORT=8891 npm run test:e2e -- e2e/site.spec.ts` |
+| `apps/panel` | `/admin`, `/dla-terapeutow`, narzędzie strony, grafik | `npm test -- apps/panel` | `npm run dev:panel` (https :8792) |
+| `apps/mcp` | `/mcp`, OAuth, rezerwacje, DO, widżet, pakiet wtyczki | `npm test -- apps/mcp` | `npm run dev:mcp` (:8793), `E2E_PORT=8893 npm run test:e2e -- e2e/widget.spec.ts` |
+| `shared/` | kod używany przez co najmniej dwa obszary | `npm test -- shared` | — |
 
-**Jak to stosować:**
+`apps/<obszar>` importuje tylko z `shared/` — pilnuje tego lint (`eslint.config.js`); `worker.ts`
+(kompozycja) i testy są wolne. Lint zawsze całym repo: `npm run lint`. Reguły obszaru:
+`apps/<obszar>/CLAUDE.md`.
 
-Serwer MCP jest zbudowany poprawnie — narzędzia katalogowe są publiczne
-(`securitySchemes: noauth`), a prywatne zwracają `_meta["mcp/www_authenticate"]`,
-więc klient uruchamia autoryzację leniwie, dopiero przy realnej potrzebie.
+## Praca równoległa
 
-Pułapka jest po stronie **konfiguracji klienta**. Zarejestrowanie łącznika w
-ChatGPT z `Uwierzytelnianie: OAuth` powoduje, że ChatGPT przechodzi pełny flow
-`/oauth/authorize` (zakresy `catalog:read booking:read booking:write`) **przed
-pierwszym wywołaniem jakiegokolwiek narzędzia** — czyli wymusza logowanie na
-wejściu, tylko po to, żeby przeglądać. Łącznik ma być rejestrowany **bez
-uwierzytelniania**; OAuth ma się włączać dopiero w momencie wywołania narzędzia
-rezerwacyjnego.
+- Instancja obszaru pracuje we własnym worktree `~/code/PSYCHOTERAPIA/ot-02-<obszar>` (odłączony HEAD,
+  start w `apps/<obszar>`). Główny checkout: właściciel i jedna sesja root. Jedna instancja na checkout.
+  Sprawdź to: `git rev-parse --show-toplevel`. Jeśli kończy się na `/ot-02`, a pracujesz nad obszarem,
+  nie edytuj — podaj właścicielowi komendę
+  `git worktree add --detach ~/code/PSYCHOTERAPIA/ot-02-<obszar> origin/main`, potem
+  `cd ~/code/PSYCHOTERAPIA/ot-02-<obszar> && npm ci`. Dwie instancje w jednym drzewie nadpisują sobie
+  pliki generowane i `.wrangler/state`.
+- Start sesji: `git fetch && git rebase origin/main`; `npm ci`, jeśli zmienił się `package-lock.json`;
+  `npm run db:migrate:local`.
+- Cykl: `git add <ścieżki>` (nigdy `-A` ani `.`; ścieżki liczone od katalogu, w którym jesteś) →
+  `git commit -m "<typ>(<obszar>): …"` (scope: `portal`, `panel`, `mcp`, `shared`, `root`) →
+  `npm test && npm run typecheck && npm run lint` → `git fetch origin && git rebase origin/main` →
+  `git push origin HEAD:main`. Odrzucony push → od `git fetch`. Konflikt → rozwiąż, cudzy kod
+  zachowaj. Push = gotowe na produkcję.
+- Nigdy: gałęzie, force push, `--amend`, `docs/`, `git push origin main` (wypchnie main głównego
+  checkoutu, nie twoje commity).
 
-Przy każdej zmianie w `src/mcp/security.ts`, endpointach OAuth albo konfiguracji
-łącznika: sprawdź od nowa, że anonimowa ścieżka katalogowa działa end-to-end.
+## Kod wspólny (`shared/` i pliki w korzeniu)
 
-Poprawka: opcja `Mieszana` w polu „Uwierzytelnianie" robi dokładnie to, co trzeba —
-narzędzia katalogowe anonimowo, OAuth dopiero przy rezerwacyjnym. Ekran zgody
-pokazuje wtedy przycisk **„Kontynuuj bez konta"**.
+- Przed zmianą znajdź wołających: `git grep -n "<moduł>" -- :/`. Zmiana albo addytywna, albo razem ze
+  wszystkimi wołającymi w jednym commicie `…(shared): …`, po pełnym `npm test`.
+- Właściciel treści: `shared/web/{styles,layout}.ts` i `shared/authored/page-css.ts` → portal (zmiana
+  przestyluje panel i ekran zgody OAuth oraz zmieni hash CSP — obejrzyj `/admin` i `/oauth/authorize`);
+  `shared/authored/{core,store}.ts` → kontrakt publikacji (panel pisze `headline`, `bio`,
+  `first_meeting_*` i FAQ, czytają portal i MCP); `SCOPES` i `WIDGET_URI` w `shared/env.ts` → MCP.
+- Niezmienniki: `toPublicTherapist` (`shared/db/catalog.ts`) jedyną projekcją publiczną; PII tylko
+  szyfrowane `PII_ENC_KEY`, hashe przez `TOKEN_SIGNING_KEY` (rotacja osieroci dane);
+  `shared/lib/{log,audit}.ts` z listą dozwolonych pól; `core.ts` bez DOM i bazy (bunduje się do JS
+  panelu); strażnik faktów blokuje tylko ceny i terminy, kwalifikacji nie rusza; stopka kryzysowa to
+  stała renderera; ceny i terminy zawsze z danych, nigdy z prozy.
 
-## Cache ChatGPT — co się odświeża, a co nie
+## Migracje D1
 
-Zmarnowane trzy rundy debugowania. Zapamiętaj podział:
+- Numer = najwyższy po rebase + 1 (najwyższy dziś: `0022`). Kolizja → przenumeruj własną, niewypchniętą;
+  `scripts/deploy.sh` odrzuca duplikat. Wypchniętej nie edytuj.
+- Tylko addytywne (`CREATE`, `ADD COLUMN` z domyślną): stary kod musi działać na nowym schemacie, bo
+  rollback Workera nie cofa D1. `DROP`/`RENAME` w dwóch deployach, za zgodą.
+- Migracja w tym samym commicie co kod; słownik specialties i modalities = zmiana `z.enum`
+  w `apps/mcp/schemas.ts` w tym samym commicie. Wiersze realnych osób → skill `migracja-realnych-danych`.
 
-| Element | Kiedy się odświeża |
-| --- | --- |
-| HTML widżetu (`resources/read`) | **przy każdym renderze**, zawsze świeży po deployu |
-| `_meta` narzędzia — CSP, `openai/outputTemplate`, adnotacje | **dopiero po ponownym połączeniu** wtyczki |
-| schematy wejściowe narzędzi | zwykle szybko, ale bez gwarancji |
+## Środowisko lokalne
 
-Wnioski, które kosztowały najwięcej:
+- Porty z tabeli obszarów; właściciel w głównym checkoucie: `npm run dev` (:8787), e2e :8788.
+- Każdy worktree ma własne `.wrangler/state`, pliki generowane i `.dev.vars`; `npm run db:reset:local`
+  rusza tylko twój worktree. Panel lokalnie tylko po HTTPS (ciasteczko `__Host-ot_admin`).
+  Preview nie wysyła maili (brak `EMAIL_API_KEY`) i nie ma R2.
 
-- **Nie zmieniaj `WIDGET_URI`.** Nowy kod widżetu wchodzi zwykłym deployem. Podbicie
-  wersji adresu daje `Błąd podczas ładowania aplikacji — Failed to fetch template`,
-  bo ChatGPT ma stary adres w cache, a serwer już go nie zna.
-- Zmiana czegokolwiek w `_meta.ui` (najczęściej `csp.resourceDomains`) **wymaga**
-  w ustawieniach wtyczki: `…` → **Odłącz** → **Połącz** → „Kontynuuj bez konta".
-  Sam deploy nie wystarczy i objawia się jako „poprawka nie działa".
-- Zanim uznasz poprawkę za nieskuteczną, sprawdź `curl`-em, co serwer faktycznie
-  zwraca w `tools/list` i `resources/read`. Trzy razy okazało się, że serwer był
-  już dobry, a patrzyłem na cache klienta.
+## Deploy
 
-## Kolorystyka: najpierw pomiar, potem teza
+- Konto Cloudflare `b1277ebcf49382e42bc5c111cd6adce3`, D1 produkcji
+  `9186df20-81e8-405b-aa74-b8812c082751`. Błąd 7403 → poproś o `! npx wrangler login`.
+- Tylko `npm run deploy` (`scripts/deploy.sh`: lock, czyste drzewo, `HEAD == origin/main`, `npm ci`,
+  testy, migracja, build, deploy z SHA w `--message`). `wrangler deploy --env production` wprost —
+  zabronione (preview wdraża się wprost — `README.md`, „Od pustego konta Cloudflare do
+  działającego preview").
+- Jeden Worker: deploy wypuszcza **wszystko wypchnięte, ze wszystkich obszarów**. W tej samej turze,
+  przed deployem: lista zaległych commitów i ilu realnych terapeutek dotyka — informacja, nie pytanie.
+  Procedura: skill `deploy-produkcja`. **Dlaczego:** 2026-09-17 deploy na prośbę „zdeployuj hosta"
+  wypuścił dziesięć zaległych commitów i zmienił wygląd siedmiu realnych profili.
+- Rollback: `npx wrangler rollback <id> --env production --message "<powód>"`. Zaraz potem
+  `git revert <sha>`, push i deploy, inaczej następny deploy innej instancji wypuści błąd ponownie.
 
-Zanim postawisz jakiekolwiek twierdzenie o kolorach („ta strona jest zielona",
-„to pasuje do palety", „tu brakuje ciepła"), **zmierz**:
+## Praca z właścicielem
 
-- tokeny z `:root` w `src/web/styles.ts` przelicz na HSL — odcień, nasycenie,
-  jasność, nie same nazwy hex;
-- dominujące barwy zdjęć i ilustracji policz z pikseli (PIL: histogram
-  odcieni, udział barw ciepłych).
+- Decyzje techniczne podejmuj sam i raportuj jednym zdaniem; pytaj o cel i wygląd.
+- Naprawiaj w tej samej turze, bez markerów długu (także bez komentarzy `ponytail:`).
+- Zmiana skończona = wdrożona. Wynik pokazuj w przeglądarce, nie opisem.
 
-Liczby podaj w odpowiedzi razem z wnioskiem.
+## Kolory
 
-**Dlaczego:** wrażenie kolorystyczne strony budują obrazy i gradienty, nie
-lista tokenów. Ocena „na oko" ze zrzutu myli chromę z jasnością. 2026-08-24
-uznałem, że strona główna „też jest tylko zielona", i na tej podstawie
-pchnąłem profile jeszcze dalej w chłodny szałwiowy (`#e9efe0`, odcień 84°).
-Pomiar pokazał odwrotność: ciepło głównej niosła **treść** (obrazy), nie CSS.
-Trzy rundy cofania.
+- Żadnej tezy o kolorze bez pomiaru: tokeny `:root` przelicz na HSL, dominujące barwy zdjęć policz
+  z pikseli, liczby podaj razem z wnioskiem. Oś odcieni i pomiar: skill `pomiar-kolorow`.
+- Wrażenie kolorystyczne budują obrazy, nie tokeny.
 
-**Jak to stosować:** jedna przyczyna poparta pomiarem zamiast listy trzech
-domysłów. Przy zmianie odcienia sprawdź, czy nowa wartość leży na osi serwisu
-(wszystkie powierzchnie: odcień 56–95, większość 64–70), zanim ją wdrożysz.
+## Dokumenty
 
-## System stron: profil pisany własnymi słowami (2026-09-21)
-
-Profil terapeutki to **strona autorska** (`src/authored/`), renderowana w ot-02. Innego
-systemu stron nie ma: usługę x402L usunięto z projektu 2026-09-22 (tabela
-`therapist_pages` zdjęta migracją `0022`, sekret `PAGES_API_KEY`, zależność i CSP też).
-Terapeutka odpowiada własnymi słowami na pytania pacjentów; strona składa się sama
-z odpowiedzi (cztery sposoby przywitania × trzy otwarcia). Fakty - cennik, wolne terminy,
-kwalifikacje z oznaczeniem weryfikacji - renderują się z tabel przy każdym żądaniu. Stopka
-kryzysowa jest stałą renderera, nie treścią strony.
-
-- `core.ts` bez DOM i bez bazy: ten sam renderer i strażnik faktów w Workerze i w narzędziu
-  (bundel esbuild w `scripts/build-widget.mjs` → `tool-generated.ts`, nie w gicie).
-- Strażnik blokuje **tylko ceny i terminy** wpisane prozą. Kwalifikacji nie rusza: reguła na
-  „certyfik/superwizor” ukryłaby zdania u 7 z 8 realnych osób (sprawdzone przed migracją).
-- `authored_pages`: szkic i wersja opublikowana obok siebie. Publikacja przepisuje jej słowa
-  do `headline`, `bio`, `first_meeting_*` i FAQ, więc wtyczka ChatGPT czyta ten sam tekst.
-- `/terapeuci/:slug`: jej opublikowana strona; zanim ją opublikuje - strona z tego, co już
-  jest w danych (`seedDraft`: opis, pierwsze spotkanie, FAQ), z cennikiem i terminami.
-- **Podstrony (2026-09-22)**: typ `podstrona` w `TYPES` (tytuł zamiast imienia w H1), wiersz
-  `authored_pages` z `slug`; `/terapeuci/:slug/:strona`, bez opublikowanej = 404. Są: grupa
-  Eweliny (`grupa-wsparcia-dla-rodzicow`) i terapia traumy Moniki (`terapia-traumy`), wiersze
-  `ap_mig_sub_*`. Edycji podstron w narzędziu panelu jeszcze nie ma.
-- Panel: po zalogowaniu terapeutka ląduje w `/admin/terapeuci/:id/strona`. Fakty zmienia
-  w zakładce „Dane i cennik” (`FIELDS` w `data-fields.ts`, zapis `writeProfileData`
-  w `profile-write.ts`).
-- Migracja 2026-09-21: 8 profili z katalogu dostało stronę z tego, co już było w bazie
-  (wiersze `ap_mig_*`); Aleksandra Mazek dostała stronę 2026-09-22 (z jej publicznego opisu,
-  do akceptacji przez nią). Dane profili i FAQ nietknięte (porównane hashami przed i po).
-
-## SEO: co jest gdzie (2026-09-22)
-
-- Google Search Console: usługa domenowa `sc-domain:otwartyterapeuta.pl`, zweryfikowana, sitemapa
-  zgłoszona. Bing Webmaster Tools: zaimportowany z GSC, sitemapa zgłoszona. Konto właściciela.
-- IndexNow (`src/lib/indexnow.ts`): klucz jest publiczny z założenia (`/<klucz>.txt`). Ping po
-  publikacji strony, zapisie danych i zmianie statusu profilu; tylko produkcja. Google go nie czyta.
-- Ręczne „Poproś o zindeksowanie” w GSC: limit ~10 dziennie, odnawia się ok. 9:00 czasu PL.
-- `/psychoterapeuta/<miasto>` powstaje sam od 3 realnych profili w mieście (`listCityPages`).
-  Filtry katalogu (`/terapeuci?miasto=`) mają canonical `/terapeuci`, więc nie dublują strony miasta.
-- Tytuł profilu niesie nurt z jej danych (`practiceOf` w `src/web/seo.ts`); „sesja od” to najniższa
-  płatna cena (`sessionFrom`) - bezpłatna rozmowa wstępna to nie cena sesji.
-- Ocen (gwiazdek) nie wpisujemy w kod: Google ignoruje oceny wystawione sobie samemu. Gwiazdki
-  i mapka są tylko z wizytówki Google terapeutki.
-
-## Deploy: produkcja leży na koncie Cloudflare `b1277ebcf49382e42bc5c111cd6adce3`
-
-Baza D1 produkcji: `9186df20-81e8-405b-aa74-b8812c082751`. Jeśli `npx wrangler whoami`
-nie pokazuje tego konta, `npm run db:migrate:prod` i `wrangler deploy --env production`
-padają z „not authorized [code: 7403]" (2026-09-02: zalogowane było tylko ANNA:R).
-Wtedy poproś o `! npx wrangler login` na właściwym koncie — `CLOUDFLARE_ACCOUNT_ID` bez
-dostępu do konta nic nie da. Kolejność na produkcji: migracja → build → deploy; robi to
-`npm run deploy` (migracje, `build:widget`, `wrangler deploy` z SHA w `--message`).
-
-**Deploy wypuszcza wszystko zaległe, nie tylko twój commit.** Zanim puszczysz produkcję,
-`npx wrangler deployments list --env production` daje wdrożoną wersję, a
-`git log <ta-wersja>..HEAD --oneline` — listę, która wyjedzie na żywo. Ta lista idzie do
-właściciela **przed** deployem, razem ze zdaniem, ilu realnych terapeutek dotknie
-(katalog `/terapeuci` minus profile `-demo`). Notuj id wdrożonej wersji od razu: rollback
-to wtedy `npx wrangler rollback <id> --env production --message "<powód>"`, jedna komenda.
-Host renderuje na żywo, więc deploy zmienia strony wszystkim w tej samej sekundzie.
-Wersje w `deployments list` nie niosą SHA (`Message: -`), więc deployuj z
-`--message "$(git rev-parse --short HEAD)"`. Bez tego zaległe commity ustala się po czasie
-i sygnaturze w żywym kodzie (2026-09-22: `daf76ebd` = `74f6f7d`, ostatni deploy bez SHA).
-(2026-09-17: deploy na prośbę „zdeployuj hosta" wypuścił dziesięć dni zaległych commitów
-i przestawił wygląd jedenastu profili, w tym siedmiu realnych osób; rollback po 7 min 48 s.)
+- `README.md` (start, sekrety), `ARCHITECTURE.md`, `SECURITY.md`, `DPIA_CHECKLIST.md` (§11 = jedyna
+  bramka wydania), `PRIVACY_DATA_MAP.md`, `RETENTION_POLICY.md`,
+  `apps/mcp/PLUGIN_SUBMISSION_CHECKLIST.md`. Nazw tych plików i ich sekcji nie zmieniaj — cytuje je
+  kod (`shared/env.ts` → „Sekrety" w README, `shared/db/retention.ts` → `RETENTION_POLICY.md` §5
+  i `DPIA_CHECKLIST.md` §11).
+- `docs/` prywatne: nigdy nie czytać, nigdy nie commitować.

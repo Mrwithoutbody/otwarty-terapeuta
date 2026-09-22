@@ -4,8 +4,9 @@
  * to `apps/mcp/widget/generated.ts` as a plain string export.
  *
  * Self-contained is a hard requirement: the MCP Apps resource is served with a
- * strict CSP that allows no external script, style, font or image origin, so
- * every byte the widget needs has to be inside this document.
+ * strict CSP that allows no external script, style or font origin, so every byte
+ * of code and style has to be inside this document. The one external origin is
+ * PUBLIC_BASE_URL in `resourceDomains`, for profile photos.
  */
 import { build } from 'esbuild';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';

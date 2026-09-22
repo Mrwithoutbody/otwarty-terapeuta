@@ -20,12 +20,13 @@ roszczeniem, usuwamy najwcześniej jak to możliwe.
 | Tokeny dostępu (`oauth_tokens`, `access`) | 1 h | usunięcie wiersza | cron |
 | Tokeny odświeżania (`oauth_tokens`, `refresh`) | 30 dni | usunięcie wiersza | cron |
 | Sesje panelu (`admin_sessions`) | 8 h | usunięcie wiersza | cron |
-| Wysłane powiadomienia (`notification_outbox`) | 30 dni od wysłania | usunięcie wiersza | **do wdrożenia — patrz §5** |
-| Nieudane powiadomienia (`status='failed'`) | 90 dni | usunięcie wiersza | **do wdrożenia** |
-| Dane kontaktowe rezerwacji (`bookings.contact_*_enc`) | 12 mies. od terminu wizyty | wyzerowanie kolumn, reszta wiersza zostaje | **do wdrożenia** |
+| Wysłane powiadomienia (`notification_outbox`) | 30 dni od wysłania | usunięcie wiersza | cron co 5 min — §5 |
+| Nieudane powiadomienia (`status='failed'`) | 90 dni | usunięcie wiersza | cron co 5 min — §5 |
+| Dane kontaktowe rezerwacji (`bookings.contact_*_enc`) | 12 mies. od terminu wizyty | wyzerowanie kolumn, reszta wiersza zostaje | cron co 5 min — §5 |
 | Rezerwacja (dane nieidentyfikujące) | 6 lat od terminu | usunięcie | ręcznie / **do wdrożenia** |
 | Zgody (`consent_records`) | 6 lat od udzielenia | usunięcie | ręcznie / **do wdrożenia** |
-| Audyt (`audit_events`) | 24 mies. | usunięcie | **do wdrożenia** |
+| Audyt (`audit_events`) | 24 mies. | usunięcie | cron co 5 min — §5 |
+| Licznik odsłon (`profile_views`, agregat dobowy bez danych osobowych) | 24 mies. | usunięcie wiersza | cron co 5 min — §5 |
 | Konto nieaktywne (brak logowania i rezerwacji) | 24 mies. | pseudonimizacja jak przy żądaniu usunięcia | **do wdrożenia** |
 | Konto — żądanie usunięcia | natychmiast | `eraseUserData()` | panel, gotowe |
 | Profil terapeuty po wycofaniu | `deleted_at`, niewidoczny publicznie | usunięcie po 12 mies. | ręcznie |
@@ -42,6 +43,7 @@ usługi (serwis nie jest stroną umowy o świadczenie terapii).
 | --- | --- | --- |
 | Czyszczenie wygasłego stanu autoryzacji | `purgeExpiredAuthState()`, cron co 5 min | **działa** |
 | Ponawianie i wygaszanie powiadomień | `drainOutbox()`, 6 prób | **działa** |
+| Retencja powiadomień, danych kontaktowych, audytu i odsłon | `purgeExpiredData()`, cron co 5 min | **działa** |
 | Usunięcie danych na żądanie | `eraseUserData()`, panel `/admin/uzytkownicy` | **działa** |
 | Eksport danych na żądanie | `exportUserData()`, panel | **działa** |
 | Soft delete profili | `therapists.deleted_at` filtrowane w każdym zapytaniu publicznym | **działa** |
@@ -61,8 +63,8 @@ Uzasadnienie: terapeuta i operator muszą móc wykazać, że płatna wizyta się
 
 ## 5. Zapytania retencyjne — wdrożone
 
-Kod: `src/db/retention.ts`, wołany z `scheduled` w `src/index.ts` co pięć minut.
-Test pilnujący progów: `test/booking.test.ts`, sekcja „retencja".
+Kod: `shared/db/retention.ts`, wołany z `scheduled` w `worker.ts` co pięć minut.
+Test pilnujący progów: `apps/mcp/test/booking.test.ts`, sekcja „retencja".
 
 Uwaga do SQL poniżej: znaczniki czasu zapisujemy przez `toISOString()`, więc
 porównanie musi mieć ten sam kształt. `datetime('now','-12 months')` zwraca
@@ -86,6 +88,9 @@ UPDATE bookings
 
 -- Audyt: 24 miesiące.
 DELETE FROM audit_events WHERE at < datetime('now','-24 months');
+
+-- Licznik odsłon: 24 miesiące. Agregat bez danych osobowych, ale rosnący bez końca.
+DELETE FROM profile_views WHERE day < strftime('%Y-%m-%d','now','-24 months');
 ```
 
 Nadal otwarte, mimo że kod działa (`DPIA_CHECKLIST.md` §11 poz. 8-9):

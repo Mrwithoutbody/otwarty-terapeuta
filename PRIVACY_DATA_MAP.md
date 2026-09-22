@@ -10,7 +10,7 @@ decyzja zarządu spółki, nie rozstrzygnięcie prawnika; ocena, czy w odniesien
 rezerwacji zachodzi współadministrowanie z terapeutą, pozostaje otwarta
 (`DPIA_CHECKLIST.md` §11 poz. 3).
 
-Tożsamość administratora ma jedno źródło w kodzie: `src/web/controller.ts`.
+Tożsamość administratora ma jedno źródło w kodzie: `shared/web/controller.ts`.
 Polityka prywatności, regulamin i stopka renderują się z tej samej stałej, a pole
 bez potwierdzonej wartości **nie renderuje wiersza** — dokument nigdy nie pokaże
 numeru rejestrowego, którego nikt nie potwierdził.
@@ -94,7 +94,7 @@ wyłącznie do momentu dostarczenia; usuwany zgodnie z polityką retencji.
 
 ### 3.6. Audyt — `audit_events`
 `at`, `actor_type`, `actor_id`, `action`, `subject_type`, `subject_id`, `meta_json`.
-`meta_json` przechodzi przez listę dozwolonych kluczy (`src/lib/audit.ts`):
+`meta_json` przechodzi przez listę dozwolonych kluczy (`shared/lib/audit.ts`):
 **żadnego wolnego tekstu, żadnych danych kontaktowych, żadnych tokenów, żadnych
 treści zdrowotnych.**
 
@@ -105,6 +105,21 @@ Wyjątki, **nigdy niepubliczne**: `verification_notes`, `contact_email_enc`.
 
 ### 3.8. Dane referencyjne — `crisis_resources`, słowniki
 Bez danych osobowych. Publiczne. Wymagają weryfikacji, nie ochrony.
+
+### 3.9. Strony autorskie — `authored_pages`
+`therapist_id`, `type`, `slug`, `draft_json`, `published_json`, `published_at`,
+znaczniki czasu. Treść pisze terapeutka o sobie, z zamiarem publikacji — ta sama
+kategoria co §3.7. `draft_json` to wersja robocza: **jest w bazie, ale nie jest
+publiczna, dopóki terapeutka nie opublikuje strony**. Żadnych danych pacjenta:
+strażnik faktów odrzuca ceny i terminy wpisane prozą, a pól na treść od osoby
+szukającej terapii tu nie ma.
+
+### 3.10. Licznik odsłon — `profile_views`
+`therapist_id`, `day` (YYYY-MM-DD, UTC), `source` (`web`/`mcp`), `views`.
+Agregat dobowy bez adresu IP, nagłówka przeglądarki, ciasteczka i identyfikatora
+osoby — z tej tabeli nie da się odtworzyć, kto oglądał, tylko ile razy oglądano.
+Terapeutka widzi liczbę dla własnego profilu; retencja kasuje wiersze po
+24 miesiącach.
 
 ## 4. Przepływy danych
 
@@ -165,14 +180,14 @@ Wszystkie operacje na danych użytkownika trafiają do `audit_events`.
 
 | Środek | Gdzie |
 | --- | --- |
-| Szyfrowanie aplikacyjne PII (AES-256-GCM) | `src/lib/crypto.ts` |
+| Szyfrowanie aplikacyjne PII (AES-256-GCM) | `shared/lib/crypto.ts` |
 | Nieodwracalny klucz wyszukiwania e-maila | `emailLookupHash()` |
-| Redakcja logów | `src/lib/log.ts` |
-| Lista dozwolonych pól audytu | `src/lib/audit.ts` |
-| Minimalizacja wejścia (brak pól na wolny tekst) | `src/mcp/schemas.ts` |
-| Projekcje publiczne bez pól prywatnych | `src/db/catalog.ts` |
-| Brak trackerów i zewnętrznych skryptów | `src/web/layout.ts` (CSP) |
-| Eksport i usunięcie danych | `src/db/users.ts` |
+| Redakcja logów | `shared/lib/log.ts` |
+| Lista dozwolonych pól audytu | `shared/lib/audit.ts` |
+| Minimalizacja wejścia (brak pól na wolny tekst) | `apps/mcp/schemas.ts` |
+| Projekcje publiczne bez pól prywatnych | `shared/db/catalog.ts` |
+| Brak trackerów i zewnętrznych skryptów | `shared/web/layout.ts` (CSP) |
+| Eksport i usunięcie danych | `shared/db/users.ts` |
 
 ## 8. Do ustalenia przed produkcją
 

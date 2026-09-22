@@ -8,7 +8,8 @@
 - Authentication: OAuth 2.1 dla narzędzi rezerwacji; narzędzia katalogowe mają `noauth`
 - Authentication timing: dopiero przy `preview_booking`, po decyzji użytkownika o rezerwacji
 - CSP connect domains: brak
-- CSP resource domains: brak
+- CSP resource domains: `https://otwartyterapeuta.pl` (origin z `PUBLIC_BASE_URL`; stamtąd
+  ładują się zdjęcia profilowe — puste zablokowałoby je)
 
 ## Listing
 
@@ -85,6 +86,6 @@ Release notes:
 
    ```bash
    npx wrangler secret put OPENAI_APPS_CHALLENGE --env production
-   npx wrangler deploy --env production
+   npm run deploy
    ```
 4. Załącz logo z `assets/logo.svg`, uzupełnij atestacje i wyślij do review.
