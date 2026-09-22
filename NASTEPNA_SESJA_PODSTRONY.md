@@ -25,6 +25,18 @@ Pliki: `src/authored/{core,store,site,panel,tool,page-css,tool-css}.ts`,
 `migrations/0020_authored_pages.sql`, `test/authored.test.ts`, `src/web/admin-dane.ts`,
 `src/web/admin.ts` (zakładki), `scripts/build-widget.mjs` (bundel narzędzia).
 
+## Do zrobienia w Google Search Console (od 2026-09-22, po 9:00)
+
+Limit próśb o zindeksowanie (~10 dziennie) wyczerpany 2026-09-21 wieczorem. W Chrome właściciela,
+„Sprawdzenie adresu URL” → „Poproś o zindeksowanie”, po kolei:
+
+1. `https://otwartyterapeuta.pl/psychoterapeuta/warszawa` - nowa strona, Google jej nie zna.
+2. `https://otwartyterapeuta.pl/` - Google czytał ją 7.09, przed faviconem i nazwą serwisu (19.09).
+3. `https://otwartyterapeuta.pl/terapeuci/aleksandra-mazek-ffe4e2df` - nie zmieściła się w limicie.
+
+Już zgłoszone 2026-09-21: `/terapeuci`, obie podstrony, 7 pozostałych profili. Po zrobieniu
+usuń tę sekcję.
+
 ## Czego jeszcze nie ma
 
 - **Tylko jeden typ strony („profil”), jedna strona na osobę.** Nowych podstron nie da się

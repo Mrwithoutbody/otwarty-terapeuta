@@ -156,6 +156,20 @@ kryzysowa jest stałą renderera, nie treścią strony.
   Cofnięcie treści: `DELETE FROM authored_pages WHERE id LIKE 'ap_mig_%'` - profile wracają
   na dawny render. Kod: rollback do `217d7771-1534-4d50-93cd-999e4f8e5de8`.
 
+## SEO: co jest gdzie (2026-09-22)
+
+- Google Search Console: usługa domenowa `sc-domain:otwartyterapeuta.pl`, zweryfikowana, sitemapa
+  zgłoszona. Bing Webmaster Tools: zaimportowany z GSC, sitemapa zgłoszona. Konto właściciela.
+- IndexNow (`src/lib/indexnow.ts`): klucz jest publiczny z założenia (`/<klucz>.txt`). Ping po
+  publikacji strony, zapisie danych i zmianie statusu profilu; tylko produkcja. Google go nie czyta.
+- Ręczne „Poproś o zindeksowanie” w GSC: limit ~10 dziennie, odnawia się ok. 9:00 czasu PL.
+- `/psychoterapeuta/<miasto>` powstaje sam od 3 realnych profili w mieście (`listCityPages`).
+  Filtry katalogu (`/terapeuci?miasto=`) mają canonical `/terapeuci`, więc nie dublują strony miasta.
+- Tytuł profilu niesie nurt z jej danych (`practiceOf` w `src/web/seo.ts`); „sesja od” to najniższa
+  płatna cena (`sessionFrom`) - bezpłatna rozmowa wstępna to nie cena sesji.
+- Ocen (gwiazdek) nie wpisujemy w kod: Google ignoruje oceny wystawione sobie samemu. Gwiazdki
+  i mapka są tylko z wizytówki Google terapeutki.
+
 ## Deploy: produkcja leży na koncie Cloudflare `b1277ebcf49382e42bc5c111cd6adce3`
 
 Baza D1 produkcji: `9186df20-81e8-405b-aa74-b8812c082751`. Jeśli `npx wrangler whoami`
