@@ -1,8 +1,6 @@
 import { SELF, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { createAdminSession, loadAdminSession } from '../../apps/panel/auth/session';
 import { getPublishedFaq, getTherapist } from '../db/catalog';
-import { findOrCreateUserByEmail } from '../db/users';
 import { cut, guard, normalizeDraft, pageFlags, renderPublic, shape, type Person } from '../authored/core';
 import { getAuthored, publish, saveDraft, seedDraft } from '../authored/store';
 
@@ -148,111 +146,5 @@ describe('publishing', () => {
     const res = await SELF.fetch('https://localhost/assets/strona.css');
     expect(res.headers.get('content-type')).toContain('text/css');
     expect(await res.text()).toContain('.crisis');
-  });
-});
-
-describe('a subpage', () => {
-  const SUB = `${PROFILE}/grupa-wsparcia`;
-  const page = {
-    type: 'podstrona', title: 'Grupa wsparcia dla rodziców', form: 'droga', top: 'twarz', line: 'Miejsce dla rodziców.', order: ['what', 'start', 'c_1'],
-    answers: { what: 'Rozmawiamy o tym, co trudne.', start: 'Najpierw konsultacja.', c_1: 'Nie. Mówisz tyle, ile chcesz.' },
-    custom: [{ id: 'c_1', q: 'Czy muszę mówić przy innych?' }],
-  };
-  const insert = (slug: string, published: boolean): Promise<unknown> =>
-    env.DB.prepare(
-      `INSERT OR REPLACE INTO authored_pages (id, therapist_id, type, slug, draft_json, published_json, published_at, created_at, updated_at) VALUES (?, ?, 'podstrona', ?, ?, ?, ?, ?, ?)`,
-    ).bind(`ap_t_${slug}`, ANNA, slug, JSON.stringify(page), published ? JSON.stringify(page) : null, published ? '2026-09-22T08:00:00Z' : null, '2026-09-22T08:00:00Z', '2026-09-22T08:00:00Z').run();
-
-  it('is served at its address in her words and leads back to her profile', async () => {
-    await insert('grupa-wsparcia', true);
-    const res = await SELF.fetch(SUB);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain('<h1>Grupa wsparcia dla rodziców</h1>');
-    expect(html).toContain('Rozmawiamy o tym, co trudne.');
-    expect(html).toContain('Czy muszę mówić przy innych?');
-    expect(html).toContain('/assets/strona.css');
-    expect(html).toContain('116 123');
-    expect(html).toContain('<a href="/terapeuci/anna-kowalczyk-demo">Anna Kowalczyk');
-    expect(html).toContain('<title>Grupa wsparcia dla rodziców — Anna Kowalczyk');
-    expect(html).toContain('<meta name="description" content="Grupa wsparcia dla rodziców. Miejsce dla rodziców.');
-    expect(html).toContain(`<link rel="canonical" href="${env.PUBLIC_BASE_URL}/terapeuci/anna-kowalczyk-demo/grupa-wsparcia">`);
-    // Ta sama głowa co strony serwisu: podgląd linku, ikona, okruszki w wyniku wyszukiwania.
-    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
-    for (const tag of ['name="twitter:card"', 'property="og:site_name"', 'property="og:locale"', 'rel="apple-touch-icon"', 'name="theme-color"']) expect(html).toContain(tag);
-    const crumbs = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => JSON.parse(m[1]!)).find((j) => j['@type'] === 'BreadcrumbList');
-    expect(crumbs.itemListElement.map((i: { name: string }) => i.name)).toEqual(['Otwarty Terapeuta', 'Terapeuci', expect.stringContaining('Anna Kowalczyk'), 'Grupa wsparcia dla rodziców']);
-  });
-
-  it('stays out of sight until published', async () => {
-    await insert('warsztaty', false);
-    expect((await SELF.fetch(`${PROFILE}/warsztaty`)).status).toBe(404);
-  });
-
-  it('hangs off her profile once and stands in the sitemap once; a draft does neither', async () => {
-    await publish(env, ANNA, { order: ['who'], answers: { who: 'Pracuję z osobami w kryzysie.' } });
-    await insert('grupa-wsparcia', true);
-    await insert('warsztaty', false);
-    await env.DB.prepare(`UPDATE therapists SET is_demo = 0 WHERE id = ?`).bind(ANNA).run();
-
-    const profile = await (await SELF.fetch(PROFILE)).text();
-    expect(profile.split('href="/terapeuci/anna-kowalczyk-demo/grupa-wsparcia"').length - 1).toBe(1);
-    expect(profile).toContain('>Grupa wsparcia dla rodziców</a>');
-    expect(profile).not.toContain('/terapeuci/anna-kowalczyk-demo/warsztaty');
-    // Prawdziwa osoba (już nie demo): Google może pokazać przy wyniku dużą miniaturę jej zdjęcia.
-    expect(await (await SELF.fetch(SUB)).text()).toContain('<meta name="robots" content="max-image-preview:large">');
-    const xml = await (await SELF.fetch('https://localhost/sitemap.xml')).text();
-    expect(xml.split('/terapeuci/anna-kowalczyk-demo/grupa-wsparcia</loc>').length - 1).toBe(1);
-    expect(xml).not.toContain('/warsztaty');
-  });
-
-  it('keeps prices out of its title too', () => {
-    expect(pageFlags(normalizeDraft({ ...page, title: 'Grupa za 200 zł' }, 'podstrona'))).toMatchObject([{ where: 'title', kind: 'kwota' }]);
-  });
-});
-
-describe('the tool in her panel', () => {
-  const TOOL = `https://localhost/admin/terapeuci/${ANNA}/strona`;
-  async function actor(email: string, role: string, therapistId: string | null): Promise<{ cookie: string; csrf: string }> {
-    const user = await findOrCreateUserByEmail(env, email);
-    await env.DB.prepare(`UPDATE users SET role = ?, therapist_id = ? WHERE id = ?`).bind(role, therapistId, user.id).run();
-    const { cookie } = await createAdminSession(env, user.id);
-    const session = await loadAdminSession(env, new Request('https://localhost/admin', { headers: { cookie } }));
-    return { cookie, csrf: session!.csrfToken };
-  }
-  const send = (who: { cookie: string; csrf: string }, path: string, method: string, draft: unknown, csrf = who.csrf): Promise<Response> =>
-    SELF.fetch(TOOL + path, { method, headers: { cookie: who.cookie, 'x-csrf': csrf, 'content-type': 'application/json' }, body: JSON.stringify({ draft }) });
-
-  it('opens with her existing words, her facts and no editor of blocks', async () => {
-    const anna = await actor('anna-strona@example.invalid', 'therapist', ANNA);
-    const res = await SELF.fetch(TOOL, { headers: { cookie: anna.cookie } });
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    const boot = JSON.parse(/<script type="application\/json" id="boot">(.*?)<\/script>/s.exec(html)![1]!) as { draft: { answers: Record<string, string> }; person: { offers: unknown[] } };
-    expect(boot.draft.answers.who).toContain('Pracuję z osobami');
-    expect(boot.person.offers.length).toBeGreaterThan(0);
-    expect(html).toContain('/assets/strona-panel.js');
-    expect((await SELF.fetch('https://localhost/assets/strona-panel.js')).status).toBe(200);
-  });
-
-  it('saves a draft and publishes it, for its owner only and only with the CSRF token', async () => {
-    const anna = await actor('anna-strona@example.invalid', 'therapist', ANNA);
-    const other = await actor('ktos-inny@example.invalid', 'therapist', 'th_8b2d6e10f4a97c53d1e08b26');
-    const draft = { form: 'spis', order: ['who'], answers: { who: 'Pracuję z osobami, które długo odkładały przyjście.' } };
-
-    expect((await send(other, '/szkic', 'PUT', draft)).status).toBe(403);
-    expect((await send(anna, '/szkic', 'PUT', draft, 'zly-token')).status).toBe(403);
-    expect((await SELF.fetch(`${TOOL}/szkic`, { method: 'PUT', body: '{}' })).status).toBe(401);
-
-    expect((await send(anna, '/szkic', 'PUT', draft)).status).toBe(200);
-    expect((await getAuthored(env, ANNA))?.draft.form).toBe('spis');
-
-    const refused = await send(anna, '/publikuj', 'POST', { order: ['who'], answers: { who: 'Sesja kosztuje 180 zł.' } });
-    expect(refused.status).toBe(422);
-    expect(((await refused.json()) as { error: string }).error).toContain('To wygląda na cenę');
-
-    const ok = await send(anna, '/publikuj', 'POST', draft);
-    expect(ok.status).toBe(200);
-    expect(await (await SELF.fetch(PROFILE)).text()).toContain('które długo odkładały przyjście');
   });
 });

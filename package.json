@@ -23,7 +23,10 @@
     "cf-typegen": "wrangler types",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:e2e",
-    "deploy": "npm run db:migrate:prod && npm run build:widget && wrangler deploy --env production --message \"$(git rev-parse --short HEAD)\""
+    "dev:portal": "npm run build:widget && wrangler dev --port 8791 --inspector-port 9231 --var PUBLIC_BASE_URL:http://localhost:8791 --var PUBLIC_MCP_URL:http://localhost:8791/mcp",
+    "dev:panel": "npm run build:widget && wrangler dev --port 8792 --inspector-port 9232 --local-protocol https --var PUBLIC_BASE_URL:https://localhost:8792 --var PUBLIC_MCP_URL:https://localhost:8792/mcp",
+    "dev:mcp": "npm run build:widget && wrangler dev --port 8793 --inspector-port 9233 --var PUBLIC_BASE_URL:http://localhost:8793 --var PUBLIC_MCP_URL:http://localhost:8793/mcp",
+    "deploy": "sh scripts/deploy.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
