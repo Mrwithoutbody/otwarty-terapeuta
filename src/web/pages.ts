@@ -578,6 +578,8 @@ siteApp.get('/psychoterapeuta/:miasto', async (c) => {
   const topics = tally((t) => t.topics).slice(0, 12);
   const prices = entries.flatMap((t) => (sessionFrom(t) === null ? [] : [sessionFrom(t)!]));
   const online = entries.filter((t) => t.offers_online).length;
+  // Nie każda osoba z miasta ma gabinet - obie liczby z danych, żadna nie jest obietnicą.
+  const inPerson = entries.filter((t) => t.offers_in_person).length;
   const inCity = `/terapeuci?miasto=${encodeURIComponent(city)}`;
   const chip = (param: string, tag: { slug: string; name: string; n: number }): string =>
     `<li class="tag"><a href="${escapeHtml(`${inCity}&${param}=${encodeURIComponent(tag.slug)}`)}">${escapeHtml(tag.name)} (${tag.n})</a></li>`;
@@ -599,7 +601,7 @@ siteApp.get('/psychoterapeuta/:miasto', async (c) => {
       body: `
 <div class="directory-page city-page">
 ${pageHead(`Psychoterapeuta ${city}`, catalogueFacts(entries))}
-<p class="lead">${escapeHtml(`${profiles(entries.length)} osób, które przyjmują w gabinecie: ${city}${online ? `; ${online} z nich pracuje też online` : ''}. Przy każdym profilu cena sesji i najbliższy wolny termin prosto z kalendarza. Przeglądasz anonimowo, logowanie dopiero przy rezerwacji.`)}</p>
+<p class="lead">${escapeHtml(`${profiles(entries.length)}: ${city}. W gabinecie przyjmuje ${inPerson}, online pracuje ${online}. Przy każdym profilu cena sesji i najbliższy wolny termin prosto z kalendarza. Przeglądasz anonimowo, logowanie dopiero przy rezerwacji.`)}</p>
 <section class="directory-results" aria-labelledby="wyniki"><h2 id="wyniki" class="visually-hidden">Profile: ${escapeHtml(city)}</h2>
 <ul class="grid cols-2">${entries.map((t) => therapistCard(t, [])).join('')}</ul></section>
 ${modalities.length ? `<section aria-labelledby="nurty"><h2 id="nurty">Nurty</h2><ul class="tags">${modalities.map((m) => chip('nurt', m)).join('')}</ul></section>` : ''}
