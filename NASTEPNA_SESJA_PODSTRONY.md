@@ -2,7 +2,7 @@
 
 Stan na 2026-09-21, wieczór. Wklej sekcję „Prompt” jako pierwszą wiadomość nowej sesji.
 
-## Co już działa (produkcja, wersja `9736a5a7`)
+## Co już działa (produkcja, wersja `060d4e5a`)
 
 - **Profil terapeutki to strona autorska**, wbudowana w ot-02 (`src/authored/`). Usługę stron
   x402L usunięto z projektu 2026-09-22 w całości - nie ma do czego wracać.
@@ -99,7 +99,7 @@ Zadanie: podstrony w narzędziu panelu (reszta punktu 1), potem wydarzenie z fak
 (data, godzina, miejsce, cena, liczba miejsc) - w kolejności punktów 1 i 2 pliku. Zapisy na
 wydarzenie (punkt 3) dopiero po moim OK.
 
-Przed kodem: sprawdź, czy produkcja nadal ma wersję 9736a5a7 i czy ktoś z terapeutek
+Przed kodem: sprawdź, czy produkcja nadal ma wersję 060d4e5a i czy ktoś z terapeutek
 zmieniał już swoją stronę (authored_pages: draft_json <> published_json albo
 updated_at <> published_at) - raport w dwóch zdaniach.
 
