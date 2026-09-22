@@ -25,13 +25,13 @@ curl -s -X POST http://localhost:8793/mcp -H 'content-type: application/json' \
 ```
 
 Ten sam Worker obsługuje `otwartyterapeuta.pl` i `mcp.otwartyterapeuta.pl`. Reguła w
-`mcpFetch` (`index.ts`) odpowiada 404 pod `mcp.*` na każdej ścieżce poza `/` i tym, co
-`mcpFetch` obsłużył wcześniej: dokumenty discovery, `/mcp`, `/public/mcp`. Biegnie przed
-Hono, więc łapie także
-`/.well-known/openai-apps-challenge`, którego §11 checklisty oczekuje pod obiema domenami.
-To niezgodność między kodem a checklistą, nie reguła do utrwalania. Stan faktyczny przypina
-`test/mcp.test.ts`, opis „the mcp.* subdomain"; zanim oprzesz się na tym, że coś odpowiada
-pod `mcp.*`, sprawdź `curl`-em.
+`mcpFetch` (`index.ts`) odpowiada 404 pod `mcp.*` na każdej ścieżce poza `/`, tym, co
+`mcpFetch` obsłużył wcześniej (dokumenty discovery, `/mcp`, `/public/mcp`), oraz
+`/.well-known/openai-apps-challenge` — ten portal OpenAI sprawdza pod hostem, który sam
+wybierze, więc §11 checklisty wymaga go pod obiema domenami. Reguła biegnie przed Hono,
+więc nowa trasa Hono nie odpowiada pod `mcp.*`, dopóki nie dopiszesz jej tutaj. Stan
+faktyczny przypina `test/mcp.test.ts`, opis „the mcp.* subdomain"; zanim oprzesz się na
+tym, że coś odpowiada pod `mcp.*`, sprawdź `curl`-em.
 
 ## Droga do publikacji
 

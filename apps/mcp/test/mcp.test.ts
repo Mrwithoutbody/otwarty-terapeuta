@@ -294,6 +294,26 @@ describe('the mcp.* subdomain', () => {
     const res = await SELF.fetch('https://mcp.example.com/.well-known/oauth-authorization-server');
     expect(res.status).toBe(200);
   });
+
+  it('keeps the OpenAI domain challenge at 404 while no token is set', async () => {
+    const res = await SELF.fetch('https://mcp.example.com/.well-known/openai-apps-challenge');
+    expect(res.status).toBe(404);
+  });
+
+  // The submission portal picks the host, so the challenge has to answer on
+  // this one too (PLUGIN_SUBMISSION_CHECKLIST §11) even though the host rule
+  // 404s everything else.
+  it('serves the OpenAI domain challenge once the portal has issued a token', async () => {
+    const previous = env.OPENAI_APPS_CHALLENGE;
+    env.OPENAI_APPS_CHALLENGE = 'ot-challenge-token';
+    try {
+      const res = await SELF.fetch('https://mcp.example.com/.well-known/openai-apps-challenge');
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe('ot-challenge-token');
+    } finally {
+      env.OPENAI_APPS_CHALLENGE = previous;
+    }
+  });
 });
 
 describe('input validation', () => {

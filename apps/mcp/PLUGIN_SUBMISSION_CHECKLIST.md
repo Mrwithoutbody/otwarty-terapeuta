@@ -274,10 +274,9 @@ portal cokolwiek wygeneruje. Po ustawieniu sekretu zwraca dokładnie token,
    pełny adres, pod którym go szuka:
    `https://<challenge-base-host>/.well-known/openai-apps-challenge`.
    Host to `otwartyterapeuta.pl` albo `mcp.otwartyterapeuta.pl`. Oba prowadzi ten
-   sam Worker, ale reguła hosta w `mcpFetch` (`apps/mcp/index.ts`) biegnie przed
-   Hono i pod `mcp.*` odpowiada 404 na każdej ścieżce poza `/` i tym, co `mcpFetch`
-   obsłużył wcześniej (discovery, `/mcp`, `/public/mcp`) — łapie więc ten adres.
-   Sprawdź `curl`-em (punkt 6), zanim wybierzesz host w portalu.
+   sam Worker i oba wystawiają ten adres: reguła hosta w `mcpFetch`
+   (`apps/mcp/index.ts`) przepuszcza tę jedną ścieżkę pod `mcp.*`. Sprawdź
+   `curl`-em (punkt 6) i tak, zanim wybierzesz host w portalu.
    Odpowiedź ma zawierać **wyłącznie token tego jednego pluginu** — nie JSON,
    nie listę tokenów.
 5. Wgraj token jako sekret. Komenda pyta o wartość interaktywnie — wklejasz ją

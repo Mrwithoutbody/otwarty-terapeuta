@@ -167,8 +167,14 @@ export async function mcpFetch(request: Request, env: Env): Promise<Response | u
   if (url.pathname === '/mcp') return handleMcp(request, env);
   if (url.pathname === '/public/mcp') return handleMcp(request, env, true);
 
-  // The MCP subdomain serves nothing but the protocol surface.
-  if (url.hostname.startsWith('mcp.') && url.pathname !== '/') {
+  // The MCP subdomain serves nothing but the protocol surface — plus the
+  // OpenAI domain challenge, which the submission portal probes on whichever
+  // host it was given (PLUGIN_SUBMISSION_CHECKLIST §11). Hono owns that route.
+  if (
+    url.hostname.startsWith('mcp.') &&
+    url.pathname !== '/' &&
+    url.pathname !== '/.well-known/openai-apps-challenge'
+  ) {
     return new Response('Not found', { status: 404 });
   }
 
