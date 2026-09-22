@@ -7,6 +7,7 @@
  * czyli przez te same sanitizery i tego samego strażnika faktów co publikacja.
  */
 import { Hono } from 'hono';
+import { pingIndexNow } from '../lib/indexnow';
 import type { Env } from '../env';
 import { loadAdminSession, ownsTherapist, verifyCsrf, type AdminSession } from '../auth/session';
 import { getPublishedFaq, getTherapist, listOpenSlots } from '../db/catalog';
@@ -124,6 +125,7 @@ authoredPanel.post('/publikuj', async (c) => {
     subjectId: o.t.therapist_id,
     meta: {},
   });
+  c.executionCtx.waitUntil(pingIndexNow(c.env, [`/terapeuci/${o.t.slug}`]));
   return json(result);
 });
 

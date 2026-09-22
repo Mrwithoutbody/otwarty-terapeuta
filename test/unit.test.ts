@@ -1,4 +1,5 @@
-import { env } from 'cloudflare:test';
+import { SELF, env } from 'cloudflare:test';
+import { INDEXNOW_KEY, pingIndexNow } from '../src/lib/indexnow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { escapeHtml, isEmail, isPhone, normalizeForSearch, safeUrl, sanitizeRichText } from '../src/lib/sanitize';
 import { signConfirmationToken, verifyConfirmationToken } from '../src/lib/tokens';
@@ -429,5 +430,35 @@ describe('tożsamość administratora danych', () => {
 describe('admin.js', () => {
   it('parses: a stray brace in the template would blank the whole panel', () => {
     expect(() => new Function(ADMIN_JS)).not.toThrow();
+  });
+});
+
+describe('IndexNow', () => {
+  it('serves its key where search engines look for it', async () => {
+    const res = await SELF.fetch(`https://localhost/${INDEXNOW_KEY}.txt`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(INDEXNOW_KEY);
+  });
+
+  it('announces full addresses once each, and only from production', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await pingIndexNow({ ...env, ENVIRONMENT: 'local' }, ['/terapeuci/x']);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await pingIndexNow({ ...env, ENVIRONMENT: 'production', PUBLIC_BASE_URL: 'https://otwartyterapeuta.pl' }, ['/terapeuci/x', '/terapeuci', '/terapeuci/x']);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.indexnow.org/indexnow');
+    expect(JSON.parse(String(init.body))).toEqual({
+      host: 'otwartyterapeuta.pl',
+      key: INDEXNOW_KEY,
+      keyLocation: `https://otwartyterapeuta.pl/${INDEXNOW_KEY}.txt`,
+      urlList: ['https://otwartyterapeuta.pl/terapeuci/x', 'https://otwartyterapeuta.pl/terapeuci'],
+    });
+  });
+
+  it('never fails the save it follows', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    await expect(pingIndexNow({ ...env, ENVIRONMENT: 'production' }, ['/terapeuci/x'])).resolves.toBeUndefined();
   });
 });

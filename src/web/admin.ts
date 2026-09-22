@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { pingIndexNow } from '../lib/indexnow';
 import type { Env } from '../env';
 import { getTherapistRowForAdmin } from '../db/catalog';
 import { cleanHours, closeSlots, dayKey, emptyWeek, fillFromSchedules, listTimeOff, localSlot, parseDay, parseWeek, saveSchedules, SCHEDULE_HOURS, WEEKDAYS, weekJson, type TimeOff } from '../db/slots';
@@ -931,6 +932,8 @@ adminApp.post('/terapeuci/:id/dane', async (c) => {
   if ('error' in written) return page(c.env, 'Błąd', `<h1>Nie zapisano</h1><p>${escapeHtml(written.error)}</p><p><a href="/admin/terapeuci/${escapeHtml(id)}#panel-dane">Wróć</a></p>`, written.status);
   if (written.touched.length > 0) {
     await audit(c.env, { actorType: actorOf(o.session), actorId: o.session.user.id, action: 'therapist.updated', subjectType: 'therapist', subjectId: id, meta: { field: written.touched.slice(0, 8).join(','), count: written.touched.length } });
+    // Cena i miasto stoją też na karcie w katalogu.
+    c.executionCtx.waitUntil(pingIndexNow(c.env, [`/terapeuci/${o.therapist.slug}`, '/terapeuci']));
   }
   return c.redirect(`/admin/terapeuci/${id}?zapisano#panel-dane`, 302);
 });
@@ -993,6 +996,8 @@ adminApp.post('/terapeuci/:id', async (c) => {
     subjectId: id,
     meta: { to_status: status, status: verification },
   });
+  // Publikacja albo zdjęcie profilu: nowy adres do pobrania albo 404 do zapomnienia.
+  if (status !== existing.status) c.executionCtx.waitUntil(pingIndexNow(c.env, [`/terapeuci/${existing.slug}`, '/terapeuci']));
   return c.redirect(`/admin/terapeuci/${id}#panel-weryfikacja`, 302);
 });
 

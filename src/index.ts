@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { INDEXNOW_KEY } from './lib/indexnow';
 import {
   bearerAuthChallengeResponse,
   createMcpHandler,
@@ -92,6 +93,9 @@ app.get('/assets/admin.js', () =>
     },
   }),
 );
+
+// IndexNow: wyszukiwarka sprawdza tu, że powiadomienie o zmianie przyszło od nas (`lib/indexnow.ts`).
+app.get(`/${INDEXNOW_KEY}.txt`, () => new Response(INDEXNOW_KEY, { headers: { 'content-type': 'text/plain; charset=utf-8' } }));
 
 app.get('/robots.txt', (c) =>
   new Response(
