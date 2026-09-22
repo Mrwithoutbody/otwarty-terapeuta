@@ -497,3 +497,13 @@ describe('words of a search result', () => {
     expect(practiceOf(m())).toBe('psychoterapia');
   });
 });
+
+describe('D1 migrations', () => {
+  // Two worktrees cannot see each other's unpushed migrations, so the same
+  // number gets used twice. Caught here, before the push, not at deploy time.
+  it('numbers every migration exactly once', () => {
+    const numbers = env.TEST_MIGRATIONS.map((m) => m.name.split('_')[0]);
+    const duplicates = numbers.filter((n, i) => numbers.indexOf(n) !== i);
+    expect(duplicates).toEqual([]);
+  });
+});

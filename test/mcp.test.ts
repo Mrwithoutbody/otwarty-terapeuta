@@ -268,6 +268,34 @@ describe('protocol surface', () => {
   });
 });
 
+describe('the mcp.* subdomain', () => {
+  // The host rule runs in the entry's fetch(), ahead of Hono, so its order
+  // against the /mcp dispatch and the discovery documents is not visible in
+  // any route table. These cases pin what mcp.otwartyterapeuta.pl answers.
+  it('serves nothing but the protocol surface', async () => {
+    const res = await SELF.fetch('https://mcp.example.com/robots.txt');
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe('Not found');
+  });
+
+  it('still renders the portal home page at the root', async () => {
+    const res = await SELF.fetch('https://mcp.example.com/');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+  });
+
+  it('answers the CORS preflight on /mcp', async () => {
+    const res = await SELF.fetch('https://mcp.example.com/mcp', { method: 'OPTIONS' });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('access-control-allow-methods')).toContain('POST');
+  });
+
+  it('serves the authorization server metadata', async () => {
+    const res = await SELF.fetch('https://mcp.example.com/.well-known/oauth-authorization-server');
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('input validation', () => {
   it('rejects a malformed therapist id', async () => {
     const res = await call('get_therapist_profile', { therapist_id: "'; DROP TABLE therapists;--" });
