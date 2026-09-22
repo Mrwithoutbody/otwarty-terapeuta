@@ -1,34 +1,13 @@
 import { Hono } from 'hono';
-import { INDEXNOW_KEY } from './shared/lib/indexnow';
-import {
-  bearerAuthChallengeResponse,
-  createMcpHandler,
-  getOAuthProtectedResourceMetadataUrl,
-  hostHeaderValidationResponse,
-  oauthMetadataResponse,
-  originValidationResponse,
-  verifyBearerToken,
-  type AuthInfo,
-  type AuthMetadataOptions,
-} from '@modelcontextprotocol/server';
-import { ALL_SCOPES, assertConfig, ConfigError, type Env } from './shared/env';
-import { authorizationServerMetadata, oauthApp } from './apps/mcp/auth/oauth';
-import { D1TokenVerifier } from './apps/mcp/auth/verifier';
-import { createServerFactory } from './apps/mcp/server';
-import { addToolSecuritySchemes, isOAuthToolName } from './apps/mcp/security';
-import { adminApp } from './apps/panel/web/admin';
-import { therapistSignupApp } from './apps/panel/web/therapist-signup';
-import { siteApp } from './apps/portal/web/pages';
+import { assertConfig, ConfigError, type Env } from './shared/env';
+import { mcpApp, mcpFetch } from './apps/mcp/index';
+import { panelApp } from './apps/panel/index';
+import { portalApp } from './apps/portal/index';
 import { htmlResponse, renderPage, securityHeaders } from './shared/web/layout';
-import { APP_CSS } from './shared/web/styles';
-import { ADMIN_CSS, ADMIN_JS } from './apps/panel/web/admin-ui';
-import { AUTHORED_CSS } from './shared/authored/page-css';
-import { PANEL_CSS, TOOL_JS } from './apps/panel/authored/panel';
 import { fillFromSchedules } from './apps/panel/db/slots';
 import { log } from './shared/lib/log';
 import { purgeExpiredAuthState, purgeExpiredData } from './shared/db/retention';
 import { drainOutbox } from './shared/notify/outbox';
-import { receiptPage } from './apps/mcp/booking/receipt';
 
 
 export { TherapistBookingCoordinator } from './apps/mcp/booking/coordinator';
@@ -47,116 +26,12 @@ export { TherapistBookingCoordinator } from './apps/mcp/booking/coordinator';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// ------------------------------------------------------------ static bits ---
-
-// Every one of these is linked with `?v=<content hash>`, so a change is a new URL.
-const VERSIONED = 'public, max-age=31536000, immutable';
-
-app.get('/assets/app.css', () =>
-  new Response(APP_CSS, {
-    headers: {
-      'content-type': 'text/css; charset=utf-8',
-      'cache-control': VERSIONED,
-    },
-  }),
-);
-
-app.get('/assets/strona.css', () =>
-  new Response(AUTHORED_CSS, {
-    headers: {
-      'content-type': 'text/css; charset=utf-8',
-      'cache-control': VERSIONED,
-    },
-  }),
-);
-
-app.get('/assets/strona-panel.css', () => new Response(PANEL_CSS, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': VERSIONED } }));
-app.get('/assets/strona-panel.js', () => new Response(TOOL_JS, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': VERSIONED } }));
-
-// Admin-only assets. The panel is noindex and behind a session, but these two
-// files carry no data, so they are served like any other static asset.
-app.get('/assets/admin.css', () =>
-  new Response(ADMIN_CSS, {
-    headers: {
-      'content-type': 'text/css; charset=utf-8',
-      'cache-control': VERSIONED,
-    },
-  }),
-);
-
-app.get('/assets/admin.js', () =>
-  new Response(ADMIN_JS, {
-    headers: {
-      'content-type': 'text/javascript; charset=utf-8',
-      'cache-control': VERSIONED,
-      'x-content-type-options': 'nosniff',
-    },
-  }),
-);
-
-// IndexNow: wyszukiwarka sprawdza tu, że powiadomienie o zmianie przyszło od nas (`lib/indexnow.ts`).
-app.get(`/${INDEXNOW_KEY}.txt`, () => new Response(INDEXNOW_KEY, { headers: { 'content-type': 'text/plain; charset=utf-8' } }));
-
-app.get('/robots.txt', (c) =>
-  new Response(
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /oauth\nDisallow: /rezerwacja\nSitemap: ${c.env.PUBLIC_BASE_URL}/sitemap.xml\n`,
-    { headers: { 'content-type': 'text/plain; charset=utf-8' } },
-  ),
-);
-
-/**
- * Domain-control proof for the OpenAI public plugin submission. The portal
- * requires the response body to contain only its exact token. Keep the route
- * unavailable until the portal has generated a token for this plugin.
- */
-app.get('/.well-known/openai-apps-challenge', (c) => {
-  const token = c.env.OPENAI_APPS_CHALLENGE?.trim();
-  if (!token) return new Response('Not found', { status: 404 });
-  return new Response(token, {
-    headers: {
-      'content-type': 'text/plain; charset=utf-8',
-      'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff',
-    },
-  });
-});
-
-/** Therapist photos uploaded by an administrator live in R2, when it is bound. */
-app.get('/media/:key{.+}', async (c) => {
-  if (!c.env.MEDIA) return new Response('Not found', { status: 404 });
-  const key = c.req.param('key');
-  let object = await c.env.MEDIA.get(key);
-  // Thumbnails are written beside their master as `<base>-160.<ext>`, and the
-  // catalogue derives that address rather than storing it. A photo uploaded
-  // before thumbnails existed has no such object, so serve the master instead
-  // of a broken image.
-  if (!object) {
-    const master = key.replace(/-160(\.[a-z]+)$/, '$1');
-    if (master !== key) object = await c.env.MEDIA.get(master);
-  }
-  if (!object) return new Response('Not found', { status: 404 });
-  const type = object.httpMetadata?.contentType ?? 'application/octet-stream';
-  // Only image types are ever served back, whatever was stored.
-  if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(type)) return new Response('Not found', { status: 404 });
-  return new Response(object.body, {
-    headers: {
-      'content-type': type,
-      'cache-control': 'public, max-age=86400',
-      'x-content-type-options': 'nosniff',
-      'content-security-policy': "default-src 'none'; sandbox",
-    },
-  });
-});
-
-/** Booking receipt, reached from the link in the confirmation e-mail. */
-app.get('/rezerwacja/:ref', receiptPage);
-
 // -------------------------------------------------------------- sub-apps ---
 
-app.route('/oauth', oauthApp);
-app.route('/admin', adminApp);
-app.route('/dla-terapeutow', therapistSignupApp);
-app.route('/', siteApp);
+// The route sets are disjoint, so the mount order only documents ownership.
+app.route('/', mcpApp);
+app.route('/', panelApp);
+app.route('/', portalApp);
 
 app.notFound((c) =>
   htmlResponse(
@@ -187,138 +62,10 @@ app.onError((error, c) => {
   );
 });
 
-// ------------------------------------------------------------------- MCP ---
-
-function authMetadataOptions(env: Env): AuthMetadataOptions {
-  return {
-    oauthMetadata: authorizationServerMetadata(env) as AuthMetadataOptions['oauthMetadata'],
-    resourceServerUrl: new URL(env.PUBLIC_MCP_URL),
-    serviceDocumentationUrl: new URL(`${env.PUBLIC_BASE_URL}/jak-to-dziala`),
-    scopesSupported: ALL_SCOPES,
-    resourceName: 'Otwarty Terapeuta',
-    dangerouslyAllowInsecureIssuerUrl: env.ENVIRONMENT === 'local',
-  };
-}
-
-const MCP_CORS_HEADERS: Record<string, string> = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
-  'access-control-allow-headers':
-    'content-type, authorization, mcp-protocol-version, mcp-session-id, last-event-id',
-  'access-control-expose-headers': 'mcp-session-id, mcp-protocol-version, www-authenticate',
-  'access-control-max-age': '86400',
-};
-
-function allowedHostnames(env: Env): string[] {
-  const hosts = new Set<string>(['localhost', '127.0.0.1', '[::1]']);
-  for (const value of [env.PUBLIC_BASE_URL, env.PUBLIC_MCP_URL]) {
-    try {
-      hosts.add(new URL(value).hostname);
-    } catch {
-      /* a malformed var is caught by assertConfig-adjacent checks, not here */
-    }
-  }
-  return [...hosts];
-}
-
-/**
- * Verifies a Bearer token when one is present. A missing token is NOT an
- * error: the catalogue tools are public, and the private tools answer with
- * their own `mcp/www_authenticate` challenge.
- */
-async function resolveAuth(env: Env, request: Request): Promise<AuthInfo | Response | undefined> {
-  const header = request.headers.get('authorization');
-  if (!header) return undefined;
-  try {
-    return await verifyBearerToken(header, {
-      verifier: new D1TokenVerifier(env),
-      resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(new URL(env.PUBLIC_MCP_URL)),
-    });
-  } catch (error) {
-    const response = bearerAuthChallengeResponse(error, {
-      resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(new URL(env.PUBLIC_MCP_URL)),
-    });
-    const headers = new Headers(response.headers);
-    for (const [key, value] of Object.entries(MCP_CORS_HEADERS)) headers.set(key, value);
-    return new Response(response.body, { status: response.status, headers });
-  }
-}
-
-async function handleMcp(request: Request, env: Env, anonymousOnly = false): Promise<Response> {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
-  }
-
-  const rejected =
-    hostHeaderValidationResponse(request, allowedHostnames(env)) ??
-    originValidationResponse(request, allowedHostnames(env));
-  if (rejected) return rejected;
-
-  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-  if (!(await env.RL_PUBLIC.limit({ key: `mcp:${ip}` })).success) {
-    return Response.json(
-      { jsonrpc: '2.0', error: { code: -32000, message: 'Zbyt wiele żądań. Spróbuj ponownie za chwilę.' } },
-      { status: 429, headers: MCP_CORS_HEADERS },
-    );
-  }
-
-  let isToolsList = false;
-  let blockedCall: { id?: unknown; name: unknown } | undefined;
-  if (request.method === 'POST') {
-    try {
-      const message = (await request.clone().json()) as {
-        id?: unknown;
-        method?: unknown;
-        params?: { name?: unknown };
-      };
-      isToolsList = message.method === 'tools/list';
-      if (anonymousOnly && message.method === 'tools/call' && isOAuthToolName(message.params?.name)) {
-        blockedCall = { id: message.id, name: message.params?.name };
-      }
-    } catch {
-      // The MCP handler returns the protocol-level parse error.
-    }
-  }
-
-  if (blockedCall) {
-    return Response.json(
-      {
-        jsonrpc: '2.0',
-        id: blockedCall.id ?? null,
-        error: {
-          code: -32601,
-          message: `Narzędzie ${String(blockedCall.name)} nie jest dostępne w publicznym trybie testowym.`,
-        },
-      },
-      { status: 200, headers: MCP_CORS_HEADERS },
-    );
-  }
-
-  // The public testing endpoint deliberately ignores Authorization headers.
-  // That keeps it entirely outside OAuth, including when a client reuses a
-  // stale header left over from a previously configured connection.
-  const auth = anonymousOnly ? undefined : await resolveAuth(env, request);
-  if (auth instanceof Response) return auth;
-
-  const handler = createMcpHandler(createServerFactory(env), {
-    onerror: (error) => log.error('mcp.transport_error', error),
-  });
-
-  let response = await handler.fetch(request, auth ? { authInfo: auth } : undefined);
-  if (isToolsList && response.ok) {
-    response = await addToolSecuritySchemes(response, { anonymousOnly });
-  }
-  const headers = new Headers(response.headers);
-  for (const [key, value] of Object.entries(MCP_CORS_HEADERS)) headers.set(key, value);
-  return new Response(response.body, { status: response.status, headers });
-}
-
 // ---------------------------------------------------------------- export ---
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-
     try {
       assertConfig(env);
     } catch (error) {
@@ -329,26 +76,8 @@ export default {
       );
     }
 
-    // Do not publish fallback resource metadata at the hostname root. Clients
-    // probing /public/mcp commonly fall back to this URL and would otherwise
-    // misclassify the deliberately anonymous endpoint as OAuth-protected.
-    // The full /mcp endpoint keeps its path-specific RFC 9728 document.
-    if (url.pathname === '/.well-known/oauth-protected-resource') {
-      return new Response('Not found', { status: 404 });
-    }
-
-    // RFC 9728 / RFC 8414 discovery documents, served by the SDK so the shape
-    // always matches what MCP clients expect.
-    const metadata = oauthMetadataResponse(request, authMetadataOptions(env));
-    if (metadata) return metadata;
-
-    if (url.pathname === '/mcp') return handleMcp(request, env);
-    if (url.pathname === '/public/mcp') return handleMcp(request, env, true);
-
-    // The MCP subdomain serves nothing but the protocol surface.
-    if (url.hostname.startsWith('mcp.') && url.pathname !== '/') {
-      return new Response('Not found', { status: 404 });
-    }
+    const early = await mcpFetch(request, env);
+    if (early) return early;
 
     const response = await app.fetch(request, env, ctx);
     if (response.headers.get('content-type')?.includes('text/html')) return response;
