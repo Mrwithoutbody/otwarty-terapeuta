@@ -151,7 +151,7 @@ describe('zakładanie profilu i weryfikacja', () => {
     expect(after!.status).toBe('published');
     expect(after!.verification_status).toBe('verified');
     expect(after!.verified_at).not.toBeNull();
-    // Imię i adres po założeniu zmienia się w edytorze strony, nie tym formularzem.
+    // Imię po założeniu zmienia się w „Dane i cennik”, nie tym formularzem.
     expect(after!.display_name).toBe('Nowa Osoba');
     expect(after!.slug).toBe('nowa-osoba-lodz');
     expect(after!.is_demo).toBe(1);

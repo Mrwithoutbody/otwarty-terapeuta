@@ -4,7 +4,8 @@ Stan na 2026-09-21, wieczór. Wklej sekcję „Prompt” jako pierwszą wiadomo�
 
 ## Co już działa (produkcja, wersja `9736a5a7`)
 
-- **Profil terapeutki to strona autorska**, wbudowana w ot-02 (`src/authored/`), bez x402L.
+- **Profil terapeutki to strona autorska**, wbudowana w ot-02 (`src/authored/`). Usługę stron
+  x402L usunięto z projektu 2026-09-22 w całości - nie ma do czego wracać.
   Terapeutka odpowiada własnymi słowami na pytania pacjentów, strona składa się sama.
   Cztery budowy (Pytaniami / Listem / Drogą / Spisem pytań) × trzy otwarcia (zdjęcie /
   pierwsze zdanie / konkrety). Fakty - cennik, wolne terminy, kwalifikacje z oznaczeniem
@@ -18,7 +19,7 @@ Stan na 2026-09-21, wieczór. Wklej sekcję „Prompt” jako pierwszą wiadomo�
   reguła na „certyfik/superwizor” ukryłaby zdania u 7 z 8 realnych osób.
 - **Migracja 2026-09-21**: 8 profili z katalogu (7 realnych + demo Marka) dostało stronę
   z danych, które już były (wiersze `authored_pages` o id `ap_mig_*`), z budową dobraną do
-  treści. Aleksandra Mazek (brak tekstu) - sam szkic, zostaje na dawnym renderze x402L.
+  treści. Aleksandra Mazek dostała stronę 2026-09-22 (z jej publicznego opisu).
   Dane profili, FAQ i strony usługi nietknięte - porównane hashami przed i po.
 
 Pliki: `src/authored/{core,store,site,panel,tool,page-css,tool-css}.ts`,
@@ -39,11 +40,9 @@ usuń tę sekcję.
 
 ## Czego jeszcze nie ma
 
-- **Tylko jeden typ strony („profil”), jedna strona na osobę.** Nowych podstron nie da się
-  dziś założyć w ogóle - zakładanie w starym edytorze zostało zdjęte razem z nim.
-- Na x402L zostały: podstrona Eweliny „Grupa wsparcia dla rodziców” (opublikowana),
-  Moniki „Terapia traumy” (opublikowana), szkic Eweliny „Warsztaty”, profil Aleksandry.
-  Otwiera je stary edytor („Dodatkowe strony z dawnego edytora” w zakładce „Strona”).
+- **Podstrony są (typ `podstrona`), ale tylko publicznie.** Grupa Eweliny i terapia traumy
+  Moniki stoją jako strony autorskie; narzędzie w panelu ich nie otwiera - ani do edycji,
+  ani do założenia nowej. To reszta punktu 1 niżej.
 
 Gotowe w mechanizmie: rejestr `TYPES` w `core.ts` (pytania, etapy, fakty), renderer i narzędzie
 niezależne od typu, kolumna `type` w `authored_pages`, indeks unikalny tylko dla `profil`
@@ -52,10 +51,9 @@ niezależne od typu, kolumna `type` w `authored_pages`, indeks unikalny tylko dl
 
 ## Kolejność prac
 
-1. **Wiele podstron** (~1–1,5 dnia) - podstawa pod wszystko dalej:
-   typ `podstrona` w `TYPES` (tytuł zamiast imienia w nagłówku, własne pytania), lista
-   „Moje strony” w narzędziu, trasy `/admin/terapeuci/:id/strona/:pageId`, adres podstrony,
-   publiczna trasa `/terapeuci/:slug/:strona` z pierwszeństwem przed x402L (jak profil).
+1. **Wiele podstron w narzędziu** (~1 dzień). Zrobione: typ `podstrona`, kolumna `slug`,
+   publiczna trasa, pasek, sitemapa. Zostało: lista „Moje strony” w narzędziu, trasy
+   `/admin/terapeuci/:id/strona/:pageId`, zakładanie i edycja podstrony, adres z tytułu.
 2. **Wydarzenie** (~2 dni): fakty z danych - data, godzina, miejsce, cena, liczba miejsc -
    w osobnej tabeli, renderery tych faktów, formularz danych wydarzenia w narzędziu.
    Pytania z prototypu („Dla kogo to jest?”, „Czy muszę się odzywać przy innych?”…).
@@ -63,9 +61,7 @@ niezależne od typu, kolumna `type` w `authored_pages`, indeks unikalny tylko dl
    zapisanych szyfrowane jak przy rezerwacjach (`encryptPii`), mail z potwierdzeniem przez
    outbox. Obecny indeks `idx_bookings_one_active_per_slot` pozwala na jedną rezerwację
    na slot - zapisy potrzebują własnej tabeli uczestników.
-4. **Przeniesienie 2 podstron z x402L** na typ `podstrona`, tą samą procedurą co profile
-   (niżej). Potem można odciąć most do x402L: `pages-client.ts`, `lp.ts`, `host-blocks.ts`,
-   część `host-write.ts`, sekret `PAGES_API_KEY` (~1300 linii mniej).
+4. ~~Przeniesienie podstron z x402L i odcięcie mostu~~ - zrobione 2026-09-22.
 
 **Nie zaczynać bez decyzji właściciela:** gabinet (kto edytuje stronę gabinetu, zgoda członków
 zespołu), blog (inny kształt treści: wpisy z datą), sklep (strona produktu tak; sprzedaż,
@@ -91,17 +87,17 @@ płatności, faktury - osobny system albo link do zewnętrznego sklepu).
 - Ceny, terminy, liczba miejsc - zawsze z danych, nigdy z tekstu. Stopka kryzysowa w każdej
   stronie publicznej, poza stanem strony.
 - Właściciel: decyzje inżynierskie podejmuj sam i raportuj; pytaj tylko o cel i wygląd.
-  Nie proponuj rozbudowy x402L. Wynik pokazuj w przeglądarce, nie opisem.
+  Wynik pokazuj w przeglądarce, nie opisem.
 
 ## Prompt
 
 ```
 Kontynuujemy strony autorskie w ot-02. Przeczytaj NASTEPNA_SESJA_PODSTRONY.md i sekcję
-„Aktualny system stron” w CLAUDE.md.
+„System stron” w CLAUDE.md.
 
-Zadanie: wiele podstron na osobę, potem wydarzenie z faktami z danych (data, godzina,
-miejsce, cena, liczba miejsc) - dokładnie w kolejności z punktów 1 i 2 pliku. Zapisy na
-wydarzenie (punkt 3) i przeniesienie podstron z x402L (punkt 4) dopiero po moim OK.
+Zadanie: podstrony w narzędziu panelu (reszta punktu 1), potem wydarzenie z faktami z danych
+(data, godzina, miejsce, cena, liczba miejsc) - w kolejności punktów 1 i 2 pliku. Zapisy na
+wydarzenie (punkt 3) dopiero po moim OK.
 
 Przed kodem: sprawdź, czy produkcja nadal ma wersję 9736a5a7 i czy ktoś z terapeutek
 zmieniał już swoją stronę (authored_pages: draft_json <> published_json albo

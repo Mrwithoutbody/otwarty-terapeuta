@@ -3,45 +3,29 @@ import { describe, expect, it } from 'vitest';
 import { createAdminSession } from '../src/auth/session';
 import { findOrCreateUserByEmail } from '../src/db/users';
 import { getTherapist } from '../src/db/catalog';
-import { serveTherapistPage } from '../src/web/lp';
-import { listPages } from '../src/web/pages-client';
-import { profileContext } from '../src/web/pages';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 
-describe('the profile page, typeset by the pages service', () => {
-  it('is made on first view as a row here, rendered there with her data, as her own document', async () => {
+describe('the profile page', () => {
+  it('stands from her data before she publishes her own words, as her own document with the crisis numbers', async () => {
+    const t = (await getTherapist(env, { therapist_id: ANNA }))!;
     const res = await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo');
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).not.toContain('class="header-cta"');
+    // Strona autorska z tego, co już jest w profilu (`seedDraft`): jej opis, cennik z danych.
+    expect(html).toContain('/assets/strona.css');
+    expect(html).toContain(t.bio.split('\n')[0]!.slice(0, 40));
+    expect(html).toContain('220 zł');
     expect(html).toContain('116 123');
-    expect(html).toContain('wsparcie emocjonalne');
-    expect(html).toContain('Anna Kowalczyk (DEMO)');
-    // Etykieta linku jedzie w <span data-edit>, odkąd edytor pozwala ją poprawiać w podglądzie.
-    expect(html).toMatch(/href="\/terapeuci">(<span[^>]*>)?Katalog/);
-    // Every stylesheet is the service's; this host ships no CSS for her pages.
-    expect(html).toContain('href="https://pages.test/base.css');
-    expect(html.match(/<link rel="stylesheet" href="([^"]+)"/g)?.every((l) => l.includes('https://pages.test/') || l.includes('https://fonts.googleapis.com/'))).toBe(true);
-    expect(res.headers.get('x-pages-stale')).toBeNull();
-    // The page is a row in this database; the service kept nothing.
-    const pages = await listPages(env, ANNA);
-    expect(pages.map((p) => p.slug)).toEqual(['profil']);
-    expect(pages[0]!.page).toEqual({});
+    expect(html).toContain('<a href="/terapeuci">‹ Wszyscy terapeuci</a>');
+    // Nic z zewnątrz: arkusz, fonty i obrazy z tego serwisu.
+    expect(html.match(/<link rel="stylesheet" href="([^"]+)"/g)?.every((l) => l.includes('href="/assets/'))).toBe(true);
+    expect(res.headers.get('content-security-policy')).toContain(`style-src 'self' `);
+    expect(res.headers.get('content-security-policy')).not.toMatch(/https:\/\/(?!challenges\.cloudflare\.com)/);
   });
 
-  it('serves the last good copy when the service is down, and a page with the crisis numbers when there is none', async () => {
-    const t = (await getTherapist(env, { therapist_id: ANNA }))!;
-    const ctx = await profileContext(env, t);
-    const down = { ...env, PAGES_URL: 'https://pages.down' };
-
-    await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo'); // writes the copy
-    const stale = await serveTherapistPage(down, t, ctx, 'profil');
-    expect(stale?.stale).toBe(true);
-    expect(stale?.html).toContain('Anna Kowalczyk (DEMO)');
-
-    await env.MEDIA!.delete(`pages-html/${ANNA}/profil.html`);
-    await expect(serveTherapistPage(down, t, ctx, 'profil')).rejects.toThrow(/unreachable/);
+  it('has no subpage she did not write', async () => {
+    expect((await SELF.fetch('https://localhost/terapeuci/anna-kowalczyk-demo/cokolwiek')).status).toBe(404);
   });
 });
 
@@ -54,7 +38,6 @@ describe('her page in the panel', () => {
     const panel = await (await SELF.fetch(`https://localhost/admin/terapeuci/${ANNA}`, { headers: { cookie } })).text();
     expect(panel).toContain(`href="/admin/terapeuci/${ANNA}/strona"`);
     expect(panel).not.toContain('<iframe');
-    expect(panel).not.toMatch(/data-page-editor="[^"]+">Profil/);
   });
 
   it('opens for a profile she has not published yet', async () => {

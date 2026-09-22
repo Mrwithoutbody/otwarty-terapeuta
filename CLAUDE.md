@@ -127,10 +127,12 @@ Trzy rundy cofania.
 domysłów. Przy zmianie odcienia sprawdź, czy nowa wartość leży na osi serwisu
 (wszystkie powierzchnie: odcień 56–95, większość 64–70), zanim ją wdrożysz.
 
-## Aktualny system stron: profil pisany własnymi słowami (2026-09-21)
+## System stron: profil pisany własnymi słowami (2026-09-21)
 
-Profil terapeutki to **strona autorska** (`src/authored/`), renderowana w ot-02, bez usługi
-stron. Terapeutka odpowiada własnymi słowami na pytania pacjentów; strona składa się sama
+Profil terapeutki to **strona autorska** (`src/authored/`), renderowana w ot-02. Innego
+systemu stron nie ma: usługę x402L usunięto z projektu 2026-09-22 (tabela
+`therapist_pages` zdjęta migracją `0022`, sekret `PAGES_API_KEY`, zależność i CSP też).
+Terapeutka odpowiada własnymi słowami na pytania pacjentów; strona składa się sama
 z odpowiedzi (cztery sposoby przywitania × trzy otwarcia). Fakty - cennik, wolne terminy,
 kwalifikacje z oznaczeniem weryfikacji - renderują się z tabel przy każdym żądaniu. Stopka
 kryzysowa jest stałą renderera, nie treścią strony.
@@ -141,20 +143,18 @@ kryzysowa jest stałą renderera, nie treścią strony.
   „certyfik/superwizor” ukryłaby zdania u 7 z 8 realnych osób (sprawdzone przed migracją).
 - `authored_pages`: szkic i wersja opublikowana obok siebie. Publikacja przepisuje jej słowa
   do `headline`, `bio`, `first_meeting_*` i FAQ, więc wtyczka ChatGPT czyta ten sam tekst.
-- `/terapeuci/:slug`: strona autorska, jeśli jest opublikowana; inaczej dawny render usługi
-  stron. Tak samo `/terapeuci/:slug/:page` (niżej).
-- **Podstrony autorskie (2026-09-22)**: typ `podstrona` w `TYPES` (tytuł zamiast imienia w H1),
-  wiersz `authored_pages` z `slug`. Trasa `/terapeuci/:slug/:strona` bierze najpierw stronę
-  autorską, x402L tylko gdy jej nie ma. Pierwsza: grupa Eweliny (`grupa-wsparcia-dla-rodzicow`,
-  wiersz `ap_mig_sub_*`; dawny wiersz x402L z literówką w adresie zdjęty do szkicu). Edycji
-  podstron w narzędziu panelu jeszcze nie ma. **Nie poprawiaj niczego w x402L** - przenoś.
+- `/terapeuci/:slug`: jej opublikowana strona; zanim ją opublikuje - strona z tego, co już
+  jest w danych (`seedDraft`: opis, pierwsze spotkanie, FAQ), z cennikiem i terminami.
+- **Podstrony (2026-09-22)**: typ `podstrona` w `TYPES` (tytuł zamiast imienia w H1), wiersz
+  `authored_pages` z `slug`; `/terapeuci/:slug/:strona`, bez opublikowanej = 404. Są: grupa
+  Eweliny (`grupa-wsparcia-dla-rodzicow`) i terapia traumy Moniki (`terapia-traumy`), wiersze
+  `ap_mig_sub_*`. Edycji podstron w narzędziu panelu jeszcze nie ma.
 - Panel: po zalogowaniu terapeutka ląduje w `/admin/terapeuci/:id/strona`. Fakty zmienia
-  w zakładce „Dane i cennik” (formularz z `FIELDS`, zapis przez `writeProfileData`).
+  w zakładce „Dane i cennik” (`FIELDS` w `data-fields.ts`, zapis `writeProfileData`
+  w `profile-write.ts`).
 - Migracja 2026-09-21: 8 profili z katalogu dostało stronę z tego, co już było w bazie
-  (wiersze `ap_mig_*`); Aleksandra Mazek bez tekstu - sam szkic, zostaje na dawnym renderze.
-  Dane profili, FAQ i strony usługi zostały nietknięte (porównane hashami przed i po).
-  Cofnięcie treści: `DELETE FROM authored_pages WHERE id LIKE 'ap_mig_%'` - profile wracają
-  na dawny render. Kod: rollback do `217d7771-1534-4d50-93cd-999e4f8e5de8`.
+  (wiersze `ap_mig_*`); Aleksandra Mazek dostała stronę 2026-09-22 (z jej publicznego opisu,
+  do akceptacji przez nią). Dane profili i FAQ nietknięte (porównane hashami przed i po).
 
 ## SEO: co jest gdzie (2026-09-22)
 
@@ -176,8 +176,8 @@ Baza D1 produkcji: `9186df20-81e8-405b-aa74-b8812c082751`. Jeśli `npx wrangler 
 nie pokazuje tego konta, `npm run db:migrate:prod` i `wrangler deploy --env production`
 padają z „not authorized [code: 7403]" (2026-09-02: zalogowane było tylko ANNA:R).
 Wtedy poproś o `! npx wrangler login` na właściwym koncie — `CLOUDFLARE_ACCOUNT_ID` bez
-dostępu do konta nic nie da. Kolejność na produkcji: migracja → `npm run build:widget &&
-npx wrangler deploy --env production`.
+dostępu do konta nic nie da. Kolejność na produkcji: migracja → build → deploy; robi to
+`npm run deploy` (migracje, `build:widget`, `wrangler deploy` z SHA w `--message`).
 
 **Deploy wypuszcza wszystko zaległe, nie tylko twój commit.** Zanim puszczysz produkcję,
 `npx wrangler deployments list --env production` daje wdrożoną wersję, a
@@ -191,49 +191,3 @@ Wersje w `deployments list` nie niosą SHA (`Message: -`), więc deployuj z
 i sygnaturze w żywym kodzie (2026-09-22: `daf76ebd` = `74f6f7d`, ostatni deploy bez SHA).
 (2026-09-17: deploy na prośbę „zdeployuj hosta" wypuścił dziesięć dni zaległych commitów
 i przestawił wygląd jedenastu profili, w tym siedmiu realnych osób; rollback po 7 min 48 s.)
-
-**Blok hosta i jego wpis w motywie to jedna zmiana w dwóch repo.** Nowa sekcja
-w `HOST_SECTIONS` potrzebuje po stronie x402L wpisu w `themes/<motyw>/sklad.json`:
-`order` (kolejność), `kinds`, `layouts`, czasem `media`. Bez wpisu `host.ts` liczy
-`order.indexOf(source)` = −1 i sekcja spada na koniec strony, za CTA, w domyślnym układzie
-kategorii. Na produkcję idą razem albo wcale: usługa pierwsza, host po niej. Sam host
-z blokiem, którego wdrożony motyw nie zna, wychodzi gorzej niż stan sprzed zmiany.
-
-## Usługa stron x402L: wygaszana (2026-09-03, zawężone 2026-09-21, 2026-09-22)
-
-Od 2026-09-21 profil jest stroną autorską (sekcja wyżej). Poniższe dotyczy podstron
-założonych w dawnym edytorze i profili bez opublikowanej strony autorskiej.
-
-Profil i podstrony to strony w `x402landings.space` (repo `x402Landings`), nie
-w D1 ot-02. ot-02 tylko przysyła dane bloków (`host-blocks.ts`) i linkuje do
-edytora usługi. Szczegóły i kontrakt: `X402_LANDINGS_INTEGRATION.md`.
-
-- Nowy blok danych = wpis w `HOST_SECTIONS`; usługa dowiaduje się o nim sama
-  (`fields` i `locks` w każdym `POST /v1/edit-session`). Żadnego skryptu po deployu.
-- **Edytor stron zapisuje dane profilu do tej bazy dopiero od 2026-09-19.** Wcześniej
-  `host-write.ts` (ścieżka `data`) żył tylko w testach - usługa odsyłała samą stronę.
-  Zanim utniesz cokolwiek w panelu „bo edytor to robi", otwórz sesję edycji na preview
-  i sprawdź `GET <adres edytora>/data` oraz zapis w D1. Zielone testy po obu stronach
-  nie dowodzą, że usługi ze sobą rozmawiają (2026-09-19: cięcie zakładki „Dane" na tej
-  podstawie, rollback po ~30 min).
-- (Nieaktualne od 2026-09-21: treść profilu pisze się w narzędziu strony autorskiej.)
-  Od 2026-09-19 edytor był **jedyną** drogą edycji treści: imię, adres profilu, zdjęcie, opis,
-  gabinet, obszary, cennik, FAQ, pierwsze spotkanie. Terapeutka po zalogowaniu ląduje w edytorze
-  swojego profilu (`/admin` → `/admin/terapeuci/<id>?edytor`); pod nim zakładki Strony, Dostępność,
-  Rezerwacje. W panelu zostaje tylko to, czego strona nie niesie albo czego terapeutka nie może
-  sama sobie nadać: grafik, rezerwacje (szyfrowane dane kontaktowe nie jadą do usługi stron),
-  weryfikacja i publikacja (zakładka administratora). Awaria usługi = brak edycji treści do jej
-  powrotu; strony stoją dalej z kopii w R2.
-- Zdjęcie wybrane w oknie mediów edytora leży w R2 usługi; `host-write.ts` kopiuje je przy
-  zapisie do naszego R2 (`adoptPhoto`), bo widżet ChatGPT wpuszcza obrazy tylko z naszego
-  originu, a zmiana `resourceDomains` wymaga ponownego podłączenia wtyczki. Przyjmuje wyłącznie
-  pliki z originu usługi. Stary portret, którego nie używa żadna jej strona, znika (`pruneMedia`).
-- Produkcja wymaga sekretu `PAGES_API_KEY` (klucz site'u `ot-02` w usłudze;
-  `npm run site:create` po stronie x402Landings). Bez niego `assertConfig` odmawia.
-- Kolejność zmian w kontrakcie: najpierw usługa (testy + deploy), potem ot-02.
-- Edytor otwiera się **w oknie dialogowym** na niemal całe okno panelu (2026-09-06):
-  zakładka „Strony" listuje profil i podstrony, klik w tytuł ładuje ramkę z własną
-  trasą `/admin/terapeuci/:id/strony/:pid`, która przekierowuje 303 do usługi.
-  Panel nie tworzy sesji edytora przy renderze — dopiero przy kliknięciu.
-- Awaria usługi nie zdejmuje profili: kopia w R2, nagłówek `x-pages-stale: 1`.
-

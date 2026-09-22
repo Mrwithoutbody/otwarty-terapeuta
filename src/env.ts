@@ -28,8 +28,6 @@ export interface Env {
   PRIVACY_VERSION: string;
   TURNSTILE_SITE_KEY: string;
   SUPPORT_EMAIL: string;
-  /** The pages service (templates, editor, render). Tests answer for it in-process (`test/setup.ts`). */
-  PAGES_URL: string;
 
   // --- secrets ---
   /**
@@ -41,8 +39,6 @@ export interface Env {
   PII_ENC_KEY: string;
   TOKEN_SIGNING_KEY: string;
   TURNSTILE_SECRET_KEY: string;
-  /** This site's key at the pages service. Local defaults to `dev`, the dev server's key. */
-  PAGES_API_KEY?: string;
   EMAIL_PROVIDER?: string;
   EMAIL_API_KEY?: string;
   EMAIL_FROM?: string;
@@ -68,7 +64,6 @@ export function assertConfig(env: Env): void {
   if (!env.TURNSTILE_SECRET_KEY) missing.push('TURNSTILE_SECRET_KEY');
 
   if (env.ENVIRONMENT === 'production') {
-    if (!env.PAGES_API_KEY) missing.push('PAGES_API_KEY');
     if (!env.EMAIL_PROVIDER || env.EMAIL_PROVIDER === 'console') {
       missing.push('EMAIL_PROVIDER (must be a real provider in production)');
     } else if (env.EMAIL_PROVIDER !== 'brevo') {

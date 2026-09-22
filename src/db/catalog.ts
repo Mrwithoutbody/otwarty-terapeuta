@@ -545,19 +545,13 @@ export async function listCityPages(env: Env, min = 3): Promise<Array<{ city: st
 export async function listSitemapEntries(env: Env): Promise<Array<{ slug: string; page: string | null; updated_at: string }>> {
   const { results } = await env.DB.prepare(
     `SELECT t.slug, NULL AS page,
-            MAX(t.updated_at, COALESCE((SELECT p.updated_at FROM therapist_pages p WHERE p.therapist_id = t.id AND p.slug = 'profil'), '')) AS updated_at
+            MAX(t.updated_at, COALESCE((SELECT a.published_at FROM authored_pages a WHERE a.therapist_id = t.id AND a.type = 'profil'), '')) AS updated_at
        FROM therapists t
       WHERE ${PUBLISHED} AND t.is_demo = 0
      UNION ALL
      SELECT t.slug, a.slug, a.published_at FROM authored_pages a
        JOIN therapists t ON t.id = a.therapist_id
       WHERE ${PUBLISHED} AND t.is_demo = 0 AND a.type = 'podstrona' AND a.slug IS NOT NULL AND a.published_json IS NOT NULL
-     UNION ALL
-     SELECT t.slug, p.slug, p.updated_at FROM therapist_pages p
-       JOIN therapists t ON t.id = p.therapist_id
-      WHERE ${PUBLISHED} AND t.is_demo = 0 AND p.status = 'published' AND p.slug != 'profil'
-        -- Adres zajęty przez stronę autorską niesie ona; dawna kopia nie wchodzi drugi raz.
-        AND NOT EXISTS (SELECT 1 FROM authored_pages a WHERE a.therapist_id = p.therapist_id AND a.slug = p.slug AND a.published_json IS NOT NULL)
       ORDER BY 1, 2`,
   ).all<{ slug: string; page: string | null; updated_at: string }>();
   return results;

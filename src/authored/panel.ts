@@ -16,7 +16,7 @@ import { audit } from '../lib/audit';
 import { fnv1a, randomId } from '../lib/crypto';
 import { nowIso } from '../lib/time';
 import { securityHeaders } from '../web/layout';
-import { PHOTO_MAX_BYTES, sniffImageType } from '../web/host-write';
+import { PHOTO_MAX_BYTES, sniffImageType } from '../web/profile-write';
 import { esc, GUARD_MSG } from './core';
 import { AUTHORED_CSS } from './page-css';
 import { getAuthored, personOf, publish, saveDraft, seedDraft } from './store';

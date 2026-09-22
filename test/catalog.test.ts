@@ -296,11 +296,11 @@ describe('head profilu', () => {
 describe('najbliższy wolny termin', () => {
   it('ignores slots of a withdrawn offer, as the calendar does', async () => {
     const before = await (await SELF.fetch('https://example.com/terapeuci/marek-zielinski-demo')).text();
-    expect(before).toContain('najbliższy wolny termin');
+    expect(before).toContain('<ul class="times">');
     await env.DB.prepare(`UPDATE session_offers SET active = 0 WHERE therapist_id = (SELECT id FROM therapists WHERE slug = 'marek-zielinski-demo')`).run();
     const after = await (await SELF.fetch('https://example.com/terapeuci/marek-zielinski-demo')).text();
-    expect(after).not.toContain('najbliższy wolny termin');
-    expect(after).not.toContain('id="terminy"');
+    expect(after).not.toContain('<ul class="times">');
+    expect(after).toContain('W najbliższych tygodniach nie ma wolnych terminów.');
   });
 });
 

@@ -5,7 +5,6 @@ import { getPublishedFaq, getTherapist } from '../src/db/catalog';
 import { findOrCreateUserByEmail } from '../src/db/users';
 import { cut, guard, normalizeDraft, pageFlags, renderPublic, shape, type Person } from '../src/authored/core';
 import { getAuthored, publish, saveDraft, seedDraft } from '../src/authored/store';
-import { createPage } from '../src/web/pages-client';
 
 const ANNA = 'th_4f1a9c72e5b83d016a7c2e40';
 const PROFILE = 'https://localhost/terapeuci/anna-kowalczyk-demo';
@@ -115,11 +114,13 @@ describe('publishing', () => {
   });
 
   it('puts her page at her address and her words in the profile the plugin reads', async () => {
-    const before = await (await SELF.fetch(PROFILE)).text();
-    expect(before).toContain('https://pages.test/');
-
+    // Zanim opublikuje: strona z tego, co już jest w profilu. Szkic zostaje w panelu.
+    const t0 = (await getTherapist(env, { therapist_id: ANNA }))!;
     await saveDraft(env, ANNA, { order: ['who'], answers: { who: 'Szkic, którego pacjent nie widzi.' } });
-    expect(await (await SELF.fetch(PROFILE)).text()).toContain('https://pages.test/');
+    const before = await (await SELF.fetch(PROFILE)).text();
+    expect(before).toContain('/assets/strona.css');
+    expect(before).toContain(t0.bio.split('\n')[0]!.slice(0, 40));
+    expect(before).not.toContain('Szkic, którego pacjent nie widzi.');
 
     const result = await publish(env, ANNA, {
       form: 'droga', top: 'fakty', line: 'Psychoterapeutka, Warszawa i online', order: ['who', 'how', 'first', 'silence', 'c_1'],
@@ -132,18 +133,10 @@ describe('publishing', () => {
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).toContain('/assets/strona.css');
-    expect(html).not.toContain('https://pages.test/');
     expect(html).toContain('Pracuję z osobami w kryzysie.');
     expect(html).toContain('220 zł');
     expect(html).toContain('116 123');
     expect(html).toContain('<link rel="canonical"');
-
-    // Her published subpages hang off her page; a draft does not.
-    await createPage(env, { owner: ANNA, title: 'Grupa wsparcia', status: 'published' });
-    await createPage(env, { owner: ANNA, title: 'Warsztaty', status: 'draft' });
-    const linked = await (await SELF.fetch(PROFILE)).text();
-    expect(linked).toContain('<a href="/terapeuci/anna-kowalczyk-demo/grupa-wsparcia">Grupa wsparcia</a>');
-    expect(linked).not.toContain('/terapeuci/anna-kowalczyk-demo/warsztaty');
 
     const t = (await getTherapist(env, { therapist_id: ANNA }))!;
     expect(t.bio).toBe('Pracuję z osobami w kryzysie.\n\nNazywamy problem i sprawdzamy, co pomaga.');
@@ -170,7 +163,7 @@ describe('a subpage', () => {
       `INSERT OR REPLACE INTO authored_pages (id, therapist_id, type, slug, draft_json, published_json, published_at, created_at, updated_at) VALUES (?, ?, 'podstrona', ?, ?, ?, ?, ?, ?)`,
     ).bind(`ap_t_${slug}`, ANNA, slug, JSON.stringify(page), published ? JSON.stringify(page) : null, published ? '2026-09-22T08:00:00Z' : null, '2026-09-22T08:00:00Z', '2026-09-22T08:00:00Z').run();
 
-  it('is served at its address in her words, ahead of the pages service, and leads back to her profile', async () => {
+  it('is served at its address in her words and leads back to her profile', async () => {
     await insert('grupa-wsparcia', true);
     const res = await SELF.fetch(SUB);
     expect(res.status).toBe(200);
@@ -179,7 +172,6 @@ describe('a subpage', () => {
     expect(html).toContain('Rozmawiamy o tym, co trudne.');
     expect(html).toContain('Czy muszę mówić przy innych?');
     expect(html).toContain('/assets/strona.css');
-    expect(html).not.toContain('https://pages.test/');
     expect(html).toContain('116 123');
     expect(html).toContain('<a href="/terapeuci/anna-kowalczyk-demo">Anna Kowalczyk');
     expect(html).toContain('<title>Grupa wsparcia dla rodziców — Anna Kowalczyk');
@@ -197,20 +189,21 @@ describe('a subpage', () => {
     expect((await SELF.fetch(`${PROFILE}/warsztaty`)).status).toBe(404);
   });
 
-  it('takes the address over from the pages service: one link on her profile, one entry in the sitemap', async () => {
+  it('hangs off her profile once and stands in the sitemap once; a draft does neither', async () => {
     await publish(env, ANNA, { order: ['who'], answers: { who: 'Pracuję z osobami w kryzysie.' } });
-    await createPage(env, { owner: ANNA, title: 'Grupa wsparcia', status: 'published' });
     await insert('grupa-wsparcia', true);
+    await insert('warsztaty', false);
     await env.DB.prepare(`UPDATE therapists SET is_demo = 0 WHERE id = ?`).bind(ANNA).run();
 
     const profile = await (await SELF.fetch(PROFILE)).text();
     expect(profile.split('href="/terapeuci/anna-kowalczyk-demo/grupa-wsparcia"').length - 1).toBe(1);
     expect(profile).toContain('>Grupa wsparcia dla rodziców</a>');
-    expect(await (await SELF.fetch(SUB)).text()).not.toContain('https://pages.test/');
+    expect(profile).not.toContain('/terapeuci/anna-kowalczyk-demo/warsztaty');
     // Prawdziwa osoba (już nie demo): Google może pokazać przy wyniku dużą miniaturę jej zdjęcia.
     expect(await (await SELF.fetch(SUB)).text()).toContain('<meta name="robots" content="max-image-preview:large">');
     const xml = await (await SELF.fetch('https://localhost/sitemap.xml')).text();
     expect(xml.split('/terapeuci/anna-kowalczyk-demo/grupa-wsparcia</loc>').length - 1).toBe(1);
+    expect(xml).not.toContain('/warsztaty');
   });
 
   it('keeps prices out of its title too', () => {

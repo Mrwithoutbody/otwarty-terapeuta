@@ -3,24 +3,33 @@
  *
  * Słowa terapeutka pisze w narzędziu strony (`src/authored`). Tu zostaje to, co
  * jest faktem, a nie opowieścią: imię, cennik, gabinet, obszary, języki, dyplomy.
- * Formularz powstaje z tej samej tabeli `FIELDS`, którą czytał edytor usługi stron,
- * i zapisuje przez to samo `writeProfileData` - nowe pole w `data-fields.ts` pojawia
- * się tu samo.
+ * Formularz powstaje z tabeli `FIELDS` i zapisuje przez `writeProfileData`
+ * (`profile-write.ts`) - nowe pole w `data-fields.ts` pojawia się tu samo.
  */
+import type { Env } from '../env';
 import type { PublicTherapist } from '../db/types';
 import { escapeHtml } from '../lib/sanitize';
-import { FIELDS, type Dictionaries, type Field } from './data-fields';
-import { OFFER_ROWS, OFFER_TYPES } from './host-blocks';
+import { FIELDS, OFFER_ROWS, OFFER_TYPES, type Dictionaries, type Field } from './data-fields';
+
+/** Obszary i nurty z bazy: opcje pól wyboru w formularzu. */
+export async function dictionaries(env: Env): Promise<Dictionaries> {
+  const [topics, modalities] = await Promise.all([
+    env.DB.prepare(`SELECT slug, name_pl FROM specialties ORDER BY category, name_pl`).all<{ slug: string; name_pl: string }>(),
+    env.DB.prepare(`SELECT slug, name_pl FROM modalities ORDER BY name_pl`).all<{ slug: string; name_pl: string }>(),
+  ]);
+  const pairs = (rows: Array<{ slug: string; name_pl: string }>): Array<[string, string]> => rows.map((r) => [r.slug, r.name_pl]);
+  return { topics: pairs(topics.results), modalities: pairs(modalities.results) };
+}
 
 type Values = Record<string, unknown>;
 
 /** Grupy formularza: blok z `FIELDS` i pola, które pokazujemy. Opisu, nagłówka i zdjęcia tu nie ma - należą do strony. */
 const GROUPS: Array<{ block: string; title: string; hint?: string; only?: string[] }> = [
-  { block: 'hero-profil', title: 'Imię i nazwisko', only: ['display_name'] },
-  { block: 'dane', title: 'Jak pracujesz', only: ['offers_online', 'offers_in_person', 'accepting_new_clients', 'session_types', 'age_groups', 'languages'] },
-  { block: 'gabinet', title: 'Gabinet', hint: 'Adres widzi pacjent na Twojej stronie. Puste miasto = pracujesz tylko online.' },
+  { block: 'name', title: 'Imię i nazwisko' },
+  { block: 'practice', title: 'Jak pracujesz', only: ['offers_online', 'offers_in_person', 'accepting_new_clients', 'session_types', 'age_groups', 'languages'] },
+  { block: 'office', title: 'Gabinet', hint: 'Adres widzi pacjent na Twojej stronie. Puste miasto = pracujesz tylko online.' },
   { block: 'topics', title: 'Obszary pracy i nurt', hint: 'Po tym pacjenci i asystent ChatGPT trafiają na Twój profil.' },
-  { block: 'dane', title: 'Odwoływanie wizyt', only: ['cancellation_cutoff_h', 'cancellation_policy'] },
+  { block: 'practice', title: 'Odwoływanie wizyt', only: ['cancellation_cutoff_h', 'cancellation_policy'] },
   { block: 'credentials', title: 'Dyplomy i certyfikaty', hint: 'Na stronie pokazujemy je z dopiskiem, czy dokument został już potwierdzony przez serwis.' },
 ];
 
@@ -35,8 +44,8 @@ const OFFER_FIELDS: Field[] = [
 
 const fieldsOf = (group: (typeof GROUPS)[number], dict: Dictionaries): Array<{ field: Field; read: (t: PublicTherapist) => unknown }> =>
   (FIELDS[group.block] ?? [])
-    .filter((f) => f.field.kind !== 'computed' && (!group.only || group.only.includes(f.field.name)))
-    .map((f) => ({ field: f.optionsFrom ? { ...f.field, options: dict[f.optionsFrom] } : f.field, read: (t) => f.read(t, { slots: [] }) }));
+    .filter((f) => !group.only || group.only.includes(f.field.name))
+    .map((f) => ({ field: f.optionsFrom ? { ...f.field, options: dict[f.optionsFrom] } : f.field, read: (t) => f.read(t) }));
 
 function control(name: string, field: Field, value: unknown): string {
   const id = escapeHtml(name.replace(/[^a-z0-9_]+/gi, '-'));

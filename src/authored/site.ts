@@ -6,13 +6,14 @@
  * drodze - jeżeli D1 odpowiada, strona stoi.
  */
 import type { Env } from '../env';
-import type { PublicSlot, PublicTherapist } from '../db/types';
+import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
 import { fnv1a } from '../lib/crypto';
 import { esc, renderPublic, type PageDraft } from './core';
 import { AUTHORED_CSS } from './page-css';
-import { getPublished, getPublishedSubpage, listPublishedSubpages, personOf } from './store';
-import { listPages, publishedSubpages, slugOf } from '../web/pages-client';
+import { getPublished, getPublishedSubpage, listPublishedSubpages, personOf, seedDraft } from './store';
 import { findCandidates } from '../db/catalog';
+import { slugOf } from '../lib/sanitize';
+import { nowIso } from '../lib/time';
 import { practiceOf } from '../web/seo';
 
 export const AUTHORED_CSS_VERSION = fnv1a(AUTHORED_CSS).toString(36);
@@ -41,15 +42,10 @@ export function authoredDocument(title: string, article: string, pages: Array<{ 
 </html>`;
 }
 
-/**
- * Jej strony w pasku u góry: najpierw autorskie podstrony, potem dawne z usługi stron,
- * których żadna autorska nie zastąpiła. Na podstronie pierwszy jest powrót do profilu.
- */
+/** Jej strony w pasku u góry; na podstronie pierwszy jest powrót do profilu. */
 async function navFor(env: Env, t: PublicTherapist, current: string | null): Promise<Array<{ href: string; title: string }>> {
   const profile = `/terapeuci/${t.slug}`;
-  const [own, legacy] = await Promise.all([listPublishedSubpages(env, t.therapist_id), listPages(env, t.therapist_id)]);
-  const taken = new Set(own.map((p) => p.slug));
-  const pages = [...own, ...publishedSubpages(legacy).filter((p) => !taken.has(p.slug))]
+  const pages = (await listPublishedSubpages(env, t.therapist_id))
     .filter((p) => p.slug !== current)
     .map((p) => ({ href: `${profile}/${p.slug}`, title: p.title }));
   return current === null ? pages : [{ href: profile, title: t.display_name }, ...pages];
@@ -78,13 +74,17 @@ async function render(env: Env, t: PublicTherapist, slots: PublicSlot[], publish
   return authoredDocument(current === null ? t.display_name : published.page.title || t.display_name, article, await navFor(env, t, current));
 }
 
-/** `null`, dopóki niczego nie opublikowała - wtedy profil dalej niesie usługa stron. */
-export async function serveAuthored(env: Env, t: PublicTherapist, slots: PublicSlot[]): Promise<string | null> {
-  const published = await getPublished(env, t.therapist_id);
-  return published ? render(env, t, slots, published, null) : null;
+/**
+ * Jej profil. Zanim opublikuje własną stronę, profil składa się z tego, co już jest
+ * w danych - opis, pierwsze spotkanie, FAQ (`seedDraft`) - tak jak przy migracji profili.
+ * Nowa osoba w katalogu ma więc stronę od pierwszego dnia, z cennikiem i terminami.
+ */
+export async function serveAuthored(env: Env, t: PublicTherapist, slots: PublicSlot[], faq: PublicFaqItem[]): Promise<string> {
+  const published = (await getPublished(env, t.therapist_id)) ?? { page: seedDraft(t, faq), published_at: nowIso() };
+  return render(env, t, slots, published, null);
 }
 
-/** Jej podstrona pod tym adresem; `null` oddaje adres dawnej usłudze stron. */
+/** Jej opublikowana podstrona pod tym adresem; `null` = nie ma takiej strony. */
 export async function serveAuthoredSubpage(env: Env, t: PublicTherapist, slots: PublicSlot[], slug: string): Promise<string | null> {
   const published = await getPublishedSubpage(env, t.therapist_id, slug);
   return published ? render(env, t, slots, published, slug) : null;

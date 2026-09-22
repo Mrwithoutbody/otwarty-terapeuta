@@ -31,7 +31,8 @@ nie kwalifikuje do leczenia i nie zastępuje pomocy w nagłym zagrożeniu życia
 | Publiczna strona WWW (PL, bez JS, ścisły CSP) | `src/web/pages.ts` |
 | Samodzielne zgłoszenie terapeuty (kod e-mail, szkic) | `src/web/therapist-signup.ts` |
 | Panel administratora (role: admin / therapist / support) | `src/web/admin.ts` |
-| Dane profilu i integracja stron terapeutek | `src/web/host-blocks.ts`, `src/web/pages-client.ts` |
+| Strony terapeutek (pisane własnymi słowami, render i narzędzie) | `src/authored/` |
+| Fakty profilu: formularz „Dane i cennik” i zapis | `src/web/admin-dane.ts`, `src/web/data-fields.ts`, `src/web/profile-write.ts` |
 | Serwer MCP (Streamable HTTP, stateless) pod `/mcp` | `src/mcp/server.ts` |
 | Widżet MCP Apps (React, samowystarczalny HTML) | `src/widget/` |
 | Serwer autoryzacji OAuth 2.1 (PKCE S256, DCR, RFC 8707) | `src/auth/oauth.ts` |
@@ -68,8 +69,6 @@ openssl rand -base64 32   # -> TOKEN_SIGNING_KEY
 #    TURNSTILE_SECRET_KEY zostaw na testowej wartości "1x0000...AA".
 #    EMAIL_PROVIDER=console — wiadomości trafiają do logu, nie są wysyłane.
 #    ADMIN_BOOTSTRAP_EMAILS=twoj@email.pl — to konto dostanie rolę admin.
-#    PAGES_API_KEY zostaw puste: lokalnie klucz "dev" usługi stron
-#    (../../x402Landings, `PORT=8788 npm run dev`).
 
 # 3. Baza lokalna: migracje + dane demonstracyjne
 npm run db:migrate:local
@@ -173,7 +172,6 @@ npx wrangler secret put EMAIL_PROVIDER --env preview      # "console" albo "brev
 npx wrangler secret put EMAIL_FROM --env preview
 npx wrangler secret put EMAIL_API_KEY --env preview       # jeśli EMAIL_PROVIDER=brevo
 npx wrangler secret put ADMIN_BOOTSTRAP_EMAILS --env preview
-npx wrangler secret put PAGES_API_KEY --env preview          # klucz site'u z x402Landings (`npm run site:create`)
 
 # 5. Migracje i dane demonstracyjne
 npm run db:migrate:preview
@@ -212,7 +210,7 @@ Dodatkowo względem preview:
 3. Ustaw wszystkie sekrety z `--env production`.
    **Produkcja nie wystartuje** (HTTP 503 z czytelnym komunikatem), jeżeli
    brakuje `PII_ENC_KEY`, `TOKEN_SIGNING_KEY`, `TURNSTILE_SECRET_KEY`,
-   `PAGES_API_KEY`, `EMAIL_FROM` albo gdy `EMAIL_PROVIDER` to `console`. To zamierzone:
+   `EMAIL_FROM` albo gdy `EMAIL_PROVIDER` to `console`. To zamierzone:
    nie udajemy wysłanego potwierdzenia rezerwacji.
 4. Migracje: `npm run db:migrate:prod`. **Nie ładuj `seed/seed.sql` na produkcję.**
 5. `npm run build:widget && npx wrangler deploy --env production`.

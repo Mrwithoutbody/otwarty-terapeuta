@@ -17,19 +17,15 @@ import {
 import { consumeEmailCode, issueEmailCode, verifyEmailCode } from '../auth/challenge';
 import { audit } from '../lib/audit';
 import { decryptPii, emailLookupHash, randomId } from '../lib/crypto';
-import { escapeHtml, isEmail, sanitizeLine, sanitizeRichText } from '../lib/sanitize';
+import { escapeHtml, isEmail, sanitizeLine, sanitizeRichText, slugOf } from '../lib/sanitize';
 import { addCivilDays, civilDateIn, DEFAULT_TIMEZONE, formatDateTime, formatPrice, isIsoDate, isoOf, isValidTimezone, nowIso, weekdayOf, zonedTimeToUtc, type CivilDate } from '../lib/time';
 import { verifyTurnstile } from '../lib/turnstile';
 import { drainOutbox, enqueueNotification } from '../notify/outbox';
 import { formValues, htmlResponse, renderPage } from './layout';
-import { dictionaries, editorUrl, PagesUnavailable, PROFILE_SLUG } from './lp';
-import { getPage, listPages, pagesOrigin, setPageStatus, slugOf, type PageInfo } from './pages-client';
 import { getTherapist } from '../db/catalog';
-import { profileContext } from './pages';
 import { authoredPanel } from '../authored/panel';
-import { factsForm, factsFromForm } from './admin-dane';
-import { writeProfileData } from './host-write';
-import type { SectionCtx } from './host-blocks';
+import { dictionaries, factsForm, factsFromForm } from './admin-dane';
+import { writeProfileData } from './profile-write';
 
 /**
  * Admin panel. Server-rendered, CSRF-protected, least privilege:
@@ -421,31 +417,16 @@ interface WeekSlot {
 }
 
 interface EditorContext {
-  /** Ile obszarów pracy ma profil - tylko dla listy braków; wybiera się je w edytorze stron. */
+  /** Ile obszarów pracy ma profil - tylko dla listy braków; wybiera się je w „Dane i cennik”. */
   topicCount: number;
   credentials: CredentialInput[];
   offers: OfferRow[];
-  pages: PageInfo[];
-  /** Why there is no page list: the service is down, or the profile is not saved yet. */
-  pagesError: string | null;
-  /** Origin of the hosted editor, for the dialog's postMessage check. */
-  editorOrigin: string;
   /** Tydzień w kalendarzu zakładki „Dostępność": poniedziałek i terminy od niego. */
   monday: CivilDate;
   weekSlots: WeekSlot[];
   timeOff: Array<TimeOff & { id: string; booked: number }>;
 }
 
-
-const PAGES_DOWN = 'Edytor stron jest chwilowo niedostępny. Twoje dane i strona publiczna działają; spróbuj za chwilę.';
-
-/** Her data as the editor's preview needs it; null before the profile is published. */
-async function previewContext(env: Env, therapistId: string): Promise<SectionCtx | null> {
-  // Szkic też: bez tego edytor nieopublikowanego profilu dostaje pustą treść
-  // i pokazuje stronę bez ani jednego bloku.
-  const t = await getTherapist(env, { therapist_id: therapistId }, { drafts: true });
-  return t ? profileContext(env, t) : null;
-}
 
 /** Poniedziałek tygodnia, w którym leży `key` (albo dziś), w kalendarzu terapeutki. */
 function mondayOf(timezone: string, key?: string): CivilDate {
@@ -463,17 +444,11 @@ async function loadEditorContext(env: Env, therapist: TherapistRow | null, week?
     topicCount: 0,
     credentials: [],
     offers: [],
-    pages: [],
-    pagesError: 'Najpierw zapisz profil.',
-    editorOrigin: pagesOrigin(env) ?? '',
     monday: mondayOf(DEFAULT_TIMEZONE),
     weekSlots: [],
     timeOff: [],
   };
   if (!therapist) return context;
-  // Lista stron leży w tej bazie; usługi stron panel już nie woła.
-  context.pages = await listPages(env, therapist.id);
-  context.pagesError = null;
 
   const [topics, offers] = await Promise.all([
     env.DB.prepare(`SELECT COUNT(*) AS n FROM therapist_specialties WHERE therapist_id = ?`)
@@ -683,7 +658,7 @@ function segmented(name: string, current: string, options: RefTag[]): string {
     .join('')}</div>`;
 }
 
-/** Nowy profil: tylko imię i adres. Resztę - zdjęcie, opis, cennik - wpisuje się w edytorze strony. */
+/** Nowy profil: tylko imię i adres. Resztę - zdjęcie i słowa w narzędziu strony, cennik w „Dane i cennik”. */
 function newProfileForm(session: AdminSession): string {
   return `
 <form method="post" action="/admin/terapeuci/nowy">
@@ -700,8 +675,7 @@ function newProfileForm(session: AdminSession): string {
 
 /**
  * To, co należy do administratora, nie do terapeutki: które kwalifikacje sprawdzono,
- * czy profil jest zweryfikowany i czy stoi w katalogu. W edytorze strony tego nie ma,
- * bo edytor otwiera ona sama.
+ * czy profil jest zweryfikowany i czy stoi w katalogu. Terapeutka sama tego nie zmieni.
  */
 function verificationForm(session: AdminSession, row: TherapistRow, context: EditorContext): string {
   return `
@@ -795,7 +769,7 @@ function parseStoredCredentials(value: string | null): CredentialInput[] {
 }
 
 
-/** Kwalifikacje z formularza administratora; terapeutka swoje edytuje w edytorze stron. */
+/** Kwalifikacje z formularza administratora; terapeutka swoje wpisuje w „Dane i cennik”. */
 function collectCredentials(body: URLSearchParams): string {
   const out: Array<{ title: string; issuer: string; year: number | null; verified: boolean }> = [];
   for (let index = 0; index < 50 && out.length < 20; index++) {
@@ -811,9 +785,8 @@ function collectCredentials(body: URLSearchParams): string {
 
 
 /**
- * Jej jedna strona w panelu. Treść profilu i podstron edytuje się w edytorze strony
- * (dialog nad panelem); tutaj zostaje to, czego strona nie niesie: grafik, rezerwacje
- * i - dla administratora - weryfikacja. Bez JavaScriptu zakładki leżą jedna pod drugą.
+ * Jej panel. Słowa strony pisze w narzędziu strony (`/strona`), fakty w „Dane i cennik”;
+ * obok grafik, rezerwacje i - dla administratora - weryfikacja. Bez JavaScriptu zakładki leżą jedna pod drugą.
  */
 function therapistTabs(
   session: AdminSession,
@@ -824,7 +797,6 @@ function therapistTabs(
 ): string {
   const id = escapeHtml(row.id);
   const isAdmin = session.user.role === 'admin';
-  const subpages = context.pages.filter((p) => p.slug !== PROFILE_SLUG);
 
   return `
 <div class="panel-bar">
@@ -840,24 +812,6 @@ function therapistTabs(
 Ceny, terminy i kwalifikacje pokazujemy z Twoich danych.</p>
 <p><a class="btn" href="/admin/terapeuci/${id}/strona">Pisz swoją stronę</a>
   <a class="btn secondary" href="/terapeuci/${escapeHtml(row.slug)}" target="_blank" rel="noopener">Zobacz ją jak pacjent</a></p>
-${
-  // Podstrony założone w dawnym edytorze bloków zostają dostępne; nowych już się w nim nie zakłada.
-  subpages.length === 0 || context.pagesError
-    ? ''
-    : `<details class="more"><summary>Dodatkowe strony z dawnego edytora (${subpages.length})</summary>
-<div class="table-wrap"><table class="table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Stan</th></tr></thead><tbody>${subpages
-        .map((p) => {
-          const href = `/terapeuci/${escapeHtml(row.slug)}/${escapeHtml(p.slug)}`;
-          const editor = `/admin/terapeuci/${id}/strony/${escapeHtml(p.id)}`;
-          return `<tr><td><button class="link" type="button" data-editor-open data-page-editor="${editor}">${escapeHtml(p.title)}</button></td>
-             <td><a href="${href}" target="_blank" rel="noopener">${href}</a></td>
-             <td>${p.status === 'published' ? 'opublikowana' : 'szkic — niewidoczna publicznie'}
-               <form method="post" action="${editor}/status" class="inline-form">${csrfField(session)}
-               <button class="btn secondary" name="status" value="${p.status === 'published' ? 'draft' : 'published'}" type="submit">
-                 ${p.status === 'published' ? 'Wycofaj' : 'Opublikuj'}</button></form></td></tr>`;
-        })
-        .join('')}</tbody></table></div></details>`
-}
 </section>
 
 <section data-tab-panel data-tab-label="Dane i cennik" id="panel-dane">
@@ -879,15 +833,7 @@ ${verificationForm(session, row, context)}
     : ''
 }
 
-</div>
-${
-  // Poza zakładkami: dialog w ukrytym panelu (display: none) nie pokazałby się mimo showModal().
-  context.pagesError
-    ? ''
-    : `<dialog class="editor-dialog" data-editor-dialog data-editor-origin="${escapeHtml(context.editorOrigin)}" aria-label="Edytor strony">
-  <button class="btn secondary editor-close" type="button" data-editor-close>Zamknij</button>
-</dialog>`
-}`;
+</div>`;
 }
 
 adminApp.get('/terapeuci/nowy', async (c) => {
@@ -928,10 +874,9 @@ adminApp.post('/terapeuci/:id/dane', async (c) => {
   const o = await ownedTherapist(c, body);
   if ('response' in o) return o.response;
   const id = o.therapist.id;
-  const written = await writeProfileData(c.env, id, factsFromForm(body, await dictionaries(c.env)));
-  if ('error' in written) return page(c.env, 'Błąd', `<h1>Nie zapisano</h1><p>${escapeHtml(written.error)}</p><p><a href="/admin/terapeuci/${escapeHtml(id)}#panel-dane">Wróć</a></p>`, written.status);
-  if (written.touched.length > 0) {
-    await audit(c.env, { actorType: actorOf(o.session), actorId: o.session.user.id, action: 'therapist.updated', subjectType: 'therapist', subjectId: id, meta: { field: written.touched.slice(0, 8).join(','), count: written.touched.length } });
+  const touched = await writeProfileData(c.env, id, factsFromForm(body, await dictionaries(c.env)));
+  if (touched.length > 0) {
+    await audit(c.env, { actorType: actorOf(o.session), actorId: o.session.user.id, action: 'therapist.updated', subjectType: 'therapist', subjectId: id, meta: { field: touched.slice(0, 8).join(','), count: touched.length } });
     // Cena i miasto stoją też na karcie w katalogu.
     c.executionCtx.waitUntil(pingIndexNow(c.env, [`/terapeuci/${o.therapist.slug}`, '/terapeuci']));
   }
@@ -939,8 +884,8 @@ adminApp.post('/terapeuci/:id/dane', async (c) => {
 });
 
 /**
- * Zakładanie profilu i weryfikacja: oba należą do administratora. Treść - także imię
- * i adres po założeniu - zmienia się w edytorze strony (`host-write.ts`).
+ * Zakładanie profilu i weryfikacja: oba należą do administratora. Imię i fakty zmienia
+ * potem „Dane i cennik” (`profile-write.ts`), słowa - narzędzie strony.
  */
 adminApp.post('/terapeuci/:id', async (c) => {
   const body = await formValues(c.req.raw);
@@ -1026,40 +971,6 @@ async function ownedTherapist(
   if (!therapist) return { response: page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono profilu</h1>', 404) };
   return { session, therapist };
 }
-
-/** Publish or withdraw a subpage: a draft is served to no one and stays out of the sitemap. */
-adminApp.post('/terapeuci/:id/strony/:pid/status', async (c) => {
-  const body = await formValues(c.req.raw);
-  const g = await ownedTherapist(c, body);
-  if ('response' in g) return g.response;
-  const id = g.therapist.id;
-  const status = body.get('status') === 'published' ? 'published' : 'draft';
-  await setPageStatus(c.env, id, c.req.param('pid'), status);
-  await audit(c.env, {
-    actorType: g.session.user.role === 'admin' ? 'admin' : 'therapist',
-    actorId: g.session.user.id,
-    action: 'therapist.page_status_changed',
-    subjectType: 'therapist',
-    subjectId: id,
-    meta: { page: c.req.param('pid'), status },
-  });
-  return c.redirect(`/admin/terapeuci/${id}#panel-strony`, 303);
-});
-
-/** Straight into the hosted editor for one of her pages. Owner only, so drafts stay private. */
-adminApp.get('/terapeuci/:id/strony/:pid', async (c) => {
-  const g = await ownedTherapist(c, null);
-  if ('response' in g) return g.response;
-  const id = g.therapist.id;
-  try {
-    const row = await getPage(c.env, c.req.param('pid'));
-    if (!row || row.owner !== id) return page(c.env, 'Nie znaleziono', '<h1>Nie znaleziono strony</h1>', 404);
-    return c.redirect(await editorUrl(c.env, row, await previewContext(c.env, id)), 303);
-  } catch (err) {
-    if (!(err instanceof PagesUnavailable)) throw err;
-    return page(c.env, 'Edytor niedostępny', `<h1>Edytor niedostępny</h1><p>${PAGES_DOWN}</p>`, 503);
-  }
-});
 
 /** Wspólny początek zapisów zakładki „Dostępność": CSRF, rola, własny profil. */
 async function availabilityGuard(c: { env: Env; req: { raw: Request; param(name: string): string | undefined } }): Promise<

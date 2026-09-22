@@ -22,8 +22,8 @@ import {
  * to zwykle „online" i „w gabinecie" w różne dni - stąd grafik per oferta.
  * Terminy powstają z grafiku na HORIZON_DAYS do przodu; cron dokłada ogon.
  *
- * Jedno miejsce, bo grafik zapisują dwa: panel (zakładka „Dostępność") i
- * edytor stron (blok kalendarza), a dopełnia go cron. Błąd tutaj znaczy
+ * Jedno miejsce, bo grafik zapisuje panel (zakładka „Dostępność"), a dopełnia
+ * go cron. Błąd tutaj znaczy
  * termin o złej godzinie u realnej osoby.
  *
  * Terminy powstają z LOKALNEJ daty i LOKALNEJ godziny, przeliczonych na
@@ -38,7 +38,7 @@ type Week = number[][];
 /** Osiem tygodni do przodu; cron dokłada, gdy zostaje mniej niż siedem. */
 export const HORIZON_DAYS = 56;
 
-/** Godziny do wyboru w panelu i w edytorze stron. */
+/** Godziny do wyboru w siatce grafiku w panelu. */
 export const SCHEDULE_HOURS: number[] = Array.from({ length: 15 }, (_, i) => i + 7);
 
 export const emptyWeek = (): Week => [[], [], [], [], [], [], []];

@@ -4,7 +4,6 @@ import { fnv1a } from '../lib/crypto';
 import { escapeHtml } from '../lib/sanitize';
 import { ADMIN_CSS, ADMIN_JS } from './admin-ui';
 import { CONTROLLER } from './controller';
-import { pagesOrigin } from './pages-client';
 import { APP_CSS } from './styles';
 
 /**
@@ -32,28 +31,20 @@ const APP_CSS_CSP_HASH = `'sha256-${createHash('sha256').update(APP_CSS).digest(
 /**
  * Content-Security-Policy for the website. No inline scripts anywhere and every
  * form is server rendered; the one inline stylesheet is allowed by its hash.
- * Two other origins: Turnstile, only where a form needs it, and the pages
- * service - its editor is framed in the panel, its stylesheet and fonts are
- * linked from every therapist page.
+ * One other origin, Turnstile, only where a form needs it. Everything else -
+ * fonts, photographs, the therapist pages - comes from this origin.
  */
-function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string | undefined, pages: string | null): string {
+function contentSecurityPolicy(withTurnstile: boolean, formActionOrigin: string | undefined): string {
   const script = withTurnstile
     ? `script-src 'self' https://challenges.cloudflare.com`
     : `script-src 'self'`;
-  // Edytor usługi wraca do ramki - tym razem w oknie dialogowym na niemal całe
-  // okno, nie w kolumnie panelu.
-  const frame = [`frame-src 'self'`, withTurnstile ? 'https://challenges.cloudflare.com' : '', pages ?? '']
-    .filter(Boolean)
-    .join(' ');
-  const own = pages ? `'self' ${pages}` : `'self'`;
+  const frame = withTurnstile ? `frame-src 'self' https://challenges.cloudflare.com` : `frame-src 'self'`;
   return [
     `default-src 'none'`,
     script,
-    // Kroje motywów usługi idą z Google Fonts: arkusz z googleapis, pliki z gstatic.
-    `style-src ${own} ${APP_CSS_CSP_HASH}${pages ? ' https://fonts.googleapis.com' : ''}`,
-    // The service's themes bring their own photographs, served from its origin.
-    `img-src ${own} data:`,
-    `font-src ${own}${pages ? ' https://fonts.gstatic.com' : ''}`,
+    `style-src 'self' ${APP_CSS_CSP_HASH}`,
+    `img-src 'self' data:`,
+    `font-src 'self'`,
     `connect-src 'self'`,
     frame,
     // Browsers apply form-action to the WHOLE redirect chain, not just the action
@@ -74,7 +65,7 @@ export function securityHeaders(
 ): Record<string, string> {
   const headers: Record<string, string> = {
     'content-type': 'text/html; charset=utf-8',
-    'content-security-policy': contentSecurityPolicy(withTurnstile, formActionOrigin, pagesOrigin(env)),
+    'content-security-policy': contentSecurityPolicy(withTurnstile, formActionOrigin),
     'referrer-policy': 'strict-origin-when-cross-origin',
     'x-content-type-options': 'nosniff',
     // SAMEORIGIN, not DENY: the layout builder frames the profile being edited.

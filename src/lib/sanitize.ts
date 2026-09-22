@@ -79,6 +79,12 @@ export function cityName(value: string): string {
   return city.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
+/** Adres z tytułu albo z tego, co wpisała: polskie litery bez ogonków, reszta w myślniki. */
+export function slugOf(title: string, max = 48, fallback = 'strona'): string {
+  return title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, max).replace(/-$/, '') || fallback;
+}
+
 /** Lowercase, diacritics folded - used for city matching. */
 export function normalizeForSearch(value: string): string {
   return String(value ?? '')

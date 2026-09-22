@@ -13,20 +13,17 @@ import {
   listVocabulary,
   type SearchFilters,
 } from '../db/catalog';
-import type { PublicTherapist } from '../db/types';
+import type { PublicFaqItem, PublicSlot, PublicTherapist } from '../db/types';
 import { rankTherapists } from '../matching/rank';
-import { escapeHtml } from '../lib/sanitize';
+import { escapeHtml, slugOf } from '../lib/sanitize';
 import { formatDate, formatDateTime, formatPrice, formatTime, nowIso } from '../lib/time';
 import { hmacHex, timingSafeEqual } from '../lib/crypto';
 import { controllerDetails, CONTROLLER } from './controller';
 import { recordProfileView } from '../db/views';
-import { log } from '../lib/log';
 import { htmlResponse, renderPage } from './layout';
 import { serveAuthored, serveAuthoredSubpage } from '../authored/site';
-import { PROFILE_SLUG, serveTherapistPage, unavailablePage, withSeoHead, type SectionCtx } from './lp';
-import { languageList, pluginCta } from './host-blocks';
-import { slugOf } from './pages-client';
-import { sessionFrom, snippet } from './seo';
+import { languageList, pluginCta } from './labels';
+import { PROFILE_SLUG, sessionFrom, snippet, withSeoHead } from './seo';
 
 /**
  * The public website. Everything is server rendered with escaped text and no
@@ -504,7 +501,7 @@ function notFoundProfile(env: Env): Response {
 }
 
 /** What every page of a therapist renders from: her FAQ and her open slots. */
-export async function profileContext(env: Env, t: PublicTherapist): Promise<SectionCtx> {
+async function profileContext(env: Env, t: PublicTherapist): Promise<{ faq: PublicFaqItem[]; slots: PublicSlot[] }> {
   const [faq, slots] = await Promise.all([
     getPublishedFaq(env, t.therapist_id),
     listOpenSlots(env, {
@@ -518,15 +515,10 @@ export async function profileContext(env: Env, t: PublicTherapist): Promise<Sect
       limit: 80,
     }),
   ]);
-  return { env, therapist: t, faq, slots };
+  return { faq, slots };
 }
 
-/**
- * One of her pages: the profile, or a subpage by its slug. Rendered by the
- * pages service with her data of this minute; when the service is down, the
- * last good copy from R2, marked stale; failing that, a page that still
- * carries the crisis numbers.
- */
+/** One of her pages: the profile, or a subpage by its slug, written by her and rendered here with her data of this minute. */
 async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise<unknown>): void } }, slug: string, pageSlug: string): Promise<Response> {
   const t = await getTherapist(c.env, { slug });
   if (!t) return notFoundProfile(c.env);
@@ -535,20 +527,8 @@ async function therapistPage(c: { env: Env; executionCtx: { waitUntil(p: Promise
     // Licznik odsłon nie może opóźnić strony ani jej wywrócić.
     c.executionCtx.waitUntil(recordProfileView(c.env, t.therapist_id, 'web'));
   }
-  // Strona pisana jej słowami ma pierwszeństwo - profil i podstrona tak samo; bez niej adres niesie usługa stron, jak dotąd.
-  const authored = pageSlug === PROFILE_SLUG ? await serveAuthored(c.env, t, ctx.slots) : await serveAuthoredSubpage(c.env, t, ctx.slots, pageSlug);
-  if (authored) return htmlResponse(c.env, withSeoHead(c.env, authored, t, pageSlug));
-  try {
-    const served = await serveTherapistPage(c.env, t, ctx, pageSlug);
-    if (!served) return notFoundProfile(c.env);
-    return htmlResponse(c.env, withSeoHead(c.env, served.html, t, pageSlug), served.stale ? { headers: { 'x-pages-stale': '1', 'cache-control': 'no-store' } } : {});
-  } catch (err) {
-    log.warn('pages.unavailable', { slug, page: pageSlug, error: String((err as Error).message ?? err) });
-    return htmlResponse(c.env, renderPage(c.env, { title: t.display_name, path: '/terapeuci', body: unavailablePage(t), noindex: true }), {
-      status: 503,
-      headers: { 'retry-after': '60' },
-    });
-  }
+  const html = pageSlug === PROFILE_SLUG ? await serveAuthored(c.env, t, ctx.slots, ctx.faq) : await serveAuthoredSubpage(c.env, t, ctx.slots, pageSlug);
+  return html ? htmlResponse(c.env, withSeoHead(c.env, html, t, pageSlug)) : notFoundProfile(c.env);
 }
 
 // ------------------------------------------------------------ city pages ---

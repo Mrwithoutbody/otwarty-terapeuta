@@ -6,8 +6,7 @@
  *
  * Everything here is an enhancement: with JavaScript disabled the panel still
  * works. Tabs degrade to stacked sections and credential rows degrade to the
- * fixed number of rows the server rendered. The page editor needs JavaScript
- * anyway: it is the service's own application, framed in a dialog.
+ * fixed number of rows the server rendered.
  */
 
 import { SCHEDULE_HOURS } from '../db/slots';
@@ -20,57 +19,6 @@ export const ADMIN_JS = String.raw`(function () {
   // renumbered after every drop, so the form posts the same thing either way and
   // the no-JS path keeps working untouched.
   // ------------------------------------------------------------------ tabs ---
-
-  /* Edytor stron w oknie dialogowym: jedno okno, ramka ładowana przy otwarciu
-     z adresem klikniętej strony (własna trasa, która przekierowuje do usługi). */
-  function initEditorDialog(dialog) {
-    if (typeof dialog.showModal !== 'function') return;
-    var origin = dialog.getAttribute('data-editor-origin') || '';
-    function open(url) {
-      var frame = dialog.querySelector('iframe');
-      if (!frame) {
-        frame = document.createElement('iframe');
-        frame.title = 'Edytor strony';
-        dialog.appendChild(frame);
-      }
-      if (frame.getAttribute('src') !== url) frame.src = url;
-      dialog.showModal();
-    }
-    document.querySelectorAll('[data-editor-open][data-page-editor]').forEach(function (button) {
-      button.addEventListener('click', function () { open(button.getAttribute('data-page-editor')); });
-    });
-    /* Wejście z logowania: edytor jej profilu od razu. Adres traci "?edytor",
-       żeby odświeżenie strony nie otwierało go drugi raz. */
-    var auto = dialog.getAttribute('data-editor-autoopen');
-    if (auto) {
-      open(auto);
-      history.replaceState(null, '', location.pathname + location.hash);
-    }
-    var close = dialog.querySelector('[data-editor-close]');
-    if (close) close.addEventListener('click', function () { dialog.close(); });
-    /* Esc naciśnięty w ramce: klawisz trafia do jej dokumentu, więc edytor
-       melduje go wiadomością. Tylko z origin usługi, tylko przy otwartym oknie. */
-    window.addEventListener('message', function (event) {
-      if (!origin || event.origin !== origin || !event.data) return;
-      if (event.data.kind === 'close-editor') dialog.close();
-      /* Odnośnik "edytuj dane" z wnętrza edytora: zamykamy okno i przełączamy
-         zakładkę u siebie. Nowa karta z ramki cudzego originu i tak by się
-         mnożyła, bo nazwany cel nie przechodzi przez tę granicę. */
-      if (event.data.kind === 'goto-panel') {
-        dialog.close();
-        /* "sekcja" albo "sekcja:pole": otwieramy zakładkę, a jeśli host wskazał
-           pole, przewijamy do niego i stawiamy w nim kursor. */
-        var parts = String(event.data.anchor || '').split(':');
-        var tab = document.getElementById(parts[0] + '-tab');
-        if (tab) tab.click();
-        var field = parts[1] ? document.getElementById(parts[1]) : null;
-        if (field) {
-          field.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          field.focus({ preventScroll: true });
-        }
-      }
-    });
-  }
 
   function initTabs(root) {
     var panels = Array.prototype.slice.call(root.querySelectorAll('[data-tab-panel]'));
@@ -308,7 +256,6 @@ export const ADMIN_JS = String.raw`(function () {
     document.querySelectorAll('[data-schedule-grid]').forEach(initScheduleGrid);
     document.querySelectorAll('[data-brush]').forEach(initBrush);
     document.querySelectorAll('[data-tabs]').forEach(initTabs);
-    document.querySelectorAll('[data-editor-dialog]').forEach(initEditorDialog);
     document.querySelectorAll('[data-repeat]').forEach(initRepeat);
   }
 
@@ -511,14 +458,7 @@ button.axis[data-all] { font-size: 0.625rem; }
 }
 
 .panel-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0 0 1rem; }
-/* Edytor stron w modalu: ramka w kolumnie panelu była za wąska, a nowa karta
-   na każde kliknięcie mnożyła karty. Okno dialogowe daje prawie całe okno. */
-.editor-dialog { width: 96vw; max-width: none; height: 94dvh; padding: 0; border: 0; border-radius: 14px;
-  background: var(--surface-solid, #fff); overflow: hidden; }
-.editor-dialog::backdrop { background: rgba(24, 28, 12, 0.55); }
-.editor-dialog iframe { display: block; width: 100%; height: 100%; border: 0; }
 button.link { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--accent-strong); cursor: pointer; text-decoration: underline; }
-.editor-close { position: absolute; top: 0.6rem; right: 0.9rem; z-index: 2; }
 .notice { padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-alt, #f7f8f2); border: 1px solid var(--border, #e3e6d8); }
 /* With drag available the numbers are redundant, so JS hides them. */
 `;

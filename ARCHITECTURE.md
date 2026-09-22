@@ -135,10 +135,10 @@ model może je zacytować, a użytkownik zweryfikować.
 
 ### 4.1. Strony terapeutek
 
-Profil i podstrony są stronami w usłudze `x402Landings`, a nie renderami tego
-Workera. `ot-02` przekazuje tam dane jako bloki i dane ramy strony; usługa
-przechowuje strony, edytor, hosting i motywy jako wgrywane pliki. Szczegóły,
-endpointy oraz zachowanie podczas awarii opisuje `X402_LANDINGS_INTEGRATION.md`.
+Profil i podstrony to strony autorskie (`src/authored/`), renderowane w tym Workerze
+przy każdym żądaniu: słowa terapeutki z `authored_pages`, fakty (cennik, wolne
+terminy, kwalifikacje) z tabel, stopka kryzysowa jako stała renderera. Żadnej
+zewnętrznej usługi po drodze - jeżeli D1 odpowiada, strona stoi.
 
 ### 4.2. Jedyna statystyka, jaką prowadzimy
 

@@ -1,31 +1,20 @@
 /**
- * Jedna tabela pól danych. Każda edytowalna wartość opisana RAZ.
+ * Fakty profilu, każdy opisany RAZ: jak go pokazać w zakładce „Dane i cennik” (`field`),
+ * co tam wpisać na start (`read`) i co zapisać w bazie (`write`). Nowe pole = jeden wpis
+ * w `FIELDS`; formularz (`admin-dane.ts`) i zapis (`profile-write.ts`) biorą je stąd.
  *
- * Przedtem dodanie jednego pola do bloku wymagało trzech ruchów w trzech
- * plikach: deklaracji pola w `HOST_SECTIONS`, dopisania wartości do `resolve`
- * i ręcznego mapowania z powrotem na kolumnę w `host-write.ts`. Trzy miejsca
- * na pole, w każdym łatwo zapomnieć o jednym - i tak powstawał blok, który
- * pokazuje dane, ale nie da się ich tknąć.
- *
- * Teraz wpis tutaj daje wszystko naraz: formularz w edytorze (`fields`),
- * wartość w `resolved` (`read`) i zapis do bazy (`write`). Nowe pole = jeden
- * wpis w `FIELDS`, bez dotykania czegokolwiek innego.
- *
- * Listy powtarzalne (oferty, FAQ, kwalifikacje) mają własne `apply`, bo
- * wiersz odpowiada rekordowi w tabeli, a nie kolumnie.
+ * Listy powtarzalne (oferty, kwalifikacje) mają własną obsługę w zapisie, bo wiersz
+ * odpowiada rekordowi albo pozycji JSON-a, a nie kolumnie.
  */
-import type { PublicSlot, PublicTherapist, SessionType, AgeGroup } from '../db/types';
-import { formatPrice, formatDateTime } from '../lib/time';
+import type { PublicTherapist, SessionType, AgeGroup } from '../db/types';
 import { sanitizeLine, sanitizeRichText } from '../lib/sanitize';
-import { slugOf } from './pages-client';
 
 export interface Field {
-  kind: 'text' | 'textarea' | 'url' | 'select' | 'multiselect' | 'list' | 'media' | 'hidden' | 'computed';
+  kind: 'text' | 'textarea' | 'select' | 'multiselect' | 'list' | 'hidden';
   name: string;
   label: string;
   hint?: string;
   max?: number;
-  edit?: string;
   data?: boolean;
   item?: string;
   options?: Array<[string, string]>;
@@ -38,30 +27,33 @@ type Patch =
   | { relation: 'languages' | 'topics' | 'modalities'; values: string[] }
   | { location: { city: string; address: string } };
 
-/** Listy zamknięte, które żyją w bazie (obszary, nurty) - wczytane przy synchronizacji bloków. */
+/** Listy zamknięte, które żyją w bazie (obszary, nurty). */
 export type Dictionaries = Record<'topics' | 'modalities', Array<[string, string]>>;
 
 interface DataField {
   field: Field;
-  /** Opcje pola z bazy zamiast z kodu; `fieldsOf` je wstawia. */
+  /** Opcje pola z bazy zamiast z kodu; formularz je wstawia. */
   optionsFrom?: keyof Dictionaries;
-  /** Wartość dla formularza i podglądu, z tego, co widzi katalog. */
-  read(t: PublicTherapist, ctx: ReadCtx): unknown;
+  /** Wartość, którą formularz pokazuje na start - to, co widzi katalog. */
+  read(t: PublicTherapist): unknown;
   /** Co zapisać, gdy formularz przyśle tę wartość. Pusta lista = nic. */
   write(value: unknown): Patch[];
 }
 
-/** To, czego nie ma w samym profilu, a blok pokazuje: wolne terminy. */
-interface ReadCtx {
-  slots: PublicSlot[];
-}
-
 // ------------------------------------------------------------- słowniki ---
 
-/** Ile kwalifikacji pokazuje formularz edytora; panel trzyma ich do dwudziestu. */
+/** Ile kwalifikacji pokazuje formularz; zapis dokleja resztę z bazy (`profile-write.ts`). */
 export const CREDENTIAL_ROWS = 6;
 
-/** Listy zamknięte są wspólne dla wszystkich terapeutek, więc mogą siedzieć w definicji bloku. */
+/**
+ * Ile ofert mieści formularz cennika. Ta sama liczba w odczycie i w zapisie:
+ * oferta, której formularz nie pokazał, nie może zniknąć przy zapisie.
+ */
+export const OFFER_ROWS = 12;
+
+export const OFFER_TYPES: Array<[string, string]> = [['individual', 'indywidualna'], ['couples', 'para'], ['family', 'rodzina']];
+
+/** Listy zamknięte są wspólne dla wszystkich terapeutek, więc siedzą w kodzie. */
 const LANGUAGE_OPTIONS: Array<[string, string]> = [
   ['pl', 'polski'], ['en', 'angielski'], ['uk', 'ukraiński'], ['ru', 'rosyjski'],
   ['de', 'niemiecki'], ['fr', 'francuski'], ['es', 'hiszpański'], ['be', 'białoruski'],
@@ -130,12 +122,6 @@ function picks(
   };
 }
 
-/** Wartość wyliczona z innych danych: pokazana, podpisana źródłem, nie do wpisania. */
-function computed(name: string, label: string, from: string, read: (t: PublicTherapist, ctx: ReadCtx) => string): DataField {
-  return { field: { kind: 'computed', name, label, hint: `z: ${from}` }, read, write: () => [] };
-}
-
-
 /** Tak/nie jako kolumna 0/1. */
 function flag(name: string, label: string, read: (t: PublicTherapist) => boolean, hint?: string): DataField {
   return {
@@ -166,46 +152,11 @@ function number(
 
 // ------------------------------------------------------- tabela wszystkiego ---
 
-/**
- * Pola danych per blok. Klucz to typ bloku hosta, wartość to lista pól, które
- * ten blok pokazuje w grupie „Treść" i zapisuje do bazy.
- */
+/** Pola per grupa formularza. Klucz to nazwa grupy - ta sama w formularzu i w zapisie. */
 export const FIELDS: Record<string, DataField[]> = {
-  'hero-profil': [
-    col('display_name', 'Imię i nazwisko', (t) => t.display_name, { max: 120, required: true }),
-    {
-      // Zajęty adres odrzuca `host-write.ts`: tu nie ma bazy, żeby to sprawdzić.
-      field: { kind: 'text', name: 'slug', label: 'Adres profilu', max: 80, data: true,
-        hint: 'otwartyterapeuta.pl/terapeuci/<adres>. Zmiana adresu psuje linki, które ktoś już zapisał.' },
-      read: (t) => t.slug,
-      write: (value) => {
-        const slug = slugOf(String(value ?? ''), 80, '');
-        return slug === '' ? [] : [{ column: 'slug', value: slug }];
-      },
-    },
-    col('headline', 'Nadtytuł: nagłówek zawodowy', (t) => t.headline ?? '', {
-      hint: 'Jedna linia nad imieniem — np. „psychoterapeutka, Warszawa”.',
-    }),
-    {
-      field: { kind: 'media', name: 'photo_url', label: 'Zdjęcie profilowe', data: true,
-        hint: 'Wybierz albo wgraj. Po zapisie zdjęcie widać też w katalogu i w ChatGPT. Puste = rysunek zastępczy.' },
-      read: (t) => t.photo_url ?? '',
-      write: (value) => {
-        const raw = typeof value === 'object' && value !== null ? String((value as { url?: unknown }).url ?? '') : String(value ?? '');
-        return [{ column: 'photo_url', value: str(raw, 500) }];
-      },
-    },
-    computed('stat_price', 'Cena pod nagłówkiem', 'Oferta → najniższa cena aktywnej oferty', (t) =>
-      t.price_min_minor === null ? '' : (t.price_min_minor === t.price_max_minor ? formatPrice(t.price_min_minor, t.currency) : `od ${formatPrice(t.price_min_minor, t.currency)}`)),
-    computed('stat_duration', 'Czas sesji pod nagłówkiem', 'Oferta → czas pierwszej oferty', (t) =>
-      t.offers[0] ? `${t.offers[0].duration_minutes} min` : ''),
-    computed('stat_next', 'Najbliższy termin pod nagłówkiem', 'Wolne terminy → pierwszy wolny', (t) =>
-      t.next_available_slot_utc ? formatDateTime(t.next_available_slot_utc, t.timezone) : ''),
-  ],
+  name: [col('display_name', 'Imię i nazwisko', (t) => t.display_name, { max: 120, required: true })],
 
-  intro: [col('bio', 'Opis: jak pracujesz', (t) => t.bio, { area: true, max: 4000, hint: 'Pusta linia zaczyna nowy akapit.' })],
-
-  dane: [
+  practice: [
     flag('offers_online', 'Sesje online', (t) => t.offers_online),
     flag('offers_in_person', 'Sesje w gabinecie', (t) => t.offers_in_person),
     flag('accepting_new_clients', 'Przyjmuje nowe osoby', (t) => t.accepting_new_clients),
@@ -214,8 +165,6 @@ export const FIELDS: Record<string, DataField[]> = {
     picks('languages', 'Języki', LANGUAGE_OPTIONS, (t) => t.languages, 'languages'),
     number('cancellation_cutoff_h', 'Bezpłatne odwołanie (godziny przed sesją)', (t) => t.cancellation_cutoff_hours, [0, 168]),
     col('cancellation_policy', 'Zasady odwołania', (t) => t.cancellation_policy, { max: 500 }),
-    computed('city_shown', 'Miasto', 'Gdzie się spotykamy → miasto', (t) => t.locations[0]?.city ?? ''),
-    computed('modalities_shown', 'Nurt', 'Z czym przychodzą → nurty', (t) => t.modalities.map((m) => m.name).join(', ')),
   ],
 
   topics: [
@@ -223,7 +172,7 @@ export const FIELDS: Record<string, DataField[]> = {
     picks('modalities', 'Nurty', 'modalities', (t) => t.modalities.map((x) => x.slug), 'modalities'),
   ],
 
-  gabinet: [
+  office: [
     {
       field: { kind: 'text', name: 'city', label: 'Miasto', max: 80, data: true, hint: 'Puste = bez gabinetu, tylko online.' },
       read: (t) => t.locations[0]?.city ?? '',
@@ -236,14 +185,9 @@ export const FIELDS: Record<string, DataField[]> = {
     },
   ],
 
-  // Grafik układa się w panelu (siatka tygodnia z ofertami i kłódkami); tu tylko stan.
-  slots: [
-    computed('slots_shown', 'Wolne terminy', 'Dostępność → grafik', (_t, ctx) => `${ctx.slots.length} w najbliższych trzech tygodniach`),
-  ],
-
   // Kwalifikacje siedzą w kolumnie JSON, więc cała lista jest jedną wartością -
   // stąd `write` na miejscu. Znacznik weryfikacji i wpisy ponad limit formularza
-  // dokleja `host-write.ts` z tego, co już jest w bazie.
+  // dokleja `profile-write.ts` z tego, co już jest w bazie.
   credentials: [
     {
       field: {
@@ -273,28 +217,14 @@ export const FIELDS: Record<string, DataField[]> = {
     },
   ],
 
-  zestawienie: [
-    col('first_meeting_course', 'Jak wygląda pierwsze spotkanie', (t) => t.first_meeting.course, { area: true, max: 400 }),
-    col('first_meeting_prep', 'Jak się przygotować', (t) => t.first_meeting.prep, { area: true, max: 400 }),
-    col('first_meeting_decision', 'Co potem', (t) => t.first_meeting.decision, { area: true, max: 400 }),
-  ],
 };
 
-/** Pola danych bloku jako deklaracje dla usługi; listy z bazy wstawione w opcje. */
-export const fieldsOf = (type: string, dict?: Dictionaries): Field[] =>
-  (FIELDS[type] ?? []).map((f) => (f.optionsFrom && dict ? { ...f.field, options: dict[f.optionsFrom] } : f.field));
-
-/** Wartości pól danych bloku - to, co zobaczy formularz w edytorze. */
-export function valuesOf(type: string, t: PublicTherapist, ctx: ReadCtx = { slots: [] }): Record<string, unknown> {
-  return Object.fromEntries((FIELDS[type] ?? []).map((f) => [f.field.name, f.read(t, ctx)]));
-}
-
-/** Co zapisać dla jednego bloku, z tego, co przysłał edytor. */
+/** Co zapisać dla jednej grupy, z tego, co przysłał formularz. */
 export function patchesFor(type: string, sent: Record<string, unknown>): Patch[] {
   const out = (FIELDS[type] ?? []).flatMap((f) => (f.field.name in sent ? f.write(sent[f.field.name]) : []));
   // Dwa pola, jeden rekord: adres gabinetu składa się z pary wartości,
   // więc łatka powstaje z całego bloku, nie z pojedynczego pola.
-  if (type === 'gabinet' && ('city' in sent || 'address_line' in sent)) {
+  if (type === 'office' && ('city' in sent || 'address_line' in sent)) {
     out.push({ location: { city: str(sent.city, 80), address: str(sent.address_line, 200) } });
   }
   return out;
