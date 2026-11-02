@@ -89,7 +89,7 @@ Zmiana tylko za zgodą właściciela: `/`, `/terapeuci`, `/terapeuci/:slug(/:str
 - Tylko addytywne (`CREATE`, `ADD COLUMN` z domyślną): stary kod musi działać na nowym schemacie, bo
   rollback Workera nie cofa D1. `DROP`/`RENAME` w dwóch deployach, za zgodą.
 - Migracja w tym samym commicie co kod; słownik specialties i modalities = zmiana `z.enum`
-  w `apps/mcp/schemas.ts` w tym samym commicie. Wiersze realnych osób → skill `migracja-realnych-danych`.
+  w `apps/mcp/schemas.ts` w tym samym commicie. Wiersze realnych osób → skill `cloudflare-projekty` (§2, zapis do realnych danych).
 
 ## Środowisko lokalne
 
@@ -108,7 +108,7 @@ Zmiana tylko za zgodą właściciela: `/`, `/terapeuci`, `/terapeuci/:slug(/:str
   działającego preview").
 - Jeden Worker: deploy wypuszcza **wszystko wypchnięte, ze wszystkich obszarów**. W tej samej turze,
   przed deployem: lista zaległych commitów i ilu realnych terapeutek dotyka — informacja, nie pytanie.
-  Procedura: skill `deploy-produkcja`. **Dlaczego:** 2026-09-17 deploy na prośbę „zdeployuj hosta"
+  Procedura: skill `cloudflare-projekty` (§1). **Dlaczego:** 2026-09-17 deploy na prośbę „zdeployuj hosta"
   wypuścił dziesięć zaległych commitów i zmienił wygląd siedmiu realnych profili.
 - Rollback: `npx wrangler rollback <id> --env production --message "<powód>"`. Zaraz potem
   `git revert <sha>`, push i deploy, inaczej następny deploy innej instancji wypuści błąd ponownie.
@@ -122,7 +122,7 @@ Zmiana tylko za zgodą właściciela: `/`, `/terapeuci`, `/terapeuci/:slug(/:str
 ## Kolory
 
 - Żadnej tezy o kolorze bez pomiaru: tokeny `:root` przelicz na HSL, dominujące barwy zdjęć policz
-  z pikseli, liczby podaj razem z wnioskiem. Oś odcieni i pomiar: skill `pomiar-kolorow`.
+  z pikseli, liczby podaj razem z wnioskiem. Procedura pomiaru: archiwum `~/code/skills_archive/ot-02-skille-2026-11-02.zip`.
 - Wrażenie kolorystyczne budują obrazy, nie tokeny.
 
 ## Dokumenty

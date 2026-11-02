@@ -56,7 +56,7 @@ Strony autorskie nie idą przez `renderPage` — mają własny dokument (`author
 Najpierw pomiar, potem teza — liczby podaj w odpowiedzi. Zmierzone dziś z `:root`
 (`shared/web/styles.ts`, `shared/authored/page-css.ts`): powierzchnie `#f7f8f1` 69°, `#f2f3e9` 66°,
 obramowania `#e2e5d8` 74°, `#d1d8c1` 78°, tekst `#344125` 88°, zieleń `#3d6529` 100°, bursztyn
-`#8b6415` 40°. Pasma i procedura: skill `pomiar-kolorow`.
+`#8b6415` 40°. Procedura pomiaru: archiwum `~/code/skills_archive/ot-02-skille-2026-11-02.zip`.
 
 Wrażenie kolorystyczne robi treść, nie tokeny: hero z `public/media/site` ma medianę odcienia
 161–196° i 19–32% pikseli ciepłych, a portret z katalogu medianę 12° i 96% ciepłych. Oceniając

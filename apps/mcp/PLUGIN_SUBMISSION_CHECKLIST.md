@@ -225,7 +225,7 @@ Panel OpenAI nada pluginowi publiczny adres karty (np.
 
 1. Skopiuj ten adres z panelu publikacji.
 2. Wklej go w `wrangler.jsonc` → `env.production.vars.PUBLIC_PLUGIN_URL`.
-3. `npm run deploy` (procedura: skill `deploy-produkcja`).
+3. `npm run deploy` (procedura: skill `cloudflare-projekty` (§1)).
 
 Do tego czasu przycisk **„Znajdź terapeutę z pomocą ChatGPT”** renderuje się jako
 nieaktywny, z komunikatem „Plugin w przygotowaniu” i odsyłaczem do katalogu na

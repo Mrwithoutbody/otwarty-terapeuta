@@ -99,7 +99,7 @@ Stan rzeczy, nie obietnice. Nic z tej listy nie zaczynaj bez decyzji właścicie
 - **Przed zmianą w renderowaniu stron autorskich** sprawdź, czy któraś terapeutka
   zmieniała już swoją stronę: `authored_pages` z `draft_json <> published_json` albo
   `updated_at <> published_at`. Raport dwoma zdaniami. To 8 realnych osób, nie fixture;
-  zapis do ich wierszy → skill `migracja-realnych-danych`.
+  zapis do ich wierszy → skill `cloudflare-projekty` (§2, zapis do realnych danych).
 - **Podstrony** (typ `podstrona`) działają publicznie — na produkcji stoją dziś dwie,
   `ewelina-mastalerz-…/grupa-wsparcia-dla-rodzicow` i `monika-tarczynska-…/terapia-traumy`,
   obie realnych osób. Narzędzie panelu ich nie otwiera — ani do edycji, ani do
