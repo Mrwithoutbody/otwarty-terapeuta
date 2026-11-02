@@ -74,7 +74,7 @@ przejdź ścieżkę anonimową end-to-end: `tools/list` → `search_therapists` 
   Sam deploy nie wystarczy i objawia się jako „poprawka nie działa".
 - Zanim uznasz poprawkę za nieskuteczną, sprawdź `curl`-em `tools/list` i `resources/read`.
   Trzy razy serwer był już dobry, a problem siedział w cache klienta.
-- Tabela „co się kiedy odświeża": skill `chatgpt-plugin` §3.
+- Tabela „co się kiedy odświeża": skill `chatgpt-plugin-dev` §4.
 
 ## Schematy
 
