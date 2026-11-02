@@ -86,7 +86,7 @@ terminy w `appointment_slots` na `HORIZON_DAYS` = 56 dni.
 
 ## Podgląd
 
-Skill `podglad-panelu` (`apps/panel/.claude/skills/podglad-panelu/SKILL.md`): dev:panel
+Procedura `podglad-panelu` (archiwum `~/code/skills_archive/ot-02-skille-2026-11-02.zip`): dev:panel
 po https, logowanie kodem z logu serwera, otwarte zalogowane okno Chrome. Właściciel
 chce kliknąć, nie przeczytać instrukcji z mailem i kodem.
 
